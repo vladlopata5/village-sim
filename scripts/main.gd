@@ -3,6 +3,10 @@ const ResidentData = preload("res://scripts/resident_data.gd")
 const ResidentView2D = preload("res://scenes/resident_view_2d.tscn")
 const WorldLocation = preload("res://scripts/world_location.gd")
 const WorldLocations2D = preload("res://scripts/world_locations_2d.gd")
+const BuildingData = preload("res://scripts/building_data.gd")
+const BuildingType = preload("res://scripts/building_type.gd")
+const BuildingView2D = preload("res://scenes/building_view_2d.tscn")
+var kitchen_data: BuildingData
 var world_locations = WorldLocations2D.new()
 var resident_data: ResidentData
 var resident_view: Node2D
@@ -19,6 +23,7 @@ var speed_buttons: Array[Button] = []
 func _ready() -> void:
 	$HUD/ResidentCard.bind_selection(resident_selection)
 	_create_test_resident()
+	_create_test_kitchen()
 	_build_hud()
 	game_time.minute_changed.connect(_update_clock)
 	game_time.phase_changed.connect(field.show_phase)
@@ -155,3 +160,14 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif is_instance_valid(resident_view) and resident_selection.selected_resident == resident_view.resident_data:
 		resident_schedule.request_manual_move(field.to_global(field_point))
 	get_viewport().set_input_as_handled()
+
+func _create_test_kitchen() -> void:
+	kitchen_data = BuildingData.new(&"communal_kitchen_01", "Общая кухня", BuildingType.Type.FOOD)
+	# Same ID links two distinct data objects: building meaning and world place.
+	var location = WorldLocation.new(kitchen_data.id, kitchen_data.display_name)
+	var view = BuildingView2D.instantiate()
+	view.name = "CommunalKitchen"
+	view.setup(kitchen_data)
+	view.position = Vector2(-280, 240)
+	$World.add_child(view)
+	world_locations.register(location, view)
