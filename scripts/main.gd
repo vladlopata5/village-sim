@@ -67,7 +67,7 @@ func _build_hud() -> void:
 	help.text = "WASD / стрелки — камера\nПробел — пауза • 1 / 2 / 4 — скорость\nЛКМ — выбор • ПКМ по полю — перемещение (утром и вечером)"
 	column.add_child(help)
 	var debug_help := Label.new()
-	debug_help.text = "F6 +1ч | F7 +6ч | F8 следующая фаза"
+	debug_help.text = "F6 +1ч | F7 +6ч | F8 следующая фаза | F9 +25 голода"
 	debug_help.add_theme_font_size_override("font_size", 14)
 	column.add_child(debug_help)
 	_update_pause()
@@ -83,8 +83,14 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		KEY_F6: game_time.debug_skip_minutes(60)
 		KEY_F7: game_time.debug_skip_minutes(360)
 		KEY_F8: game_time.debug_next_phase()
+		KEY_F9: _debug_add_hunger()
 		_: return
 	get_viewport().set_input_as_handled()
+
+func _debug_add_hunger() -> void:
+	var selected = resident_selection.selected_resident
+	if selected != null:
+		selected.hunger += 25
 
 func _toggle_pause() -> void:
 	game_time.toggle_pause()
@@ -133,6 +139,7 @@ func _create_test_resident() -> void:
 	resident_intents.intent_changed.connect(view.apply_intent)
 	view.intent_completed.connect(resident_intents.clear_completed)
 	resident_schedule.setup(game_time, world_locations, resident_intents)
+	$ResidentHunger.setup(game_time, resident_data)
 
 func _unhandled_input(event: InputEvent) -> void:
 	# UI and resident selection consume their clicks before this parent.

@@ -129,7 +129,7 @@ func _run() -> void:
 	self.paused = false
 	view._process(0.5)
 	check(view.global_position != before, "Morning manual movement resumes")
-	check(scene.resident_data.hunger == 20 and scene.resident_data.fatigue == 35 and scene.resident_data.mood == 65, "Debug and morning leave states unchanged")
+	check(scene.resident_data.fatigue == 35 and scene.resident_data.mood == 65, "Debug and morning leave fatigue and mood unchanged")
 	scene.queue_free()
 	print("Debug time checks: ", "PASS" if failures == 0 else "FAIL (%d)" % failures)
 	quit(0 if failures == 0 else 1)

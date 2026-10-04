@@ -80,7 +80,7 @@ func _run() -> void:
 		check(data.activity == Activity.Type.IDLE and not view.has_movement_target, "Morning cancels unfinished home movement to IDLE")
 		view.intent_completed.emit(cancelled)
 		check(data.activity == Activity.Type.IDLE, "Late cancelled arrival cannot cause sleep")
-	check(data.hunger == 20 and data.fatigue == 35 and data.mood == 65, "Activities never change needs or mood")
+	check(data.fatigue == 35 and data.mood == 65, "Activities never change fatigue or mood")
 	data.activity = Activity.Type.SLEEPING
 	card._refresh()
 	check(card.activity_label.text == "Занятие: Спит", "Card reads original data without its own state")

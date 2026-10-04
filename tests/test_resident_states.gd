@@ -48,9 +48,9 @@ func _run() -> void:
 	for speed in [1, 2, 4]:
 		clock.set_speed(speed)
 		clock.advance(1440.0)
-	check(data.hunger == 20 and data.fatigue == 35 and data.mood == 65, "Passing time never changes resident states")
+	check(data.hunger == 100 and data.fatigue == 35 and data.mood == 65, "Passing time grows hunger to cap without changing fatigue or mood")
 	data.traits.clear()
-	check(data.hunger == 20 and data.fatigue == 35 and data.mood == 65, "Traits do not affect states")
+	check(data.hunger == 100 and data.fatigue == 35 and data.mood == 65, "Traits do not affect states")
 	data.hunger = 75
 	data.fatigue = 50
 	data.mood = 0

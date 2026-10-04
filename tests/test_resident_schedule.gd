@@ -107,7 +107,7 @@ func _run() -> void:
 	check(not schedule.request_manual_move(Vector2.ZERO), "Work period remains protected without place")
 	next_phase()
 	check(schedule.request_manual_move(Vector2(-100, 180)), "Evening permits manual command after missing work")
-	check(data.hunger == 20 and data.fatigue == 35 and data.mood == 65, "Full cycles never change needs or mood")
+	check(data.fatigue == 35 and data.mood == 65, "Full cycles never change fatigue or mood")
 	scene.queue_free()
 	# Initial setup during a work phase also follows the schedule.
 	var day_scene = load("res://scenes/main.tscn").instantiate()

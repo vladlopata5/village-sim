@@ -129,7 +129,7 @@ func _run() -> void:
 	right_click(field.get_global_transform_with_canvas() * Vector2(-100, 180))
 	check(not controller.is_night and view.target_position.is_equal_approx(Vector2(-100, 180)), "Morning restores manual commands")
 	var data = scene.resident_data
-	check(data.hunger == 20 and data.fatigue == 35 and data.mood == 65 and data.traits.size() == 3, "Night reaction never changes resident states or traits")
+	check(data.fatigue == 35 and data.mood == 65 and data.traits.size() == 3, "Night reaction never changes fatigue, mood or traits")
 	scene.queue_free()
 	print("Night home checks: ", "PASS" if failures == 0 else "FAIL (%d)" % failures)
 	quit(0 if failures == 0 else 1)

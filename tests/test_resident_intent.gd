@@ -69,7 +69,7 @@ func _run() -> void:
 	check(scene.get_node("ResidentScheduleController").request_manual_move(start), "Morning manual intent replaces unfinished home path")
 	check(intents.current_intent.reason_id == &"manual_move", "Manual intent becomes current after morning release")
 	var data = scene.resident_data
-	check(data.hunger == 20 and data.fatigue == 35 and data.mood == 65, "Intent mechanism leaves resident states untouched")
+	check(data.fatigue == 35 and data.mood == 65, "Intent mechanism leaves fatigue and mood untouched")
 	scene.queue_free()
 	print("Intent checks: ", "PASS" if failures == 0 else "FAIL (%d)" % failures)
 	quit(0 if failures == 0 else 1)

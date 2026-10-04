@@ -58,7 +58,7 @@ func _run() -> void:
 	check(not view.has_movement_target and data.activity == Activity.Type.IDLE, "Missing home does not issue bogus movement or sleep")
 	clock.debug_next_phase()
 	check(not scene.resident_schedule.is_night, "Missing home still releases night lock in morning")
-	check(data.hunger == 20 and data.fatigue == 35 and data.mood == 65, "Place lookup leaves needs unchanged")
+	check(data.fatigue == 35 and data.mood == 65, "Place lookup leaves fatigue and mood unchanged")
 	scene.queue_free()
 	print("World location checks: ", "PASS" if failures == 0 else "FAIL (%d)" % failures)
 	quit(0 if failures == 0 else 1)
