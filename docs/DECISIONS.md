@@ -1,232 +1,255 @@
-\# Village Sim — Technical Decisions
+# Village Sim — Technical Decisions
 
+## 2026-10-04
 
+### Engine
 
-\## 2026-10-04
+Используем Godot 4.x.
 
+---
 
+### Programming language
 
-\### Engine
+Используем GDScript.
 
+Причины:
+- простой синтаксис;
+- похож на Python;
+- подходит новичку;
+- хорошо интегрирован в Godot.
 
+---
 
-Use Godot 4.x.
+### Project scale
 
+Ориентировочный масштаб финальной игры:
 
+- 30–50 жителей для обычного развитого поселения;
+- около 100 жителей как примерный верхний предел.
 
-\### Programming language
+Архитектуру необходимо проектировать с учётом такого масштаба.
 
+Не требуется проектировать систему под тысячи жителей.
 
+---
 
-Use GDScript.
+### Presentation
 
+Первый прототип использует 2D-представление для скорости и простоты разработки.
 
+Финальный формат пока не определён.
 
-Reason:
+Возможные варианты:
+- 2D;
+- изометрия / 2.5D;
+- полноценное 3D.
 
-\- simple syntax;
+Основные системы симуляции не должны зависеть от 2D-рендеринга.
 
-\- close to Python;
+Будущий переход к 2.5D или 3D должен быть возможен без переписывания основной игровой логики.
 
-\- suitable for a beginner;
+---
 
-\- well integrated with Godot.
+### Separation of simulation and presentation
 
+Основная симуляция должна быть отделена от визуального представления.
 
+Примеры:
 
-\### Game type
+- данные жителя не должны зависеть от Sprite2D;
+- принятие решений жителем не должно зависеть от анимации;
+- игровая логика здания должна быть отделена от его графического представления;
+- игровое время не должно зависеть от частоты кадров;
+- экономика не должна зависеть от типа камеры;
+- события должны существовать как игровые данные, а не только как текстовые сообщения.
 
+Временная графика и placeholder-объекты допустимы.
 
+---
 
-The first prototype is 2D.
+### Development approach
 
+Разработка ведётся небольшими шагами.
 
+Каждая задача должна быть:
+- небольшой;
+- понятной;
+- проверяемой.
 
-Do not introduce 3D systems unless the project direction explicitly changes.
+Не реализовывать системы, которые не нужны для текущей стадии ROADMAP.
 
+Не пытаться заранее строить архитектуру всей будущей игры.
 
+---
 
-\### Project scale
+### Architecture
 
+Предпочитать простую композицию сложным иерархиям наследования.
 
+Не использовать ECS и другие сложные архитектурные подходы на раннем этапе без реальной необходимости.
 
-The intended final settlement size is approximately:
+Код должен оставаться понятным владельцу проекта.
 
+---
 
+### Inhabitant data
 
-\- 30–50 inhabitants for normal gameplay;
+Данные жителя должны быть отделены от его визуального объекта.
 
-\- around 100 inhabitants as an approximate upper limit.
+Пример разделения:
 
+PersonData:
+- имя;
+- возраст;
+- характер;
+- навыки;
+- потребности;
+- отношения;
+- история.
 
+Visual representation:
+- позиция;
+- спрайт или модель;
+- анимация;
+- визуальные эффекты.
 
-Systems should be designed with this scale in mind.
+Такое разделение должно позволить позже заменить 2D-представление на 3D без переписывания данных жителя.
 
+---
 
+### Inhabitant AI
 
-\### Development approach
+Жители автономны.
 
+Первая версия ИИ использует простую систему приоритетов.
 
+Решения могут зависеть от:
+- времени суток;
+- потребностей;
+- назначенной работы;
+- поручений игрока;
+- характера;
+- текущего состояния.
 
-Build the game incrementally.
+Не использовать машинное обучение.
 
+Не использовать сложные AI-системы, пока простая система приоритетов справляется с задачей.
 
+---
 
-Each development task should be small and testable.
+### Time system
 
+В игре существует собственное симулируемое время.
 
+Начальный распорядок:
 
-Do not implement systems that are not required by the current roadmap phase.
+- 06:00–07:00 — утро;
+- 07:00–17:00 — рабочий день;
+- 17:00–23:00 — вечер;
+- 23:00–06:00 — ночь.
 
+Точное расписание может измениться после тестирования.
 
+Игровое время не должно быть связано напрямую с FPS.
 
-\### Architecture
+---
 
+### Simulation updates
 
+Не пересчитывать полный ИИ каждого жителя каждый кадр.
 
-Prefer simple composition over complex inheritance hierarchies.
+Решения должны пересчитываться:
+- через разумные интервалы;
+- после завершения действия;
+- при изменении важных условий;
+- при наступлении новой фазы суток.
 
+Это важно для производительности и предсказуемости симуляции.
 
+---
 
-Avoid introducing ECS or other advanced architectures during the early prototype unless a clear performance problem requires it.
+### UI philosophy
 
+Не показывать игроку все внутренние числовые значения.
 
+Часть информации должна передаваться через:
+- текстовые описания;
+- поведение жителей;
+- разговоры;
+- дневную летопись;
+- визуальные состояния.
 
-\### Simulation and visuals
+При этом важная управленческая информация должна оставаться понятной.
 
+Игрок не должен быть вынужден вручную разговаривать с каждым жителем только для того, чтобы заметить критическую проблему.
 
+---
 
-Game simulation data should not depend directly on visual presentation when practical.
+### Conversations
 
+Разговоры предназначены для получения более личной информации.
 
+Они не заменяют основной интерфейс управления.
 
-For example:
+Через разговор можно узнавать:
+- желания;
+- сомнения;
+- отношения;
+- мнение о работе;
+- семейные проблемы;
+- скрытые интересы.
 
+Базовые проблемы вроде болезни, голода или отсутствия жилья должны быть видимы без разговора.
 
+---
 
-\- inhabitant data and state should be separable from the sprite representing the inhabitant;
+### Daily chronicle
 
-\- game time should be controlled by a dedicated system;
+Игровые события должны сохраняться как данные.
 
-\- events should be represented as data rather than only UI messages.
+У события может быть уровень важности.
 
+Пример:
+- normal;
+- interesting;
+- important;
+- critical.
 
+Дневная летопись выбирает наиболее значимые события и показывает их игроку в конце дня.
 
-\### Inhabitant AI
+Критические события могут сообщаться сразу.
 
+---
 
+### Version control
 
-Inhabitants should be autonomous.
+Используем Git.
 
+Основная ветка:
 
+main
 
-The first implementation should use a simple priority-based decision system rather than complex machine learning or behaviour systems.
+Коммиты делать после значимых работающих этапов.
 
+Не объединять много несвязанных изменений в один большой коммит.
 
+---
 
-Decisions may depend on:
+### Documentation
 
+Основные документы проекта:
 
+- AGENTS.md
+- docs/GAME_DESIGN.md
+- docs/ROADMAP.md
+- docs/DECISIONS.md
 
-\- schedule;
+GAME_DESIGN описывает игру.
 
-\- needs;
+ROADMAP описывает порядок разработки.
 
-\- assigned job;
+DECISIONS хранит принятые технические решения.
 
-\- player orders;
+AGENTS.md содержит правила работы для Codex.
 
-\- personality;
-
-\- current state.
-
-
-
-\### Time
-
-
-
-The game uses a simulated day/night cycle.
-
-
-
-Initial schedule:
-
-
-
-\- 06:00–07:00 — morning;
-
-\- 07:00–17:00 — work day;
-
-\- 17:00–23:00 — evening;
-
-\- 23:00–06:00 — night.
-
-
-
-Exact timings may change after testing.
-
-
-
-\### Population simulation
-
-
-
-Do not update every inhabitant's full decision logic every rendered frame.
-
-
-
-Decision-making should happen at sensible intervals or when relevant events occur.
-
-
-
-\### UI philosophy
-
-
-
-Avoid exposing every internal numeric value to the player.
-
-
-
-Some information should be communicated through:
-
-
-
-\- descriptions;
-
-\- behaviour;
-
-\- conversations;
-
-\- daily chronicles;
-
-\- visible conditions.
-
-
-
-Important management information must still remain understandable.
-
-
-
-\### Version control
-
-
-
-Use Git.
-
-
-
-The main branch is:
-
-
-
-`main`
-
-
-
-Make commits after meaningful working milestones.
-
-
-
-Avoid large commits containing several unrelated systems.
-
+Если принято важное техническое решение, которое повлияет на дальнейшую разработку, его необходимо добавить в DECISIONS.md.
