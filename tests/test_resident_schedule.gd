@@ -18,23 +18,24 @@ func right_click(scene: Node, target: Vector2) -> void:
 	for pressed in [true, false]:
 		var event := InputEventMouseButton.new()
 		event.button_index = MOUSE_BUTTON_RIGHT
-		event.position = scene.resident_view.get_canvas_transform() * target
+		event.position = scene.resident_runtimes[0].view.get_canvas_transform() * target
 		event.pressed = pressed
 		root.push_input(event, true)
 func _run() -> void:
 	var scene = load("res://scenes/main.tscn").instantiate()
 	root.add_child(scene)
+	preload("res://tests/resident_test_setup.gd").isolate_first(scene)
 	scene.logistics.unbind_execution()
 	# Test this subsystem alone; need/schedule interaction has its own suite.
-	scene.get_node("ResidentNeedsController").free()
+	scene.resident_runtimes[0].needs.free()
 	await process_frame
 	await process_frame
 	var clock = scene.game_time
-	var view = scene.resident_view
-	var data = scene.resident_data
-	var schedule = scene.resident_schedule
-	var intents = scene.resident_intents
-	var home = scene.get_node("World/HomePoint")
+	var view = scene.resident_runtimes[0].view
+	var data = scene.residents[0]
+	var schedule = scene.resident_runtimes[0].schedule
+	var intents = scene.resident_runtimes[0].intents
+	var home = scene.get_node("World/home_stepan")
 	var work = scene.get_node("World/Warehouse")
 	var card = scene.get_node("HUD/ResidentCard")
 	clock.set_process(false)
@@ -116,10 +117,11 @@ func _run() -> void:
 	var day_scene = load("res://scenes/main.tscn").instantiate()
 	day_scene.get_node("GameTime").total_minutes = 420
 	root.add_child(day_scene)
+	preload("res://tests/resident_test_setup.gd").isolate_first(day_scene)
 	day_scene.logistics.unbind_execution()
-	day_scene.resident_intents.clear_reason(&"haul_source")
-	day_scene.resident_schedule.resume_current_phase()
-	check(day_scene.resident_intents.current_intent.reason_id == &"day_work", "Starting at 07:00 issues work intent")
+	day_scene.resident_runtimes[0].intents.clear_reason(&"haul_source")
+	day_scene.resident_runtimes[0].schedule.resume_current_phase()
+	check(day_scene.resident_runtimes[0].intents.current_intent.reason_id == &"day_work", "Starting at 07:00 issues work intent")
 	day_scene.queue_free()
 	print("Schedule checks: ", "PASS" if failures == 0 else "FAIL (%d)" % failures)
 	quit(0 if failures == 0 else 1)

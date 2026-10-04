@@ -32,15 +32,16 @@ func _run() -> void:
 	replacement.queue_free()
 	var scene = load("res://scenes/main.tscn").instantiate()
 	root.add_child(scene)
+	preload("res://tests/resident_test_setup.gd").isolate_first(scene)
 	scene.logistics.unbind_execution()
 	# Test this subsystem alone; need/schedule interaction has its own suite.
-	scene.get_node("ResidentNeedsController").free()
+	scene.resident_runtimes[0].needs.free()
 	await process_frame
 	await process_frame
-	var data = scene.resident_data
-	var home = scene.get_node("World/HomePoint")
+	var data = scene.residents[0]
+	var home = scene.get_node("World/home_stepan")
 	var clock = scene.game_time
-	var view = scene.resident_view
+	var view = scene.resident_runtimes[0].view
 	clock.set_process(false)
 	view.set_process(false)
 	check(data.home_location_id == &"home_stepan" and home.location == scene.world_locations.get_location(data.home_location_id), "Resident and marker refer to same place")
@@ -52,7 +53,7 @@ func _run() -> void:
 	view._process(20.0)
 	check(view.global_position == home.global_position and data.activity == Activity.Type.SLEEPING, "Night arrival still sleeps")
 	clock.debug_next_phase()
-	check(data.activity == Activity.Type.IDLE and scene.resident_schedule.request_manual_move(Vector2(100, 100)), "Morning wakes and allows manual move")
+	check(data.activity == Activity.Type.IDLE and scene.resident_runtimes[0].schedule.request_manual_move(Vector2(100, 100)), "Morning wakes and allows manual move")
 	view._process(20.0)
 	check(data.activity == Activity.Type.IDLE, "Manual arrival remains IDLE")
 	data.home_location_id = &"missing"
@@ -60,7 +61,7 @@ func _run() -> void:
 		clock.debug_next_phase()
 	check(not view.has_movement_target and data.activity == Activity.Type.IDLE, "Missing home does not issue bogus movement or sleep")
 	clock.debug_next_phase()
-	check(not scene.resident_schedule.is_night, "Missing home still releases night lock in morning")
+	check(not scene.resident_runtimes[0].schedule.is_night, "Missing home still releases night lock in morning")
 	check(data.fatigue == 35 and data.mood == 65, "Place lookup leaves fatigue and mood unchanged")
 	scene.queue_free()
 	print("World location checks: ", "PASS" if failures == 0 else "FAIL (%d)" % failures)

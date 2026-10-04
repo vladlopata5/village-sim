@@ -13,10 +13,11 @@ func check(condition: bool, message: String) -> void:
 func _run() -> void:
 	var scene = load("res://scenes/main.tscn").instantiate()
 	root.add_child(scene)
+	preload("res://tests/resident_test_setup.gd").isolate_first(scene)
 	await process_frame
 	await process_frame
 	scene.game_time.set_process(false)
-	scene.resident_view.set_process(false)
+	scene.resident_runtimes[0].view.set_process(false)
 	var building = scene.kitchen_data
 	var view = scene.get_node("World/CommunalKitchen")
 	var mapping = scene.world_locations
@@ -31,10 +32,10 @@ func _run() -> void:
 	check(root.get_visible_rect().encloses(screen_rect), "Kitchen and caption fit starting viewport")
 	view.position += Vector2(40, -20)
 	check(mapping.get_position(place.id) == view.global_position, "World resolves moved kitchen without a separate coordinate copy")
-	var data = scene.resident_data
+	var data = scene.residents[0]
 	var hunger_before: int = data.hunger
-	check(scene.resident_schedule.request_manual_move(mapping.get_position(place.id)), "Morning manual movement can target kitchen normally")
-	scene.resident_view._process(20.0)
+	check(scene.resident_runtimes[0].schedule.request_manual_move(mapping.get_position(place.id)), "Morning manual movement can target kitchen normally")
+	scene.resident_runtimes[0].view._process(20.0)
 	check(data.hunger == hunger_before and data.activity == Activity.Type.IDLE, "Arriving at kitchen does not eat or reduce hunger")
 	scene.game_time.advance(15.0)
 	check(data.hunger == hunger_before + 1 and data.fatigue == 35 and data.mood == 65, "Kitchen does not change normal hunger growth or other states")

@@ -40,7 +40,11 @@ func _on_phase_changed(phase: String) -> void:
 	if data.activity in [Activity.Type.WORKING, Activity.Type.SLEEPING]:
 		data.activity = Activity.Type.IDLE
 	match phase:
-		"День": _move_to_location(data.work_location_id, &"day_work", WORK_PRIORITY)
+		"День":
+			if data.work_location_id.is_empty() or data.profession == preload("res://scripts/resident_profession.gd").Type.NONE:
+				_intents.clear_reason(&"manual_move")
+			else:
+				_move_to_location(data.work_location_id, &"day_work", WORK_PRIORITY)
 		"Ночь": _move_to_location(data.home_location_id, &"night_home", HOME_PRIORITY)
 
 func _move_to_location(location_id: StringName, reason: StringName, priority: int) -> void:

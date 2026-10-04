@@ -47,13 +47,14 @@ func _run() -> void:
 
 	var scene = load("res://scenes/main.tscn").instantiate()
 	root.add_child(scene)
+	preload("res://tests/resident_test_setup.gd").isolate_first(scene)
 	scene.logistics.unbind_execution()
 	# Test this subsystem alone; need/schedule interaction has its own suite.
-	scene.get_node("ResidentNeedsController").free()
+	scene.resident_runtimes[0].needs.free()
 	await process_frame
 	await process_frame
-	var intents = scene.get_node("ResidentIntentController")
-	var view = scene.get_node("World/ResidentView2D")
+	var intents = scene.resident_runtimes[0].intents
+	var view = scene.resident_runtimes[0].view
 	var clock = scene.get_node("GameTime")
 	view.set_process(false)
 	clock.set_process(false)
@@ -83,9 +84,9 @@ func _run() -> void:
 	clock.total_minutes = 1799
 	clock.advance(1.0)
 	check(intents.current_intent.type == ResidentIntent.Type.NONE and not view.has_movement_target and view.global_position == morning_position, "Morning cancels unfinished home intent without moving")
-	check(scene.get_node("ResidentScheduleController").request_manual_move(start), "Morning manual intent replaces unfinished home path")
+	check(scene.resident_runtimes[0].schedule.request_manual_move(start), "Morning manual intent replaces unfinished home path")
 	check(intents.current_intent.reason_id == &"manual_move", "Manual intent becomes current after morning release")
-	var data = scene.resident_data
+	var data = scene.residents[0]
 	check(data.fatigue == 35 and data.mood == 65, "Intent mechanism leaves fatigue and mood untouched")
 	scene.queue_free()
 	print("Intent checks: ", "PASS" if failures == 0 else "FAIL (%d)" % failures)

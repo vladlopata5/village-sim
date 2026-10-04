@@ -41,8 +41,9 @@ func _run() -> void:
 	check(not destination.add(FOOD, 3) and destination.get_amount(FOOD) == 3, "Overcapacity addition is atomic")
 	var scene = load("res://scenes/main.tscn").instantiate()
 	root.add_child(scene)
+	preload("res://tests/resident_test_setup.gd").isolate_first(scene)
 	scene.game_time.set_process(false)
-	scene.resident_view.set_process(false)
+	scene.resident_runtimes[0].view.set_process(false)
 	var warehouse = scene.warehouse_data
 	var kitchen = scene.kitchen_data
 	check(warehouse.type == Buildings.Type.STORAGE and warehouse.id == &"warehouse_01" and warehouse.display_name == "Склад", "Warehouse building data")
@@ -54,15 +55,15 @@ func _run() -> void:
 	check(view.is_visible_in_tree() and view.get_node("Caption").text == "Склад", "Warehouse placeholder visible and labelled")
 	view.position += Vector2(10, 0)
 	check(scene.world_locations.get_position(warehouse.id) == view.global_position, "Warehouse uses existing position mapping")
-	check(scene.resident_data.profession == Profession.Type.PORTER, "Stepan assigned PORTER")
-	scene.resident_selection.select(scene.resident_data)
+	check(scene.residents[0].profession == Profession.Type.PORTER, "Stepan assigned PORTER")
+	scene.resident_selection.select(scene.residents[0])
 	var card = scene.get_node("HUD/ResidentCard")
 	card._refresh()
 	check(card.profession_label.text == "Профессия: Носильщик", "Card translates assigned profession")
-	scene.resident_data.hunger = 75
-	scene.resident_view._process(20.0)
+	scene.residents[0].hunger = 75
+	scene.resident_runtimes[0].view._process(20.0)
 	scene.game_time.advance(5.0)
-	check(scene.resident_data.activity == Activity.Type.IDLE and scene.resident_data.hunger == 75 and warehouse.resources.get_amount(FOOD) == 10, "Empty kitchen cannot eat warehouse stock; no logistics behavior")
+	check(scene.residents[0].activity == Activity.Type.IDLE and scene.residents[0].hunger == 75 and warehouse.resources.get_amount(FOOD) == 10, "Empty kitchen cannot eat warehouse stock; no logistics behavior")
 	kitchen.resources.add(FOOD, 1)
 	check(scene.food_label.text == "Еда в кухне: 1" and scene.warehouse_food_label.text == "Еда на складе: 10", "Independent UI updates")
 	view.free()

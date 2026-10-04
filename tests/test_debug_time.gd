@@ -82,17 +82,18 @@ func _run() -> void:
 
 	var scene = load("res://scenes/main.tscn").instantiate()
 	root.add_child(scene)
+	preload("res://tests/resident_test_setup.gd").isolate_first(scene)
 	scene.logistics.unbind_execution()
 	# Test this subsystem alone; need/schedule interaction has its own suite.
-	scene.get_node("ResidentNeedsController").free()
+	scene.resident_runtimes[0].needs.free()
 	await process_frame
 	await process_frame
 	clock = scene.get_node("GameTime")
 	clock.set_process(false)
-	var view = scene.resident_view
+	var view = scene.resident_runtimes[0].view
 	view.set_process(false)
-	var intents = scene.get_node("ResidentIntentController")
-	var night = scene.get_node("ResidentScheduleController")
+	var intents = scene.resident_runtimes[0].intents
+	var night = scene.resident_runtimes[0].schedule
 	self.paused = true
 	key(KEY_F6)
 	check(clock.total_minutes == 420 and scene.clock_label.text == "07:00", "F6 on pause updates clock through GameTime")
@@ -121,7 +122,7 @@ func _run() -> void:
 	check(view.global_position == before, "Debug night on pause does not move resident")
 	self.paused = false
 	view._process(0.5)
-	check(view.global_position.distance_to(scene.world_locations.get_position(scene.resident_data.home_location_id)) < before.distance_to(scene.world_locations.get_position(scene.resident_data.home_location_id)), "Resident moves toward home after resume")
+	check(view.global_position.distance_to(scene.world_locations.get_position(scene.residents[0].home_location_id)) < before.distance_to(scene.world_locations.get_position(scene.residents[0].home_location_id)), "Resident moves toward home after resume")
 	self.paused = true
 	before = view.global_position
 	key(KEY_F8)
@@ -132,7 +133,7 @@ func _run() -> void:
 	self.paused = false
 	view._process(0.5)
 	check(view.global_position != before, "Morning manual movement resumes")
-	check(scene.resident_data.fatigue == 35 and scene.resident_data.mood == 65, "Debug and morning leave fatigue and mood unchanged")
+	check(scene.residents[0].fatigue == 35 and scene.residents[0].mood == 65, "Debug and morning leave fatigue and mood unchanged")
 	scene.queue_free()
 	print("Debug time checks: ", "PASS" if failures == 0 else "FAIL (%d)" % failures)
 	quit(0 if failures == 0 else 1)

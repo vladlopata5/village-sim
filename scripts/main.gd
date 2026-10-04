@@ -21,13 +21,16 @@ var food_label: Label
 var buildings: Array[BuildingData] = []
 var kitchen_data: BuildingData
 var world_locations = WorldLocations2D.new()
-var resident_data: ResidentData
-var resident_view: Node2D
+const ResidentFactory = preload("res://scripts/resident_factory.gd")
+const ResidentGenerator = preload("res://scripts/resident_generator.gd")
+const ResidentRuntime = preload("res://scripts/resident_runtime.gd")
+const LocationView = preload("res://scenes/world_location_view_2d.tscn")
+var residents: Array[ResidentData] = []
+var resident_runtimes: Array[ResidentRuntime] = []
+var population_label: Label
 @onready var game_time = $GameTime
 @onready var field = $World/Field
 @onready var resident_selection = $ResidentSelection
-@onready var resident_schedule = $ResidentScheduleController
-@onready var resident_intents = $ResidentIntentController
 var clock_label: Label
 var phase_label: Label
 var pause_button: Button
@@ -37,19 +40,13 @@ func _ready() -> void:
 	$HUD/ResidentCard.bind_selection(resident_selection)
 	_create_test_kitchen()
 	_create_test_warehouse()
-	_create_test_resident()
-	$ResidentNeedsController.setup(game_time, resident_data, buildings, world_locations, resident_intents, resident_schedule)
+	_create_test_residents()
 	_build_hud()
 	add_child(ground_resources)
 	ground_resources.setup(game_time)
 	ground_resources.added.connect(_show_ground_resource)
 	ground_resources.removed.connect(_remove_ground_resource)
-	logistics.cargo_dropped.connect(_drop_cargo)
-	logistics.before_work = $ResidentNeedsController.prepare_for_work
-	logistics.setup(warehouse_data, kitchen_data, resident_data)
-	logistics.changed.connect(_update_logistics)
-	logistics.delivered.connect($ResidentNeedsController.evaluate)
-	logistics.bind_execution(game_time, world_locations, resident_intents, resident_schedule)
+	_configure_logistics()
 	_update_logistics()
 	warehouse_data.resources.changed.connect(_update_warehouse_food)
 	_update_warehouse_food(ResourceType.Type.FOOD, warehouse_data.resources.get_amount(ResourceType.Type.FOOD))
@@ -98,6 +95,9 @@ func _build_hud() -> void:
 		button.pressed.connect(game_time.set_speed.bind(multiplier))
 		row.add_child(button)
 		speed_buttons.append(button)
+	population_label = Label.new()
+	population_label.text = "Жителей: %d" % residents.size()
+	column.add_child(population_label)
 	warehouse_food_label = Label.new()
 	column.add_child(warehouse_food_label)
 	food_label = Label.new()
@@ -163,34 +163,70 @@ func _update_speed(multiplier: int) -> void:
 	for index in range(speed_buttons.size()):
 		speed_buttons[index].set_pressed_no_signal([1, 2, 4][index] == multiplier)
 
-func _create_test_resident() -> void:
-	resident_data = ResidentData.new("resident_001", "Степан", 30, Profession.Type.PORTER)
-	var home = WorldLocation.new(&"home_stepan", "Дом Степана")
-	$World/HomePoint.setup(home)
-	world_locations.register(home, $World/HomePoint)
-	resident_data.home_location_id = home.id
-	resident_data.work_location_id = warehouse_data.id
-	resident_data.hunger = 20
-	resident_data.fatigue = 35
-	resident_data.mood = 65
-	resident_data.traits.assign([
-		preload("res://assets/traits/hardworking.tres"),
+func _create_test_residents() -> void:
+	var generator = ResidentGenerator.new(42, "settlement")
+	residents.append(ResidentFactory.create(
+		"resident_001", "Степан", 30, Profession.Type.PORTER,
+		[preload("res://assets/traits/hardworking.tres"),
 		preload("res://assets/traits/sociable.tres"),
-		preload("res://assets/traits/stubborn.tres"),
-	])
-	var view = ResidentView2D.instantiate()
-	view.setup(resident_data)
-	view.position = Vector2(120, 80)
-	view.selection_requested.connect(resident_selection.select)
-	view.set_time_speed(game_time.speed_multiplier)
-	game_time.speed_changed.connect(view.set_time_speed)
-	resident_view = view
-	$World.add_child(view)
-	resident_intents.setup(resident_data)
-	resident_intents.intent_changed.connect(view.apply_intent)
-	view.intent_completed.connect(resident_intents.report_arrival)
-	resident_schedule.setup(game_time, world_locations, resident_intents)
-	$ResidentHunger.setup(game_time, resident_data)
+		preload("res://assets/traits/stubborn.tres")],
+		20, 35, 65, &"home_stepan", warehouse_data.id))
+	var home_ids = [&"home_anna", &"home_fedor", &"home_marina"]
+	for index in range(3):
+		var data = generator.generate(["Анна", "Фёдор", "Марина"][index])
+		data.home_location_id = home_ids[index]
+		residents.append(data)
+	var home_names = ["Дом Степана", "Дом Анны", "Дом Фёдора", "Дом Марины"]
+	var home_positions = [Vector2(-300, -120), Vector2(-100, -200), Vector2(100, -200), Vector2(300, -120)]
+	var start_positions = [Vector2(120, 80), Vector2(220, 100), Vector2(-100, 100), Vector2(0, 180)]
+	for index in range(residents.size()):
+		var data = residents[index]
+		assert(find_resident(data.id) == data, "Resident IDs must be unique")
+		var home = WorldLocation.new(data.home_location_id, home_names[index])
+		var home_view = LocationView.instantiate()
+		home_view.name = String(home.id)
+		$World.add_child(home_view)
+		home_view.position = home_positions[index]
+		home_view.setup(home)
+		world_locations.register(home, home_view)
+		var view = ResidentView2D.instantiate()
+		view.name = "ResidentView_" + data.id
+		view.setup(data)
+		view.position = start_positions[index]
+		view.selection_requested.connect(resident_selection.select)
+		view.set_time_speed(game_time.speed_multiplier)
+		game_time.speed_changed.connect(view.set_time_speed)
+		$World.add_child(view)
+		var runtime = ResidentRuntime.new()
+		runtime.name = data.id
+		$Residents.add_child(runtime)
+		resident_runtimes.append(runtime)
+		runtime.setup(data, view, game_time, world_locations, buildings)
+
+func find_resident(resident_id: String) -> ResidentData:
+	for data in residents:
+		if data.id == resident_id:
+			return data
+	return null
+
+func get_resident_runtime(data: ResidentData) -> ResidentRuntime:
+	for runtime in resident_runtimes:
+		if runtime.data == data:
+			return runtime
+	return null
+
+func _configure_logistics() -> void:
+	# This prototype has exactly one assigned porter; no job allocator yet.
+	for runtime in resident_runtimes:
+		if runtime.data.profession != Profession.Type.PORTER or runtime.data.work_location_id != warehouse_data.id:
+			continue
+		logistics.cargo_dropped.connect(_drop_cargo.bind(runtime))
+		logistics.before_work = runtime.needs.prepare_for_work
+		logistics.setup(warehouse_data, kitchen_data, runtime.data)
+		logistics.changed.connect(_update_logistics)
+		logistics.delivered.connect(runtime.needs.evaluate)
+		logistics.bind_execution(game_time, world_locations, runtime.intents, runtime.schedule)
+		return
 
 func _unhandled_input(event: InputEvent) -> void:
 	# UI and resident selection consume their clicks before this parent.
@@ -203,8 +239,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if event.button_index == MOUSE_BUTTON_LEFT:
 		resident_selection.clear()
-	elif is_instance_valid(resident_view) and resident_selection.selected_resident == resident_view.resident_data:
-		resident_schedule.request_manual_move(field.to_global(field_point))
+	else:
+		var runtime = get_resident_runtime(resident_selection.selected_resident)
+		if runtime != null and is_instance_valid(runtime.view):
+			runtime.schedule.request_manual_move(field.to_global(field_point))
 	get_viewport().set_input_as_handled()
 
 func _create_test_kitchen() -> void:
@@ -247,15 +285,15 @@ func _update_logistics() -> void:
 	var job = logistics.current_job
 	if job == null or not job.is_active():
 		summary += "\nЛогистика: нет активной доставки"
-	elif job.assigned_resident_id == resident_data.id:
-		summary += "\nЛогистика: %s: доставить %d FOOD → %s" % [resident_data.resident_name, job.amount, kitchen_data.display_name]
+	elif find_resident(job.assigned_resident_id) != null:
+		summary += "\nЛогистика: %s: доставить %d FOOD → %s" % [find_resident(job.assigned_resident_id).resident_name, job.amount, kitchen_data.display_name]
 		summary += " • " + preload("res://scripts/haul_job.gd").State.keys()[job.state]
 	else:
 		summary += "\nЛогистика: доставка зарезервирована, ожидает носильщика"
 	logistics_label.text = summary
 
-func _drop_cargo(resource: ResourceType.Type, amount: int) -> void:
-	ground_resources.create_drop(resource, amount, resident_view.global_position)
+func _drop_cargo(resource: ResourceType.Type, amount: int, runtime: ResidentRuntime) -> void:
+	ground_resources.create_drop(resource, amount, runtime.view.global_position)
 
 func _show_ground_resource(drop) -> void:
 	var view = GroundView.new()

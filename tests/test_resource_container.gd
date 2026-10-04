@@ -19,10 +19,11 @@ func key(code: Key, echo: bool = false) -> void:
 func make_scene() -> Node:
 	var scene = load("res://scenes/main.tscn").instantiate()
 	root.add_child(scene)
+	preload("res://tests/resident_test_setup.gd").isolate_first(scene)
 	scene.logistics.unbind_execution()
 	scene.kitchen_data.resources.add(ResourceType.Type.FOOD, 3)
 	scene.game_time.set_process(false)
-	scene.resident_view.set_process(false)
+	scene.resident_runtimes[0].view.set_process(false)
 	return scene
 func _run() -> void:
 	var stock = LocalResources.new(&"test_place")
@@ -42,8 +43,8 @@ func _run() -> void:
 	for speed in [1, 2, 4]:
 		var scene = make_scene()
 		var clock = scene.game_time
-		var data = scene.resident_data
-		var view = scene.resident_view
+		var data = scene.residents[0]
+		var view = scene.resident_runtimes[0].view
 		stock = scene.kitchen_data.resources
 		check(stock.get_amount(ResourceType.Type.FOOD) == 3 and scene.food_label.text == "Еда в кухне: 3", "Starting food and UI")
 		clock.set_speed(speed)
@@ -57,10 +58,10 @@ func _run() -> void:
 		check(stock.get_amount(ResourceType.Type.FOOD) == 3, "Food not consumed before meal completion")
 		clock.advance(1.0 / speed)
 		check(stock.get_amount(ResourceType.Type.FOOD) == 2 and scene.food_label.text == "Еда в кухне: 2" and data.hunger == 17, "Completion consumes 1, updates UI and reduces hunger")
-		check(scene.resident_intents.current_intent.reason_id == &"day_work", "Successful meal resumes daytime work")
+		check(scene.resident_runtimes[0].intents.current_intent.reason_id == &"day_work", "Successful meal resumes daytime work")
 		stock.try_take(ResourceType.Type.FOOD, 2)
 		var messages: Array[String] = []
-		scene.get_node("ResidentNeedsController").developer_message.connect(func(message: String): messages.append(message))
+		scene.resident_runtimes[0].needs.developer_message.connect(func(message: String): messages.append(message))
 		key(KEY_F10)
 		view._process(20.0)
 		check(data.activity == Activity.Type.EATING, "Empty stock begins short failed attempt")
@@ -90,8 +91,8 @@ func _run() -> void:
 	# Stock may disappear during a normal meal: check again at completion.
 	var scene = make_scene()
 	var clock = scene.game_time
-	var data = scene.resident_data
-	var view = scene.resident_view
+	var data = scene.residents[0]
+	var view = scene.resident_runtimes[0].view
 	stock = scene.kitchen_data.resources
 	data.hunger = 75
 	view._process(20.0)
@@ -102,8 +103,8 @@ func _run() -> void:
 	# Restocking during the short attempt starts a full 30-minute meal.
 	scene = make_scene()
 	clock = scene.game_time
-	data = scene.resident_data
-	view = scene.resident_view
+	data = scene.residents[0]
+	view = scene.resident_runtimes[0].view
 	stock = scene.kitchen_data.resources
 	stock.try_take(ResourceType.Type.FOOD, 3)
 	data.hunger = 75
@@ -118,8 +119,8 @@ func _run() -> void:
 	# Night waits for meal consumption, then activates home.
 	scene = make_scene()
 	clock = scene.game_time
-	data = scene.resident_data
-	view = scene.resident_view
+	data = scene.residents[0]
+	view = scene.resident_runtimes[0].view
 	stock = scene.kitchen_data.resources
 	clock.debug_next_phase()
 	clock.debug_next_phase()
@@ -127,15 +128,15 @@ func _run() -> void:
 	view._process(20.0)
 	clock.total_minutes = 1379
 	clock.advance(1.0)
-	check(scene.resident_intents.pending_intent.reason_id == &"night_home" and data.activity == Activity.Type.EATING and stock.get_amount(ResourceType.Type.FOOD) == 3, "Night waits for meal before consumption")
+	check(scene.resident_runtimes[0].intents.pending_intent.reason_id == &"night_home" and data.activity == Activity.Type.EATING and stock.get_amount(ResourceType.Type.FOOD) == 3, "Night waits for meal before consumption")
 	clock.advance(29.0)
-	check(stock.get_amount(ResourceType.Type.FOOD) == 2 and scene.resident_intents.current_intent.reason_id == &"night_home", "Completed meal consumes locally then starts pending home")
+	check(stock.get_amount(ResourceType.Type.FOOD) == 2 and scene.resident_runtimes[0].intents.current_intent.reason_id == &"night_home", "Completed meal consumes locally then starts pending home")
 	scene.free()
 	# Plenty of food somewhere else cannot satisfy an empty selected kitchen.
 	scene = make_scene()
 	clock = scene.game_time
-	data = scene.resident_data
-	view = scene.resident_view
+	data = scene.residents[0]
+	view = scene.resident_runtimes[0].view
 	stock = scene.kitchen_data.resources
 	stock.try_take(ResourceType.Type.FOOD, 3)
 	var another_building = load("res://scripts/building_data.gd").new(&"other_test_place", "Другое место", load("res://scripts/building_type.gd").Type.FOOD)
@@ -147,7 +148,7 @@ func _run() -> void:
 	clock.advance(5.0)
 	check(data.activity == Activity.Type.IDLE and data.hunger == 75 and another_building.resources.get_amount(ResourceType.Type.FOOD) == 20, "Other place food cannot pay for kitchen meal")
 	another_building.resources.add(ResourceType.Type.FOOD, 1)
-	scene.get_node("ResidentNeedsController").evaluate()
+	scene.resident_runtimes[0].needs.evaluate()
 	check(data.activity == Activity.Type.IDLE and not view.has_movement_target, "Other place restock cannot unlock this kitchen")
 	stock.add(ResourceType.Type.FOOD, 1)
 	check(data.activity == Activity.Type.EATING, "Only selected kitchen restock unlocks meal")

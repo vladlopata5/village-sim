@@ -12,10 +12,11 @@ func check(condition: bool, message: String) -> void:
 func make_scene() -> Node:
 	var scene = load("res://scenes/main.tscn").instantiate()
 	root.add_child(scene)
+	preload("res://tests/resident_test_setup.gd").isolate_first(scene)
 	scene.logistics.unbind_execution()
 	scene.kitchen_data.resources.add(ResourceType.Type.FOOD, 3)
 	scene.game_time.set_process(false)
-	scene.resident_view.set_process(false)
+	scene.resident_runtimes[0].view.set_process(false)
 	return scene
 func key(code: Key, echo: bool = false) -> void:
 	for pressed in [true, false]:
@@ -27,11 +28,11 @@ func key(code: Key, echo: bool = false) -> void:
 func _run() -> void:
 	for speed in [1, 2, 4]:
 		var scene = make_scene()
-		var data = scene.resident_data
-		var view = scene.resident_view
+		var data = scene.residents[0]
+		var view = scene.resident_runtimes[0].view
 		var clock = scene.game_time
-		var intents = scene.resident_intents
-		var needs = scene.get_node("ResidentNeedsController")
+		var intents = scene.resident_runtimes[0].intents
+		var needs = scene.resident_runtimes[0].needs
 		clock.set_speed(speed)
 		key(KEY_F10)
 		check(data.hunger == 20, "F10 without selection does nothing")
@@ -75,9 +76,9 @@ func _run() -> void:
 	for speed in [1, 2, 4]:
 		var evening = make_scene()
 		var clock = evening.game_time
-		var view = evening.resident_view
-		var data = evening.resident_data
-		var intents = evening.resident_intents
+		var view = evening.resident_runtimes[0].view
+		var data = evening.residents[0]
+		var intents = evening.resident_runtimes[0].intents
 		clock.set_speed(speed)
 		clock.debug_skip_minutes(1019) # 22:59
 		data.hunger = 75
@@ -99,27 +100,27 @@ func _run() -> void:
 		evening.free()
 	var dawn = make_scene()
 	dawn.game_time.debug_skip_minutes(1019)
-	dawn.resident_data.hunger = 75
-	dawn.resident_view._process(20.0)
+	dawn.residents[0].hunger = 75
+	dawn.resident_runtimes[0].view._process(20.0)
 	dawn.game_time.debug_next_phase()
 	dawn.game_time.total_minutes = 1799 # Exercise 06:00 while locked action is unfinished.
 	dawn.game_time.advance(1.0)
-	check(dawn.resident_data.activity == Activity.Type.EATING and dawn.resident_intents.pending_intent.type == Intent.Type.NONE, "06:00 removes stale home without cancelling meal")
+	check(dawn.residents[0].activity == Activity.Type.EATING and dawn.resident_runtimes[0].intents.pending_intent.type == Intent.Type.NONE, "06:00 removes stale home without cancelling meal")
 	dawn.game_time.debug_skip_minutes(28)
-	check(dawn.resident_data.activity == Activity.Type.IDLE and dawn.resident_intents.current_intent.type == Intent.Type.NONE, "Meal after dawn does not activate stale home")
-	check(dawn.resident_schedule.request_manual_move(Vector2.ZERO), "Manual movement available after dawn meal")
+	check(dawn.residents[0].activity == Activity.Type.IDLE and dawn.resident_runtimes[0].intents.current_intent.type == Intent.Type.NONE, "Meal after dawn does not activate stale home")
+	check(dawn.resident_runtimes[0].schedule.request_manual_move(Vector2.ZERO), "Manual movement available after dawn meal")
 	dawn.free()
 	# Evening meal remains IDLE, manual commands cannot interrupt eating.
 	var scene = make_scene()
-	var data = scene.resident_data
-	var view = scene.resident_view
+	var data = scene.residents[0]
+	var view = scene.resident_runtimes[0].view
 	var clock = scene.game_time
-	var needs = scene.get_node("ResidentNeedsController")
+	var needs = scene.resident_runtimes[0].needs
 	clock.debug_next_phase()
 	clock.debug_next_phase()
 	data.hunger = 75
 	view._process(20.0)
-	check(data.activity == Activity.Type.EATING and not scene.resident_schedule.request_manual_move(Vector2.ZERO), "Evening food holds priority after arrival")
+	check(data.activity == Activity.Type.EATING and not scene.resident_runtimes[0].schedule.request_manual_move(Vector2.ZERO), "Evening food holds priority after arrival")
 	clock.debug_skip_minutes(30)
 	check(data.activity == Activity.Type.IDLE and not view.has_movement_target, "Evening completion does not assign automatic destination")
 	# Night waits for an unfinished meal, then goes home.
@@ -128,20 +129,20 @@ func _run() -> void:
 	view._process(20.0)
 	check(data.activity == Activity.Type.EATING, "Already at kitchen starts meal immediately")
 	clock.debug_next_phase()
-	check(scene.resident_intents.pending_intent.reason_id == &"night_home" and data.activity == Activity.Type.EATING, "23:00 queues home while EATING continues")
+	check(scene.resident_runtimes[0].intents.pending_intent.reason_id == &"night_home" and data.activity == Activity.Type.EATING, "23:00 queues home while EATING continues")
 	var before_completion: int = data.hunger
 	clock.debug_skip_minutes(30)
-	check(data.hunger < before_completion and scene.resident_intents.current_intent.reason_id == &"night_home", "Completed meal reduces hunger then promotes night home")
+	check(data.hunger < before_completion and scene.resident_runtimes[0].intents.current_intent.reason_id == &"night_home", "Completed meal reduces hunger then promotes night home")
 	view._process(20.0)
 	data.hunger = 75
 	check(data.activity == Activity.Type.SLEEPING and not view.has_movement_target, "Hungry sleeper does not seek food")
 	clock.debug_next_phase()
-	check(scene.resident_intents.current_intent.reason_id == &"eat", "Morning awakening reevaluates high hunger")
+	check(scene.resident_runtimes[0].intents.current_intent.reason_id == &"eat", "Morning awakening reevaluates high hunger")
 	scene.free()
 	# Missing FOOD representation means no fake destination or meal.
 	scene = make_scene()
-	data = scene.resident_data
-	view = scene.resident_view
+	data = scene.residents[0]
+	view = scene.resident_runtimes[0].view
 	clock = scene.game_time
 	scene.get_node("World/CommunalKitchen").free()
 	data.hunger = 75
@@ -149,15 +150,15 @@ func _run() -> void:
 	scene.free()
 	# Food route across phase transitions: work cannot overwrite it; evening preserves meal.
 	scene = make_scene()
-	data = scene.resident_data
-	view = scene.resident_view
+	data = scene.residents[0]
+	view = scene.resident_runtimes[0].view
 	clock = scene.game_time
 	data.hunger = 69
 	clock.debug_skip_minutes(15)
-	check(scene.resident_intents.current_intent.reason_id == &"eat", "Natural growth crossing 70 triggers food decision")
-	var same = scene.resident_intents.current_intent
+	check(scene.resident_runtimes[0].intents.current_intent.reason_id == &"eat", "Natural growth crossing 70 triggers food decision")
+	var same = scene.resident_runtimes[0].intents.current_intent
 	clock.debug_next_phase()
-	check(scene.resident_intents.current_intent == same, "07:00 work cannot overwrite an existing food route")
+	check(scene.resident_runtimes[0].intents.current_intent == same, "07:00 work cannot overwrite an existing food route")
 	view._process(20.0)
 	# Lower hunger for clamp check, and skip to evening while timer stays under 30.
 	clock.total_minutes = 1019
@@ -169,21 +170,21 @@ func _run() -> void:
 	scene.free()
 	# Night also interrupts movement to food; stale arrival cannot start meal.
 	scene = make_scene()
-	data = scene.resident_data
-	view = scene.resident_view
+	data = scene.residents[0]
+	view = scene.resident_runtimes[0].view
 	clock = scene.game_time
 	clock.debug_next_phase()
 	clock.debug_next_phase()
 	data.hunger = 75
-	var old_eat = scene.resident_intents.current_intent
+	var old_eat = scene.resident_runtimes[0].intents.current_intent
 	clock.debug_next_phase()
 	view.intent_completed.emit(old_eat)
-	check(scene.resident_intents.current_intent.reason_id == &"night_home" and data.activity == Activity.Type.MOVING, "Night preempts food route and ignores stale arrival")
+	check(scene.resident_runtimes[0].intents.current_intent.reason_id == &"night_home" and data.activity == Activity.Type.MOVING, "Night preempts food route and ignores stale arrival")
 	scene.free()
 	# Arrival during the same minute signal must not count that minute twice.
 	scene = make_scene()
-	data = scene.resident_data
-	view = scene.resident_view
+	data = scene.residents[0]
+	view = scene.resident_runtimes[0].view
 	clock = scene.game_time
 	view.global_position = scene.world_locations.get_position(scene.kitchen_data.id)
 	data.hunger = 69
@@ -196,8 +197,8 @@ func _run() -> void:
 	scene.free()
 	# A morning meal survives 07:00 and then returns to daytime work.
 	scene = make_scene()
-	data = scene.resident_data
-	view = scene.resident_view
+	data = scene.residents[0]
+	view = scene.resident_runtimes[0].view
 	clock = scene.game_time
 	clock.debug_skip_minutes(59)
 	data.hunger = 75
@@ -205,7 +206,7 @@ func _run() -> void:
 	clock.debug_next_phase()
 	check(data.activity == Activity.Type.EATING, "07:00 cannot interrupt an ongoing morning meal")
 	clock.debug_skip_minutes(29)
-	check(scene.resident_intents.current_intent.reason_id == &"day_work", "Meal spanning 07:00 resumes work on completion")
+	check(scene.resident_runtimes[0].intents.current_intent.reason_id == &"day_work", "Meal spanning 07:00 resumes work on completion")
 	scene.free()
 	paused = false
 	print("Needs checks: ", "PASS" if failures == 0 else "FAIL (%d)" % failures)

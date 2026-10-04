@@ -23,10 +23,11 @@ func click_at(point: Vector2, button: MouseButton = MOUSE_BUTTON_RIGHT) -> void:
 func _run() -> void:
 	var scene = load("res://scenes/main.tscn").instantiate()
 	root.add_child(scene)
+	preload("res://tests/resident_test_setup.gd").isolate_first(scene)
 	scene.logistics.unbind_execution()
 	await process_frame
 	await process_frame
-	var view = scene.get_node("World/ResidentView2D")
+	var view = scene.resident_runtimes[0].view
 	var selection = scene.get_node("ResidentSelection")
 	var clock = scene.get_node("GameTime")
 	var card = scene.get_node("HUD/ResidentCard")
@@ -41,7 +42,7 @@ func _run() -> void:
 	click_at(view.get_global_transform_with_canvas() * Vector2.ZERO, MOUSE_BUTTON_LEFT)
 	click_at(field.get_global_transform_with_canvas() * field_target)
 	check(view.has_movement_target and view.target_position.is_equal_approx(field.to_global(field_target)), "Right click assigns the selected resident's target")
-	check(selection.selected_resident == scene.resident_data and card.visible, "Movement command preserves selection and card")
+	check(selection.selected_resident == scene.residents[0] and card.visible, "Movement command preserves selection and card")
 	# Controlled frame intervals test speed scaling using the real frame callback.
 	for multiplier in [1, 2, 4]:
 		view.global_position = origin
@@ -99,7 +100,7 @@ func _run() -> void:
 	var target_before_ui: Vector2 = view.target_position
 	click_at(card.name_label.get_global_rect().get_center())
 	click_at(scene.pause_button.get_global_rect().get_center())
-	check(view.target_position == target_before_ui and selection.selected_resident == scene.resident_data, "Right clicks on UI do not issue movement commands")
+	check(view.target_position == target_before_ui and selection.selected_resident == scene.residents[0], "Right clicks on UI do not issue movement commands")
 	camera.position = Vector2(200, 100)
 	camera.force_update_scroll()
 	await process_frame
@@ -125,7 +126,7 @@ func _run() -> void:
 	selection.clear()
 	view._process(0.125)
 	check(view.has_movement_target and not card.visible, "Issued command continues independently of selection")
-	var data = scene.resident_data
+	var data = scene.residents[0]
 	check(data.hunger == 20 and data.fatigue == 35 and data.mood == 65 and data.traits.size() == 3, "Movement never changes states or traits")
 	scene.queue_free()
 	print("Movement checks: ", "PASS" if failures == 0 else "FAIL (%d)" % failures)

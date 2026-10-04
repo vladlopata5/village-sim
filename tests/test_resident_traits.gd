@@ -14,9 +14,10 @@ func check(condition: bool, message: String) -> void:
 func _run() -> void:
 	var scene = load("res://scenes/main.tscn").instantiate()
 	root.add_child(scene)
+	preload("res://tests/resident_test_setup.gd").isolate_first(scene)
 	await process_frame
 	await process_frame
-	var data = scene.resident_data
+	var data = scene.residents[0]
 	var selection = scene.get_node("ResidentSelection")
 	var card = scene.get_node("HUD/ResidentCard")
 	var expected_ids := [&"hardworking", &"sociable", &"stubborn"]

@@ -33,11 +33,12 @@ func _run() -> void:
 		check(independent.get(property) == 49, "Preserve valid value: " + property)
 	var scene = load("res://scenes/main.tscn").instantiate()
 	root.add_child(scene)
+	preload("res://tests/resident_test_setup.gd").isolate_first(scene)
 	# Test this subsystem alone; need/schedule interaction has its own suite.
-	scene.get_node("ResidentNeedsController").free()
+	scene.resident_runtimes[0].needs.free()
 	await process_frame
 	await process_frame
-	var data = scene.resident_data
+	var data = scene.residents[0]
 	var selection = scene.get_node("ResidentSelection")
 	var card = scene.get_node("HUD/ResidentCard")
 	var clock = scene.get_node("GameTime")

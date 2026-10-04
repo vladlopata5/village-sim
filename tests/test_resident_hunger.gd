@@ -67,16 +67,17 @@ func _run() -> void:
 	hunger.queue_free()
 	var scene = load("res://scenes/main.tscn").instantiate()
 	root.add_child(scene)
+	preload("res://tests/resident_test_setup.gd").isolate_first(scene)
 	scene.logistics.unbind_execution()
 	# Test this subsystem alone; need/schedule interaction has its own suite.
-	scene.get_node("ResidentNeedsController").free()
+	scene.resident_runtimes[0].needs.free()
 	await process_frame
 	await process_frame
 	clock = scene.game_time
 	clock.set_process(false)
-	var view = scene.resident_view
+	var view = scene.resident_runtimes[0].view
 	view.set_process(false)
-	data = scene.resident_data
+	data = scene.residents[0]
 	var card = scene.get_node("HUD/ResidentCard")
 	key(KEY_F9)
 	check(data.hunger == 20, "F9 without selection does nothing")
@@ -99,7 +100,7 @@ func _run() -> void:
 	key(KEY_F9)
 	check(data.hunger == 100, "F9 respects upper bound")
 	key(KEY_F8)
-	check(scene.resident_intents.current_intent.reason_id == &"day_work", "Hunger 100 does not override work schedule")
+	check(scene.resident_runtimes[0].intents.current_intent.reason_id == &"day_work", "Hunger 100 does not override work schedule")
 	paused = false
 	view._process(20.0)
 	check(data.activity == Activity.Type.WORKING, "Hunger 100 does not prevent work arrival")

@@ -57,29 +57,30 @@ func _run() -> void:
 
 	var scene = load("res://scenes/main.tscn").instantiate()
 	root.add_child(scene)
+	preload("res://tests/resident_test_setup.gd").isolate_first(scene)
 	scene.logistics.unbind_execution()
 	# Test this subsystem alone; need/schedule interaction has its own suite.
-	scene.get_node("ResidentNeedsController").free()
+	scene.resident_runtimes[0].needs.free()
 	await process_frame
 	await process_frame
 	var clock = scene.get_node("GameTime")
-	var controller = scene.get_node("ResidentScheduleController")
-	var intents = scene.get_node("ResidentIntentController")
-	var view = scene.get_node("World/ResidentView2D")
-	var home: Marker2D = scene.get_node("World/HomePoint")
+	var controller = scene.resident_runtimes[0].schedule
+	var intents = scene.resident_runtimes[0].intents
+	var view = scene.resident_runtimes[0].view
+	var home: Marker2D = scene.get_node("World/home_stepan")
 	var field: Node2D = scene.get_node("World/Field")
 	var selection = scene.get_node("ResidentSelection")
 	clock.set_process(false)
 	view.set_process(false)
 	var start: Vector2 = view.global_position
-	check(scene.world_locations.get_position(scene.resident_data.home_location_id) == home.global_position, "Controller uses marker coordinates")
+	check(scene.world_locations.get_position(scene.residents[0].home_location_id) == home.global_position, "Controller uses marker coordinates")
 	for multiplier in [1, 2, 4]:
 		# Re-enter a non-night phase through real clock transitions.
 		if controller.is_night:
 			clock.set_speed(1)
 			clock.total_minutes = 1799
 			clock.advance(1.0)
-		selection.select(scene.resident_data)
+		selection.select(scene.residents[0])
 		var manual_target := Vector2(-100, 180)
 		right_click(field.get_global_transform_with_canvas() * manual_target)
 		check(view.target_position.is_equal_approx(field.to_global(manual_target)), "Day click routes through controller")
@@ -93,7 +94,7 @@ func _run() -> void:
 		view._process(0.125)
 		var expected: Vector2 = start.move_toward(home.global_position, 15.0 * multiplier)
 		check(view.global_position.is_equal_approx(expected), "Home movement speed x%d" % multiplier)
-		selection.select(scene.resident_data)
+		selection.select(scene.residents[0])
 		right_click(field.get_global_transform_with_canvas() * manual_target)
 		check(view.target_position == home.global_position, "Night right click cannot override home")
 		view._process(30.0)
@@ -131,7 +132,7 @@ func _run() -> void:
 	clock.advance(1.0)
 	right_click(field.get_global_transform_with_canvas() * Vector2(-100, 180))
 	check(not controller.is_night and view.target_position.is_equal_approx(Vector2(-100, 180)), "Morning restores manual commands")
-	var data = scene.resident_data
+	var data = scene.residents[0]
 	check(data.fatigue == 35 and data.mood == 65 and data.traits.size() == 3, "Night reaction never changes fatigue, mood or traits")
 	scene.queue_free()
 	print("Night home checks: ", "PASS" if failures == 0 else "FAIL (%d)" % failures)

@@ -66,6 +66,7 @@ func _run() -> void:
 	fast.queue_free()
 	var scene = load("res://scenes/main.tscn").instantiate()
 	root.add_child(scene)
+	preload("res://tests/resident_test_setup.gd").isolate_first(scene)
 	scene.logistics.unbind_execution()
 	var scene_clock = scene.get_node("GameTime")
 	scene_clock.set_process(false)

@@ -4,6 +4,7 @@ const ResidentData = preload("res://scripts/resident_data.gd")
 const ResidentIntent = preload("res://scripts/resident_intent.gd")
 signal selection_requested(data: ResidentData)
 signal intent_completed(intent: ResidentIntent)
+var name_caption: Label
 var cargo_indicator: Label
 var resident_data: ResidentData
 @export_range(1.0, 1000.0) var movement_speed: float = 120.0
@@ -14,6 +15,12 @@ var _active_intent: ResidentIntent
 
 func setup(data: ResidentData) -> void:
 	resident_data = data
+	if name_caption == null:
+		name_caption = Label.new()
+		name_caption.position = Vector2(-30, 22)
+		name_caption.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		add_child(name_caption)
+	name_caption.text = data.resident_name
 	if cargo_indicator == null:
 		cargo_indicator = Label.new()
 		cargo_indicator.text = "■ FOOD"

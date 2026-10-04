@@ -73,25 +73,26 @@ func _run() -> void:
 	check(rollback.current_job == null and source.resources.get_reserved_out(FOOD) == 2 and destination.resources.get_reserved_in(FOOD) == 0, "Second reservation failure rolls back only this attempt, no job")
 	var scene = load("res://scenes/main.tscn").instantiate()
 	root.add_child(scene)
+	preload("res://tests/resident_test_setup.gd").isolate_first(scene)
 	scene.game_time.set_process(false)
-	scene.resident_view.set_process(false)
+	scene.resident_runtimes[0].view.set_process(false)
 	check(not scene.has_node("World/WorkPoint") and scene.world_locations.get_location(&"work_stepan") == null, "Obsolete work marker removed")
-	check(scene.resident_data.work_location_id == &"warehouse_01" and scene.logistics.current_job.state == Job.State.ASSIGNED, "Stepan works at warehouse and has assigned job")
-	var position: Vector2 = scene.resident_view.global_position
-	var intent = scene.resident_intents.current_intent
+	check(scene.residents[0].work_location_id == &"warehouse_01" and scene.logistics.current_job.state == Job.State.ASSIGNED, "Stepan works at warehouse and has assigned job")
+	var position: Vector2 = scene.resident_runtimes[0].view.global_position
+	var intent = scene.resident_runtimes[0].intents.current_intent
 	paused = true
 	for pressed in [true, false]:
 		var event := InputEventKey.new()
 		event.physical_keycode = KEY_F12
 		event.pressed = pressed
 		root.push_input(event, true)
-	check(scene.resident_view.global_position == position and scene.resident_intents.current_intent == intent and scene.warehouse_data.resources.get_amount(FOOD) == 10 and scene.kitchen_data.resources.get_amount(FOOD) == 0, "F12 on pause makes no movement, intent or transfer")
+	check(scene.resident_runtimes[0].view.global_position == position and scene.resident_runtimes[0].intents.current_intent == intent and scene.warehouse_data.resources.get_amount(FOOD) == 10 and scene.kitchen_data.resources.get_amount(FOOD) == 0, "F12 on pause makes no movement, intent or transfer")
 	check(scene.logistics_label.text.contains("зарезервировано на вывоз: 1") and scene.logistics_label.text.contains("зарезервировано под доставку: 1") and scene.logistics_label.text.contains("Степан: доставить 1 FOOD → Общая кухня"), "UI shows actual job and both reserves")
 	paused = false
 	scene.game_time.debug_next_phase()
-	check(scene.resident_view.target_position == scene.world_locations.get_position(&"warehouse_01"), "07:00 delivery uses warehouse source")
-	scene.resident_view._process(20.0)
-	check(scene.resident_data.inventory.amount == 1 and scene.logistics.current_job.state == Job.State.GOING_TO_DESTINATION, "Arriving at warehouse picks up reserved cargo")
+	check(scene.resident_runtimes[0].view.target_position == scene.world_locations.get_position(&"warehouse_01"), "07:00 delivery uses warehouse source")
+	scene.resident_runtimes[0].view._process(20.0)
+	check(scene.residents[0].inventory.amount == 1 and scene.logistics.current_job.state == Job.State.GOING_TO_DESTINATION, "Arriving at warehouse picks up reserved cargo")
 	scene.free()
 	print("Logistics checks: ", "PASS" if failures == 0 else "FAIL (%d)" % failures)
 	quit(0 if failures == 0 else 1)
