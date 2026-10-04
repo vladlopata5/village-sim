@@ -3,4 +3,5 @@
 [ext_resource type="Script" path="res://scripts/resident_view_2d.gd" id="1"]
 
 [node name="ResidentView2D" type="Node2D"]
+process_mode = 3
 script = ExtResource("1")

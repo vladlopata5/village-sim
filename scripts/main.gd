@@ -4,12 +4,14 @@ const ResidentView2D = preload("res://scenes/resident_view_2d.tscn")
 var resident_data: ResidentData
 @onready var game_time = $GameTime
 @onready var field = $World/Field
+@onready var resident_selection = $ResidentSelection
 var clock_label: Label
 var phase_label: Label
 var pause_button: Button
 var speed_buttons: Array[Button] = []
 
 func _ready() -> void:
+	$HUD/ResidentCard.bind_selection(resident_selection)
 	_create_test_resident()
 	_build_hud()
 	game_time.minute_changed.connect(_update_clock)
@@ -93,4 +95,14 @@ func _create_test_resident() -> void:
 	var view = ResidentView2D.instantiate()
 	view.setup(resident_data)
 	view.position = Vector2(120, 80)
+	view.selection_requested.connect(resident_selection.select)
 	$World.add_child(view)
+
+func _unhandled_input(event: InputEvent) -> void:
+	# A resident consumes its click before this parent receives it.
+	# UI also consumes clicks, so only empty field clicks reach this handler.
+	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+		var field_point: Vector2 = field.get_global_transform_with_canvas().affine_inverse() * event.position
+		if field.FIELD.has_point(field_point):
+			resident_selection.clear()
+			get_viewport().set_input_as_handled()
