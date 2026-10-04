@@ -6,6 +6,10 @@ const WorldLocations2D = preload("res://scripts/world_locations_2d.gd")
 const BuildingData = preload("res://scripts/building_data.gd")
 const BuildingType = preload("res://scripts/building_type.gd")
 const BuildingView2D = preload("res://scenes/building_view_2d.tscn")
+const ResourceType = preload("res://scripts/resource_type.gd")
+const SettlementStorage = preload("res://scripts/settlement_storage.gd")
+var settlement_storage = SettlementStorage.new()
+var food_label: Label
 var buildings: Array[BuildingData] = []
 var kitchen_data: BuildingData
 var world_locations = WorldLocations2D.new()
@@ -23,10 +27,13 @@ var speed_buttons: Array[Button] = []
 
 func _ready() -> void:
 	$HUD/ResidentCard.bind_selection(resident_selection)
+	settlement_storage.add(ResourceType.Type.FOOD, 10)
 	_create_test_resident()
 	_create_test_kitchen()
-	$ResidentNeedsController.setup(game_time, resident_data, buildings, world_locations, resident_intents, resident_schedule)
+	$ResidentNeedsController.setup(game_time, resident_data, buildings, world_locations, resident_intents, resident_schedule, settlement_storage)
 	_build_hud()
+	settlement_storage.changed.connect(_update_food)
+	_update_food(ResourceType.Type.FOOD, settlement_storage.get_amount(ResourceType.Type.FOOD))
 	game_time.minute_changed.connect(_update_clock)
 	game_time.phase_changed.connect(field.show_phase)
 	game_time.phase_changed.connect(_update_phase)
@@ -70,11 +77,13 @@ func _build_hud() -> void:
 		button.pressed.connect(game_time.set_speed.bind(multiplier))
 		row.add_child(button)
 		speed_buttons.append(button)
+	food_label = Label.new()
+	column.add_child(food_label)
 	var help := Label.new()
 	help.text = "WASD / стрелки — камера\nПробел — пауза • 1 / 2 / 4 — скорость\nЛКМ — выбор • ПКМ по полю — перемещение (утром и вечером)"
 	column.add_child(help)
 	var debug_help := Label.new()
-	debug_help.text = "F6 +1ч | F7 +6ч | F8 следующая фаза | F9 +25 голода | F10 голод 75"
+	debug_help.text = "F6 +1ч | F7 +6ч | F8 следующая фаза | F9 +25 голода | F10 голод 75 | F11 +5 еды"
 	debug_help.add_theme_font_size_override("font_size", 14)
 	column.add_child(debug_help)
 	_update_pause()
@@ -92,6 +101,7 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		KEY_F8: game_time.debug_next_phase()
 		KEY_F9: _debug_add_hunger()
 		KEY_F10: _debug_set_hunger()
+		KEY_F11: settlement_storage.add(ResourceType.Type.FOOD, 5)
 		_: return
 	get_viewport().set_input_as_handled()
 
@@ -104,6 +114,10 @@ func _debug_set_hunger() -> void:
 	var selected = resident_selection.selected_resident
 	if selected != null:
 		selected.hunger = 75
+
+func _update_food(resource: ResourceType.Type, amount: int) -> void:
+	if resource == ResourceType.Type.FOOD:
+		food_label.text = "Еда: %d" % amount
 
 func _toggle_pause() -> void:
 	game_time.toggle_pause()

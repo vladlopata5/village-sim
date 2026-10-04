@@ -7,6 +7,13 @@ const Intent = preload("res://scripts/resident_intent.gd")
 const IntentController = preload("res://scripts/resident_intent_controller.gd")
 const Schedule = preload("res://scripts/resident_schedule_controller.gd")
 const Activity = preload("res://scripts/resident_activity.gd")
+const Storage = preload("res://scripts/settlement_storage.gd")
+const ResourceType = preload("res://scripts/resource_type.gd")
+signal developer_message(message: String)
+const FAILED_ATTEMPT_MINUTES := 5
+var _storage: Storage
+var _waiting_for_food := false
+var _empty_attempt := false
 const EAT_PRIORITY := 75
 const HUNGER_THRESHOLD := 70
 const MEAL_MINUTES := 30
@@ -21,13 +28,15 @@ var _meal_active := false
 var _meal_started_at: int = 0
 var _minutes_left: int = 0
 
-func setup(clock: Node, data: Data, buildings: Array[BuildingData], locations: RefCounted, intents: IntentController, schedule: Schedule) -> void:
+func setup(clock: Node, data: Data, buildings: Array[BuildingData], locations: RefCounted, intents: IntentController, schedule: Schedule, storage: Storage) -> void:
 	_clock = clock
 	_data = data
 	_buildings = buildings
 	_locations = locations
 	_intents = intents
 	_schedule = schedule
+	_storage = storage
+	_storage.changed.connect(_on_storage_changed)
 	_data.hunger_changed.connect(evaluate)
 	_clock.minute_changed.connect(_on_minute_changed)
 	_clock.phase_changed.connect(_on_phase_changed)
@@ -36,7 +45,7 @@ func setup(clock: Node, data: Data, buildings: Array[BuildingData], locations: R
 	evaluate()
 
 func evaluate() -> void:
-	if _meal_active:
+	if _meal_active or _waiting_for_food:
 		return
 	if _eat_intent != null:
 		if _intents.current_intent == _eat_intent:
@@ -72,17 +81,15 @@ func _on_intent_completed(intent: Intent) -> void:
 	_eat_intent = null
 	_meal_active = true
 	_meal_started_at = _clock.total_minutes
-	_minutes_left = MEAL_MINUTES
+	_empty_attempt = _storage.get_amount(ResourceType.Type.FOOD) == 0
+	_minutes_left = FAILED_ATTEMPT_MINUTES if _empty_attempt else MEAL_MINUTES
 	_data.activity = Activity.Type.EATING
 
 func _on_minute_changed(total_minutes: int) -> void:
 	if _meal_active and total_minutes > _meal_started_at:
 		_minutes_left -= 1
 		if _minutes_left == 0:
-			_meal_active = false
-			_data.activity = Activity.Type.IDLE
-			_data.hunger -= 60
-			_schedule.resume_current_phase()
+			_finish_meal()
 	evaluate()
 
 func _on_phase_changed(_phase: String) -> void:
@@ -96,3 +103,28 @@ func _on_phase_changed(_phase: String) -> void:
 			_data.activity = Activity.Type.IDLE
 	else:
 		evaluate()
+
+func _finish_meal() -> void:
+	# Keep the meal guard during changed emission; do not start a second meal.
+	var consumed := _storage.try_consume(ResourceType.Type.FOOD, 1)
+	_meal_active = false
+	_data.activity = Activity.Type.IDLE
+	if consumed:
+		_data.hunger -= 60
+		_schedule.resume_current_phase()
+	else:
+		_waiting_for_food = true
+		var message := "%s не смог поесть: нет еды." % _data.resident_name
+		developer_message.emit(message)
+		print(message)
+
+func _on_storage_changed(resource: ResourceType.Type, amount: int) -> void:
+	if resource != ResourceType.Type.FOOD or amount <= 0:
+		return
+	_waiting_for_food = false
+	if _meal_active and _empty_attempt:
+		# Restocking starts a full meal, never a five-minute successful meal.
+		_empty_attempt = false
+		_meal_started_at = _clock.total_minutes
+		_minutes_left = MEAL_MINUTES
+	evaluate()
