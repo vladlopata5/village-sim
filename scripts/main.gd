@@ -1,4 +1,7 @@
 extends Node
+const ResidentData = preload("res://scripts/resident_data.gd")
+const ResidentView2D = preload("res://scenes/resident_view_2d.tscn")
+var resident_data: ResidentData
 @onready var game_time = $GameTime
 @onready var field = $World/Field
 var clock_label: Label
@@ -7,6 +10,7 @@ var pause_button: Button
 var speed_buttons: Array[Button] = []
 
 func _ready() -> void:
+	_create_test_resident()
 	_build_hud()
 	game_time.minute_changed.connect(_update_clock)
 	game_time.phase_changed.connect(field.show_phase)
@@ -28,7 +32,7 @@ func _build_hud() -> void:
 	var column := VBoxContainer.new()
 	margin.add_child(column)
 	var title := Label.new()
-	title.text = "Village Sim — временный прототип Phase 1"
+	title.text = "Village Sim — временный прототип"
 	column.add_child(title)
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 12)
@@ -83,3 +87,10 @@ func _update_phase(phase: String) -> void:
 func _update_speed(multiplier: int) -> void:
 	for index in range(speed_buttons.size()):
 		speed_buttons[index].set_pressed_no_signal([1, 2, 4][index] == multiplier)
+
+func _create_test_resident() -> void:
+	resident_data = ResidentData.new("resident_001", "Степан", 30, "Без профессии")
+	var view = ResidentView2D.instantiate()
+	view.setup(resident_data)
+	view.position = Vector2(120, 80)
+	$World.add_child(view)
