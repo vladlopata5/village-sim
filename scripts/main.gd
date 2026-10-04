@@ -6,6 +6,7 @@ const WorldLocations2D = preload("res://scripts/world_locations_2d.gd")
 const BuildingData = preload("res://scripts/building_data.gd")
 const BuildingType = preload("res://scripts/building_type.gd")
 const BuildingView2D = preload("res://scenes/building_view_2d.tscn")
+var buildings: Array[BuildingData] = []
 var kitchen_data: BuildingData
 var world_locations = WorldLocations2D.new()
 var resident_data: ResidentData
@@ -24,6 +25,7 @@ func _ready() -> void:
 	$HUD/ResidentCard.bind_selection(resident_selection)
 	_create_test_resident()
 	_create_test_kitchen()
+	$ResidentNeedsController.setup(game_time, resident_data, buildings, world_locations, resident_intents, resident_schedule)
 	_build_hud()
 	game_time.minute_changed.connect(_update_clock)
 	game_time.phase_changed.connect(field.show_phase)
@@ -72,7 +74,7 @@ func _build_hud() -> void:
 	help.text = "WASD / стрелки — камера\nПробел — пауза • 1 / 2 / 4 — скорость\nЛКМ — выбор • ПКМ по полю — перемещение (утром и вечером)"
 	column.add_child(help)
 	var debug_help := Label.new()
-	debug_help.text = "F6 +1ч | F7 +6ч | F8 следующая фаза | F9 +25 голода"
+	debug_help.text = "F6 +1ч | F7 +6ч | F8 следующая фаза | F9 +25 голода | F10 голод 75"
 	debug_help.add_theme_font_size_override("font_size", 14)
 	column.add_child(debug_help)
 	_update_pause()
@@ -89,6 +91,7 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		KEY_F7: game_time.debug_skip_minutes(360)
 		KEY_F8: game_time.debug_next_phase()
 		KEY_F9: _debug_add_hunger()
+		KEY_F10: _debug_set_hunger()
 		_: return
 	get_viewport().set_input_as_handled()
 
@@ -96,6 +99,11 @@ func _debug_add_hunger() -> void:
 	var selected = resident_selection.selected_resident
 	if selected != null:
 		selected.hunger += 25
+
+func _debug_set_hunger() -> void:
+	var selected = resident_selection.selected_resident
+	if selected != null:
+		selected.hunger = 75
 
 func _toggle_pause() -> void:
 	game_time.toggle_pause()
@@ -163,6 +171,7 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _create_test_kitchen() -> void:
 	kitchen_data = BuildingData.new(&"communal_kitchen_01", "Общая кухня", BuildingType.Type.FOOD)
+	buildings.append(kitchen_data)
 	# Same ID links two distinct data objects: building meaning and world place.
 	var location = WorldLocation.new(kitchen_data.id, kitchen_data.display_name)
 	var view = BuildingView2D.instantiate()

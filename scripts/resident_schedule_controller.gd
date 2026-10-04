@@ -21,7 +21,7 @@ func setup(game_time: Node, locations: RefCounted, intents: IntentController) ->
 
 func request_manual_move(world_target: Vector2) -> bool:
 	# Keep work/sleep protected even after their movement intent has completed.
-	if _phase not in ["Утро", "Вечер"]:
+	if _phase not in ["Утро", "Вечер"] or _intents.resident_data.activity == Activity.Type.EATING:
 		return false
 	return _intents.submit(ResidentIntent.new(ResidentIntent.Type.MOVE_TO, &"manual_move", world_target, MANUAL_PRIORITY))
 
@@ -32,6 +32,9 @@ func _on_phase_changed(phase: String) -> void:
 	_intents.clear_reason(&"night_home")
 	var data = _intents.resident_data
 	if data == null:
+		return
+	# Eating holds its priority after the movement intent has completed.
+	if data.activity == Activity.Type.EATING and phase != "Ночь":
 		return
 	if data.activity in [Activity.Type.WORKING, Activity.Type.SLEEPING]:
 		data.activity = Activity.Type.IDLE
@@ -54,3 +57,6 @@ func _on_intent_completed(intent: ResidentIntent) -> void:
 		data.activity = Activity.Type.WORKING
 	elif is_night and intent.reason_id == &"night_home":
 		data.activity = Activity.Type.SLEEPING
+
+func resume_current_phase() -> void:
+	_on_phase_changed(_phase)

@@ -24,6 +24,8 @@ func right_click(scene: Node, target: Vector2) -> void:
 func _run() -> void:
 	var scene = load("res://scenes/main.tscn").instantiate()
 	root.add_child(scene)
+	# Test this subsystem alone; need/schedule interaction has its own suite.
+	scene.get_node("ResidentNeedsController").free()
 	await process_frame
 	await process_frame
 	var clock = scene.game_time

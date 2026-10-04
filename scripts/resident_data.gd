@@ -12,9 +12,13 @@ var age: int
 var profession: String
 var traits: Array[TraitData] = []
 ## Higher hunger/fatigue means more hungry/tired; higher mood means happier.
+signal hunger_changed
 var hunger: int = 0:
 	set(value):
-		hunger = clampi(value, 0, 100)
+		var bounded := clampi(value, 0, 100)
+		if hunger != bounded:
+			hunger = bounded
+			hunger_changed.emit()
 var fatigue: int = 0:
 	set(value):
 		fatigue = clampi(value, 0, 100)
