@@ -27,6 +27,9 @@ func advance(real_seconds: float) -> void:
 	_fractional_minutes += real_seconds * game_minutes_per_second * speed_multiplier
 	var whole_minutes := int(floor(_fractional_minutes))
 	_fractional_minutes -= whole_minutes
+	_advance_game_minutes(whole_minutes)
+
+func _advance_game_minutes(whole_minutes: int) -> void:
 	# Emit every crossed phase, even when a long frame spans several phases.
 	for _minute in range(whole_minutes):
 		var previous_phase := get_phase()
@@ -35,6 +38,28 @@ func advance(real_seconds: float) -> void:
 		var current_phase := get_phase()
 		if current_phase != previous_phase:
 			phase_changed.emit(current_phase)
+
+# Temporary developer controls: explicit jumps work even while paused.
+func debug_skip_minutes(minutes: int) -> void:
+	if minutes <= 0:
+		return
+	if is_processing():
+		_process(0.0)
+	_advance_game_minutes(minutes)
+	_last_tick_usec = Time.get_ticks_usec()
+
+func debug_next_phase() -> void:
+	if is_processing():
+		_process(0.0)
+	var minute_of_day := total_minutes % 1440
+	var next_boundary := 1440 + 360
+	for boundary in [360, 420, 1020, 1380]:
+		if boundary > minute_of_day:
+			next_boundary = boundary
+			break
+	_fractional_minutes = 0.0
+	_advance_game_minutes(next_boundary - minute_of_day)
+	_last_tick_usec = Time.get_ticks_usec()
 
 func set_speed(multiplier: int) -> void:
 	if multiplier not in [1, 2, 4]:

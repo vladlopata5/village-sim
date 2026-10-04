@@ -24,7 +24,7 @@ func clear_completed(completed_intent: ResidentIntent) -> bool:
 	intent_changed.emit(current_intent)
 	return true
 
-func release_priority(reason_id: StringName) -> void:
-	# Keep an unfinished goal, but let new commands replace it after its rule ends.
+func clear_reason(reason_id: StringName) -> void:
+	# Cancel only the matching source; NONE also stops its visual execution.
 	if current_intent.type != ResidentIntent.Type.NONE and current_intent.reason_id == reason_id:
-		current_intent.priority = 0
+		clear_completed(current_intent)

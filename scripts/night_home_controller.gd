@@ -21,9 +21,8 @@ func request_manual_move(world_target: Vector2) -> bool:
 	return _intents.submit(ResidentIntent.new(ResidentIntent.Type.MOVE_TO, &"manual_move", world_target, MANUAL_PRIORITY))
 
 func _on_phase_changed(phase: String) -> void:
-	var was_night := is_night
 	is_night = phase == "Ночь"
 	if is_night:
 		_intents.submit(ResidentIntent.new(ResidentIntent.Type.MOVE_TO, &"night_home", home_position, HOME_PRIORITY))
-	elif was_night:
-		_intents.release_priority(&"night_home")
+	elif phase == "Утро":
+		_intents.clear_reason(&"night_home")

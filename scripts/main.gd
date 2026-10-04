@@ -63,6 +63,10 @@ func _build_hud() -> void:
 	var help := Label.new()
 	help.text = "WASD / стрелки — камера\nПробел — пауза • 1 / 2 / 4 — скорость\nЛКМ — выбор • ПКМ по полю — перемещение (ночью приоритет дома)"
 	column.add_child(help)
+	var debug_help := Label.new()
+	debug_help.text = "F6 +1ч | F7 +6ч | F8 следующая фаза"
+	debug_help.add_theme_font_size_override("font_size", 14)
+	column.add_child(debug_help)
 	_update_pause()
 
 func _unhandled_key_input(event: InputEvent) -> void:
@@ -73,6 +77,9 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		KEY_1: game_time.set_speed(1)
 		KEY_2: game_time.set_speed(2)
 		KEY_4: game_time.set_speed(4)
+		KEY_F6: game_time.debug_skip_minutes(60)
+		KEY_F7: game_time.debug_skip_minutes(360)
+		KEY_F8: game_time.debug_next_phase()
 		_: return
 	get_viewport().set_input_as_handled()
 

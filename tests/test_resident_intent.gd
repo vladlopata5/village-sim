@@ -62,10 +62,10 @@ func _run() -> void:
 	clock.total_minutes = 1379
 	clock.advance(1.0)
 	check(intents.current_intent.reason_id == &"night_home" and intents.current_intent.priority == 100, "23:00 creates home intent")
-	var home_target: Vector2 = view.target_position
+	var morning_position: Vector2 = view.global_position
 	clock.total_minutes = 1799
 	clock.advance(1.0)
-	check(view.target_position == home_target and intents.current_intent.priority == 0, "Morning releases priority without cancelling unfinished movement")
+	check(intents.current_intent.type == ResidentIntent.Type.NONE and not view.has_movement_target and view.global_position == morning_position, "Morning cancels unfinished home intent without moving")
 	check(scene.get_node("NightHomeController").request_manual_move(start), "Morning manual intent replaces unfinished home path")
 	check(intents.current_intent.reason_id == &"manual_move", "Manual intent becomes current after morning release")
 	var data = scene.resident_data
