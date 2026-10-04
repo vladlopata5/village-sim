@@ -6,6 +6,7 @@ var _selection: ResidentSelection
 @onready var age_label: Label = $Margin/Column/Age
 @onready var profession_label: Label = $Margin/Column/Profession
 @onready var id_label: Label = $Margin/Column/ID
+@onready var traits_label: Label = $Margin/Column/Traits
 @onready var close_button: Button = $Margin/Column/Close
 
 func _ready() -> void:
@@ -30,6 +31,10 @@ func _refresh() -> void:
 	age_label.text = "Возраст: %d" % data.age
 	profession_label.text = "Профессия: " + data.profession
 	id_label.text = "ID: " + data.id
+	var trait_names := PackedStringArray()
+	for trait_definition in data.traits:
+		trait_names.append("• " + trait_definition.display_name)
+	traits_label.text = "Известные черты:\n" + "\n".join(trait_names) if not trait_names.is_empty() else "Известные черты: нет"
 	show()
 
 func _close() -> void:

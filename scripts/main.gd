@@ -92,6 +92,11 @@ func _update_speed(multiplier: int) -> void:
 
 func _create_test_resident() -> void:
 	resident_data = ResidentData.new("resident_001", "Степан", 30, "Без профессии")
+	resident_data.traits.assign([
+		preload("res://assets/traits/hardworking.tres"),
+		preload("res://assets/traits/sociable.tres"),
+		preload("res://assets/traits/stubborn.tres"),
+	])
 	var view = ResidentView2D.instantiate()
 	view.setup(resident_data)
 	view.position = Vector2(120, 80)
