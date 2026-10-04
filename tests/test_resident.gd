@@ -32,7 +32,11 @@ func _run() -> void:
 	replacement.setup(data)
 	scene.get_node("World").add_child(replacement)
 	check(replacement.resident_data == data, "Replacement view reuses existing resident")
-	check(scene.get_node("World").get_child_count() == 3, "Exactly one resident representation")
+	var view_count: int = 0
+	for child in scene.get_node("World").get_children():
+		if child.get_script() == preload("res://scripts/resident_view_2d.gd"):
+			view_count += 1
+	check(view_count == 1, "Exactly one resident representation")
 	scene.queue_free()
 	print("Resident checks: ", "PASS" if failures == 0 else "FAIL (%d)" % failures)
 	quit(0 if failures == 0 else 1)

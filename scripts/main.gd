@@ -6,6 +6,7 @@ var resident_view: Node2D
 @onready var game_time = $GameTime
 @onready var field = $World/Field
 @onready var resident_selection = $ResidentSelection
+@onready var night_home = $NightHomeController
 var clock_label: Label
 var phase_label: Label
 var pause_button: Button
@@ -59,7 +60,7 @@ func _build_hud() -> void:
 		row.add_child(button)
 		speed_buttons.append(button)
 	var help := Label.new()
-	help.text = "WASD / стрелки — камера\nПробел — пауза • 1 / 2 / 4 — скорость\nЛКМ — выбор • ПКМ по полю — перемещение выбранного жителя"
+	help.text = "WASD / стрелки — камера\nПробел — пауза • 1 / 2 / 4 — скорость\nЛКМ — выбор • ПКМ по полю — перемещение (ночью приоритет дома)"
 	column.add_child(help)
 	_update_pause()
 
@@ -109,6 +110,8 @@ func _create_test_resident() -> void:
 	game_time.speed_changed.connect(view.set_time_speed)
 	resident_view = view
 	$World.add_child(view)
+	night_home.movement_requested.connect(view.move_to)
+	night_home.setup(game_time, $World/HomePoint.global_position)
 
 func _unhandled_input(event: InputEvent) -> void:
 	# UI and resident selection consume their clicks before this parent.
@@ -122,5 +125,5 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event.button_index == MOUSE_BUTTON_LEFT:
 		resident_selection.clear()
 	elif is_instance_valid(resident_view) and resident_selection.selected_resident == resident_view.resident_data:
-		resident_view.move_to(field.to_global(field_point))
+		night_home.request_manual_move(field.to_global(field_point))
 	get_viewport().set_input_as_handled()
