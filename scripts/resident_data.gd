@@ -7,6 +7,16 @@ var resident_name: String
 var age: int
 var profession: String
 var traits: Array[TraitData] = []
+## Higher hunger/fatigue means more hungry/tired; higher mood means happier.
+var hunger: int = 0:
+	set(value):
+		hunger = clampi(value, 0, 100)
+var fatigue: int = 0:
+	set(value):
+		fatigue = clampi(value, 0, 100)
+var mood: int = 50:
+	set(value):
+		mood = clampi(value, 0, 100)
 
 func _init(unique_id: String, initial_name: String, initial_age: int, initial_profession: String) -> void:
 	id = unique_id

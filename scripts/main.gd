@@ -92,6 +92,9 @@ func _update_speed(multiplier: int) -> void:
 
 func _create_test_resident() -> void:
 	resident_data = ResidentData.new("resident_001", "Степан", 30, "Без профессии")
+	resident_data.hunger = 20
+	resident_data.fatigue = 35
+	resident_data.mood = 65
 	resident_data.traits.assign([
 		preload("res://assets/traits/hardworking.tres"),
 		preload("res://assets/traits/sociable.tres"),

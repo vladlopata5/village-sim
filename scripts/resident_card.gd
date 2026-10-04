@@ -1,12 +1,17 @@
 extends PanelContainer
 ## The card reads the selection's data; it keeps no copy of resident fields.
 const ResidentSelection = preload("res://scripts/resident_selection.gd")
+const StateText = preload("res://scripts/resident_state_text.gd")
+@export var show_state_numbers: bool = true
 var _selection: ResidentSelection
 @onready var name_label: Label = $Margin/Column/Name
 @onready var age_label: Label = $Margin/Column/Age
 @onready var profession_label: Label = $Margin/Column/Profession
 @onready var id_label: Label = $Margin/Column/ID
 @onready var traits_label: Label = $Margin/Column/Traits
+@onready var hunger_label: Label = $Margin/Column/Hunger
+@onready var fatigue_label: Label = $Margin/Column/Fatigue
+@onready var mood_label: Label = $Margin/Column/Mood
 @onready var close_button: Button = $Margin/Column/Close
 
 func _ready() -> void:
@@ -31,6 +36,9 @@ func _refresh() -> void:
 	age_label.text = "Возраст: %d" % data.age
 	profession_label.text = "Профессия: " + data.profession
 	id_label.text = "ID: " + data.id
+	hunger_label.text = _state_line("Голод", data.hunger, StateText.hunger_description(data.hunger))
+	fatigue_label.text = _state_line("Усталость", data.fatigue, StateText.fatigue_description(data.fatigue))
+	mood_label.text = _state_line("Настроение", data.mood, StateText.mood_description(data.mood))
 	var trait_names := PackedStringArray()
 	for trait_definition in data.traits:
 		trait_names.append("• " + trait_definition.display_name)
@@ -40,3 +48,8 @@ func _refresh() -> void:
 func _close() -> void:
 	if _selection != null:
 		_selection.clear()
+
+func _state_line(title: String, value: int, description: String) -> String:
+	if show_state_numbers:
+		return "%s: %d/100 — %s" % [title, value, description]
+	return "%s: %s" % [title, description]
