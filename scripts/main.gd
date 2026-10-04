@@ -9,7 +9,7 @@ var resident_view: Node2D
 @onready var game_time = $GameTime
 @onready var field = $World/Field
 @onready var resident_selection = $ResidentSelection
-@onready var night_home = $NightHomeController
+@onready var resident_schedule = $ResidentScheduleController
 @onready var resident_intents = $ResidentIntentController
 var clock_label: Label
 var phase_label: Label
@@ -64,7 +64,7 @@ func _build_hud() -> void:
 		row.add_child(button)
 		speed_buttons.append(button)
 	var help := Label.new()
-	help.text = "WASD / стрелки — камера\nПробел — пауза • 1 / 2 / 4 — скорость\nЛКМ — выбор • ПКМ по полю — перемещение (ночью приоритет дома)"
+	help.text = "WASD / стрелки — камера\nПробел — пауза • 1 / 2 / 4 — скорость\nЛКМ — выбор • ПКМ по полю — перемещение (утром и вечером)"
 	column.add_child(help)
 	var debug_help := Label.new()
 	debug_help.text = "F6 +1ч | F7 +6ч | F8 следующая фаза"
@@ -109,6 +109,10 @@ func _create_test_resident() -> void:
 	$World/HomePoint.setup(home)
 	world_locations.register(home, $World/HomePoint)
 	resident_data.home_location_id = home.id
+	var work = WorldLocation.new(&"work_stepan", "Рабочее место Степана")
+	$World/WorkPoint.setup(work)
+	world_locations.register(work, $World/WorkPoint)
+	resident_data.work_location_id = work.id
 	resident_data.hunger = 20
 	resident_data.fatigue = 35
 	resident_data.mood = 65
@@ -128,7 +132,7 @@ func _create_test_resident() -> void:
 	resident_intents.setup(resident_data)
 	resident_intents.intent_changed.connect(view.apply_intent)
 	view.intent_completed.connect(resident_intents.clear_completed)
-	night_home.setup(game_time, world_locations, resident_intents)
+	resident_schedule.setup(game_time, world_locations, resident_intents)
 
 func _unhandled_input(event: InputEvent) -> void:
 	# UI and resident selection consume their clicks before this parent.
@@ -142,5 +146,5 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event.button_index == MOUSE_BUTTON_LEFT:
 		resident_selection.clear()
 	elif is_instance_valid(resident_view) and resident_selection.selected_resident == resident_view.resident_data:
-		night_home.request_manual_move(field.to_global(field_point))
+		resident_schedule.request_manual_move(field.to_global(field_point))
 	get_viewport().set_input_as_handled()

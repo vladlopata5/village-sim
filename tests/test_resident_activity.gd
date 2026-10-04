@@ -19,7 +19,7 @@ func _run() -> void:
 	var data = scene.resident_data
 	var view = scene.resident_view
 	var intents = scene.resident_intents
-	var night = scene.night_home
+	var night = scene.resident_schedule
 	var clock = scene.game_time
 	var card = scene.get_node("HUD/ResidentCard")
 	clock.set_process(false)

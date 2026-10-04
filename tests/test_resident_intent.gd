@@ -66,7 +66,7 @@ func _run() -> void:
 	clock.total_minutes = 1799
 	clock.advance(1.0)
 	check(intents.current_intent.type == ResidentIntent.Type.NONE and not view.has_movement_target and view.global_position == morning_position, "Morning cancels unfinished home intent without moving")
-	check(scene.get_node("NightHomeController").request_manual_move(start), "Morning manual intent replaces unfinished home path")
+	check(scene.get_node("ResidentScheduleController").request_manual_move(start), "Morning manual intent replaces unfinished home path")
 	check(intents.current_intent.reason_id == &"manual_move", "Manual intent becomes current after morning release")
 	var data = scene.resident_data
 	check(data.hunger == 20 and data.fatigue == 35 and data.mood == 65, "Intent mechanism leaves resident states untouched")

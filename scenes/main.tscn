@@ -8,7 +8,7 @@
 [ext_resource type="Script" path="res://scripts/resident_selection.gd" id="5"]
 [ext_resource type="PackedScene" path="res://scenes/resident_card.tscn" id="6"]
 
-[ext_resource type="Script" path="res://scripts/night_home_controller.gd" id="7"]
+[ext_resource type="Script" path="res://scripts/resident_schedule_controller.gd" id="7"]
 
 [ext_resource type="Script" path="res://scripts/resident_intent_controller.gd" id="8"]
 
@@ -38,7 +38,7 @@ script = ExtResource("5")
 
 [node name="ResidentCard" parent="HUD" instance=ExtResource("6")]
 
-[node name="NightHomeController" type="Node" parent="."]
+[node name="ResidentScheduleController" type="Node" parent="."]
 script = ExtResource("7")
 
 [node name="HomePoint" type="Marker2D" parent="World"]
@@ -59,3 +59,19 @@ text = ""
 
 [node name="ResidentIntentController" type="Node" parent="."]
 script = ExtResource("8")
+
+[node name="WorkPoint" type="Marker2D" parent="World"]
+position = Vector2(260, -160)
+script = ExtResource("9")
+
+[node name="Diamond" type="Polygon2D" parent="World/WorkPoint"]
+color = Color(0.95, 0.65, 0.3, 1)
+polygon = PackedVector2Array(0, -16, 16, 0, 0, 16, -16, 0)
+
+[node name="Caption" type="Label" parent="World/WorkPoint"]
+offset_left = -106.0
+offset_top = -46.0
+offset_right = 120.0
+offset_bottom = -20.0
+mouse_filter = 2
+text = ""

@@ -61,4 +61,5 @@ func _activity_text(activity: Activity.Type) -> String:
 	match activity:
 		Activity.Type.MOVING: return "Идёт"
 		Activity.Type.SLEEPING: return "Спит"
+		Activity.Type.WORKING: return "Работает"
 		_: return "Бездельничает"

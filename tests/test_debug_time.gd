@@ -89,7 +89,7 @@ func _run() -> void:
 	var view = scene.resident_view
 	view.set_process(false)
 	var intents = scene.get_node("ResidentIntentController")
-	var night = scene.get_node("NightHomeController")
+	var night = scene.get_node("ResidentScheduleController")
 	self.paused = true
 	key(KEY_F6)
 	check(clock.total_minutes == 420 and scene.clock_label.text == "07:00", "F6 on pause updates clock through GameTime")

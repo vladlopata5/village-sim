@@ -1,5 +1,5 @@
 extends SceneTree
-const Controller = preload("res://scripts/night_home_controller.gd")
+const Controller = preload("res://scripts/resident_schedule_controller.gd")
 const ResidentIntent = preload("res://scripts/resident_intent.gd")
 const IntentController = preload("res://scripts/resident_intent_controller.gd")
 const Clock = preload("res://scripts/game_time.gd")
@@ -60,7 +60,7 @@ func _run() -> void:
 	await process_frame
 	await process_frame
 	var clock = scene.get_node("GameTime")
-	var controller = scene.get_node("NightHomeController")
+	var controller = scene.get_node("ResidentScheduleController")
 	var intents = scene.get_node("ResidentIntentController")
 	var view = scene.get_node("World/ResidentView2D")
 	var home: Marker2D = scene.get_node("World/HomePoint")

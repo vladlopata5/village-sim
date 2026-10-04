@@ -49,7 +49,7 @@ func _run() -> void:
 	view._process(20.0)
 	check(view.global_position == home.global_position and data.activity == Activity.Type.SLEEPING, "Night arrival still sleeps")
 	clock.debug_next_phase()
-	check(data.activity == Activity.Type.IDLE and scene.night_home.request_manual_move(Vector2(100, 100)), "Morning wakes and allows manual move")
+	check(data.activity == Activity.Type.IDLE and scene.resident_schedule.request_manual_move(Vector2(100, 100)), "Morning wakes and allows manual move")
 	view._process(20.0)
 	check(data.activity == Activity.Type.IDLE, "Manual arrival remains IDLE")
 	data.home_location_id = &"missing"
@@ -57,7 +57,7 @@ func _run() -> void:
 		clock.debug_next_phase()
 	check(not view.has_movement_target and data.activity == Activity.Type.IDLE, "Missing home does not issue bogus movement or sleep")
 	clock.debug_next_phase()
-	check(not scene.night_home.is_night, "Missing home still releases night lock in morning")
+	check(not scene.resident_schedule.is_night, "Missing home still releases night lock in morning")
 	check(data.hunger == 20 and data.fatigue == 35 and data.mood == 65, "Place lookup leaves needs unchanged")
 	scene.queue_free()
 	print("World location checks: ", "PASS" if failures == 0 else "FAIL (%d)" % failures)
