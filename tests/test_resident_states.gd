@@ -23,7 +23,7 @@ func _run() -> void:
 		check(StateText.hunger_description(value) == hunger_texts[band], "Hunger boundary %d" % value)
 		check(StateText.fatigue_description(value) == fatigue_texts[band], "Fatigue boundary %d" % value)
 		check(StateText.mood_description(value) == mood_texts[band], "Mood boundary %d" % value)
-	var independent = ResidentData.new("test", "Тест", 25, "Без профессии")
+	var independent = ResidentData.new("test", "Тест", 25)
 	for property in ["hunger", "fatigue", "mood"]:
 		independent.set(property, -1)
 		check(independent.get(property) == 0, "Clamp lower bound: " + property)

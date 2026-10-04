@@ -37,7 +37,7 @@ func _run() -> void:
 	check(card.traits_label.text.contains("Тестовое название"), "Card reads the current trait_definition definition")
 	first_trait.display_name = original_name
 	# The collection is owned by the resident, not the card or another resident.
-	var other = ResidentData.new("resident_002", "Тест", 25, "Без профессии")
+	var other = ResidentData.new("resident_002", "Тест", 25)
 	check(other.traits.is_empty(), "New resident has its own empty trait_definition list")
 	other.traits.append(first_trait)
 	check(data.traits.size() == 3 and other.traits.size() == 1, "Trait lists are independent")

@@ -17,7 +17,7 @@ func _run() -> void:
 	var view = scene.get_node("World/ResidentView2D")
 	check(data is RefCounted and not data is Node, "Resident data exists outside the scene tree")
 	check(data.id == "resident_001", "Resident ID")
-	check(data.resident_name == "Степан" and data.age == 30 and data.profession == "Без профессии", "Test resident fields")
+	check(data.resident_name == "Степан" and data.age == 30 and data.profession == preload("res://scripts/resident_profession.gd").Type.PORTER, "Test resident fields")
 	check(view.resident_data == data, "View receives the original data reference")
 	check(view.is_visible_in_tree(), "Placeholder visible in the world")
 	var original_position: Vector2 = view.position

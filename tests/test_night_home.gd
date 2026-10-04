@@ -36,7 +36,7 @@ func _run() -> void:
 	var intents_without_ui = IntentController.new()
 	root.add_child(intents_without_ui)
 	intents_without_ui.intent_changed.connect(func(intent): commands.append(intent.target_position))
-	var data_without_ui = load("res://scripts/resident_data.gd").new("test", "Test", 30, "")
+	var data_without_ui = load("res://scripts/resident_data.gd").new("test", "Test", 30)
 	data_without_ui.home_location_id = &"home_stepan"
 	intents_without_ui.setup(data_without_ui)
 	var locations = load("res://scripts/world_locations_2d.gd").new()

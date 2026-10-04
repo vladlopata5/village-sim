@@ -53,7 +53,7 @@ func _run() -> void:
 	for child in scene.get_node("World").get_children():
 		if child.get_script() == preload("res://scripts/building_view_2d.gd"):
 			building_count += 1
-	check(building_count == 1, "Exactly one building representation")
+	check(building_count == 2, "Kitchen replacement and warehouse representations")
 	scene.queue_free()
 	print("Building checks: ", "PASS" if failures == 0 else "FAIL (%d)" % failures)
 	quit(0 if failures == 0 else 1)

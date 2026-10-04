@@ -19,14 +19,17 @@ func key(code: Key, echo: bool = false) -> void:
 func make_scene() -> Node:
 	var scene = load("res://scenes/main.tscn").instantiate()
 	root.add_child(scene)
+	scene.kitchen_data.resources.add(ResourceType.Type.FOOD, 3)
 	scene.game_time.set_process(false)
 	scene.resident_view.set_process(false)
 	return scene
 func _run() -> void:
 	var stock = LocalResources.new(&"test_place")
+	stock.set_capacity(ResourceType.Type.FOOD, 20)
 	check(stock.get_amount(ResourceType.Type.FOOD) == 0, "Uninitialized resource is zero")
 	check(stock.owner_id == &"test_place", "Container identifies its owner")
 	var other_container = LocalResources.new(&"other_place")
+	other_container.set_capacity(ResourceType.Type.FOOD, 30)
 	other_container.add(ResourceType.Type.FOOD, 20)
 	check(stock.get_amount(ResourceType.Type.FOOD) == 0, "Other place resources never appear in this container")
 	stock.add(ResourceType.Type.FOOD, 10)
@@ -135,6 +138,7 @@ func _run() -> void:
 	stock = scene.kitchen_data.resources
 	stock.try_take(ResourceType.Type.FOOD, 3)
 	var another_building = load("res://scripts/building_data.gd").new(&"other_test_place", "Другое место", load("res://scripts/building_type.gd").Type.FOOD)
+	another_building.resources.set_capacity(ResourceType.Type.FOOD, 30)
 	another_building.resources.add(ResourceType.Type.FOOD, 20)
 	check(another_building.resources != stock and stock.owner_id == scene.kitchen_data.id, "Every building owns a separate container")
 	data.hunger = 75

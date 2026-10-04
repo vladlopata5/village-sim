@@ -1,6 +1,7 @@
 extends PanelContainer
 ## The card reads the selection's data; it keeps no copy of resident fields.
 const ResidentSelection = preload("res://scripts/resident_selection.gd")
+const Profession = preload("res://scripts/resident_profession.gd")
 const Activity = preload("res://scripts/resident_activity.gd")
 const StateText = preload("res://scripts/resident_state_text.gd")
 @export var show_state_numbers: bool = true
@@ -37,7 +38,7 @@ func _refresh() -> void:
 	activity_label.text = "Занятие: " + _activity_text(data.activity)
 	name_label.text = "Имя: " + data.resident_name
 	age_label.text = "Возраст: %d" % data.age
-	profession_label.text = "Профессия: " + data.profession
+	profession_label.text = "Профессия: " + Profession.display_name(data.profession)
 	id_label.text = "ID: " + data.id
 	hunger_label.text = _state_line("Голод", data.hunger, StateText.hunger_description(data.hunger))
 	fatigue_label.text = _state_line("Усталость", data.fatigue, StateText.fatigue_description(data.fatigue))

@@ -9,7 +9,8 @@ var home_location_id: StringName = &""
 var id: String
 var resident_name: String
 var age: int
-var profession: String
+const Profession = preload("res://scripts/resident_profession.gd")
+var profession: Profession.Type
 var traits: Array[TraitData] = []
 ## Higher hunger/fatigue means more hungry/tired; higher mood means happier.
 signal hunger_changed
@@ -26,7 +27,7 @@ var mood: int = 50:
 	set(value):
 		mood = clampi(value, 0, 100)
 
-func _init(unique_id: String, initial_name: String, initial_age: int, initial_profession: String) -> void:
+func _init(unique_id: String, initial_name: String, initial_age: int, initial_profession: Profession.Type = Profession.Type.NONE) -> void:
 	id = unique_id
 	resident_name = initial_name
 	age = initial_age

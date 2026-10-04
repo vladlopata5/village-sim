@@ -7,6 +7,9 @@ const BuildingData = preload("res://scripts/building_data.gd")
 const BuildingType = preload("res://scripts/building_type.gd")
 const BuildingView2D = preload("res://scenes/building_view_2d.tscn")
 const ResourceType = preload("res://scripts/resource_type.gd")
+const Profession = preload("res://scripts/resident_profession.gd")
+var warehouse_food_label: Label
+var warehouse_data: BuildingData
 var food_label: Label
 var buildings: Array[BuildingData] = []
 var kitchen_data: BuildingData
@@ -27,8 +30,11 @@ func _ready() -> void:
 	$HUD/ResidentCard.bind_selection(resident_selection)
 	_create_test_resident()
 	_create_test_kitchen()
+	_create_test_warehouse()
 	$ResidentNeedsController.setup(game_time, resident_data, buildings, world_locations, resident_intents, resident_schedule)
 	_build_hud()
+	warehouse_data.resources.changed.connect(_update_warehouse_food)
+	_update_warehouse_food(ResourceType.Type.FOOD, warehouse_data.resources.get_amount(ResourceType.Type.FOOD))
 	kitchen_data.resources.changed.connect(_update_food)
 	_update_food(ResourceType.Type.FOOD, kitchen_data.resources.get_amount(ResourceType.Type.FOOD))
 	game_time.minute_changed.connect(_update_clock)
@@ -74,6 +80,8 @@ func _build_hud() -> void:
 		button.pressed.connect(game_time.set_speed.bind(multiplier))
 		row.add_child(button)
 		speed_buttons.append(button)
+	warehouse_food_label = Label.new()
+	column.add_child(warehouse_food_label)
 	food_label = Label.new()
 	column.add_child(food_label)
 	var help := Label.new()
@@ -134,7 +142,7 @@ func _update_speed(multiplier: int) -> void:
 		speed_buttons[index].set_pressed_no_signal([1, 2, 4][index] == multiplier)
 
 func _create_test_resident() -> void:
-	resident_data = ResidentData.new("resident_001", "Степан", 30, "Без профессии")
+	resident_data = ResidentData.new("resident_001", "Степан", 30, Profession.Type.PORTER)
 	var home = WorldLocation.new(&"home_stepan", "Дом Степана")
 	$World/HomePoint.setup(home)
 	world_locations.register(home, $World/HomePoint)
@@ -182,7 +190,7 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _create_test_kitchen() -> void:
 	kitchen_data = BuildingData.new(&"communal_kitchen_01", "Общая кухня", BuildingType.Type.FOOD)
-	kitchen_data.resources.add(ResourceType.Type.FOOD, 3)
+	kitchen_data.resources.set_capacity(ResourceType.Type.FOOD, 5)
 	buildings.append(kitchen_data)
 	# Same ID links two distinct data objects: building meaning and world place.
 	var location = WorldLocation.new(kitchen_data.id, kitchen_data.display_name)
@@ -190,5 +198,22 @@ func _create_test_kitchen() -> void:
 	view.name = "CommunalKitchen"
 	view.setup(kitchen_data)
 	view.position = Vector2(-280, 240)
+	$World.add_child(view)
+	world_locations.register(location, view)
+
+func _update_warehouse_food(resource: ResourceType.Type, amount: int) -> void:
+	if resource == ResourceType.Type.FOOD:
+		warehouse_food_label.text = "Еда на складе: %d" % amount
+
+func _create_test_warehouse() -> void:
+	warehouse_data = BuildingData.new(&"warehouse_01", "Склад", BuildingType.Type.STORAGE)
+	warehouse_data.resources.set_capacity(ResourceType.Type.FOOD, 20)
+	warehouse_data.resources.add(ResourceType.Type.FOOD, 10)
+	buildings.append(warehouse_data)
+	var location = WorldLocation.new(warehouse_data.id, warehouse_data.display_name)
+	var view = BuildingView2D.instantiate()
+	view.name = "Warehouse"
+	view.setup(warehouse_data)
+	view.position = Vector2(300, 240)
 	$World.add_child(view)
 	world_locations.register(location, view)

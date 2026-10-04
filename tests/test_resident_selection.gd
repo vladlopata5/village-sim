@@ -37,17 +37,17 @@ func _run() -> void:
 	check(card.visible, "Card opens on click")
 	check(card.name_label.text == "Имя: Степан", "Card name")
 	check(card.age_label.text == "Возраст: 30", "Card age")
-	check(card.profession_label.text == "Профессия: Без профессии", "Card profession")
+	check(card.profession_label.text == "Профессия: Носильщик", "Card profession")
 	check(card.id_label.text == "ID: resident_001", "Card ID")
 	# UI must read live data, rather than keeping a resident snapshot.
 	scene.resident_data.resident_name = "Проверка"
 	scene.resident_data.age = 31
-	scene.resident_data.profession = "Тест"
+	scene.resident_data.profession = preload("res://scripts/resident_profession.gd").Type.NONE
 	scene.resident_data.id = "test_id"
 	await process_frame
 	await process_frame
 	check(card.name_label.text == "Имя: Проверка" and card.age_label.text == "Возраст: 31", "Card reads current name and age")
-	check(card.profession_label.text == "Профессия: Тест" and card.id_label.text == "ID: test_id", "Card reads current profession and ID")
+	check(card.profession_label.text == "Профессия: Без профессии" and card.id_label.text == "ID: test_id", "Card reads current profession and ID")
 	await process_frame
 	click_at(card.name_label.get_global_rect().get_center())
 	check(selection.selected_resident == scene.resident_data and card.visible, "Click on card does not clear selection")
