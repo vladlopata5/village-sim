@@ -41,7 +41,7 @@ func setup(clock: Node, data: Data, buildings: Array[BuildingData], locations: R
 	_clock.minute_changed.connect(_on_minute_changed)
 	_clock.phase_changed.connect(_on_phase_changed)
 	_intents.intent_changed.connect(_on_intent_changed)
-	_intents.intent_completed.connect(_on_intent_completed)
+	_intents.intent_arrived.connect(_on_intent_arrived)
 	evaluate()
 
 func evaluate() -> void:
@@ -62,7 +62,7 @@ func evaluate() -> void:
 		var target: Variant = _locations.get_position(location.id)
 		if not target is Vector2:
 			continue
-		var candidate = Intent.new(Intent.Type.MOVE_TO, &"eat", target, EAT_PRIORITY)
+		var candidate = Intent.new(Intent.Type.MOVE_TO, &"eat", target, EAT_PRIORITY, true)
 		# Set before submit: a resident already at the kitchen arrives synchronously.
 		_food_building = building
 		_eat_intent = candidate
@@ -76,10 +76,11 @@ func _on_intent_changed(intent: Intent) -> void:
 		_meal_active = false
 		_minutes_left = 0
 
-func _on_intent_completed(intent: Intent) -> void:
-	if intent != _eat_intent or _schedule.is_night:
+func _on_intent_arrived(intent: Intent) -> void:
+	if _meal_active or intent != _eat_intent or _schedule.is_night:
 		return
-	_eat_intent = null
+	# Arrival ends movement, but this same intent stays current until eating ends.
+	intent.interruptible = false
 	_meal_active = true
 	_meal_started_at = _clock.total_minutes
 	_empty_attempt = _food_building.resources.get_amount(ResourceType.Type.FOOD) == 0
@@ -94,30 +95,30 @@ func _on_minute_changed(total_minutes: int) -> void:
 	evaluate()
 
 func _on_phase_changed(_phase: String) -> void:
-	# If home is missing, night still interrupts the meal without a false arrival.
-	if _schedule.is_night:
+	# A night goal is pending during a meal; only movement to food is cancelled.
+	if _schedule.is_night and not _meal_active:
 		_intents.clear_reason(&"eat")
 		_eat_intent = null
-		_meal_active = false
-		_minutes_left = 0
-		if _data.activity == Activity.Type.EATING:
-			_data.activity = Activity.Type.IDLE
-	else:
+	elif not _schedule.is_night:
 		evaluate()
 
 func _finish_meal() -> void:
 	# Keep the meal guard during changed emission; do not start a second meal.
 	var consumed := _food_building.resources.try_take(ResourceType.Type.FOOD, 1)
-	_meal_active = false
-	_data.activity = Activity.Type.IDLE
 	if consumed:
 		_data.hunger -= 60
-		_schedule.resume_current_phase()
 	else:
 		_waiting_for_food = true
 		var message := "%s не смог поесть: нет еды." % _data.resident_name
 		developer_message.emit(message)
 		print(message)
+	_meal_active = false
+	var completed := _eat_intent
+	_eat_intent = null
+	# Completion promotes pending atomically, before returning to the schedule.
+	_intents.clear_completed(completed)
+	if consumed and _intents.current_intent.type == Intent.Type.NONE and _data.activity == Activity.Type.IDLE:
+		_schedule.resume_current_phase()
 
 func _on_storage_changed(resource: ResourceType.Type, amount: int, building: BuildingData) -> void:
 	# A different place cannot pay for or unblock this kitchen meal.

@@ -51,7 +51,7 @@ func _run() -> void:
 		check(view.global_position == before, "Paused food route does not move")
 		paused = false
 		view._process(20.0)
-		check(data.activity == Activity.Type.EATING and intents.current_intent.type == Intent.Type.NONE and not view.has_movement_target, "Kitchen arrival starts EATING after intent completion")
+		check(data.activity == Activity.Type.EATING and intents.current_intent.reason_id == &"eat" and not intents.current_intent.interruptible and not view.has_movement_target, "Kitchen arrival retains noninterruptible EATING intent")
 		var card = scene.get_node("HUD/ResidentCard")
 		card._refresh()
 		check(card.activity_label.text == "Занятие: Ест", "Card reads EATING")
@@ -68,6 +68,44 @@ func _run() -> void:
 		check(data.activity == Activity.Type.WORKING, "After food returns to WORKING in daytime")
 		check(data.fatigue == 35 and data.mood == 65, "Food leaves fatigue/mood unchanged")
 		scene.free()
+	# Night deferral respects all speeds and pause, then expires correctly at dawn.
+	for speed in [1, 2, 4]:
+		var evening = make_scene()
+		var clock = evening.game_time
+		var view = evening.resident_view
+		var data = evening.resident_data
+		var intents = evening.resident_intents
+		clock.set_speed(speed)
+		clock.debug_skip_minutes(1019) # 22:59
+		data.hunger = 75
+		view._process(20.0)
+		var meal = intents.current_intent
+		clock.debug_next_phase()
+		check(intents.current_intent == meal and intents.pending_intent.reason_id == &"night_home", "Night retains meal and queues home at every speed")
+		paused = true
+		clock.advance(100.0)
+		check(data.activity == Activity.Type.EATING and intents.current_intent == meal, "Paused night meal stays active")
+		paused = false
+		view.intent_completed.emit(meal) # Duplicate arrival must not restart meal.
+		clock.advance(28.0 / speed)
+		check(data.activity == Activity.Type.EATING, "Night meal continues through minute 29")
+		clock.advance(1.0 / speed)
+		check(data.hunger == 17 and intents.current_intent.reason_id == &"night_home" and intents.pending_intent.type == Intent.Type.NONE, "Minute 30 completes meal and promotes home on every speed")
+		view._process(20.0)
+		check(data.activity == Activity.Type.SLEEPING, "Deferred home reaches sleeping")
+		evening.free()
+	var dawn = make_scene()
+	dawn.game_time.debug_skip_minutes(1019)
+	dawn.resident_data.hunger = 75
+	dawn.resident_view._process(20.0)
+	dawn.game_time.debug_next_phase()
+	dawn.game_time.total_minutes = 1799 # Exercise 06:00 while locked action is unfinished.
+	dawn.game_time.advance(1.0)
+	check(dawn.resident_data.activity == Activity.Type.EATING and dawn.resident_intents.pending_intent.type == Intent.Type.NONE, "06:00 removes stale home without cancelling meal")
+	dawn.game_time.debug_skip_minutes(28)
+	check(dawn.resident_data.activity == Activity.Type.IDLE and dawn.resident_intents.current_intent.type == Intent.Type.NONE, "Meal after dawn does not activate stale home")
+	check(dawn.resident_schedule.request_manual_move(Vector2.ZERO), "Manual movement available after dawn meal")
+	dawn.free()
 	# Evening meal remains IDLE, manual commands cannot interrupt eating.
 	var scene = make_scene()
 	var data = scene.resident_data
@@ -81,16 +119,16 @@ func _run() -> void:
 	check(data.activity == Activity.Type.EATING and not scene.resident_schedule.request_manual_move(Vector2.ZERO), "Evening food holds priority after arrival")
 	clock.debug_skip_minutes(30)
 	check(data.activity == Activity.Type.IDLE and not view.has_movement_target, "Evening completion does not assign automatic destination")
-	# Night interrupts an unfinished meal: no hunger reduction later.
+	# Night waits for an unfinished meal, then goes home.
 	clock.debug_skip_minutes(329)
 	data.hunger = 75
 	view._process(20.0)
 	check(data.activity == Activity.Type.EATING, "Already at kitchen starts meal immediately")
 	clock.debug_next_phase()
-	check(scene.resident_intents.current_intent.reason_id == &"night_home" and data.activity == Activity.Type.MOVING, "23:00 interrupts EATING with priority 100 home route")
-	var after_interruption: int = data.hunger
+	check(scene.resident_intents.pending_intent.reason_id == &"night_home" and data.activity == Activity.Type.EATING, "23:00 queues home while EATING continues")
+	var before_completion: int = data.hunger
 	clock.debug_skip_minutes(30)
-	check(data.hunger >= after_interruption, "Interrupted meal never applies delayed hunger reduction")
+	check(data.hunger < before_completion and scene.resident_intents.current_intent.reason_id == &"night_home", "Completed meal reduces hunger then promotes night home")
 	view._process(20.0)
 	data.hunger = 75
 	check(data.activity == Activity.Type.SLEEPING and not view.has_movement_target, "Hungry sleeper does not seek food")

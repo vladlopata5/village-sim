@@ -23,7 +23,7 @@ func request_manual_move(world_target: Vector2) -> bool:
 	# Keep work/sleep protected even after their movement intent has completed.
 	if _phase not in ["Утро", "Вечер"] or _intents.resident_data.activity == Activity.Type.EATING:
 		return false
-	return _intents.submit(ResidentIntent.new(ResidentIntent.Type.MOVE_TO, &"manual_move", world_target, MANUAL_PRIORITY))
+	return _intents.submit(ResidentIntent.new(ResidentIntent.Type.MOVE_TO, &"manual_move", world_target, MANUAL_PRIORITY, true))
 
 func _on_phase_changed(phase: String) -> void:
 	_phase = phase
@@ -33,7 +33,7 @@ func _on_phase_changed(phase: String) -> void:
 	var data = _intents.resident_data
 	if data == null:
 		return
-	# Eating holds its priority after the movement intent has completed.
+	# Eating retains its current intent until the meal is completed.
 	if data.activity == Activity.Type.EATING and phase != "Ночь":
 		return
 	if data.activity in [Activity.Type.WORKING, Activity.Type.SLEEPING]:
@@ -46,7 +46,7 @@ func _move_to_location(location_id: StringName, reason: StringName, priority: in
 	var target: Variant = _locations.get_position(location_id)
 	# An absent place must not silently become a goal at world origin.
 	if target is Vector2:
-		_intents.submit(ResidentIntent.new(ResidentIntent.Type.MOVE_TO, reason, target, priority))
+		_intents.submit(ResidentIntent.new(ResidentIntent.Type.MOVE_TO, reason, target, priority, true))
 
 func _on_intent_completed(intent: ResidentIntent) -> void:
 	# Controller only reports accepted arrivals, never cancellations/stale goals.

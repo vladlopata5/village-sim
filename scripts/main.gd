@@ -161,7 +161,7 @@ func _create_test_resident() -> void:
 	$World.add_child(view)
 	resident_intents.setup(resident_data)
 	resident_intents.intent_changed.connect(view.apply_intent)
-	view.intent_completed.connect(resident_intents.clear_completed)
+	view.intent_completed.connect(resident_intents.report_arrival)
 	resident_schedule.setup(game_time, world_locations, resident_intents)
 	$ResidentHunger.setup(game_time, resident_data)
 

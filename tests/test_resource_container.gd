@@ -111,7 +111,7 @@ func _run() -> void:
 	clock.advance(1.0)
 	check(stock.get_amount(ResourceType.Type.FOOD) == 0 and data.hunger < 70, "Full meal after mid-attempt restock succeeds")
 	scene.free()
-	# Night cancels without consuming food.
+	# Night waits for meal consumption, then activates home.
 	scene = make_scene()
 	clock = scene.game_time
 	data = scene.resident_data
@@ -123,7 +123,9 @@ func _run() -> void:
 	view._process(20.0)
 	clock.total_minutes = 1379
 	clock.advance(1.0)
-	check(scene.resident_intents.current_intent.reason_id == &"night_home" and stock.get_amount(ResourceType.Type.FOOD) == 3, "Interrupted meal consumes nothing")
+	check(scene.resident_intents.pending_intent.reason_id == &"night_home" and data.activity == Activity.Type.EATING and stock.get_amount(ResourceType.Type.FOOD) == 3, "Night waits for meal before consumption")
+	clock.advance(29.0)
+	check(stock.get_amount(ResourceType.Type.FOOD) == 2 and scene.resident_intents.current_intent.reason_id == &"night_home", "Completed meal consumes locally then starts pending home")
 	scene.free()
 	# Plenty of food somewhere else cannot satisfy an empty selected kitchen.
 	scene = make_scene()
