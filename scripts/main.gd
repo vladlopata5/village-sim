@@ -38,7 +38,8 @@ func _ready() -> void:
 	_build_hud()
 	logistics.setup(warehouse_data, kitchen_data, resident_data)
 	logistics.changed.connect(_update_logistics)
-	logistics.recalculate()
+	logistics.delivered.connect($ResidentNeedsController.evaluate)
+	logistics.bind_execution(game_time, world_locations, resident_intents, resident_schedule)
 	_update_logistics()
 	warehouse_data.resources.changed.connect(_update_warehouse_food)
 	_update_warehouse_food(ResourceType.Type.FOOD, warehouse_data.resources.get_amount(ResourceType.Type.FOOD))
@@ -238,6 +239,7 @@ func _update_logistics() -> void:
 		summary += "\nЛогистика: нет активной доставки"
 	elif job.assigned_resident_id == resident_data.id:
 		summary += "\nЛогистика: %s: доставить %d FOOD → %s" % [resident_data.resident_name, job.amount, kitchen_data.display_name]
+		summary += " • " + preload("res://scripts/haul_job.gd").State.keys()[job.state]
 	else:
 		summary += "\nЛогистика: доставка зарезервирована, ожидает носильщика"
 	logistics_label.text = summary

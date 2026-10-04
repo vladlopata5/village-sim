@@ -24,6 +24,7 @@ func right_click(scene: Node, target: Vector2) -> void:
 func _run() -> void:
 	var scene = load("res://scenes/main.tscn").instantiate()
 	root.add_child(scene)
+	scene.logistics.unbind_execution()
 	# Test this subsystem alone; need/schedule interaction has its own suite.
 	scene.get_node("ResidentNeedsController").free()
 	await process_frame
@@ -115,6 +116,9 @@ func _run() -> void:
 	var day_scene = load("res://scenes/main.tscn").instantiate()
 	day_scene.get_node("GameTime").total_minutes = 420
 	root.add_child(day_scene)
+	day_scene.logistics.unbind_execution()
+	day_scene.resident_intents.clear_reason(&"haul_source")
+	day_scene.resident_schedule.resume_current_phase()
 	check(day_scene.resident_intents.current_intent.reason_id == &"day_work", "Starting at 07:00 issues work intent")
 	day_scene.queue_free()
 	print("Schedule checks: ", "PASS" if failures == 0 else "FAIL (%d)" % failures)

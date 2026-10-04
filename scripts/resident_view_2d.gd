@@ -4,6 +4,7 @@ const ResidentData = preload("res://scripts/resident_data.gd")
 const ResidentIntent = preload("res://scripts/resident_intent.gd")
 signal selection_requested(data: ResidentData)
 signal intent_completed(intent: ResidentIntent)
+var cargo_indicator: Label
 var resident_data: ResidentData
 @export_range(1.0, 1000.0) var movement_speed: float = 120.0
 var target_position: Vector2 = Vector2.ZERO
@@ -13,6 +14,14 @@ var _active_intent: ResidentIntent
 
 func setup(data: ResidentData) -> void:
 	resident_data = data
+	if cargo_indicator == null:
+		cargo_indicator = Label.new()
+		cargo_indicator.text = "■ FOOD"
+		cargo_indicator.position = Vector2(24, -24)
+		cargo_indicator.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		add_child(cargo_indicator)
+	resident_data.inventory.changed.connect(_update_cargo)
+	_update_cargo()
 	queue_redraw()
 
 func _draw() -> void:
@@ -68,3 +77,6 @@ func _complete_intent() -> void:
 		var completed := _active_intent
 		_active_intent = null
 		intent_completed.emit(completed)
+
+func _update_cargo() -> void:
+	cargo_indicator.visible = resident_data.inventory.amount > 0

@@ -19,7 +19,12 @@ func _set_activity(activity: Activity.Type) -> void:
 
 func _activate(intent: ResidentIntent) -> void:
 	current_intent = intent
-	_set_activity(Activity.Type.IDLE if intent.type == ResidentIntent.Type.NONE else Activity.Type.MOVING)
+	var activity := Activity.Type.IDLE
+	if intent.type != ResidentIntent.Type.NONE:
+		activity = Activity.Type.MOVING
+		if resident_data != null and resident_data.inventory.amount > 0:
+			activity = Activity.Type.HAULING
+	_set_activity(activity)
 	intent_changed.emit(current_intent)
 
 func submit(intent: ResidentIntent) -> bool:
@@ -69,3 +74,10 @@ func clear_reason(reason_id: StringName) -> void:
 		var next := pending_intent
 		pending_intent = ResidentIntent.new()
 		_activate(next)
+
+func continue_intent(previous: ResidentIntent, next: ResidentIntent) -> bool:
+	# Same action, next movement stage: preserve its pending higher priority goal.
+	if previous != current_intent or previous.type == ResidentIntent.Type.NONE or next == null or next.type != ResidentIntent.Type.MOVE_TO:
+		return false
+	_activate(next)
+	return true

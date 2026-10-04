@@ -19,6 +19,7 @@ func key(code: Key, echo: bool = false) -> void:
 func make_scene() -> Node:
 	var scene = load("res://scenes/main.tscn").instantiate()
 	root.add_child(scene)
+	scene.logistics.unbind_execution()
 	scene.kitchen_data.resources.add(ResourceType.Type.FOOD, 3)
 	scene.game_time.set_process(false)
 	scene.resident_view.set_process(false)

@@ -23,6 +23,7 @@ func click_at(point: Vector2, button: MouseButton = MOUSE_BUTTON_RIGHT) -> void:
 func _run() -> void:
 	var scene = load("res://scenes/main.tscn").instantiate()
 	root.add_child(scene)
+	scene.logistics.unbind_execution()
 	await process_frame
 	await process_frame
 	var view = scene.get_node("World/ResidentView2D")

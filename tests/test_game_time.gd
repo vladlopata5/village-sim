@@ -66,6 +66,7 @@ func _run() -> void:
 	fast.queue_free()
 	var scene = load("res://scenes/main.tscn").instantiate()
 	root.add_child(scene)
+	scene.logistics.unbind_execution()
 	var scene_clock = scene.get_node("GameTime")
 	scene_clock.set_process(false)
 	check(scene.clock_label.text == "06:00", "Scene initial HUD")

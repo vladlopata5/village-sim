@@ -1,7 +1,7 @@
 extends RefCounted
 ## Delivery promise only: no coordinates, inventory or movement.
 const ResourceType = preload("res://scripts/resource_type.gd")
-enum State { RESERVED, ASSIGNED, CANCELLED, COMPLETED }
+enum State { RESERVED, ASSIGNED, GOING_TO_SOURCE, CARRYING, GOING_TO_DESTINATION, COMPLETED, CANCELLED }
 var id: StringName
 var source_location_id: StringName
 var destination_location_id: StringName
@@ -18,4 +18,4 @@ func _init(job_id: StringName, source_id: StringName, destination_id: StringName
 	amount = quantity
 
 func is_active() -> bool:
-	return state in [State.RESERVED, State.ASSIGNED]
+	return state not in [State.CANCELLED, State.COMPLETED]

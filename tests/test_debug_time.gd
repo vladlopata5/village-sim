@@ -82,6 +82,7 @@ func _run() -> void:
 
 	var scene = load("res://scenes/main.tscn").instantiate()
 	root.add_child(scene)
+	scene.logistics.unbind_execution()
 	# Test this subsystem alone; need/schedule interaction has its own suite.
 	scene.get_node("ResidentNeedsController").free()
 	await process_frame

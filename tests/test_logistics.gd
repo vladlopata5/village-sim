@@ -89,9 +89,9 @@ func _run() -> void:
 	check(scene.logistics_label.text.contains("зарезервировано на вывоз: 1") and scene.logistics_label.text.contains("зарезервировано под доставку: 1") and scene.logistics_label.text.contains("Степан: доставить 1 FOOD → Общая кухня"), "UI shows actual job and both reserves")
 	paused = false
 	scene.game_time.debug_next_phase()
-	check(scene.resident_view.target_position == scene.world_locations.get_position(&"warehouse_01"), "07:00 schedule uses warehouse position")
+	check(scene.resident_view.target_position == scene.world_locations.get_position(&"warehouse_01"), "07:00 delivery uses warehouse source")
 	scene.resident_view._process(20.0)
-	check(scene.resident_data.activity == preload("res://scripts/resident_activity.gd").Type.WORKING, "Arriving at warehouse enters WORKING")
+	check(scene.resident_data.inventory.amount == 1 and scene.logistics.current_job.state == Job.State.GOING_TO_DESTINATION, "Arriving at warehouse picks up reserved cargo")
 	scene.free()
 	print("Logistics checks: ", "PASS" if failures == 0 else "FAIL (%d)" % failures)
 	quit(0 if failures == 0 else 1)
