@@ -4,6 +4,7 @@ var activity: ResidentActivity.Type = ResidentActivity.Type.IDLE
 const TraitData = preload("res://scripts/trait_data.gd")
 ## The resident exists as data, independently of any scene or renderer.
 ## The creator assigns an ID unique within the settlement.
+var home_location_id: StringName = &""
 var id: String
 var resident_name: String
 var age: int

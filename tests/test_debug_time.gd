@@ -118,7 +118,7 @@ func _run() -> void:
 	check(view.global_position == before, "Debug night on pause does not move resident")
 	self.paused = false
 	view._process(0.5)
-	check(view.global_position.distance_to(night.home_position) < before.distance_to(night.home_position), "Resident moves toward home after resume")
+	check(view.global_position.distance_to(scene.world_locations.get_position(scene.resident_data.home_location_id)) < before.distance_to(scene.world_locations.get_position(scene.resident_data.home_location_id)), "Resident moves toward home after resume")
 	self.paused = true
 	before = view.global_position
 	key(KEY_F8)

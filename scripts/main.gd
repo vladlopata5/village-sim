@@ -1,6 +1,9 @@
 extends Node
 const ResidentData = preload("res://scripts/resident_data.gd")
 const ResidentView2D = preload("res://scenes/resident_view_2d.tscn")
+const WorldLocation = preload("res://scripts/world_location.gd")
+const WorldLocations2D = preload("res://scripts/world_locations_2d.gd")
+var world_locations = WorldLocations2D.new()
 var resident_data: ResidentData
 var resident_view: Node2D
 @onready var game_time = $GameTime
@@ -102,6 +105,10 @@ func _update_speed(multiplier: int) -> void:
 
 func _create_test_resident() -> void:
 	resident_data = ResidentData.new("resident_001", "Степан", 30, "Без профессии")
+	var home = WorldLocation.new(&"home_stepan", "Дом Степана")
+	$World/HomePoint.setup(home)
+	world_locations.register(home, $World/HomePoint)
+	resident_data.home_location_id = home.id
 	resident_data.hunger = 20
 	resident_data.fatigue = 35
 	resident_data.mood = 65
@@ -121,7 +128,7 @@ func _create_test_resident() -> void:
 	resident_intents.setup(resident_data)
 	resident_intents.intent_changed.connect(view.apply_intent)
 	view.intent_completed.connect(resident_intents.clear_completed)
-	night_home.setup(game_time, $World/HomePoint.global_position, resident_intents)
+	night_home.setup(game_time, world_locations, resident_intents)
 
 func _unhandled_input(event: InputEvent) -> void:
 	# UI and resident selection consume their clicks before this parent.

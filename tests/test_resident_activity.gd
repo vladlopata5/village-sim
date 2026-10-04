@@ -63,7 +63,7 @@ func _run() -> void:
 		check(night.request_manual_move(goal), "Morning allows manual command")
 		view._process(10.0)
 		# Already home at next night: synchronous arrival must still become sleep.
-		night.request_manual_move(night.home_position)
+		night.request_manual_move(scene.world_locations.get_position(data.home_location_id))
 		view._process(20.0)
 		while clock.get_phase() != "Ночь":
 			clock.debug_next_phase()

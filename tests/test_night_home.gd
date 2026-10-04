@@ -36,7 +36,15 @@ func _run() -> void:
 	var intents_without_ui = IntentController.new()
 	root.add_child(intents_without_ui)
 	intents_without_ui.intent_changed.connect(func(intent): commands.append(intent.target_position))
-	controller_without_ui.setup(clock_without_ui, Vector2(100, 200), intents_without_ui)
+	var data_without_ui = load("res://scripts/resident_data.gd").new("test", "Test", 30, "")
+	data_without_ui.home_location_id = &"home_stepan"
+	intents_without_ui.setup(data_without_ui)
+	var locations = load("res://scripts/world_locations_2d.gd").new()
+	var marker := Marker2D.new()
+	root.add_child(marker)
+	marker.position = Vector2(100, 200)
+	locations.register(load("res://scripts/world_location.gd").new(&"home_stepan", "Дом Степана"), marker)
+	controller_without_ui.setup(clock_without_ui, locations, intents_without_ui)
 	check(commands == [Vector2(100, 200)], "Night setup issues home command without UI")
 	check(not controller_without_ui.request_manual_move(Vector2.ZERO), "Night controller rejects manual movement")
 	clock_without_ui.advance(420.0)
@@ -45,6 +53,7 @@ func _run() -> void:
 	clock_without_ui.queue_free()
 	controller_without_ui.queue_free()
 	intents_without_ui.queue_free()
+	marker.queue_free()
 
 	var scene = load("res://scenes/main.tscn").instantiate()
 	root.add_child(scene)
@@ -60,7 +69,7 @@ func _run() -> void:
 	clock.set_process(false)
 	view.set_process(false)
 	var start: Vector2 = view.global_position
-	check(controller.home_position == home.global_position, "Controller uses marker coordinates")
+	check(scene.world_locations.get_position(scene.resident_data.home_location_id) == home.global_position, "Controller uses marker coordinates")
 	for multiplier in [1, 2, 4]:
 		# Re-enter a non-night phase through real clock transitions.
 		if controller.is_night:
