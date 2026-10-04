@@ -1,6 +1,7 @@
 extends PanelContainer
 ## The card reads the selection's data; it keeps no copy of resident fields.
 const ResidentSelection = preload("res://scripts/resident_selection.gd")
+const Activity = preload("res://scripts/resident_activity.gd")
 const StateText = preload("res://scripts/resident_state_text.gd")
 @export var show_state_numbers: bool = true
 var _selection: ResidentSelection
@@ -12,6 +13,7 @@ var _selection: ResidentSelection
 @onready var hunger_label: Label = $Margin/Column/Hunger
 @onready var fatigue_label: Label = $Margin/Column/Fatigue
 @onready var mood_label: Label = $Margin/Column/Mood
+@onready var activity_label: Label = $Margin/Column/Activity
 @onready var close_button: Button = $Margin/Column/Close
 
 func _ready() -> void:
@@ -32,6 +34,7 @@ func _refresh() -> void:
 		hide()
 		return
 	var data = _selection.selected_resident
+	activity_label.text = "Занятие: " + _activity_text(data.activity)
 	name_label.text = "Имя: " + data.resident_name
 	age_label.text = "Возраст: %d" % data.age
 	profession_label.text = "Профессия: " + data.profession
@@ -53,3 +56,9 @@ func _state_line(title: String, value: int, description: String) -> String:
 	if show_state_numbers:
 		return "%s: %d/100 — %s" % [title, value, description]
 	return "%s: %s" % [title, description]
+
+func _activity_text(activity: Activity.Type) -> String:
+	match activity:
+		Activity.Type.MOVING: return "Идёт"
+		Activity.Type.SLEEPING: return "Спит"
+		_: return "Бездельничает"

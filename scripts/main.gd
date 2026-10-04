@@ -118,6 +118,7 @@ func _create_test_resident() -> void:
 	game_time.speed_changed.connect(view.set_time_speed)
 	resident_view = view
 	$World.add_child(view)
+	resident_intents.setup(resident_data)
 	resident_intents.intent_changed.connect(view.apply_intent)
 	view.intent_completed.connect(resident_intents.clear_completed)
 	night_home.setup(game_time, $World/HomePoint.global_position, resident_intents)

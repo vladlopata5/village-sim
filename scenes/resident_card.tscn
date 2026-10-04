@@ -56,6 +56,9 @@ autowrap_mode = 3
 layout_mode = 2
 autowrap_mode = 3
 
+[node name="Activity" type="Label" parent="Margin/Column"]
+layout_mode = 2
+
 [node name="Traits" type="Label" parent="Margin/Column"]
 layout_mode = 2
 autowrap_mode = 3

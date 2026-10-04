@@ -2,6 +2,7 @@ extends Node
 ## Fixed decision source: creates intents, never commands a visual object.
 const ResidentIntent = preload("res://scripts/resident_intent.gd")
 const IntentController = preload("res://scripts/resident_intent_controller.gd")
+const Activity = preload("res://scripts/resident_activity.gd")
 const HOME_PRIORITY := 100
 const MANUAL_PRIORITY := 10
 var home_position: Vector2 = Vector2.ZERO
@@ -11,6 +12,7 @@ var _intents: IntentController
 func setup(game_time: Node, home_point: Vector2, intents: IntentController) -> void:
 	home_position = home_point
 	_intents = intents
+	_intents.intent_completed.connect(_on_intent_completed)
 	game_time.phase_changed.connect(_on_phase_changed)
 	_on_phase_changed(game_time.get_phase())
 
@@ -26,3 +28,10 @@ func _on_phase_changed(phase: String) -> void:
 		_intents.submit(ResidentIntent.new(ResidentIntent.Type.MOVE_TO, &"night_home", home_position, HOME_PRIORITY))
 	elif phase == "Утро":
 		_intents.clear_reason(&"night_home")
+		if _intents.resident_data != null and _intents.resident_data.activity == Activity.Type.SLEEPING:
+			_intents.resident_data.activity = Activity.Type.IDLE
+
+func _on_intent_completed(intent: ResidentIntent) -> void:
+	# Only an accepted arrival, never cancellation or a stale view notification.
+	if is_night and intent.reason_id == &"night_home" and _intents.resident_data != null:
+		_intents.resident_data.activity = Activity.Type.SLEEPING

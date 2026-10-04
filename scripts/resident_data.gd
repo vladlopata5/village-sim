@@ -1,4 +1,6 @@
 extends RefCounted
+const ResidentActivity = preload("res://scripts/resident_activity.gd")
+var activity: ResidentActivity.Type = ResidentActivity.Type.IDLE
 const TraitData = preload("res://scripts/trait_data.gd")
 ## The resident exists as data, independently of any scene or renderer.
 ## The creator assigns an ID unique within the settlement.
