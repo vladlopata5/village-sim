@@ -3,6 +3,10 @@ extends Node2D
 const ResidentData = preload("res://scripts/resident_data.gd")
 signal selection_requested(data: ResidentData)
 var resident_data: ResidentData
+@export_range(1.0, 1000.0) var movement_speed: float = 120.0
+var target_position: Vector2 = Vector2.ZERO
+var has_movement_target: bool = false
+var _time_speed: int = 1
 
 func setup(data: ResidentData) -> void:
 	resident_data = data
@@ -25,3 +29,21 @@ func _unhandled_input(event: InputEvent) -> void:
 		if local_point.length() <= 19.0 or local_point.distance_to(Vector2(0, -22)) <= 10.0:
 			selection_requested.emit(resident_data)
 			get_viewport().set_input_as_handled()
+
+## Temporary command API, independent of mouse input or resident traits.
+func move_to(world_target: Vector2) -> void:
+	target_position = world_target
+	has_movement_target = not global_position.is_equal_approx(target_position)
+
+func set_time_speed(multiplier: int) -> void:
+	if multiplier in [1, 2, 4]:
+		_time_speed = multiplier
+
+func _process(delta: float) -> void:
+	# This view processes input on pause, but never advances paused movement.
+	if get_tree().paused or not has_movement_target or delta <= 0.0:
+		return
+	global_position = global_position.move_toward(target_position, movement_speed * _time_speed * delta)
+	if global_position.is_equal_approx(target_position):
+		global_position = target_position
+		has_movement_target = false

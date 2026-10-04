@@ -2,6 +2,7 @@ extends Node
 const ResidentData = preload("res://scripts/resident_data.gd")
 const ResidentView2D = preload("res://scenes/resident_view_2d.tscn")
 var resident_data: ResidentData
+var resident_view: Node2D
 @onready var game_time = $GameTime
 @onready var field = $World/Field
 @onready var resident_selection = $ResidentSelection
@@ -58,7 +59,7 @@ func _build_hud() -> void:
 		row.add_child(button)
 		speed_buttons.append(button)
 	var help := Label.new()
-	help.text = "WASD / стрелки — камера\nПробел — пауза • 1 / 2 / 4 — скорость"
+	help.text = "WASD / стрелки — камера\nПробел — пауза • 1 / 2 / 4 — скорость\nЛКМ — выбор • ПКМ по полю — перемещение выбранного жителя"
 	column.add_child(help)
 	_update_pause()
 
@@ -104,13 +105,22 @@ func _create_test_resident() -> void:
 	view.setup(resident_data)
 	view.position = Vector2(120, 80)
 	view.selection_requested.connect(resident_selection.select)
+	view.set_time_speed(game_time.speed_multiplier)
+	game_time.speed_changed.connect(view.set_time_speed)
+	resident_view = view
 	$World.add_child(view)
 
 func _unhandled_input(event: InputEvent) -> void:
-	# A resident consumes its click before this parent receives it.
-	# UI also consumes clicks, so only empty field clicks reach this handler.
-	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-		var field_point: Vector2 = field.get_global_transform_with_canvas().affine_inverse() * event.position
-		if field.FIELD.has_point(field_point):
-			resident_selection.clear()
-			get_viewport().set_input_as_handled()
+	# UI and resident selection consume their clicks before this parent.
+	if not event is InputEventMouseButton or not event.pressed:
+		return
+	if event.button_index not in [MOUSE_BUTTON_LEFT, MOUSE_BUTTON_RIGHT]:
+		return
+	var field_point: Vector2 = field.get_global_transform_with_canvas().affine_inverse() * event.position
+	if not field.FIELD.has_point(field_point):
+		return
+	if event.button_index == MOUSE_BUTTON_LEFT:
+		resident_selection.clear()
+	elif is_instance_valid(resident_view) and resident_selection.selected_resident == resident_view.resident_data:
+		resident_view.move_to(field.to_global(field_point))
+	get_viewport().set_input_as_handled()
