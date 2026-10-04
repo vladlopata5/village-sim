@@ -7,6 +7,7 @@ var resident_view: Node2D
 @onready var field = $World/Field
 @onready var resident_selection = $ResidentSelection
 @onready var night_home = $NightHomeController
+@onready var resident_intents = $ResidentIntentController
 var clock_label: Label
 var phase_label: Label
 var pause_button: Button
@@ -110,8 +111,9 @@ func _create_test_resident() -> void:
 	game_time.speed_changed.connect(view.set_time_speed)
 	resident_view = view
 	$World.add_child(view)
-	night_home.movement_requested.connect(view.move_to)
-	night_home.setup(game_time, $World/HomePoint.global_position)
+	resident_intents.intent_changed.connect(view.apply_intent)
+	view.intent_completed.connect(resident_intents.clear_completed)
+	night_home.setup(game_time, $World/HomePoint.global_position, resident_intents)
 
 func _unhandled_input(event: InputEvent) -> void:
 	# UI and resident selection consume their clicks before this parent.

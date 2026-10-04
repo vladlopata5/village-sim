@@ -1,5 +1,7 @@
 extends SceneTree
 const Controller = preload("res://scripts/night_home_controller.gd")
+const ResidentIntent = preload("res://scripts/resident_intent.gd")
+const IntentController = preload("res://scripts/resident_intent_controller.gd")
 const Clock = preload("res://scripts/game_time.gd")
 var failures: int = 0
 
@@ -31,8 +33,10 @@ func _run() -> void:
 	var controller_without_ui = Controller.new()
 	root.add_child(controller_without_ui)
 	var commands: Array[Vector2] = []
-	controller_without_ui.movement_requested.connect(func(point: Vector2): commands.append(point))
-	controller_without_ui.setup(clock_without_ui, Vector2(100, 200))
+	var intents_without_ui = IntentController.new()
+	root.add_child(intents_without_ui)
+	intents_without_ui.intent_changed.connect(func(intent): commands.append(intent.target_position))
+	controller_without_ui.setup(clock_without_ui, Vector2(100, 200), intents_without_ui)
 	check(commands == [Vector2(100, 200)], "Night setup issues home command without UI")
 	check(not controller_without_ui.request_manual_move(Vector2.ZERO), "Night controller rejects manual movement")
 	clock_without_ui.advance(420.0)
@@ -40,6 +44,7 @@ func _run() -> void:
 	check(controller_without_ui.request_manual_move(Vector2.ZERO), "Morning controller allows manual movement")
 	clock_without_ui.queue_free()
 	controller_without_ui.queue_free()
+	intents_without_ui.queue_free()
 
 	var scene = load("res://scenes/main.tscn").instantiate()
 	root.add_child(scene)
@@ -47,6 +52,7 @@ func _run() -> void:
 	await process_frame
 	var clock = scene.get_node("GameTime")
 	var controller = scene.get_node("NightHomeController")
+	var intents = scene.get_node("ResidentIntentController")
 	var view = scene.get_node("World/ResidentView2D")
 	var home: Marker2D = scene.get_node("World/HomePoint")
 	var field: Node2D = scene.get_node("World/Field")
@@ -80,6 +86,7 @@ func _run() -> void:
 		check(view.target_position == home.global_position, "Night right click cannot override home")
 		view._process(30.0)
 		check(view.global_position == home.global_position and not view.has_movement_target, "Stops at home")
+		check(intents.current_intent.type == ResidentIntent.Type.NONE, "Home arrival clears intent")
 		right_click(field.get_global_transform_with_canvas() * manual_target)
 		check(view.global_position == home.global_position and not view.has_movement_target, "Night click cannot send resident away after arrival")
 		clock.total_minutes = 1439

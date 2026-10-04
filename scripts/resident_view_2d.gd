@@ -1,12 +1,15 @@
 extends Node2D
 ## Temporary representation. This reference points to data owned outside the view.
 const ResidentData = preload("res://scripts/resident_data.gd")
+const ResidentIntent = preload("res://scripts/resident_intent.gd")
 signal selection_requested(data: ResidentData)
+signal intent_completed(intent: ResidentIntent)
 var resident_data: ResidentData
 @export_range(1.0, 1000.0) var movement_speed: float = 120.0
 var target_position: Vector2 = Vector2.ZERO
 var has_movement_target: bool = false
 var _time_speed: int = 1
+var _active_intent: ResidentIntent
 
 func setup(data: ResidentData) -> void:
 	resident_data = data
@@ -32,6 +35,7 @@ func _unhandled_input(event: InputEvent) -> void:
 
 ## Temporary command API, independent of mouse input or resident traits.
 func move_to(world_target: Vector2) -> void:
+	_active_intent = null
 	target_position = world_target
 	has_movement_target = not global_position.is_equal_approx(target_position)
 
@@ -47,3 +51,20 @@ func _process(delta: float) -> void:
 	if global_position.is_equal_approx(target_position):
 		global_position = target_position
 		has_movement_target = false
+		_complete_intent()
+
+func apply_intent(intent: ResidentIntent) -> void:
+	if intent.type == ResidentIntent.Type.NONE:
+		_active_intent = null
+		has_movement_target = false
+		return
+	move_to(intent.target_position)
+	_active_intent = intent
+	if not has_movement_target:
+		_complete_intent()
+
+func _complete_intent() -> void:
+	if _active_intent != null:
+		var completed := _active_intent
+		_active_intent = null
+		intent_completed.emit(completed)

@@ -1,4 +1,4 @@
-[gd_scene load_steps=8 format=3]
+[gd_scene load_steps=9 format=3]
 
 [ext_resource type="Script" path="res://scripts/main.gd" id="1"]
 [ext_resource type="Script" path="res://scripts/game_time.gd" id="2"]
@@ -9,6 +9,8 @@
 [ext_resource type="PackedScene" path="res://scenes/resident_card.tscn" id="6"]
 
 [ext_resource type="Script" path="res://scripts/night_home_controller.gd" id="7"]
+
+[ext_resource type="Script" path="res://scripts/resident_intent_controller.gd" id="8"]
 
 [node name="Main" type="Node"]
 process_mode = 3
@@ -51,3 +53,6 @@ offset_right = 70.0
 offset_bottom = -20.0
 mouse_filter = 2
 text = "Дом Степана"
+
+[node name="ResidentIntentController" type="Node" parent="."]
+script = ExtResource("8")
