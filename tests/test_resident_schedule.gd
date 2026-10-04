@@ -34,13 +34,13 @@ func _run() -> void:
 	var schedule = scene.resident_schedule
 	var intents = scene.resident_intents
 	var home = scene.get_node("World/HomePoint")
-	var work = scene.get_node("World/WorkPoint")
+	var work = scene.get_node("World/Warehouse")
 	var card = scene.get_node("HUD/ResidentCard")
 	clock.set_process(false)
 	view.set_process(false)
 	scene.resident_selection.select(data)
 	check(not scene.has_node("NightHomeController"), "Old schedule controller removed")
-	check(data.work_location_id == &"work_stepan" and work.location.display_name == "Рабочее место Степана", "Work marker represents resident work location")
+	check(data.work_location_id == &"warehouse_01" and work.building_data.display_name == "Склад", "Warehouse is resident work location")
 	for speed in [1, 2, 4]:
 		clock.set_speed(speed)
 		check(clock.get_clock_text() == "06:00" and data.activity == Activity.Type.IDLE, "Cycle starts morning IDLE")

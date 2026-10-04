@@ -8,6 +8,9 @@ const BuildingType = preload("res://scripts/building_type.gd")
 const BuildingView2D = preload("res://scenes/building_view_2d.tscn")
 const ResourceType = preload("res://scripts/resource_type.gd")
 const Profession = preload("res://scripts/resident_profession.gd")
+const LogisticsController = preload("res://scripts/logistics_controller.gd")
+var logistics = LogisticsController.new()
+var logistics_label: Label
 var warehouse_food_label: Label
 var warehouse_data: BuildingData
 var food_label: Label
@@ -28,11 +31,15 @@ var speed_buttons: Array[Button] = []
 
 func _ready() -> void:
 	$HUD/ResidentCard.bind_selection(resident_selection)
-	_create_test_resident()
 	_create_test_kitchen()
 	_create_test_warehouse()
+	_create_test_resident()
 	$ResidentNeedsController.setup(game_time, resident_data, buildings, world_locations, resident_intents, resident_schedule)
 	_build_hud()
+	logistics.setup(warehouse_data, kitchen_data, resident_data)
+	logistics.changed.connect(_update_logistics)
+	logistics.recalculate()
+	_update_logistics()
 	warehouse_data.resources.changed.connect(_update_warehouse_food)
 	_update_warehouse_food(ResourceType.Type.FOOD, warehouse_data.resources.get_amount(ResourceType.Type.FOOD))
 	kitchen_data.resources.changed.connect(_update_food)
@@ -84,11 +91,13 @@ func _build_hud() -> void:
 	column.add_child(warehouse_food_label)
 	food_label = Label.new()
 	column.add_child(food_label)
+	logistics_label = Label.new()
+	column.add_child(logistics_label)
 	var help := Label.new()
 	help.text = "WASD / стрелки — камера\nПробел — пауза • 1 / 2 / 4 — скорость\nЛКМ — выбор • ПКМ по полю — перемещение (утром и вечером)"
 	column.add_child(help)
 	var debug_help := Label.new()
-	debug_help.text = "F6 +1ч | F7 +6ч | F8 следующая фаза | F9 +25 голода | F10 голод 75 | F11 +1 еды в кухню"
+	debug_help.text = "F6 +1ч | F7 +6ч | F8 следующая фаза | F9 +25 голода | F10 голод 75 | F11 +1 еды в кухню\nF12 пересчитать логистику"
 	debug_help.add_theme_font_size_override("font_size", 14)
 	column.add_child(debug_help)
 	_update_pause()
@@ -107,6 +116,7 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		KEY_F9: _debug_add_hunger()
 		KEY_F10: _debug_set_hunger()
 		KEY_F11: kitchen_data.resources.add(ResourceType.Type.FOOD, 1)
+		KEY_F12: logistics.recalculate()
 		_: return
 	get_viewport().set_input_as_handled()
 
@@ -123,6 +133,7 @@ func _debug_set_hunger() -> void:
 func _update_food(resource: ResourceType.Type, amount: int) -> void:
 	if resource == ResourceType.Type.FOOD:
 		food_label.text = "Еда в кухне: %d" % amount
+		_update_logistics()
 
 func _toggle_pause() -> void:
 	game_time.toggle_pause()
@@ -147,10 +158,7 @@ func _create_test_resident() -> void:
 	$World/HomePoint.setup(home)
 	world_locations.register(home, $World/HomePoint)
 	resident_data.home_location_id = home.id
-	var work = WorldLocation.new(&"work_stepan", "Рабочее место Степана")
-	$World/WorkPoint.setup(work)
-	world_locations.register(work, $World/WorkPoint)
-	resident_data.work_location_id = work.id
+	resident_data.work_location_id = warehouse_data.id
 	resident_data.hunger = 20
 	resident_data.fatigue = 35
 	resident_data.mood = 65
@@ -204,6 +212,7 @@ func _create_test_kitchen() -> void:
 func _update_warehouse_food(resource: ResourceType.Type, amount: int) -> void:
 	if resource == ResourceType.Type.FOOD:
 		warehouse_food_label.text = "Еда на складе: %d" % amount
+		_update_logistics()
 
 func _create_test_warehouse() -> void:
 	warehouse_data = BuildingData.new(&"warehouse_01", "Склад", BuildingType.Type.STORAGE)
@@ -217,3 +226,18 @@ func _create_test_warehouse() -> void:
 	view.position = Vector2(300, 240)
 	$World.add_child(view)
 	world_locations.register(location, view)
+
+func _update_logistics() -> void:
+	if logistics_label == null:
+		return
+	var source = warehouse_data.resources
+	var destination = kitchen_data.resources
+	var summary := "Склад: %d/%d FOOD • зарезервировано на вывоз: %d\nКухня: %d/%d FOOD • зарезервировано под доставку: %d" % [source.get_amount(ResourceType.Type.FOOD), source.get_capacity(ResourceType.Type.FOOD), source.get_reserved_out(ResourceType.Type.FOOD), destination.get_amount(ResourceType.Type.FOOD), destination.get_capacity(ResourceType.Type.FOOD), destination.get_reserved_in(ResourceType.Type.FOOD)]
+	var job = logistics.current_job
+	if job == null or not job.is_active():
+		summary += "\nЛогистика: нет активной доставки"
+	elif job.assigned_resident_id == resident_data.id:
+		summary += "\nЛогистика: %s: доставить %d FOOD → %s" % [resident_data.resident_name, job.amount, kitchen_data.display_name]
+	else:
+		summary += "\nЛогистика: доставка зарезервирована, ожидает носильщика"
+	logistics_label.text = summary
