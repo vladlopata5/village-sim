@@ -3,6 +3,8 @@ extends Node
 const ResidentIntent = preload("res://scripts/resident_intent.gd")
 const ResidentData = preload("res://scripts/resident_data.gd")
 const Activity = preload("res://scripts/resident_activity.gd")
+signal forced_interrupt(previous: ResidentIntent)
+var _forced_intent: ResidentIntent
 signal intent_changed(intent: ResidentIntent)
 signal intent_arrived(intent: ResidentIntent)
 signal intent_completed(intent: ResidentIntent)
@@ -28,7 +30,7 @@ func _activate(intent: ResidentIntent) -> void:
 	intent_changed.emit(current_intent)
 
 func submit(intent: ResidentIntent) -> bool:
-	if intent == null or intent.type != ResidentIntent.Type.MOVE_TO:
+	if _forced_intent != null or intent == null or intent.type != ResidentIntent.Type.MOVE_TO:
 		return false
 	if current_intent.type == ResidentIntent.Type.NONE:
 		_activate(intent)
@@ -60,6 +62,8 @@ func report_arrival(arrived_intent: ResidentIntent) -> bool:
 func clear_completed(completed_intent: ResidentIntent) -> bool:
 	if current_intent.type == ResidentIntent.Type.NONE or completed_intent != current_intent:
 		return false
+	if completed_intent == _forced_intent:
+		_forced_intent = null
 	var next := pending_intent
 	pending_intent = ResidentIntent.new()
 	_activate(next)
@@ -70,7 +74,7 @@ func clear_reason(reason_id: StringName) -> void:
 	# Expired phase goals must also be removed from the pending slot.
 	if pending_intent.reason_id == reason_id:
 		pending_intent = ResidentIntent.new()
-	if current_intent.type != ResidentIntent.Type.NONE and current_intent.reason_id == reason_id and current_intent.interruptible:
+	if current_intent.type != ResidentIntent.Type.NONE and current_intent.reason_id == reason_id and current_intent.interruptible and current_intent != _forced_intent:
 		var next := pending_intent
 		pending_intent = ResidentIntent.new()
 		_activate(next)
@@ -79,5 +83,19 @@ func continue_intent(previous: ResidentIntent, next: ResidentIntent) -> bool:
 	# Same action, next movement stage: preserve its pending higher priority goal.
 	if previous != current_intent or previous.type == ResidentIntent.Type.NONE or next == null or next.type != ResidentIntent.Type.MOVE_TO:
 		return false
+	if previous == _forced_intent:
+		_forced_intent = next
 	_activate(next)
+	return true
+
+func force_set_intent(intent: ResidentIntent) -> bool:
+	if intent == null:
+		return false
+	var previous := current_intent
+	pending_intent = ResidentIntent.new()
+	_forced_intent = intent # Reject ordinary submissions during cleanup too.
+	forced_interrupt.emit(previous)
+	_activate(intent)
+	if intent.type == ResidentIntent.Type.NONE:
+		_forced_intent = null
 	return true

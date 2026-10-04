@@ -6,6 +6,7 @@ const Activity = preload("res://scripts/resident_activity.gd")
 const HOME_PRIORITY := 100
 const WORK_PRIORITY := 50
 const MANUAL_PRIORITY := 10
+var before_work: Callable
 var _locations: RefCounted
 var _phase: String = ""
 var is_night: bool:
@@ -43,6 +44,8 @@ func _on_phase_changed(phase: String) -> void:
 		"Ночь": _move_to_location(data.home_location_id, &"night_home", HOME_PRIORITY)
 
 func _move_to_location(location_id: StringName, reason: StringName, priority: int) -> void:
+	if reason == &"day_work" and before_work.is_valid() and not before_work.call():
+		return
 	var target: Variant = _locations.get_position(location_id)
 	# An absent place must not silently become a goal at world origin.
 	if target is Vector2:

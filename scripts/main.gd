@@ -9,6 +9,10 @@ const BuildingView2D = preload("res://scenes/building_view_2d.tscn")
 const ResourceType = preload("res://scripts/resource_type.gd")
 const Profession = preload("res://scripts/resident_profession.gd")
 const LogisticsController = preload("res://scripts/logistics_controller.gd")
+const GroundResources = preload("res://scripts/ground_resources.gd")
+const GroundView = preload("res://scripts/ground_resource_view_2d.gd")
+var ground_resources = GroundResources.new()
+var _ground_views: Dictionary = {}
 var logistics = LogisticsController.new()
 var logistics_label: Label
 var warehouse_food_label: Label
@@ -36,6 +40,12 @@ func _ready() -> void:
 	_create_test_resident()
 	$ResidentNeedsController.setup(game_time, resident_data, buildings, world_locations, resident_intents, resident_schedule)
 	_build_hud()
+	add_child(ground_resources)
+	ground_resources.setup(game_time)
+	ground_resources.added.connect(_show_ground_resource)
+	ground_resources.removed.connect(_remove_ground_resource)
+	logistics.cargo_dropped.connect(_drop_cargo)
+	logistics.before_work = $ResidentNeedsController.prepare_for_work
 	logistics.setup(warehouse_data, kitchen_data, resident_data)
 	logistics.changed.connect(_update_logistics)
 	logistics.delivered.connect($ResidentNeedsController.evaluate)
@@ -98,7 +108,7 @@ func _build_hud() -> void:
 	help.text = "WASD / стрелки — камера\nПробел — пауза • 1 / 2 / 4 — скорость\nЛКМ — выбор • ПКМ по полю — перемещение (утром и вечером)"
 	column.add_child(help)
 	var debug_help := Label.new()
-	debug_help.text = "F6 +1ч | F7 +6ч | F8 следующая фаза | F9 +25 голода | F10 голод 75 | F11 +1 еды в кухню\nF12 пересчитать логистику"
+	debug_help.text = "F6 +1ч | F7 +6ч | F8 следующая фаза | F9 +25 голода | F10 голод 75 (Shift+F10: 100) | F11 +1 еды в кухню\nF12 пересчитать логистику"
 	debug_help.add_theme_font_size_override("font_size", 14)
 	column.add_child(debug_help)
 	_update_pause()
@@ -115,7 +125,7 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		KEY_F7: game_time.debug_skip_minutes(360)
 		KEY_F8: game_time.debug_next_phase()
 		KEY_F9: _debug_add_hunger()
-		KEY_F10: _debug_set_hunger()
+		KEY_F10: _debug_set_hunger(100 if event.shift_pressed else 75)
 		KEY_F11: kitchen_data.resources.add(ResourceType.Type.FOOD, 1)
 		KEY_F12: logistics.recalculate()
 		_: return
@@ -126,10 +136,10 @@ func _debug_add_hunger() -> void:
 	if selected != null:
 		selected.hunger += 25
 
-func _debug_set_hunger() -> void:
+func _debug_set_hunger(value: int = 75) -> void:
 	var selected = resident_selection.selected_resident
 	if selected != null:
-		selected.hunger = 75
+		selected.hunger = value
 
 func _update_food(resource: ResourceType.Type, amount: int) -> void:
 	if resource == ResourceType.Type.FOOD:
@@ -243,3 +253,18 @@ func _update_logistics() -> void:
 	else:
 		summary += "\nЛогистика: доставка зарезервирована, ожидает носильщика"
 	logistics_label.text = summary
+
+func _drop_cargo(resource: ResourceType.Type, amount: int) -> void:
+	ground_resources.create_drop(resource, amount, resident_view.global_position)
+
+func _show_ground_resource(drop) -> void:
+	var view = GroundView.new()
+	$World.add_child(view)
+	view.setup(drop)
+	_ground_views[drop] = view
+
+func _remove_ground_resource(drop) -> void:
+	var view = _ground_views.get(drop)
+	if is_instance_valid(view):
+		view.queue_free()
+	_ground_views.erase(drop)

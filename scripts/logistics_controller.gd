@@ -11,6 +11,8 @@ const TARGET_STOCK := 3
 const Intent = preload("res://scripts/resident_intent.gd")
 const Activity = preload("res://scripts/resident_activity.gd")
 const HAUL_PRIORITY := 80
+signal cargo_dropped(resource: ResourceType.Type, amount: int)
+var before_work: Callable
 signal delivered
 var _clock: Node
 var _locations: RefCounted
@@ -86,6 +88,7 @@ func bind_execution(clock: Node, locations: RefCounted, intents: Node, schedule:
 	_intents = intents
 	_schedule = schedule
 	_clock.phase_changed.connect(_on_phase_changed)
+	_intents.forced_interrupt.connect(_on_forced_interrupt)
 	_intents.intent_arrived.connect(_on_arrival)
 	_intents.intent_changed.connect(_on_intent_changed)
 	_intents.intent_completed.connect(_on_action_completed)
@@ -96,6 +99,7 @@ func unbind_execution() -> void:
 	if _clock == null:
 		return
 	_clock.phase_changed.disconnect(_on_phase_changed)
+	_intents.forced_interrupt.disconnect(_on_forced_interrupt)
 	_intents.intent_arrived.disconnect(_on_arrival)
 	_intents.intent_changed.disconnect(_on_intent_changed)
 	_intents.intent_completed.disconnect(_on_action_completed)
@@ -105,6 +109,8 @@ func _start_if_possible() -> void:
 	if _clock == null or _finishing or _clock.get_phase() != "День" or current_job.state != HaulJob.State.ASSIGNED:
 		return
 	if _resident.inventory.amount != 0 or _resident.activity == Activity.Type.EATING:
+		return
+	if before_work.is_valid() and not before_work.call():
 		return
 	var target: Variant = _locations.get_position(current_job.source_location_id)
 	if not target is Vector2:
@@ -148,6 +154,8 @@ func _on_arrival(intent: Intent) -> void:
 		current_job.state = HaulJob.State.CARRYING
 		_resident.activity = Activity.Type.HAULING
 		changed.emit()
+		if current_job.state != HaulJob.State.CARRYING or _intents.current_intent != intent:
+			return # A forced interrupt during the pickup notification already cancelled it.
 		current_job.state = HaulJob.State.GOING_TO_DESTINATION
 		_haul_intent = Intent.new(Intent.Type.MOVE_TO, &"haul_destination", target, HAUL_PRIORITY, false)
 		_intents.continue_intent(intent, _haul_intent)
@@ -175,3 +183,20 @@ func _finish_delivery(intent: Intent) -> void:
 	if _clock.get_phase() == "День":
 		recalculate()
 	changed.emit()
+
+func _on_forced_interrupt(_previous: Intent) -> void:
+	if current_job == null or not current_job.is_active():
+		return
+	if current_job.state in [HaulJob.State.CARRYING, HaulJob.State.GOING_TO_DESTINATION]:
+		# Source reserve was consumed at pickup. Only destination remains promised.
+		_destination.resources.release_in(current_job.resource_type, current_job.amount)
+		var amount: int = _resident.inventory.amount
+		var resource = _resident.inventory.resource_type
+		current_job.state = HaulJob.State.CANCELLED
+		_haul_intent = null
+		_resident.inventory.clear()
+		if amount > 0:
+			cargo_dropped.emit(resource, amount)
+		changed.emit()
+	else:
+		cancel_job(current_job)

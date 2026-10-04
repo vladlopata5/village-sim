@@ -23,6 +23,7 @@ var _intents: IntentController
 var _schedule: Schedule
 var _clock: Node
 var _eat_intent: Intent
+var _critical_attempted := false
 var _meal_active := false
 var _meal_started_at: int = 0
 var _minutes_left: int = 0
@@ -37,38 +38,69 @@ func setup(clock: Node, data: Data, buildings: Array[BuildingData], locations: R
 	for building in _buildings:
 		if building.type == BuildingType.Type.FOOD:
 			building.resources.changed.connect(_on_storage_changed.bind(building))
+	_schedule.before_work = prepare_for_work
 	_data.hunger_changed.connect(evaluate)
 	_clock.minute_changed.connect(_on_minute_changed)
 	_clock.phase_changed.connect(_on_phase_changed)
 	_intents.intent_changed.connect(_on_intent_changed)
 	_intents.intent_arrived.connect(_on_intent_arrived)
+	_intents.intent_completed.connect(_on_action_completed)
 	evaluate()
 
-func evaluate() -> void:
-	if _meal_active or _waiting_for_food:
+
+func evaluate(at_action_boundary: bool = false) -> void:
+	if _data.hunger < 100:
+		_critical_attempted = false
+	var critical := _data.hunger == 100 and not _critical_attempted
+	if _meal_active:
+		if critical:
+			_critical_attempted = true
+			_intents.force_set_intent(_eat_intent)
+			_data.activity = Activity.Type.EATING
+		return
+	if _waiting_for_food and not critical:
 		return
 	if _eat_intent != null:
 		if _intents.current_intent == _eat_intent:
+			if critical:
+				_critical_attempted = true
+				_intents.force_set_intent(_eat_intent)
 			return
 		_eat_intent = null
-	if _data.hunger < HUNGER_THRESHOLD or _data.activity == Activity.Type.SLEEPING or _schedule.is_night:
-		return
+	if not critical:
+		if _data.hunger < HUNGER_THRESHOLD or _data.activity == Activity.Type.SLEEPING or _schedule.is_night:
+			return
+		# 76–99 finishes the current action; food comes before any next work.
+		if _data.hunger > 75 and (_intents.current_intent.type != Intent.Type.NONE or (_data.activity == Activity.Type.WORKING and not at_action_boundary)):
+			return
+	if critical:
+		_critical_attempted = true
+		_waiting_for_food = false
 	for building in _buildings:
 		if building.type != BuildingType.Type.FOOD:
 			continue
-		var location = _locations.get_location(building.id)
-		if location == null:
-			continue
-		var target: Variant = _locations.get_position(location.id)
+		var target: Variant = _locations.get_position(building.id)
 		if not target is Vector2:
 			continue
 		var candidate = Intent.new(Intent.Type.MOVE_TO, &"eat", target, EAT_PRIORITY, true)
-		# Set before submit: a resident already at the kitchen arrives synchronously.
 		_food_building = building
 		_eat_intent = candidate
-		if not _intents.submit(candidate) and _eat_intent == candidate:
+		var accepted: bool = _intents.force_set_intent(candidate) if critical else _intents.submit(candidate)
+		if not accepted and _eat_intent == candidate:
 			_eat_intent = null
 		return
+	if critical:
+		_intents.force_set_intent(Intent.new())
+		_waiting_for_food = true
+
+func prepare_for_work() -> bool:
+	evaluate(true)
+	if _data.hunger > 75 and _intents.current_intent.type != Intent.Type.NONE:
+		return false
+	return not _meal_active and _eat_intent == null
+
+func _on_action_completed(_intent: Intent) -> void:
+	evaluate(true)
 
 func _on_intent_changed(intent: Intent) -> void:
 	if intent.type != Intent.Type.NONE and intent != _eat_intent:
@@ -77,7 +109,7 @@ func _on_intent_changed(intent: Intent) -> void:
 		_minutes_left = 0
 
 func _on_intent_arrived(intent: Intent) -> void:
-	if _meal_active or intent != _eat_intent or _schedule.is_night:
+	if _meal_active or intent != _eat_intent or (_schedule.is_night and _data.hunger < 100):
 		return
 	# Arrival ends movement, but this same intent stays current until eating ends.
 	intent.interruptible = false
@@ -96,10 +128,10 @@ func _on_minute_changed(total_minutes: int) -> void:
 
 func _on_phase_changed(_phase: String) -> void:
 	# A night goal is pending during a meal; only movement to food is cancelled.
-	if _schedule.is_night and not _meal_active:
+	if _schedule.is_night and not _meal_active and _data.hunger < 100:
 		_intents.clear_reason(&"eat")
 		_eat_intent = null
-	elif not _schedule.is_night:
+	else:
 		evaluate()
 
 func _finish_meal() -> void:

@@ -90,6 +90,7 @@ func _run() -> void:
 	scene.resident_view.intent_completed.emit(stale_source)
 	check(scene.resident_data.inventory.amount == 0, "Late pickup cannot steal released FOOD")
 	scene.resident_view._process(20.0)
+	scene.resident_data.hunger = 20 # Isolate workday restart from the new strong-hunger rule.
 	scene.game_time.debug_next_phase()
 	scene.game_time.debug_next_phase()
 	check(scene.logistics.current_job.id != cancelled.id and scene.logistics.current_job.state == Job.State.GOING_TO_SOURCE, "Next workday creates fresh haul")
