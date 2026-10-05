@@ -1,4 +1,6 @@
 extends Node
+const EventLog = preload("res://scripts/game_logger.gd")
+var logger: EventLog
 ## Concrete SOCIAL and LEISURE actions, separate from selection of a need.
 const Activity = preload("res://scripts/resident_activity.gd")
 const NeedType = preload("res://scripts/need_type.gd")
@@ -30,6 +32,7 @@ func try_social(priority: int) -> bool:
 		_active = null
 		_option = {}
 		return false
+	if logger != null: logger.sync_activity(runtime.data)
 	return true
 func try_leisure(priority: int) -> bool:
 	_active = Intent.new(Intent.Type.NONE, &"leisure", Vector2.ZERO, priority, false)
@@ -38,6 +41,7 @@ func try_leisure(priority: int) -> bool:
 		return false
 	_started_at = clock.total_minutes
 	runtime.data.activity = Activity.Type.RELAXING
+	if logger != null: logger.sync_activity(runtime.data)
 	return true
 func begin_talking() -> void:
 	# The waiting IDLE participant also owns an independent current action.
@@ -48,6 +52,9 @@ func begin_talking() -> void:
 	_active.interruptible = false
 	_started_at = clock.total_minutes
 	runtime.data.activity = Activity.Type.TALKING
+	if logger != null:
+		logger.sync_activity(runtime.data)
+		logger.info(EventLog.SOCIAL, "%s: начал разговор" % runtime.data.resident_name)
 func _on_arrival(intent: Intent) -> void:
 	if intent != _active or intent.reason_id != &"social": return
 	if not world.arrive(runtime.data.id, _option): _finish()

@@ -1,4 +1,6 @@
 extends RefCounted
+const EventLog = preload("res://scripts/game_logger.gd")
+var logger: EventLog
 ## Available reserved jobs; workers claim work explicitly. One prototype executor.
 const HaulJob = preload("res://scripts/haul_job.gd")
 const BuildingData = preload("res://scripts/building_data.gd")
@@ -64,6 +66,7 @@ func recalculate() -> void:
 		var job = HaulJob.new(StringName("haul_%04d" % _next_id), route.source.id, route.destination.id, FOOD, 1)
 		_next_id += 1
 		jobs.append(job)
+		if logger != null: logger.debug(EventLog.LOGISTICS, "%s: reserved_out=1 у %s; reserved_in=1 у %s" % [job.id, route.source.display_name, route.destination.display_name])
 	_refresh_priorities()
 	if current_job == null or not current_job.is_active():
 		if not jobs.is_empty(): current_job = jobs[0]
@@ -97,7 +100,7 @@ func claim_best_job(resident_id: String) -> HaulJob:
 	for job in jobs:
 		if job.is_active() and job.assigned_resident_id == resident_id: return null
 	_refresh_priorities()
-	var best: HaulJob
+	var best: HaulJob = null
 	for job in jobs:
 		if job.state != HaulJob.State.RESERVED or not job.assigned_resident_id.is_empty() or not _eligible(resident, job): continue
 		if best == null or job.priority > best.priority or (job.priority == best.priority and String(job.id) < String(best.id)):
@@ -107,6 +110,9 @@ func claim_best_job(resident_id: String) -> HaulJob:
 		best.assigned_resident_id = resident_id
 		best.state = HaulJob.State.ASSIGNED
 		current_job = best
+		if logger != null:
+			logger.info(EventLog.LOGISTICS, "%s: принял HaulJob %s — %s → %s" % [resident.resident_name, best.id, _job_source(best).display_name, _job_destination(best).display_name])
+			logger.debug(EventLog.LOGISTICS, "%s: HaulJob priority=%.1f" % [best.id, best.priority])
 		changed.emit()
 	return best
 
@@ -127,6 +133,7 @@ func cancel_job(job: HaulJob) -> bool:
 	_job_source(job).resources.release_out(job.resource_type, job.amount)
 	_job_destination(job).resources.release_in(job.resource_type, job.amount)
 	job.state = HaulJob.State.CANCELLED
+	if logger != null: logger.info(EventLog.LOGISTICS, "HaulJob %s отменён до подбора; обе брони освобождены" % job.id)
 	var old: Intent = _haul_intent if job == current_job else null
 	if old != null: _haul_intent = null
 	if _intents != null and old != null and _intents.current_intent == old:
@@ -175,6 +182,7 @@ func _start_if_possible() -> bool:
 		current_job.state = HaulJob.State.ASSIGNED
 		_haul_intent = null
 		return false
+	if logger != null: logger.sync_activity(_resident)
 	return true
 
 func _on_intent_changed(intent: Intent) -> void:
@@ -207,6 +215,7 @@ func _on_arrival(intent: Intent) -> void:
 		_resident.inventory.put(FOOD, 1)
 		current_job.state = HaulJob.State.CARRYING
 		_resident.activity = Activity.Type.HAULING
+		if logger != null: logger.info(EventLog.LOGISTICS, "%s: забрал 1 FOOD — %s" % [_resident.resident_name, _job_source(current_job).display_name])
 		changed.emit()
 		if current_job.state != HaulJob.State.CARRYING or _intents.current_intent != intent:
 			return # A forced interrupt during the pickup notification already cancelled it.
@@ -228,6 +237,7 @@ func _finish_delivery(intent: Intent) -> void:
 		_finishing = false
 		return
 	current_job.state = HaulJob.State.COMPLETED
+	if logger != null: logger.info(EventLog.LOGISTICS, "%s: доставил 1 FOOD — %s" % [_resident.resident_name, _job_destination(current_job).display_name])
 	_haul_intent = null
 	recalculate() # Make the next reserved offer visible before the next decision point.
 	_finishing = false
@@ -244,6 +254,7 @@ func _on_forced_interrupt(_previous: Intent) -> void:
 		var amount: int = _resident.inventory.amount
 		var resource = _resident.inventory.resource_type
 		current_job.state = HaulJob.State.CANCELLED
+		if logger != null: logger.info(EventLog.LOGISTICS, "HaulJob %s отменён принудительно после подбора; груз выгружен, reserved_in освобождён" % current_job.id)
 		_haul_intent = null
 		_resident.inventory.clear()
 		if amount > 0:

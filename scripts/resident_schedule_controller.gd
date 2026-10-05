@@ -1,4 +1,6 @@
 extends Node
+const EventLog = preload("res://scripts/game_logger.gd")
+var logger: EventLog
 ## One phase-based schedule source; intents and presentation stay separate.
 const ResidentIntent = preload("res://scripts/resident_intent.gd")
 const IntentController = preload("res://scripts/resident_intent_controller.gd")
@@ -28,6 +30,7 @@ func request_manual_move(world_target: Vector2) -> bool:
 	return _intents.submit(ResidentIntent.new(ResidentIntent.Type.MOVE_TO, &"manual_move", world_target, MANUAL_PRIORITY, true))
 
 func _on_phase_changed(phase: String) -> void:
+	var changed_phase := phase != _phase
 	_phase = phase
 	# A route belonging to the previous phase must not finish in the new phase.
 	_intents.clear_reason(&"day_work")
@@ -40,6 +43,7 @@ func _on_phase_changed(phase: String) -> void:
 		return
 	if data.activity in [Activity.Type.WORKING, Activity.Type.SLEEPING] and _intents.current_intent.reason_id != &"critical_sleep":
 		data.activity = Activity.Type.IDLE
+	if changed_phase and logger != null: logger.sync_activity(data)
 	match phase:
 		"День":
 			if work_decision.is_valid():
@@ -58,7 +62,12 @@ func _move_to_location(location_id: StringName, reason: StringName, priority: in
 	var target: Variant = _locations.get_position(location_id)
 	# An absent place must not silently become a goal at world origin.
 	if target is Vector2:
-		_intents.submit(ResidentIntent.new(ResidentIntent.Type.MOVE_TO, reason, target, priority, true))
+		var previously_working := logger != null and logger.was_working(_intents.resident_data)
+		var accepted := _intents.submit(ResidentIntent.new(ResidentIntent.Type.MOVE_TO, reason, target, priority, true))
+		if accepted and logger != null:
+			logger.sync_activity(_intents.resident_data)
+			if reason == &"night_home": logger.info(EventLog.SCHEDULE, "%s: получил ночное намерение идти домой" % _intents.resident_data.resident_name)
+			elif reason == &"day_work" and not previously_working: logger.info(EventLog.AI, "%s: выбрал работу" % _intents.resident_data.resident_name)
 
 func _on_intent_completed(intent: ResidentIntent) -> void:
 	# Controller only reports accepted arrivals, never cancellations/stale goals.
@@ -69,6 +78,7 @@ func _on_intent_completed(intent: ResidentIntent) -> void:
 		data.activity = Activity.Type.WORKING
 	elif is_night and intent.reason_id == &"night_home":
 		data.activity = Activity.Type.SLEEPING
+	if logger != null: logger.sync_activity(data)
 
 func resume_current_phase() -> void:
 	_on_phase_changed(_phase)

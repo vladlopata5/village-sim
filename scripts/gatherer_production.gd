@@ -1,4 +1,6 @@
 extends Node
+const EventLog = preload("res://scripts/game_logger.gd")
+var logger: EventLog
 ## One FOOD recipe. Work is summed into building-owned progress, never resident-owned.
 const Balance = preload("res://scripts/balance_config.gd")
 const Activity = preload("res://scripts/resident_activity.gd")
@@ -7,6 +9,7 @@ const BuildingType = preload("res://scripts/building_type.gd")
 const FOOD = preload("res://scripts/resource_type.gd").Type.FOOD
 const WORK_POSITION_TOLERANCE := 8.0
 signal changed
+var _output_blocked := false
 var building: RefCounted
 var residents: Array
 var _locations: RefCounted
@@ -21,7 +24,11 @@ func can_work(resident: RefCounted) -> bool:
 	return building.type == BuildingType.Type.GATHERER_HUT and resident.profession == Profession.Type.GATHERER and resident.work_location_id == building.id and building.resources.get_available_free_capacity(FOOD) > 0 and _locations.get_position(building.id) is Vector2
 func _on_minute(_minute: int) -> void:
 	# Physical/output capacity is checked before adding even one work minute.
-	if building.resources.get_available_free_capacity(FOOD) <= 0: return
+	if building.resources.get_available_free_capacity(FOOD) <= 0:
+		if not _output_blocked and logger != null: logger.info(EventLog.PRODUCTION, "%s: производство остановлено — выходной контейнер заполнен" % building.display_name)
+		_output_blocked = true
+		return
+	_output_blocked = false
 	var workers := 0
 	var target: Variant = _locations.get_position(building.id)
 	for resident in residents:
@@ -33,4 +40,5 @@ func _on_minute(_minute: int) -> void:
 	while building.production_progress >= Balance.GATHERER_WORK_MINUTES_PER_FOOD and building.resources.get_available_free_capacity(FOOD) > 0:
 		if not building.resources.add(FOOD, 1): break
 		building.production_progress -= Balance.GATHERER_WORK_MINUTES_PER_FOOD
+		if logger != null: logger.info(EventLog.PRODUCTION, "%s: произведён 1 FOOD" % building.display_name)
 	changed.emit()

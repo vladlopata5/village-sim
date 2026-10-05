@@ -1,4 +1,6 @@
 extends Node
+const EventLog = preload("res://scripts/game_logger.gd")
+var logger: EventLog
 ## Event-driven decision points, never a per-frame AI loop.
 const NeedType = preload("res://scripts/need_type.gd")
 const Activity = preload("res://scripts/resident_activity.gd")
@@ -50,8 +52,10 @@ func check_critical() -> void:
 	_deciding = true
 	if _data.hunger == 100 and not _critical_hunger_attempted and _intents.forced_priority <= CRITICAL_HUNGER:
 		_critical_hunger_attempted = true
+		if logger != null: logger.info(EventLog.NEED, "%s: критический голод — принудительное действие" % _data.resident_name)
 		_needs.try_eat(_data.get_need(NeedType.Type.HUNGER).get_priority(), CRITICAL_HUNGER)
 	if _data.fatigue == 100 and _intents.forced_priority < CRITICAL_FATIGUE:
+		if logger != null: logger.info(EventLog.NEED, "%s: критическая усталость — принудительный сон" % _data.resident_name)
 		_needs.try_rest(0, CRITICAL_FATIGUE)
 	_deciding = false
 	if _critical_pending:
@@ -70,7 +74,7 @@ func prepare_for_work() -> bool:
 	var available := _has_work()
 	return not _choose_need(available) and available
 
-func _choose_need(work_available: bool) -> bool:
+func _choose_need(has_available_work: bool) -> bool:
 	if _deciding: return false
 	_deciding = true
 	decision_count += 1
@@ -79,10 +83,12 @@ func _choose_need(work_available: bool) -> bool:
 		var a_priority: int = _data.get_need(a).get_priority()
 		var b_priority: int = _data.get_need(b).get_priority()
 		return a < b if a_priority == b_priority else a_priority > b_priority)
+	if logger != null:
+		logger.debug(EventLog.AI, "%s: лучшая Need priority=%d; работа доступна=%s; WORK_PRIORITY=%d" % [_data.resident_name, _data.get_need(types[0]).get_priority(), has_available_work, WORK_PRIORITY])
 	var started := false
 	for type in types:
 		var priority: int = _data.get_need(type).get_priority()
-		if priority < NEED_ACTION_THRESHOLD or (work_available and priority <= WORK_PRIORITY): continue
+		if priority < NEED_ACTION_THRESHOLD or (has_available_work and priority <= WORK_PRIORITY): continue
 		match type:
 			NeedType.Type.HUNGER: started = _needs.try_eat(priority)
 			NeedType.Type.FATIGUE: started = _needs.try_rest(priority)
@@ -110,6 +116,7 @@ func request_decision(_reason: String = "free") -> void:
 			var started: bool = work_request.call()
 			_deciding = false
 			check_critical()
+			if started and logger != null: logger.info(EventLog.AI, "%s: выбрал рабочую задачу" % _data.resident_name)
 			if started or _intents.has_current_action(): return
 			# A job may have been claimed by someone else since availability was checked.
 			if _choose_need(false) or _intents.has_current_action(): return
@@ -117,6 +124,7 @@ func request_decision(_reason: String = "free") -> void:
 			_schedule.resume_current_phase()
 			return
 	_data.activity = Activity.Type.IDLE
+	if logger != null: logger.sync_activity(_data)
 
 func _on_completed(intent: Intent) -> void:
 	_next_decision_at = _clock.total_minutes + IDLE_MINUTES

@@ -1,4 +1,6 @@
 extends Node
+const GameLogger = preload("res://scripts/game_logger.gd")
+var game_logger = GameLogger.new()
 const ResidentData = preload("res://scripts/resident_data.gd")
 const ResidentView2D = preload("res://scenes/resident_view_2d.tscn")
 const WorldLocation = preload("res://scripts/world_location.gd")
@@ -44,6 +46,9 @@ var pause_button: Button
 var speed_buttons: Array[Button] = []
 
 func _ready() -> void:
+	game_logger.setup(game_time)
+	for system in [social_world, ground_resources, logistics, production]:
+		system.logger = game_logger
 	$HUD/ResidentCard.bind_selection(resident_selection)
 	_create_test_kitchen()
 	_create_test_warehouse()
@@ -234,6 +239,7 @@ func _create_test_residents() -> void:
 		runtime.name = data.id
 		$Residents.add_child(runtime)
 		resident_runtimes.append(runtime)
+		runtime.logger = game_logger
 		runtime.setup(data, view, game_time, world_locations, buildings)
 
 func _resident_position_2d(resident_id: String) -> Vector2:

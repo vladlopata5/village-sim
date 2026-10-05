@@ -1,4 +1,6 @@
 extends Node
+const EventLog = preload("res://scripts/game_logger.gd")
+var logger: EventLog
 ## Concrete ways to satisfy needs. Selection/comparison lives in DecisionController.
 const Data = preload("res://scripts/resident_data.gd")
 const Intent = preload("res://scripts/resident_intent.gd")
@@ -61,14 +63,16 @@ func try_eat(priority: int, critical_priority: int = 0) -> bool:
 		_active_intent = Intent.new(Intent.Type.MOVE_TO, &"eat", target, priority, true)
 		var accepted: bool = _intents.force_set_intent(_active_intent, critical_priority) if critical_priority > 0 else _intents.submit(_active_intent)
 		if not accepted: _cancel_own_action()
+		if logger != null: logger.sync_activity(_data)
 		return accepted
 	_retry_food_at = _clock.total_minutes + 10
 	var message := "%s не удалось поесть: нет доступной еды." % _data.resident_name
 	developer_message.emit(message)
-	print(message)
+	if logger != null: logger.info(EventLog.NEED, message + " Не удалось зарезервировать 1 FOOD.")
 	if critical_priority > 0:
 		_cancel_own_action()
 		_intents.force_set_intent(Intent.new(), critical_priority)
+		if logger != null: logger.sync_activity(_data)
 	return false
 
 func try_rest(priority: int, critical_priority: int = 0) -> bool:
@@ -84,6 +88,7 @@ func try_rest(priority: int, critical_priority: int = 0) -> bool:
 	_started_at = _clock.total_minutes
 	_minutes_left = REST_MINUTES
 	_data.activity = Activity.Type.SLEEPING if critical_priority > 0 else Activity.Type.RESTING
+	if logger != null: logger.sync_activity(_data)
 	return true
 
 func _on_arrival(intent: Intent) -> void:
@@ -104,6 +109,9 @@ func _on_arrival(intent: Intent) -> void:
 	_started_at = _clock.total_minutes
 	_minutes_left = MEAL_MINUTES
 	_data.activity = Activity.Type.EATING
+	if logger != null:
+		logger.sync_activity(_data)
+		logger.info(EventLog.NEED, "%s: начал есть" % _data.resident_name)
 
 func _on_minute_changed(minute: int) -> void:
 	if _active_intent == null:
@@ -122,16 +130,19 @@ func _on_minute_changed(minute: int) -> void:
 
 func _finish() -> void:
 	var completed := _active_intent
+	if _meal_active and logger != null: logger.info(EventLog.NEED, "%s: закончил есть" % _data.resident_name)
 	_active_intent = null
 	_meal_active = false
 	_minutes_left = 0
 	_intents.clear_completed(completed)
+	if logger != null: logger.sync_activity(_data)
 
 func _on_intent_changed(intent: Intent) -> void:
 	if _active_intent != null and intent != _active_intent:
 		_cancel_own_action()
 
 func _cancel_own_action() -> void:
+	if _meal_active and logger != null: logger.info(EventLog.NEED, "%s: приём пищи прерван" % _data.resident_name)
 	if _reserved_food:
 		_food_building.resources.release_out(FOOD, 1)
 	_reserved_food = false

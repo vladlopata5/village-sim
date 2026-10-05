@@ -1,4 +1,6 @@
 extends Node
+const EventLog = preload("res://scripts/game_logger.gd")
+var logger: EventLog
 ## One resident's controller bundle. Simulation data has no reference back here.
 const Intents = preload("res://scripts/resident_intent_controller.gd")
 const Schedule = preload("res://scripts/resident_schedule_controller.gd")
@@ -20,6 +22,8 @@ func setup(resident: RefCounted, presentation: Node2D, clock: Node, locations: R
 	view = presentation
 	for controller in [intents, schedule, need_dynamics, needs, decision, social]:
 		add_child(controller)
+	for controller in [schedule, needs, decision, social]:
+		controller.logger = logger
 	intents.setup(data)
 	intents.intent_changed.connect(view.apply_intent)
 	view.intent_completed.connect(intents.report_arrival)
@@ -29,3 +33,6 @@ func setup(resident: RefCounted, presentation: Node2D, clock: Node, locations: R
 	social.setup(self, clock)
 	decision.social = social
 	decision.setup(clock, data, intents, needs, schedule)
+
+func _process(_delta: float) -> void:
+	if logger != null and data != null: logger.sync_activity(data)

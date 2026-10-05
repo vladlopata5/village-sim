@@ -1,4 +1,6 @@
 extends Node
+const EventLog = preload("res://scripts/game_logger.gd")
+var logger: EventLog
 ## Shared membership and available actions; positions come from an injected world adapter.
 const Group = preload("res://scripts/conversation_group.gd")
 const Activity = preload("res://scripts/resident_activity.gd")
@@ -62,9 +64,13 @@ func leave(id: String) -> void:
 	var group = group_of(id)
 	if group == null: return
 	group.participants.erase(id)
+	var departing = get_runtime(id)
+	if logger != null and departing != null: logger.info(EventLog.SOCIAL, "%s: вышел из разговора" % departing.data.resident_name)
 	if group.participants.size() < 2:
 		groups.erase(group.id)
 		for remaining in group.participants.duplicate():
 			var runtime = get_runtime(remaining)
-			if runtime != null: runtime.social.call_deferred("group_dissolved")
+			if runtime != null:
+				if logger != null: logger.info(EventLog.SOCIAL, "%s: разговор закончился — группа распалась" % runtime.data.resident_name)
+				runtime.social.call_deferred("group_dissolved")
 		group.participants.clear()
