@@ -22,7 +22,7 @@ func setup(game_time: Node, locations: RefCounted, intents: IntentController) ->
 
 func request_manual_move(world_target: Vector2) -> bool:
 	# Keep work/sleep protected even after their movement intent has completed.
-	if _phase not in ["Утро", "Вечер"] or _intents.resident_data.activity in [Activity.Type.EATING, Activity.Type.RESTING, Activity.Type.SLEEPING]:
+	if _phase not in ["Утро", "Вечер"] or _intents.resident_data.activity in [Activity.Type.EATING, Activity.Type.RESTING, Activity.Type.SLEEPING, Activity.Type.TALKING, Activity.Type.RELAXING]:
 		return false
 	return _intents.submit(ResidentIntent.new(ResidentIntent.Type.MOVE_TO, &"manual_move", world_target, MANUAL_PRIORITY, true))
 

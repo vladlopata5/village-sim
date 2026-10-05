@@ -18,6 +18,7 @@ var _critical_pending := false
 var _critical_hunger_attempted := false
 var _next_decision_at := 0
 var decision_count := 0
+var social: Node
 var work_available: Callable
 
 func setup(clock: Node, data: RefCounted, intents: Node, needs: Node, schedule: Node) -> void:
@@ -71,14 +72,20 @@ func _choose_need(work_available: bool) -> bool:
 	if _deciding: return false
 	_deciding = true
 	decision_count += 1
-	var types: Array = [NeedType.Type.HUNGER, NeedType.Type.FATIGUE]
-	if _data.get_need(types[1]).get_priority() > _data.get_need(types[0]).get_priority(): types.reverse()
+	var types: Array = [NeedType.Type.HUNGER, NeedType.Type.FATIGUE, NeedType.Type.SOCIAL, NeedType.Type.LEISURE]
+	types.sort_custom(func(a, b):
+		var a_priority: int = _data.get_need(a).get_priority()
+		var b_priority: int = _data.get_need(b).get_priority()
+		return a < b if a_priority == b_priority else a_priority > b_priority)
 	var started := false
 	for type in types:
 		var priority: int = _data.get_need(type).get_priority()
 		if priority < NEED_ACTION_THRESHOLD or (work_available and priority <= WORK_PRIORITY): continue
-		if type == NeedType.Type.HUNGER: started = _needs.try_eat(priority)
-		else: started = _needs.try_rest(priority)
+		match type:
+			NeedType.Type.HUNGER: started = _needs.try_eat(priority)
+			NeedType.Type.FATIGUE: started = _needs.try_rest(priority)
+			NeedType.Type.SOCIAL: started = is_instance_valid(social) and social.try_social(priority)
+			NeedType.Type.LEISURE: started = is_instance_valid(social) and social.try_leisure(priority)
 		if started: break
 	_deciding = false
 	_critical_pending = false

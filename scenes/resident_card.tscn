@@ -10,7 +10,7 @@ anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
 offset_left = -336.0
-offset_top = -456.0
+offset_top = -536.0
 offset_right = -16.0
 offset_bottom = -16.0
 grow_horizontal = 0
@@ -49,6 +49,14 @@ layout_mode = 2
 autowrap_mode = 3
 
 [node name="Fatigue" type="Label" parent="Margin/Column"]
+layout_mode = 2
+autowrap_mode = 3
+
+[node name="Social" type="Label" parent="Margin/Column"]
+layout_mode = 2
+autowrap_mode = 3
+
+[node name="Leisure" type="Label" parent="Margin/Column"]
 layout_mode = 2
 autowrap_mode = 3
 

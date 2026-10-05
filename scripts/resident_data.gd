@@ -20,6 +20,8 @@ const Need = preload("res://scripts/need.gd")
 var needs: Dictionary = {
 	NeedType.Type.HUNGER: Need.new(0, 100),
 	NeedType.Type.FATIGUE: Need.new(0, 100),
+	NeedType.Type.SOCIAL: Need.new(0, 70),
+	NeedType.Type.LEISURE: Need.new(0, 50),
 }
 signal hunger_changed
 signal fatigue_changed

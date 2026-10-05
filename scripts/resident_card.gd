@@ -3,6 +3,7 @@ extends PanelContainer
 const ResidentSelection = preload("res://scripts/resident_selection.gd")
 const Profession = preload("res://scripts/resident_profession.gd")
 const Activity = preload("res://scripts/resident_activity.gd")
+const NeedType = preload("res://scripts/need_type.gd")
 const StateText = preload("res://scripts/resident_state_text.gd")
 @export var show_state_numbers: bool = true
 var _selection: ResidentSelection
@@ -13,6 +14,8 @@ var _selection: ResidentSelection
 @onready var traits_label: Label = $Margin/Column/Traits
 @onready var hunger_label: Label = $Margin/Column/Hunger
 @onready var fatigue_label: Label = $Margin/Column/Fatigue
+@onready var social_label: Label = $Margin/Column/Social
+@onready var leisure_label: Label = $Margin/Column/Leisure
 @onready var mood_label: Label = $Margin/Column/Mood
 @onready var activity_label: Label = $Margin/Column/Activity
 @onready var close_button: Button = $Margin/Column/Close
@@ -42,6 +45,8 @@ func _refresh() -> void:
 	id_label.text = "ID: " + data.id
 	hunger_label.text = _state_line("Голод", data.hunger, StateText.hunger_description(data.hunger))
 	fatigue_label.text = _state_line("Усталость", data.fatigue, StateText.fatigue_description(data.fatigue))
+	social_label.text = _state_line("Общение", data.get_need(NeedType.Type.SOCIAL).value, "Хочет общения" if data.get_need(NeedType.Type.SOCIAL).value >= 25 else "Достаточно общения")
+	leisure_label.text = _state_line("Досуг", data.get_need(NeedType.Type.LEISURE).value, "Хочет развлечься" if data.get_need(NeedType.Type.LEISURE).value >= 25 else "Достаточно досуга")
 	mood_label.text = _state_line("Настроение", data.mood, StateText.mood_description(data.mood))
 	var trait_names := PackedStringArray()
 	for trait_definition in data.traits:
@@ -60,6 +65,8 @@ func _state_line(title: String, value: int, description: String) -> String:
 
 func _activity_text(activity: Activity.Type) -> String:
 	match activity:
+		Activity.Type.TALKING: return "Разговаривает"
+		Activity.Type.RELAXING: return "Развлекается"
 		Activity.Type.RESTING: return "Отдыхает"
 		Activity.Type.MOVING: return "Идёт"
 		Activity.Type.SLEEPING: return "Спит"

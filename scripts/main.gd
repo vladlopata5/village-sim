@@ -25,6 +25,8 @@ const ResidentFactory = preload("res://scripts/resident_factory.gd")
 const ResidentGenerator = preload("res://scripts/resident_generator.gd")
 const ResidentRuntime = preload("res://scripts/resident_runtime.gd")
 const LocationView = preload("res://scenes/world_location_view_2d.tscn")
+const SocialWorld = preload("res://scripts/social_world.gd")
+var social_world = SocialWorld.new()
 var residents: Array[ResidentData] = []
 var resident_runtimes: Array[ResidentRuntime] = []
 var population_label: Label
@@ -41,6 +43,11 @@ func _ready() -> void:
 	_create_test_kitchen()
 	_create_test_warehouse()
 	_create_test_residents()
+	add_child(social_world)
+	social_world.position_provider = _resident_position_2d
+	for runtime in resident_runtimes:
+		social_world.register(runtime)
+		runtime.social.world = social_world
 	_build_hud()
 	add_child(ground_resources)
 	ground_resources.setup(game_time)
@@ -209,6 +216,10 @@ func _create_test_residents() -> void:
 		$Residents.add_child(runtime)
 		resident_runtimes.append(runtime)
 		runtime.setup(data, view, game_time, world_locations, buildings)
+
+func _resident_position_2d(resident_id: String) -> Vector2:
+	var runtime = social_world.get_runtime(resident_id)
+	return runtime.view.global_position if runtime != null else Vector2.ZERO
 
 func find_resident(resident_id: String) -> ResidentData:
 	for data in residents:
