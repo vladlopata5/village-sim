@@ -30,7 +30,7 @@ func _run():
 	logistics.recalculate()
 	var first = logistics.current_job
 	check(first.state == Job.State.RESERVED and first.assigned_resident_id.is_empty(), "Creation never assigns or starts a job")
-	check(first.priority == 300, "Empty kitchen has higher internal urgency")
+	check(is_equal_approx(first.priority, 8800.0), "Empty kitchen has higher internal urgency")
 	var unqualified = Data.new("none", "None", 30)
 	logistics.register_resident(unqualified)
 	check(logistics.claim_best_job(unqualified.id) == null and logistics.claim_best_job("missing") == null, "Only registered eligible porters claim")
@@ -49,16 +49,16 @@ func _run():
 	logistics.cancel_job(first)
 	logistics.recalculate()
 	# Three actual reserved promises exercise maximum priority and stable ID tie-break.
-	for id in [&"job_z", &"job_a"]:
+	for id in [&"aaa_z", &"aaa_a"]:
 		check(source.resources.reserve_out(FOOD, 1) and destination.resources.reserve_in(FOOD, 1), "Test jobs own both promises")
 		logistics.jobs.append(Job.new(id, source.id, destination.id, FOOD, 1, 900))
 	var chosen = logistics.claim_best_job(worker.id)
-	check(chosen.id == &"job_a" and chosen.priority == 900, "Highest internal priority, lexical ID tie-break")
+	check(chosen.id == &"aaa_a" and is_equal_approx(chosen.priority, 4400.0), "Dynamic shared route urgency, lexical ID tie-break")
 	check(source.resources.get_reserved_out(FOOD) == 3 and destination.resources.get_reserved_in(FOOD) == 3, "Priority selection leaves promises unchanged")
 	for job in logistics.jobs.duplicate(): logistics.cancel_job(job)
 	destination.resources.add(FOOD, 2)
 	logistics.recalculate()
-	check(logistics.current_job.priority == 100, "Smaller deficit gives lower internal urgency")
+	check(is_equal_approx(logistics.current_job.priority, 4400.0), "Smaller deficit gives lower internal urgency")
 	# Real game: job execution happens only through the decision point.
 	var scene = load("res://scenes/main.tscn").instantiate()
 	root.add_child(scene)
@@ -88,8 +88,11 @@ func _run():
 	r.view._process(20)
 	for need in r.data.needs.values(): need.value = 0
 	r.intents.cancel_current(r.intents.current_intent)
-	while scene.kitchen_data.resources.get_amount(FOOD) < 3: scene.kitchen_data.resources.add(FOOD, 1)
-	if scene.logistics.current_job.is_active(): scene.logistics.cancel_job(scene.logistics.current_job)
+	var availability = r.decision.work_available
+	r.decision.work_available = func(): return false
+	for job in scene.logistics.jobs.duplicate(): scene.logistics.cancel_job(job)
+	while scene.kitchen_data.resources.get_amount(FOOD) < 5: scene.kitchen_data.resources.add(FOOD, 1)
+	r.decision.work_available = availability
 	r.decision.request_decision()
 	check(r.data.activity == Activity.IDLE and not r.intents.has_current_action(), "No job and no need: idle, no placeholder work")
 	var count: int = r.decision.decision_count

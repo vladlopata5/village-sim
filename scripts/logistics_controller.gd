@@ -7,7 +7,7 @@ const ResidentData = preload("res://scripts/resident_data.gd")
 const Profession = preload("res://scripts/resident_profession.gd")
 const ResourceType = preload("res://scripts/resource_type.gd")
 const FOOD = ResourceType.Type.FOOD
-const TARGET_STOCK := 3
+const Priority = preload("res://scripts/logistics_priority.gd")
 const Intent = preload("res://scripts/resident_intent.gd")
 const Activity = preload("res://scripts/resident_activity.gd")
 const HAUL_PRIORITY := 8000
@@ -28,57 +28,75 @@ var _source: BuildingData
 var _destination: BuildingData
 var _resident: ResidentData
 var _next_id := 1
+var _routes: Array = []
+var _buildings: Dictionary = {}
+var _recalculating := false
 
 func setup(source: BuildingData, destination: BuildingData, resident: ResidentData) -> void:
-	_source = source
+	_source = source # Assigned porter's warehouse, not the source of every job.
 	_destination = destination
 	_resident = resident
+	_buildings[source.id] = source
+	_buildings[destination.id] = destination
+	_routes = [{"source": source, "destination": destination, "export": false}]
 	if resident != null: register_resident(resident)
 
+func add_production_source(hut: BuildingData) -> void:
+	_buildings[hut.id] = hut
+	_routes.append({"source": hut, "destination": _source, "export": true})
+
+func _route_has_job(route: Dictionary) -> bool:
+	return jobs.any(func(job): return job.is_active() and job.source_location_id == route.source.id and job.destination_location_id == route.destination.id)
+
+func _route_can_create(route: Dictionary) -> bool:
+	return not _route_has_job(route) and route.source.resources.get_available_amount(FOOD) >= 1 and route.destination.resources.get_available_free_capacity(FOOD) >= 1
+
 func recalculate() -> void:
-	for job in jobs:
-		if job.is_active():
-			if current_job == null or not current_job.is_active(): current_job = job
-			changed.emit()
-			return
-	if _source == null or _destination == null:
-		return
-	if _source.id != &"warehouse_01" or _destination.id != &"communal_kitchen_01":
-		return
-	if _source.type != BuildingType.Type.STORAGE or _destination.type != BuildingType.Type.FOOD:
-		return
-	var source = _source.resources
-	var destination = _destination.resources
-	if destination.get_amount(FOOD) + destination.get_reserved_in(FOOD) >= TARGET_STOCK:
-		return
-	if source.get_available_amount(FOOD) < 1 or destination.get_available_free_capacity(FOOD) < 1:
-		return
-	if not source.reserve_out(FOOD, 1):
-		return
-	if not destination.reserve_in(FOOD, 1):
-		# Roll back only the reservation made by this attempt.
-		source.release_out(FOOD, 1)
-		return
-	current_job = HaulJob.new(StringName("haul_%04d" % _next_id), _source.id, _destination.id, FOOD, 1, _deficit_priority())
-	_next_id += 1
+	if _recalculating: return
+	_recalculating = true
 	jobs = jobs.filter(func(job): return job.is_active())
-	jobs.append(current_job)
+	for route in _routes:
+		if not _route_can_create(route): continue
+		if not route.source.resources.reserve_out(FOOD, 1): continue
+		if not route.destination.resources.reserve_in(FOOD, 1):
+			route.source.resources.release_out(FOOD, 1)
+			continue
+		var job = HaulJob.new(StringName("haul_%04d" % _next_id), route.source.id, route.destination.id, FOOD, 1)
+		_next_id += 1
+		jobs.append(job)
+	_refresh_priorities()
+	if current_job == null or not current_job.is_active():
+		if not jobs.is_empty(): current_job = jobs[0]
+	_recalculating = false
 	changed.emit()
 
-func _deficit_priority() -> int:
-	return maxi(0, TARGET_STOCK - _destination.resources.get_amount(FOOD)) * 100
+func _refresh_priorities() -> void:
+	for job in jobs:
+		var source: BuildingData = _buildings.get(job.source_location_id)
+		var destination: BuildingData = _buildings.get(job.destination_location_id)
+		if source == null or destination == null: continue
+		if source.type == BuildingType.Type.GATHERER_HUT:
+			job.priority = Priority.export_priority(source.resources, job.resource_type, source.logistics_weight)
+		else:
+			job.priority = Priority.import_priority(destination.resources, job.resource_type, destination.logistics_weight)
+
+func _job_source(job: HaulJob) -> BuildingData:
+	return _buildings.get(job.source_location_id)
+func _job_destination(job: HaulJob) -> BuildingData:
+	return _buildings.get(job.destination_location_id)
 
 func register_resident(resident: ResidentData) -> void:
 	_residents[resident.id] = resident
 
 func _eligible(resident: ResidentData, job: HaulJob) -> bool:
-	return resident != null and resident.profession == Profession.Type.PORTER and resident.work_location_id == job.source_location_id
+	return resident != null and resident.profession == Profession.Type.PORTER and resident.work_location_id == _source.id and _buildings.has(job.source_location_id) and _buildings.has(job.destination_location_id)
 
 func claim_best_job(resident_id: String) -> HaulJob:
 	var resident: ResidentData = _residents.get(resident_id)
 	if resident == null: return null
 	for job in jobs:
 		if job.is_active() and job.assigned_resident_id == resident_id: return null
+	_refresh_priorities()
 	var best: HaulJob
 	for job in jobs:
 		if job.state != HaulJob.State.RESERVED or not job.assigned_resident_id.is_empty() or not _eligible(resident, job): continue
@@ -97,7 +115,7 @@ func has_available_job(resident_id: String) -> bool:
 	if resident == null: return false
 	for job in jobs:
 		if job.state == HaulJob.State.RESERVED and _eligible(resident, job): return true
-	return resident.profession == Profession.Type.PORTER and _source != null and resident.work_location_id == _source.id and not jobs.any(func(job): return job.is_active()) and _can_create_job()
+	return resident.profession == Profession.Type.PORTER and _source != null and resident.work_location_id == _source.id and _can_create_job()
 
 func start_claimed_job(job: HaulJob, resident_id: String) -> bool:
 	if job == null or job != current_job or job.assigned_resident_id != resident_id or _resident == null or _resident.id != resident_id: return false
@@ -106,8 +124,8 @@ func start_claimed_job(job: HaulJob, resident_id: String) -> bool:
 func cancel_job(job: HaulJob) -> bool:
 	if job == null or not jobs.has(job) or not job.is_active() or job.state in [HaulJob.State.CARRYING, HaulJob.State.GOING_TO_DESTINATION]:
 		return false
-	_source.resources.release_out(job.resource_type, job.amount)
-	_destination.resources.release_in(job.resource_type, job.amount)
+	_job_source(job).resources.release_out(job.resource_type, job.amount)
+	_job_destination(job).resources.release_in(job.resource_type, job.amount)
 	job.state = HaulJob.State.CANCELLED
 	var old: Intent = _haul_intent if job == current_job else null
 	if old != null: _haul_intent = null
@@ -123,6 +141,7 @@ func bind_execution(clock: Node, locations: RefCounted, intents: Node, schedule:
 	_intents = intents
 	_schedule = schedule
 	_clock.phase_changed.connect(_on_phase_changed)
+	_clock.minute_changed.connect(_on_minute)
 	_intents.forced_interrupt.connect(_on_forced_interrupt)
 	_intents.intent_arrived.connect(_on_arrival)
 	_intents.intent_changed.connect(_on_intent_changed)
@@ -133,6 +152,7 @@ func unbind_execution() -> void:
 	if _clock == null:
 		return
 	_clock.phase_changed.disconnect(_on_phase_changed)
+	_clock.minute_changed.disconnect(_on_minute)
 	_intents.forced_interrupt.disconnect(_on_forced_interrupt)
 	_intents.intent_arrived.disconnect(_on_arrival)
 	_intents.intent_changed.disconnect(_on_intent_changed)
@@ -161,6 +181,9 @@ func _on_intent_changed(intent: Intent) -> void:
 	if current_job != null and current_job.state == HaulJob.State.GOING_TO_SOURCE and intent != _haul_intent:
 		cancel_job(current_job)
 
+func _on_minute(_minute: int) -> void:
+	recalculate() # Offer/update work, never claim or start it.
+
 func _on_phase_changed(phase: String) -> void:
 	if phase == "Ночь" and current_job != null and current_job.state in [HaulJob.State.ASSIGNED, HaulJob.State.GOING_TO_SOURCE]:
 		cancel_job(current_job)
@@ -177,7 +200,7 @@ func _on_arrival(intent: Intent) -> void:
 			return
 		# Lock before signals from resource/inventory updates can create decisions.
 		intent.interruptible = false
-		if not _source.resources.take_reserved(FOOD, 1):
+		if not _job_source(current_job).resources.take_reserved(FOOD, 1):
 			intent.interruptible = true
 			cancel_job(current_job)
 			return
@@ -195,12 +218,12 @@ func _on_arrival(intent: Intent) -> void:
 		_finish_delivery(intent)
 
 func _finish_delivery(intent: Intent) -> void:
-	if _resident.inventory.amount != 1 or _destination.resources.get_reserved_in(FOOD) < 1:
+	if _resident.inventory.amount != 1 or _job_destination(current_job).resources.get_reserved_in(FOOD) < 1:
 		return # Keep cargo and the locked goal if a promised destination is invalid.
 	_finishing = true
 	# Remove carried FOOD before container.changed can trigger a new decision.
 	_resident.inventory.clear()
-	if not _destination.resources.add_reserved(FOOD, 1):
+	if not _job_destination(current_job).resources.add_reserved(FOOD, 1):
 		_resident.inventory.put(FOOD, 1)
 		_finishing = false
 		return
@@ -217,7 +240,7 @@ func _on_forced_interrupt(_previous: Intent) -> void:
 		return
 	if current_job.state in [HaulJob.State.CARRYING, HaulJob.State.GOING_TO_DESTINATION]:
 		# Source reserve was consumed at pickup. Only destination remains promised.
-		_destination.resources.release_in(current_job.resource_type, current_job.amount)
+		_job_destination(current_job).resources.release_in(current_job.resource_type, current_job.amount)
 		var amount: int = _resident.inventory.amount
 		var resource = _resident.inventory.resource_type
 		current_job.state = HaulJob.State.CANCELLED
@@ -234,4 +257,4 @@ func has_work() -> bool:
 	return _resident != null and has_available_job(_resident.id)
 
 func _can_create_job() -> bool:
-	return _source != null and _destination != null and _source.resources.get_available_amount(FOOD) > 0 and _destination.resources.get_amount(FOOD) + _destination.resources.get_reserved_in(FOOD) < TARGET_STOCK and _destination.resources.get_available_free_capacity(FOOD) > 0
+	return _routes.any(func(route): return _route_can_create(route))

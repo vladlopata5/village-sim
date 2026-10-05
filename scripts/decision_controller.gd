@@ -3,8 +3,9 @@ extends Node
 const NeedType = preload("res://scripts/need_type.gd")
 const Activity = preload("res://scripts/resident_activity.gd")
 const Intent = preload("res://scripts/resident_intent.gd")
-const NEED_ACTION_THRESHOLD := 1000
-const WORK_PRIORITY := 7000
+const Balance = preload("res://scripts/balance_config.gd")
+const NEED_ACTION_THRESHOLD := Balance.NEED_ACTION_THRESHOLD
+const WORK_PRIORITY := Balance.WORK_PRIORITY
 const CRITICAL_HUNGER := 200
 const CRITICAL_FATIGUE := 100
 const IDLE_MINUTES := 10

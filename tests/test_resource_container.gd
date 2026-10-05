@@ -51,7 +51,7 @@ func _run() -> void:
 	check(stock.get_reserved_out(ResourceType.Type.FOOD) == 0 and stock.get_amount(ResourceType.Type.FOOD) == 1, "Cancellation before consumption releases meal without losing food")
 	r.decision.request_decision()
 	r.view._process(20)
-	check(stock.get_amount(ResourceType.Type.FOOD) == 0 and r.data.activity == Activity.Type.EATING and scene.food_label.text == "Еда в кухне: 0", "Consume locally at start; UI reads actual stock")
+	check(stock.get_amount(ResourceType.Type.FOOD) == 0 and r.data.activity == Activity.Type.EATING and scene.food_label.text == "Еда в кухне: 0/5", "Consume locally at start; UI reads actual stock")
 	scene.game_time.debug_skip_minutes(30)
 	check(r.data.hunger == 20 and stock.get_reserved_out(ResourceType.Type.FOOD) == 0, "Paid meal has gradual benefit and settled reservation")
 	scene.free()

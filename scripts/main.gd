@@ -16,6 +16,11 @@ var _ground_views: Dictionary = {}
 var logistics = LogisticsController.new()
 var logistics_label: Label
 var warehouse_food_label: Label
+const Balance = preload("res://scripts/balance_config.gd")
+const Production = preload("res://scripts/gatherer_production.gd")
+var production = Production.new()
+var gatherer_hut_data: BuildingData
+var production_label: Label
 var warehouse_data: BuildingData
 var food_label: Label
 var buildings: Array[BuildingData] = []
@@ -42,6 +47,7 @@ func _ready() -> void:
 	$HUD/ResidentCard.bind_selection(resident_selection)
 	_create_test_kitchen()
 	_create_test_warehouse()
+	_create_test_gatherer_hut()
 	_create_test_residents()
 	add_child(social_world)
 	social_world.position_provider = _resident_position_2d
@@ -54,6 +60,14 @@ func _ready() -> void:
 	ground_resources.added.connect(_show_ground_resource)
 	ground_resources.removed.connect(_remove_ground_resource)
 	_configure_logistics()
+	add_child(production)
+	production.setup(game_time, gatherer_hut_data, residents, world_locations, _production_position_2d)
+	production.changed.connect(_update_production)
+	gatherer_hut_data.resources.changed.connect(_on_hut_resources_changed)
+	for runtime in resident_runtimes:
+		if runtime.data.profession == Profession.Type.GATHERER:
+			runtime.decision.work_available = production.can_work.bind(runtime.data)
+	_update_production()
 	_update_logistics()
 	warehouse_data.resources.changed.connect(_update_warehouse_food)
 	_update_warehouse_food(ResourceType.Type.FOOD, warehouse_data.resources.get_amount(ResourceType.Type.FOOD))
@@ -105,6 +119,8 @@ func _build_hud() -> void:
 	population_label = Label.new()
 	population_label.text = "Жителей: %d" % residents.size()
 	column.add_child(population_label)
+	production_label = Label.new()
+	column.add_child(production_label)
 	warehouse_food_label = Label.new()
 	column.add_child(warehouse_food_label)
 	food_label = Label.new()
@@ -157,7 +173,7 @@ func _debug_set_hunger(value: int = 75) -> void:
 
 func _update_food(resource: ResourceType.Type, amount: int) -> void:
 	if resource == ResourceType.Type.FOOD:
-		food_label.text = "Еда в кухне: %d" % amount
+		food_label.text = "Еда в кухне: %d/5" % amount
 		_update_logistics()
 
 func _toggle_pause() -> void:
@@ -189,6 +205,9 @@ func _create_test_residents() -> void:
 	for index in range(3):
 		var data = generator.generate(["Анна", "Фёдор", "Марина"][index])
 		data.home_location_id = home_ids[index]
+		if index == 1:
+			data.profession = Profession.Type.GATHERER
+			data.work_location_id = gatherer_hut_data.id
 		residents.append(data)
 	var home_names = ["Дом Степана", "Дом Анны", "Дом Фёдора", "Дом Марины"]
 	var home_positions = [Vector2(-300, -120), Vector2(-100, -200), Vector2(100, -200), Vector2(300, -120)]
@@ -221,6 +240,10 @@ func _resident_position_2d(resident_id: String) -> Vector2:
 	var runtime = social_world.get_runtime(resident_id)
 	return runtime.view.global_position if runtime != null else Vector2.ZERO
 
+func _production_position_2d(resident_id: String) -> Variant:
+	var runtime = social_world.get_runtime(resident_id)
+	return runtime.view.global_position if runtime != null else null
+
 func find_resident(resident_id: String) -> ResidentData:
 	for data in residents:
 		if data.id == resident_id:
@@ -240,6 +263,7 @@ func _configure_logistics() -> void:
 			continue
 		logistics.cargo_dropped.connect(_drop_cargo.bind(runtime))
 		logistics.setup(warehouse_data, kitchen_data, runtime.data)
+		logistics.add_production_source(gatherer_hut_data)
 		runtime.decision.work_available = logistics.has_available_job.bind(runtime.data.id)
 		runtime.decision.work_request = _request_haul_work.bind(runtime)
 		runtime.schedule.work_decision = runtime.decision.request_decision
@@ -296,7 +320,7 @@ func _create_test_kitchen() -> void:
 
 func _update_warehouse_food(resource: ResourceType.Type, amount: int) -> void:
 	if resource == ResourceType.Type.FOOD:
-		warehouse_food_label.text = "Еда на складе: %d" % amount
+		warehouse_food_label.text = "Еда на складе: %d/20" % amount
 		_update_logistics()
 
 func _create_test_warehouse() -> void:
@@ -312,6 +336,26 @@ func _create_test_warehouse() -> void:
 	$World.add_child(view)
 	world_locations.register(location, view)
 
+func _create_test_gatherer_hut() -> void:
+	gatherer_hut_data = BuildingData.new(&"gatherer_hut_01", "Хижина собирателя", BuildingType.Type.GATHERER_HUT)
+	gatherer_hut_data.resources.set_allowed_resource_types([ResourceType.Type.FOOD])
+	gatherer_hut_data.resources.set_capacity(ResourceType.Type.FOOD, 5)
+	buildings.append(gatherer_hut_data)
+	var location = WorldLocation.new(gatherer_hut_data.id, gatherer_hut_data.display_name)
+	var view = BuildingView2D.instantiate()
+	view.name = "GathererHut"
+	view.setup(gatherer_hut_data)
+	view.position = Vector2(380, -240)
+	$World.add_child(view)
+	world_locations.register(location, view)
+
+func _on_hut_resources_changed(_resource: ResourceType.Type, _amount: int) -> void:
+	logistics.recalculate()
+	_update_production()
+
+func _update_production() -> void:
+	production_label.text = "Хижина собирателя: FOOD %d/5\nproduction progress %d/%d" % [gatherer_hut_data.resources.get_amount(ResourceType.Type.FOOD), gatherer_hut_data.production_progress, Balance.GATHERER_WORK_MINUTES_PER_FOOD]
+
 func _update_logistics() -> void:
 	if logistics_label == null:
 		return
@@ -320,12 +364,22 @@ func _update_logistics() -> void:
 	var summary := "Склад: %d/%d FOOD • зарезервировано на вывоз: %d\nКухня: %d/%d FOOD • зарезервировано под доставку: %d" % [source.get_amount(ResourceType.Type.FOOD), source.get_capacity(ResourceType.Type.FOOD), source.get_reserved_out(ResourceType.Type.FOOD), destination.get_amount(ResourceType.Type.FOOD), destination.get_capacity(ResourceType.Type.FOOD), destination.get_reserved_in(ResourceType.Type.FOOD)]
 	var job = logistics.current_job
 	if job == null or not job.is_active():
+		for offered_job in logistics.jobs:
+			if offered_job.is_active():
+				job = offered_job
+				break
+	if job == null or not job.is_active():
 		summary += "\nЛогистика: нет активной доставки"
 	elif find_resident(job.assigned_resident_id) != null:
-		summary += "\nЛогистика: %s: доставить %d FOOD → %s" % [find_resident(job.assigned_resident_id).resident_name, job.amount, kitchen_data.display_name]
+		summary += "\nЛогистика: %s: доставить %d FOOD → %s" % [find_resident(job.assigned_resident_id).resident_name, job.amount, world_locations.get_location(job.destination_location_id).display_name]
 		summary += " • " + preload("res://scripts/haul_job.gd").State.keys()[job.state]
 	else:
 		summary += "\nЛогистика: доступна доставка FOOD (приоритет %d)" % job.priority
+	for active_job in logistics.jobs:
+		if not active_job.is_active(): continue
+		var source_name: String = world_locations.get_location(active_job.source_location_id).display_name
+		var destination_name: String = world_locations.get_location(active_job.destination_location_id).display_name
+		summary += "\n%s → %s • %d FOOD • priority: %.0f" % [source_name, destination_name, active_job.amount, active_job.priority]
 	logistics_label.text = summary
 
 func _drop_cargo(resource: ResourceType.Type, amount: int, runtime: ResidentRuntime) -> void:

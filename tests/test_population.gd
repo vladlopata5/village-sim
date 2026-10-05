@@ -58,12 +58,13 @@ func _run():
 	scene.residents[1].activity = Activity.Type.IDLE
 	clock.debug_next_phase()
 	check(scene.logistics.current_job.assigned_resident_id == scene.residents[0].id and scene.logistics.current_job.state == Job.State.GOING_TO_SOURCE, "Only assigned porter starts logistics")
-	for runtime in scene.resident_runtimes.slice(1):
+	for runtime in [scene.resident_runtimes[1], scene.resident_runtimes[3]]:
 		check(runtime.data.profession == Profession.Type.NONE and runtime.data.work_location_id.is_empty() and runtime.data.activity == Activity.Type.IDLE, "Residents without work stay idle by day")
-	for delivery in range(3):
+	check(scene.residents[2].profession == Profession.Type.GATHERER and scene.residents[2].work_location_id == scene.gatherer_hut_data.id and scene.residents[2].activity == Activity.Type.MOVING, "Fedor goes to his assigned gatherer hut")
+	for delivery in range(5):
 		scene.resident_runtimes[0].view._process(20.0)
 		scene.resident_runtimes[0].view._process(20.0)
-	check(scene.kitchen_data.resources.get_amount(FOOD) == 3 and scene.warehouse_data.resources.get_amount(FOOD) == 7, "Porter fills common kitchen to target")
+	check(scene.kitchen_data.resources.get_amount(FOOD) == 5 and scene.warehouse_data.resources.get_amount(FOOD) == 5, "Porter fills common kitchen to capacity")
 	for runtime in scene.resident_runtimes.slice(1): check(runtime.data.inventory.amount == 0, "No other resident carries cargo")
 	var untouched = scene.resident_runtimes[0].intents.current_intent
 	var hunger_before: Array = []
@@ -82,7 +83,7 @@ func _run():
 	scene.resident_runtimes[2].view._process(20.0)
 	check(scene.residents[2].activity == Activity.Type.EATING, "Non-porter eats at shared kitchen")
 	clock.debug_skip_minutes(30)
-	check(scene.residents[2].hunger < 70 and scene.kitchen_data.resources.get_amount(FOOD) == 2 and scene.residents[2].activity == Activity.Type.IDLE, "Common food is consumed for the correct resident")
+	check(scene.residents[2].hunger < 70 and scene.kitchen_data.resources.get_amount(FOOD) == 4 and scene.residents[2].activity == Activity.Type.MOVING, "Common food is consumed for the correct resident")
 	# Isolate the night schedule from naturally escalating hunger during F8 jumps.
 	for runtime in scene.resident_runtimes: runtime.need_dynamics.free()
 	for data in scene.residents: data.hunger = 0

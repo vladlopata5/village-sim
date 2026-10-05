@@ -36,7 +36,7 @@ func _run() -> void:
 		clock.set_speed(speed)
 		clock.debug_next_phase()
 		check(scene.logistics.current_job.state == Job.State.GOING_TO_SOURCE and view.target_position == scene.world_locations.get_position(&"warehouse_01"), "Day starts haul to source")
-		for number in range(3):
+		for number in range(5):
 			var job = scene.logistics.current_job
 			check(total(scene) == 10 and data.inventory.amount == 0 and scene.warehouse_data.resources.get_reserved_out(FOOD) == 1, "Before pickup FOOD exists only in containers")
 			paused = true
@@ -63,7 +63,7 @@ func _run() -> void:
 			check(job.state == Job.State.COMPLETED and data.inventory.amount == 0 and not view.cargo_indicator.visible and scene.kitchen_data.resources.get_amount(FOOD) == number + 1 and total(scene) == 10, "Delivery puts unit only in kitchen")
 			view.intent_completed.emit(destination_intent)
 			check(total(scene) == 10 and scene.kitchen_data.resources.get_amount(FOOD) == number + 1, "Stale arrival cannot duplicate delivery")
-		check(scene.warehouse_data.resources.get_amount(FOOD) == 7 and scene.kitchen_data.resources.get_amount(FOOD) == 3 and scene.kitchen_data.resources.get_reserved_in(FOOD) == 0 and scene.warehouse_data.resources.get_reserved_out(FOOD) == 0, "Target stock 3 stops new jobs with all reserves settled")
+		check(scene.warehouse_data.resources.get_amount(FOOD) == 5 and scene.kitchen_data.resources.get_amount(FOOD) == 5 and scene.kitchen_data.resources.get_reserved_in(FOOD) == 0 and scene.warehouse_data.resources.get_reserved_out(FOOD) == 0, "Capacity 5 stops new jobs with all reserves settled")
 		view._process(20.0)
 		check(data.activity == Activity.Type.IDLE, "No haul available: idle instead of placeholder work")
 		scene.free()

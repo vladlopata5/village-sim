@@ -4,7 +4,7 @@ const ResidentIntent = preload("res://scripts/resident_intent.gd")
 const IntentController = preload("res://scripts/resident_intent_controller.gd")
 const Activity = preload("res://scripts/resident_activity.gd")
 const HOME_PRIORITY := 10000
-const WORK_PRIORITY := 7000
+const WORK_PRIORITY := preload("res://scripts/balance_config.gd").WORK_PRIORITY
 const MANUAL_PRIORITY := 10
 var before_work: Callable
 var work_decision: Callable

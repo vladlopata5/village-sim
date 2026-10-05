@@ -3,6 +3,7 @@ extends RefCounted
 const ResourceType = preload("res://scripts/resource_type.gd")
 signal changed(resource: ResourceType.Type, amount: int)
 var owner_id: StringName
+var _allowed_resource_types: Array = [] # Empty means unrestricted; capacities still required.
 var _amounts: Dictionary = {}
 var _capacity_per_resource: Dictionary = {}
 var _reserved_out: Dictionary = {}
@@ -11,14 +12,23 @@ var _reserved_in: Dictionary = {}
 func _init(owner: StringName) -> void:
 	owner_id = owner
 
+func set_allowed_resource_types(types: Array) -> bool:
+	for resource in _capacity_per_resource:
+		if not types.is_empty() and resource not in types and (get_amount(resource) > 0 or get_reserved_out(resource) > 0 or get_reserved_in(resource) > 0): return false
+	_allowed_resource_types = types.duplicate()
+	return true
+
+func allows_resource(resource: ResourceType.Type) -> bool:
+	return _allowed_resource_types.is_empty() or resource in _allowed_resource_types
+
 func set_capacity(resource: ResourceType.Type, capacity: int) -> bool:
-	if capacity < 0 or capacity < get_amount(resource) + get_reserved_in(resource):
+	if not allows_resource(resource) or capacity < 0 or capacity < get_amount(resource) + get_reserved_in(resource):
 		return false
 	_capacity_per_resource[resource] = capacity
 	return true
 
 func get_capacity(resource: ResourceType.Type) -> int:
-	return _capacity_per_resource.get(resource, 0)
+	return _capacity_per_resource.get(resource, 0) if allows_resource(resource) else 0
 
 func get_amount(resource: ResourceType.Type) -> int:
 	return _amounts.get(resource, 0)
@@ -74,7 +84,7 @@ func reserve_in(resource: ResourceType.Type, amount: int) -> bool:
 	return true
 
 func release_in(resource: ResourceType.Type, amount: int) -> bool:
-	if amount <= 0 or amount > get_reserved_in(resource):
+	if not allows_resource(resource) or amount <= 0 or amount > get_reserved_in(resource):
 		return false
 	_reserved_in[resource] = get_reserved_in(resource) - amount
 	return true
@@ -88,7 +98,7 @@ func take_reserved(resource: ResourceType.Type, amount: int) -> bool:
 	return true
 
 func add_reserved(resource: ResourceType.Type, amount: int) -> bool:
-	if amount <= 0 or amount > get_reserved_in(resource):
+	if not allows_resource(resource) or amount <= 0 or amount > get_reserved_in(resource):
 		return false
 	_reserved_in[resource] = get_reserved_in(resource) - amount
 	_amounts[resource] = get_amount(resource) + amount
