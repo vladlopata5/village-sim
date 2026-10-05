@@ -24,7 +24,7 @@ func _run() -> void:
 	var scene = load("res://scenes/main.tscn").instantiate()
 	root.add_child(scene)
 	preload("res://tests/resident_test_setup.gd").isolate_first(scene)
-	scene.logistics.unbind_execution()
+	preload("res://tests/resident_test_setup.gd").unbind_work(scene)
 	await process_frame
 	await process_frame
 	var view = scene.resident_runtimes[0].view

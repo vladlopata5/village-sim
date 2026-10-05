@@ -33,7 +33,7 @@ func _run() -> void:
 	var scene = load("res://scenes/main.tscn").instantiate()
 	root.add_child(scene)
 	preload("res://tests/resident_test_setup.gd").isolate_first(scene)
-	scene.logistics.unbind_execution()
+	preload("res://tests/resident_test_setup.gd").unbind_work(scene)
 	# Test this subsystem alone; need/schedule interaction has its own suite.
 	scene.resident_runtimes[0].decision.free()
 	scene.resident_runtimes[0].needs.free()

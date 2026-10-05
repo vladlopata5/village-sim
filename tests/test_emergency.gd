@@ -82,7 +82,7 @@ func _run() -> void:
 		scene.game_time.advance(100.0)
 		check(drop.age_minutes(scene.game_time.total_minutes) == 0, "Pause does not age physical resource")
 		# Isolate lifetime from further resident decisions while advancing all game minutes.
-		scene.logistics.unbind_execution()
+		preload("res://tests/resident_test_setup.gd").unbind_work(scene)
 		scene.resident_runtimes[0].decision.free()
 		scene.resident_runtimes[0].needs.free()
 		scene.game_time.debug_skip_minutes(Drop.LIFETIME_MINUTES - 1)

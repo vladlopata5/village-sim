@@ -37,7 +37,7 @@ func _run() -> void:
 	controller.recalculate()
 	check(job.state == Job.State.RESERVED, "Porter at another workplace not eligible")
 	resident.work_location_id = source.id
-	controller.recalculate()
+	check(controller.claim_best_job(resident.id) == job, "Porter explicitly claims job")
 	check(job.state == Job.State.ASSIGNED and job.assigned_resident_id == resident.id, "Warehouse porter assigned existing reservation")
 	for _repeat in range(10):
 		controller.recalculate()
@@ -77,7 +77,7 @@ func _run() -> void:
 	scene.game_time.set_process(false)
 	scene.resident_runtimes[0].view.set_process(false)
 	check(not scene.has_node("World/WorkPoint") and scene.world_locations.get_location(&"work_stepan") == null, "Obsolete work marker removed")
-	check(scene.residents[0].work_location_id == &"warehouse_01" and scene.logistics.current_job.state == Job.State.ASSIGNED, "Stepan works at warehouse and has assigned job")
+	check(scene.residents[0].work_location_id == &"warehouse_01" and scene.logistics.current_job.state == Job.State.RESERVED and scene.logistics.current_job.assigned_resident_id.is_empty(), "Stepan works at warehouse; task remains available until his decision")
 	var position: Vector2 = scene.resident_runtimes[0].view.global_position
 	var intent = scene.resident_runtimes[0].intents.current_intent
 	paused = true
@@ -87,7 +87,7 @@ func _run() -> void:
 		event.pressed = pressed
 		root.push_input(event, true)
 	check(scene.resident_runtimes[0].view.global_position == position and scene.resident_runtimes[0].intents.current_intent == intent and scene.warehouse_data.resources.get_amount(FOOD) == 10 and scene.kitchen_data.resources.get_amount(FOOD) == 0, "F12 on pause makes no movement, intent or transfer")
-	check(scene.logistics_label.text.contains("зарезервировано на вывоз: 1") and scene.logistics_label.text.contains("зарезервировано под доставку: 1") and scene.logistics_label.text.contains("Степан: доставить 1 FOOD → Общая кухня"), "UI shows actual job and both reserves")
+	check(scene.logistics_label.text.contains("зарезервировано на вывоз: 1") and scene.logistics_label.text.contains("зарезервировано под доставку: 1") and scene.logistics_label.text.contains("доступна доставка FOOD"), "UI shows actual job and both reserves")
 	paused = false
 	scene.game_time.debug_next_phase()
 	check(scene.resident_runtimes[0].view.target_position == scene.world_locations.get_position(&"warehouse_01"), "07:00 delivery uses warehouse source")

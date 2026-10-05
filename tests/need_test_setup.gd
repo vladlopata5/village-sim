@@ -11,7 +11,7 @@ static func make_scene(tree: SceneTree, minute: int = 360, food: int = 2) -> Nod
 	runtime.data.hunger = 0
 	runtime.data.fatigue = 0
 	scene.logistics.cancel_job(scene.logistics.current_job)
-	scene.logistics.unbind_execution()
+	preload("res://tests/resident_test_setup.gd").unbind_work(scene)
 	runtime.intents.clear_reason(&"day_work")
 	runtime.decision.work_available = Callable()
 	if food > 0: scene.kitchen_data.resources.add(FOOD, food)

@@ -14,7 +14,7 @@ func make_scene():
 	root.add_child(scene)
 	scene.game_time.set_process(false)
 	scene.logistics.cancel_job(scene.logistics.current_job)
-	scene.logistics.unbind_execution()
+	preload("res://tests/resident_test_setup.gd").unbind_work(scene)
 	for runtime in scene.resident_runtimes:
 		runtime.view.set_process(false)
 		runtime.data.work_location_id = &""

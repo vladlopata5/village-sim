@@ -239,13 +239,30 @@ func _configure_logistics() -> void:
 		if runtime.data.profession != Profession.Type.PORTER or runtime.data.work_location_id != warehouse_data.id:
 			continue
 		logistics.cargo_dropped.connect(_drop_cargo.bind(runtime))
-		logistics.before_work = runtime.needs.prepare_for_work
 		logistics.setup(warehouse_data, kitchen_data, runtime.data)
-		runtime.decision.work_available = logistics.has_work
+		runtime.decision.work_available = logistics.has_available_job.bind(runtime.data.id)
+		runtime.decision.work_request = _request_haul_work.bind(runtime)
+		runtime.schedule.work_decision = runtime.decision.request_decision
+		logistics.job_cancelled.connect(_on_haul_cancelled.bind(runtime))
 		logistics.changed.connect(_update_logistics)
 		logistics.delivered.connect(runtime.needs.evaluate)
 		logistics.bind_execution(game_time, world_locations, runtime.intents, runtime.schedule)
+		if game_time.get_phase() == "День":
+			runtime.intents.clear_reason(&"day_work")
+			runtime.decision.request_decision("startup_work")
 		return
+
+func _request_haul_work(runtime: ResidentRuntime) -> bool:
+	logistics.recalculate()
+	var job = logistics.claim_best_job(runtime.data.id)
+	if job == null: return false
+	if logistics.start_claimed_job(job, runtime.data.id): return true
+	logistics.cancel_job(job)
+	return false
+
+func _on_haul_cancelled(resident_id: String, runtime: ResidentRuntime) -> void:
+	if resident_id == runtime.data.id and is_instance_valid(runtime.decision):
+		runtime.decision.call_deferred("request_decision", "job_cancelled")
 
 func _unhandled_input(event: InputEvent) -> void:
 	# UI and resident selection consume their clicks before this parent.
@@ -308,7 +325,7 @@ func _update_logistics() -> void:
 		summary += "\nЛогистика: %s: доставить %d FOOD → %s" % [find_resident(job.assigned_resident_id).resident_name, job.amount, kitchen_data.display_name]
 		summary += " • " + preload("res://scripts/haul_job.gd").State.keys()[job.state]
 	else:
-		summary += "\nЛогистика: доставка зарезервирована, ожидает носильщика"
+		summary += "\nЛогистика: доступна доставка FOOD (приоритет %d)" % job.priority
 	logistics_label.text = summary
 
 func _drop_cargo(resource: ResourceType.Type, amount: int, runtime: ResidentRuntime) -> void:

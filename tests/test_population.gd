@@ -112,7 +112,7 @@ func _run():
 	scene = load("res://scenes/main.tscn").instantiate()
 	root.add_child(scene)
 	scene.game_time.set_process(false)
-	scene.logistics.unbind_execution()
+	preload("res://tests/resident_test_setup.gd").unbind_work(scene)
 	for data in scene.residents:
 		data.hunger = 0
 		data.fatigue = 0

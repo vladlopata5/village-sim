@@ -67,7 +67,7 @@ func _run() -> void:
 	var scene = load("res://scenes/main.tscn").instantiate()
 	root.add_child(scene)
 	preload("res://tests/resident_test_setup.gd").isolate_first(scene)
-	scene.logistics.unbind_execution()
+	preload("res://tests/resident_test_setup.gd").unbind_work(scene)
 	var scene_clock = scene.get_node("GameTime")
 	scene_clock.set_process(false)
 	check(scene.clock_label.text == "06:00", "Scene initial HUD")

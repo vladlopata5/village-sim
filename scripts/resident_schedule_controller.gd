@@ -7,6 +7,7 @@ const HOME_PRIORITY := 10000
 const WORK_PRIORITY := 7000
 const MANUAL_PRIORITY := 10
 var before_work: Callable
+var work_decision: Callable
 var _locations: RefCounted
 var _phase: String = ""
 var is_night: bool:
@@ -41,6 +42,10 @@ func _on_phase_changed(phase: String) -> void:
 		data.activity = Activity.Type.IDLE
 	match phase:
 		"День":
+			if work_decision.is_valid():
+				_intents.clear_reason(&"manual_move")
+				work_decision.call()
+				return
 			if data.work_location_id.is_empty() or data.profession == preload("res://scripts/resident_profession.gd").Type.NONE:
 				_intents.clear_reason(&"manual_move")
 			else:

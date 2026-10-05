@@ -20,6 +20,7 @@ var _next_decision_at := 0
 var decision_count := 0
 var social: Node
 var work_available: Callable
+var work_request: Callable
 
 func setup(clock: Node, data: RefCounted, intents: Node, needs: Node, schedule: Node) -> void:
 	_clock = clock
@@ -101,9 +102,20 @@ func request_decision(_reason: String = "free") -> void:
 		_schedule.resume_current_phase()
 		return
 	var available: bool = _clock.get_phase() == "День" and _has_work()
-	if _choose_need(available): return
-	if available: _schedule.resume_current_phase()
-	else: _data.activity = Activity.Type.IDLE
+	if _choose_need(available) or _intents.has_current_action(): return
+	if available:
+		if work_request.is_valid():
+			_deciding = true
+			var started: bool = work_request.call()
+			_deciding = false
+			check_critical()
+			if started or _intents.has_current_action(): return
+			# A job may have been claimed by someone else since availability was checked.
+			if _choose_need(false) or _intents.has_current_action(): return
+		else:
+			_schedule.resume_current_phase()
+			return
+	_data.activity = Activity.Type.IDLE
 
 func _on_completed(intent: Intent) -> void:
 	_next_decision_at = _clock.total_minutes + IDLE_MINUTES
