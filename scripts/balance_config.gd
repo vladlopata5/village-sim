@@ -1,5 +1,9 @@
 extends RefCounted
 ## Prototype balance values; no editor settings framework.
+const UTILITY_CANDIDATE_RATIO := 0.75
+const UTILITY_RANDOM_EXPONENT := 2.0
+const SLEEP_SOCIAL_GROWTH_MULTIPLIER := 0.2
+const SLEEP_LEISURE_GROWTH_MULTIPLIER := 0.2
 const WORK_PRIORITY := 7000
 const NEED_ACTION_THRESHOLD := 1000
 const IMPORT_MULTIPLIER := 1.1

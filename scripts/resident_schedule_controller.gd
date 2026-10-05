@@ -67,7 +67,7 @@ func _move_to_location(location_id: StringName, reason: StringName, priority: in
 		if accepted and logger != null:
 			logger.sync_activity(_intents.resident_data)
 			if reason == &"night_home": logger.info(EventLog.SCHEDULE, "%s: получил ночное намерение идти домой" % _intents.resident_data.resident_name)
-			elif reason == &"day_work" and not previously_working: logger.info(EventLog.AI, "%s: выбрал работу" % _intents.resident_data.resident_name)
+			elif reason == &"day_work" and not previously_working: logger.info(EventLog.AI, "%s: выбрал работу (priority=%d)" % [_intents.resident_data.resident_name, WORK_PRIORITY])
 
 func _on_intent_completed(intent: ResidentIntent) -> void:
 	# Controller only reports accepted arrivals, never cancellations/stale goals.

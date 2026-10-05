@@ -1,4 +1,5 @@
 extends SceneTree
+const Seed = preload("res://tests/utility_test_seed.gd")
 const Setup = preload("res://tests/behavior_test_setup.gd")
 const Balance = preload("res://scripts/balance_config.gd")
 const Type = preload("res://scripts/need_type.gd").Type
@@ -32,9 +33,10 @@ func _run() -> void:
 			paused = false
 			scene.game_time.advance(59.0 / speed)
 			check(resident.data.activity == Activity.WORKING and resident.decision.decision_count == count, "Ordinary need cannot interrupt first 59 work minutes")
+			resident.decision.rng.seed = Seed.for_action(resident.decision.collect_actions(true), "SOCIAL" if need_type == Type.SOCIAL else "LEISURE")
 			scene.game_time.advance(1.0 / speed)
 			check(resident.decision.decision_count > count, "60-minute boundary creates ordinary decision point at every speed")
-			check(resident.intents.current_intent.reason_id == (&"social" if need_type == Type.SOCIAL else &"leisure"), "Higher need wins before next work cycle")
+			check(resident.intents.current_intent.reason_id == (&"social" if need_type == Type.SOCIAL else &"leisure"), "Seeded normal selector chooses the higher need before next work cycle")
 			check(scene.gatherer_hut_data.resources.get_amount(FOOD) == 2 and scene.gatherer_hut_data.production_progress == 7, "60 work minutes produce two FOOD; building's remainder survives break")
 			scene.game_time.debug_skip_minutes(1)
 			check(scene.gatherer_hut_data.production_progress == 7, "Break contributes no production and does not reset progress")

@@ -121,7 +121,7 @@ func _on_arrival(intent: Intent) -> void:
 	_data.activity = Activity.Type.EATING
 	if logger != null:
 		logger.sync_activity(_data)
-		logger.info(EventLog.NEED, "%s: начал есть" % _data.resident_name)
+		logger.info(EventLog.NEED, "%s: начал есть (HUNGER=%d, priority=%d)" % [_data.resident_name, _data.hunger, _data.get_need(preload("res://scripts/need_type.gd").Type.HUNGER).get_priority()])
 
 func _on_minute_changed(minute: int) -> void:
 	if _active_intent == null:
@@ -180,7 +180,7 @@ func can_try_eat() -> bool:
 	return _data.hunger >= Balance.EAT_MIN_HUNGER and not _food_unavailable
 
 func has_food_action() -> bool:
-	return can_try_eat() and _available_food_amount > 0
+	return can_try_eat() and _count_available_food() > 0
 
 func _on_food_availability_changed(resource: ResourceType.Type, _amount: int) -> void:
 	if resource != FOOD or _exiting: return

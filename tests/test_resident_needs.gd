@@ -1,4 +1,5 @@
 extends SceneTree
+const Seed = preload("res://tests/utility_test_seed.gd")
 const Setup = preload("res://tests/need_test_setup.gd")
 const Activity = preload("res://scripts/resident_activity.gd")
 const FOOD = preload("res://scripts/resource_type.gd").Type.FOOD
@@ -15,6 +16,7 @@ func _run():
 		var clock = speed_scene.game_time
 		clock.set_speed(speed)
 		speed_resident.data.hunger = 80
+		speed_resident.decision.rng.seed = Seed.for_action(speed_resident.decision.collect_actions(true), "EAT")
 		speed_resident.decision.request_decision()
 		check(speed_resident.intents.current_intent.reason_id == &"eat" and speed_scene.kitchen_data.resources.get_reserved_out(FOOD) == 1, "Concrete action reserves before movement")
 		clock.advance(15.0 / speed)

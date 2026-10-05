@@ -22,6 +22,8 @@ func setup(owner_runtime: Node, game_clock: Node) -> void:
 	clock.minute_changed.connect(_on_minute)
 	runtime.intents.intent_arrived.connect(_on_arrival)
 	runtime.intents.intent_changed.connect(_on_intent_changed)
+func has_social_action() -> bool:
+	return is_instance_valid(world) and not world.options_for(runtime.data.id).is_empty()
 func try_social(priority: int) -> bool:
 	if world == null: return false
 	var option = Choice.pick(world.options_for(runtime.data.id), rng)
@@ -43,7 +45,7 @@ func try_leisure(priority: int) -> bool:
 	runtime.data.activity = Activity.Type.RELAXING
 	if logger != null:
 		logger.sync_activity(runtime.data)
-		logger.info(EventLog.LEISURE, "%s: начал отдыхать" % runtime.data.resident_name)
+		logger.info(EventLog.LEISURE, "%s: начал отдыхать (LEISURE=%d, priority=%d)" % [runtime.data.resident_name, runtime.data.get_need(NeedType.Type.LEISURE).value, runtime.data.get_need(NeedType.Type.LEISURE).get_priority()])
 	return true
 func begin_talking() -> void:
 	# The waiting IDLE participant also owns an independent current action.
@@ -57,7 +59,7 @@ func begin_talking() -> void:
 	runtime.data.activity = Activity.Type.TALKING
 	if logger != null:
 		logger.sync_activity(runtime.data)
-		logger.info(EventLog.SOCIAL, "%s: начал разговор" % runtime.data.resident_name)
+		logger.info(EventLog.SOCIAL, "%s: начал разговор (SOCIAL=%d, priority=%d)" % [runtime.data.resident_name, runtime.data.get_need(NeedType.Type.SOCIAL).value, runtime.data.get_need(NeedType.Type.SOCIAL).get_priority()])
 func _on_arrival(intent: Intent) -> void:
 	if intent != _active or intent.reason_id != &"social": return
 	if not world.arrive(runtime.data.id, _option): _finish()

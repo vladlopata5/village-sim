@@ -1,4 +1,5 @@
 extends SceneTree
+const Seed = preload("res://tests/utility_test_seed.gd")
 const Setup = preload("res://tests/need_test_setup.gd")
 const Activity = preload("res://scripts/resident_activity.gd")
 const Intent = preload("res://scripts/resident_intent.gd")
@@ -39,7 +40,7 @@ func _run():
 	r.data.hunger = 60
 	r.data.fatigue = 65
 	r.decision.request_decision()
-	check(r.intents.current_intent.reason_id == &"day_work", "Work wins over needs below 7000")
+	check(r.intents.current_intent.reason_id == &"day_work", "Seed chooses work among near-best needs below 7000")
 	current = r.intents.current_intent
 	r.data.hunger = 80
 	r.data.fatigue = 90
@@ -47,20 +48,21 @@ func _run():
 	r.view._process(20)
 	check(r.data.activity == Activity.Type.WORKING, "Work route arrival starts work segment")
 	scene.game_time.debug_skip_minutes(60)
-	check(r.data.activity == Activity.Type.RESTING, "Next action boundary compares needs: fatigue 9000 wins hunger 8000 and work 7000")
+	check(r.data.activity == Activity.Type.RESTING, "Next action boundary compares needs: seed chooses fatigue among near-best hunger and work")
 	check(scene.kitchen_data.resources.get_reserved_out(FOOD) == 0, "Unchosen hunger does not reserve food")
 	r.data.hunger = 99
 	current = r.intents.current_intent
 	check(r.intents.current_intent == current, "A new ordinary winner waits for rest completion")
+	r.decision.rng.seed = Seed.for_action(r.decision.collect_actions(true), "EAT")
 	scene.game_time.debug_skip_minutes(10)
 	check(r.intents.current_intent.reason_id == &"eat", "Rest completion produces next decision")
 	scene.free()
-	# At exactly 7000, the deterministic tie goes to work.
+	# Equal utility remains a seeded random choice; this seed selects work.
 	scene = Setup.make_scene(self, 420)
 	r = scene.resident_runtimes[0]
 	r.data.hunger = 70
 	r.decision.request_decision()
-	check(r.intents.current_intent.reason_id == &"day_work" and scene.kitchen_data.resources.get_reserved_out(FOOD) == 0, "Work wins tie at 7000 without reserving unchosen food")
+	check(r.intents.current_intent.reason_id == &"day_work" and scene.kitchen_data.resources.get_reserved_out(FOOD) == 0, "Seed chooses work from tie at 7000 without reserving unchosen food")
 	scene.free()
 	# No work task: consider even a need below work priority.
 	scene = Setup.make_scene(self, 420)

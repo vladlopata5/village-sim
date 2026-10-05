@@ -31,8 +31,8 @@ func _run():
 				for frame in range(frames): clock.advance(60.0 / speed / frames)
 				check(data.fatigue == expected[activity], "Same fatigue rate for activity/speed/FPS")
 				check(data.hunger == (0 if activity == Activity.Type.EATING else (21 if activity == Activity.Type.SLEEPING else 24)), "Common hunger dynamics preserves awake/sleep and gradual meal rates")
-				check(data.get_need(NeedType.Type.SOCIAL).value == clampi(50 + int(float(Dynamics.SOCIAL_RATES[activity]) / (5 if Dynamics.SOCIAL_RATES[activity] > 0 else 1)), 0, 100), "Social rate is independent of speed/FPS")
-				check(data.get_need(NeedType.Type.LEISURE).value == clampi(50 + int(float(Dynamics.LEISURE_RATES[activity]) / (5 if Dynamics.LEISURE_RATES[activity] > 0 else 1)), 0, 100), "Leisure rate is independent of speed/FPS")
+				check(data.get_need(NeedType.Type.SOCIAL).value == clampi(50 + int(float(Dynamics.SOCIAL_RATES[activity]) * (0.2 if activity == Activity.Type.SLEEPING else 1.0) / (5 if Dynamics.SOCIAL_RATES[activity] > 0 else 1)), 0, 100), "Social rate is independent of speed/FPS")
+				check(data.get_need(NeedType.Type.LEISURE).value == clampi(50 + int(float(Dynamics.LEISURE_RATES[activity]) * (0.2 if activity == Activity.Type.SLEEPING else 1.0) / (5 if Dynamics.LEISURE_RATES[activity] > 0 else 1)), 0, 100), "Leisure rate is independent of speed/FPS")
 				var values = [data.hunger, data.fatigue, data.get_need(NeedType.Type.SOCIAL).value, data.get_need(NeedType.Type.LEISURE).value]
 				paused = true
 				clock.advance(1000)

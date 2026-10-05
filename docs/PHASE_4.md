@@ -334,3 +334,40 @@ DEBUG объясняет продолжение/выход из разговор
 движением. GameTime обрабатывает каждую пересечённую минуту и фазу, даже при
 большом шаге; длительности проверяются через >=, без специальных веток быстрых
 скоростей. Пауза замораживает игровое время и действия.
+
+
+## Normal AI: ranked weighted random
+
+Utility и selection — отдельные уровни. Need priority остаётся value *
+effective_weight, WORK_PRIORITY остаётся 7000. Сначала собираются реально
+доступные EAT/REST/SOCIAL/LEISURE/WORK; нет FOOD, собеседника или работы —
+вариант отсутствует. HUNGER < 30 исключает EAT. NEED_ACTION_THRESHOLD = 1000
+сохраняется для обычных личных действий. Проверка доступности не резервирует
+ресурсы и не назначает HaulJob. Единственное сообщение о недоступной еде
+сохраняет event-driven блокировку до изменения мира.
+
+max_priority = max(available priority)
+threshold = max_priority * UTILITY_CANDIDATE_RATIO (0.75)
+candidates: priority >= threshold
+shifted = max(priority - threshold, 1.0)
+random_weight = pow(shifted, UTILITY_RANDOM_EXPONENT) (2.0)
+
+Weighted random выбирает по random_weight среди кандидатов. Хорошие варианты
+выбираются чаще; слабые ниже cutoff никогда. Каждый DecisionController имеет
+свой seeded RNG (начальный seed от resident ID), независимый от RNG социальных
+вариантов и генерации жителей. Тесты могут явно задать seed. Critical hunger,
+critical fatigue, forced и обязательное ночное расписание обходят selector.
+Начатые действия не пересматриваются из-за обычного роста Need. После выбора
+WORK расписание запускает движение без второго случайного выбора.
+
+INFO начала еды, разговора и досуга содержит текущую Need и priority; выбор
+работы содержит priority=7000. DEBUG показывает max, threshold, кандидатов,
+shifted, random_weight, исключения и selected. Полная картина не идёт в INFO.
+
+SLEEP_SOCIAL_GROWTH_MULTIPLIER = 0.2 и SLEEP_LEISURE_GROWTH_MULTIPLIER = 0.2
+дополнительно замедляют существующий рост во сне в пять раз, сохраняя ненулевой
+рост и дробные единицы. Остальная sleep-логика не меняется.
+
+Проверки: формула/cutoff, одиночный и пустой pool, воспроизводимость одинакового
+seed, разные seed и статистика 10000 seed, исключение недоступных вариантов,
+critical/forced без расхода RNG, INFO/DEBUG и ненулевой замедленный рост во сне.

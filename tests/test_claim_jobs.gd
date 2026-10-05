@@ -1,4 +1,5 @@
 extends SceneTree
+const Seed = preload("res://tests/utility_test_seed.gd")
 const Logistics = preload("res://scripts/logistics_controller.gd")
 const Job = preload("res://scripts/haul_job.gd")
 const Data = preload("res://scripts/resident_data.gd")
@@ -75,8 +76,9 @@ func _run():
 	check(r.intents.current_intent.reason_id == &"haul_source" and offered.state == Job.State.GOING_TO_SOURCE, "Ordinary hunger 8000 does not interrupt already-started source route")
 	r.view._process(20)
 	check(offered.state == Job.State.GOING_TO_DESTINATION, "Pickup continues same job")
+	r.decision.rng.seed = Seed.for_action([{"id": "WORK", "priority": 7000}, {"id": "EAT", "priority": 8000}], "EAT")
 	r.view._process(20)
-	check(offered.state == Job.State.COMPLETED and r.data.activity == Activity.EATING, "At delivery boundary hunger 8000 beats work 7000")
+	check(offered.state == Job.State.COMPLETED and r.data.activity == Activity.EATING, "At delivery boundary seeded selector chooses hunger before next work")
 	check(scene.logistics.current_job.state == Job.State.RESERVED and scene.logistics.current_job.assigned_resident_id.is_empty(), "Next delivery remains unclaimed while eating")
 	print("Decision proof: ordinary hunger preserves current haul; after delivery hunger >7000 wins before next claim")
 	scene.game_time.debug_skip_minutes(30)

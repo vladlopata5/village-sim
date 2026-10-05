@@ -5,6 +5,7 @@ var logger: EventLog
 const NeedType = preload("res://scripts/need_type.gd")
 const Activity = preload("res://scripts/resident_activity.gd")
 const Intent = preload("res://scripts/resident_intent.gd")
+const Selector = preload("res://scripts/utility_selector.gd")
 const Balance = preload("res://scripts/balance_config.gd")
 const NEED_ACTION_THRESHOLD := Balance.NEED_ACTION_THRESHOLD
 const WORK_PRIORITY := Balance.WORK_PRIORITY
@@ -24,12 +25,16 @@ var _work_cycle_active := false
 var _work_cycle_ends_at := 0
 var decision_count := 0
 var social: Node
+var rng := RandomNumberGenerator.new()
+var last_selection: Dictionary = {}
+var _work_selected := false
 var work_available: Callable
 var work_request: Callable
 
 func setup(clock: Node, data: RefCounted, intents: Node, needs: Node, schedule: Node) -> void:
 	_clock = clock
 	_data = data
+	rng.seed = data.id.hash()
 	_intents = intents
 	_needs = needs
 	_schedule = schedule
@@ -66,6 +71,11 @@ func check_critical() -> void:
 		check_critical()
 
 func prepare_for_work() -> bool:
+	# The normal selector already chose WORK; do not draw again while starting it.
+	if _work_selected:
+		_work_selected = false
+		check_critical()
+		return _intents.forced_priority == 0 and not _intents.has_current_action()
 	if _deciding: return not _intents.has_current_action() or _intents.current_intent.reason_id == &"day_work"
 	check_critical()
 	if _intents.has_current_action():
@@ -75,30 +85,62 @@ func prepare_for_work() -> bool:
 	if _intents.forced_priority > 0 or _data.activity in [Activity.Type.EATING, Activity.Type.RESTING, Activity.Type.SLEEPING]:
 		return false
 	var available := _has_work()
-	return not _choose_need(available) and available
+	var personal_started := _choose_need(available)
+	_work_selected = false
+	return not personal_started and available
+
+func collect_actions(has_available_work: bool) -> Array:
+	# Read-only availability. No resource reservations or job claims here.
+	var actions: Array = []
+	if has_available_work: actions.append({"id": "WORK", "priority": WORK_PRIORITY})
+	for type in [NeedType.Type.HUNGER, NeedType.Type.FATIGUE, NeedType.Type.SOCIAL, NeedType.Type.LEISURE]:
+		var priority: int = _data.get_need(type).get_priority()
+		if priority < NEED_ACTION_THRESHOLD: continue
+		var id := ""
+		match type:
+			NeedType.Type.HUNGER:
+				if _needs.has_food_action(): id = "EAT"
+			NeedType.Type.FATIGUE: id = "REST"
+			NeedType.Type.SOCIAL:
+				if is_instance_valid(social) and social.has_social_action(): id = "SOCIAL"
+			NeedType.Type.LEISURE:
+				if is_instance_valid(social): id = "LEISURE"
+		if not id.is_empty(): actions.append({"id": id, "priority": priority})
+	return actions
 
 func _choose_need(has_available_work: bool) -> bool:
 	if _deciding: return false
 	_deciding = true
+	_work_selected = false
 	decision_count += 1
-	var types: Array = [NeedType.Type.HUNGER, NeedType.Type.FATIGUE, NeedType.Type.SOCIAL, NeedType.Type.LEISURE]
-	types.sort_custom(func(a, b):
-		var a_priority: int = _data.get_need(a).get_priority()
-		var b_priority: int = _data.get_need(b).get_priority()
-		return a < b if a_priority == b_priority else a_priority > b_priority)
-	if logger != null:
-		logger.debug(EventLog.AI, "%s: SOCIAL=%d; LEISURE=%d; WORK_PRIORITY=%d" % [_data.resident_name, _data.get_need(NeedType.Type.SOCIAL).get_priority(), _data.get_need(NeedType.Type.LEISURE).get_priority(), WORK_PRIORITY])
-		logger.debug(EventLog.AI, "%s: лучшая Need priority=%d; работа доступна=%s; WORK_PRIORITY=%d" % [_data.resident_name, _data.get_need(types[0]).get_priority(), has_available_work, WORK_PRIORITY])
+	# Preserve one event-driven failure report, but never put unavailable EAT in the pool.
+	if _needs.can_try_eat() and not _needs.has_food_action():
+		_needs.try_eat(_data.get_need(NeedType.Type.HUNGER).get_priority())
+	var actions := collect_actions(has_available_work)
 	var started := false
-	for type in types:
-		var priority: int = _data.get_need(type).get_priority()
-		if priority < NEED_ACTION_THRESHOLD or (has_available_work and priority <= WORK_PRIORITY): continue
-		match type:
-			NeedType.Type.HUNGER: started = _needs.can_try_eat() and _needs.try_eat(priority)
-			NeedType.Type.FATIGUE: started = _needs.try_rest(priority)
-			NeedType.Type.SOCIAL: started = is_instance_valid(social) and social.try_social(priority)
-			NeedType.Type.LEISURE: started = is_instance_valid(social) and social.try_leisure(priority)
+	while not actions.is_empty():
+		last_selection = Selector.evaluate(actions)
+		var selected: Dictionary = Selector.pick(last_selection, rng)
+		var unavailable: Array = []
+		for id in ["WORK", "EAT", "REST", "SOCIAL", "LEISURE"]:
+			if not actions.any(func(row): return row.id == id): unavailable.append(id)
+		if logger != null and logger.debug_enabled: logger.debug(EventLog.AI, Selector.debug_text(_data.resident_name, last_selection, selected.id, unavailable))
+		var priority: int = selected.priority
+		match selected.id:
+			"WORK":
+				_work_selected = true
+				if logger != null: logger.info(EventLog.AI, "%s: выбрал работу (priority=%d)" % [_data.resident_name, WORK_PRIORITY])
+				break
+			"EAT": started = _needs.try_eat(priority)
+			"REST": started = _needs.try_rest(priority)
+			"SOCIAL": started = social.try_social(priority)
+			"LEISURE": started = social.try_leisure(priority)
 		if started: break
+		# A synchronous world change can invalidate an action between check and start.
+		actions = actions.filter(func(row): return row.id != selected.id)
+	if actions.is_empty():
+		last_selection = Selector.evaluate([])
+		if logger != null and logger.debug_enabled: logger.debug(EventLog.AI, Selector.debug_text(_data.resident_name, last_selection, "IDLE", ["WORK", "EAT", "REST", "SOCIAL", "LEISURE"]))
 	_deciding = false
 	_critical_pending = false
 	check_critical()
@@ -120,6 +162,7 @@ func request_decision(_reason: String = "free") -> void:
 	if available:
 		if work_request.is_valid():
 			_deciding = true
+			_work_selected = false
 			var started: bool = work_request.call()
 			_deciding = false
 			check_critical()
