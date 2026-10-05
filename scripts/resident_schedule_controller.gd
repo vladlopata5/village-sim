@@ -80,6 +80,12 @@ func _on_intent_completed(intent: ResidentIntent) -> void:
 		data.activity = Activity.Type.SLEEPING
 	if logger != null: logger.sync_activity(data)
 
+func request_work() -> bool:
+	var data = _intents.resident_data
+	if _phase != "День" or data.work_location_id.is_empty(): return false
+	_move_to_location(data.work_location_id, &"day_work", WORK_PRIORITY)
+	return _intents.current_intent.reason_id == &"day_work" or data.activity == Activity.Type.WORKING
+
 func get_phase() -> String:
 	return _phase
 

@@ -123,6 +123,19 @@ func has_available_job(resident_id: String) -> bool:
 		if job.state == HaulJob.State.RESERVED and _eligible(resident, job): return true
 	return resident.profession == Profession.Type.PORTER and _source != null and resident.work_location_id == _source.id and _can_create_job()
 
+func executor_available() -> bool:
+	return _haul_intent == null and not _finishing
+
+func use_executor(resident: ResidentData, clock: Node, locations: RefCounted, intents: Node, schedule: Node) -> bool:
+	if not executor_available(): return false
+	_disconnect_resident()
+	_resident = resident
+	bind_execution(clock, locations, intents, schedule)
+	return true
+
+func executor_resident() -> ResidentData:
+	return _resident
+
 func start_claimed_job(job: HaulJob, resident_id: String) -> bool:
 	if job == null or job != current_job or job.assigned_resident_id != resident_id or _resident == null or _resident.id != resident_id: return false
 	return _start_if_possible()
@@ -142,13 +155,16 @@ func cancel_job(job: HaulJob) -> bool:
 	if not job.assigned_resident_id.is_empty(): job_cancelled.emit(job.assigned_resident_id)
 	return true
 
-func bind_execution(clock: Node, locations: RefCounted, intents: Node, schedule: Node) -> void:
+func bind_world(clock: Node, locations: RefCounted) -> void:
 	_clock = clock
 	_locations = locations
+	if not _clock.phase_changed.is_connected(_on_phase_changed): _clock.phase_changed.connect(_on_phase_changed)
+	if not _clock.minute_changed.is_connected(_on_minute): _clock.minute_changed.connect(_on_minute)
+
+func bind_execution(clock: Node, locations: RefCounted, intents: Node, schedule: Node) -> void:
+	bind_world(clock, locations)
 	_intents = intents
 	_schedule = schedule
-	_clock.phase_changed.connect(_on_phase_changed)
-	_clock.minute_changed.connect(_on_minute)
 	_intents.forced_interrupt.connect(_on_forced_interrupt)
 	_intents.intent_arrived.connect(_on_arrival)
 	_intents.intent_changed.connect(_on_intent_changed)
@@ -160,10 +176,15 @@ func unbind_execution() -> void:
 		return
 	_clock.phase_changed.disconnect(_on_phase_changed)
 	_clock.minute_changed.disconnect(_on_minute)
-	_intents.forced_interrupt.disconnect(_on_forced_interrupt)
-	_intents.intent_arrived.disconnect(_on_arrival)
-	_intents.intent_changed.disconnect(_on_intent_changed)
+	_disconnect_resident()
 	_clock = null
+
+func _disconnect_resident() -> void:
+	if not is_instance_valid(_intents): return
+	for connection in [[_intents.forced_interrupt, _on_forced_interrupt], [_intents.intent_arrived, _on_arrival], [_intents.intent_changed, _on_intent_changed]]:
+		if connection[0].is_connected(connection[1]): connection[0].disconnect(connection[1])
+	_intents = null
+	_schedule = null
 
 func _start_if_possible() -> bool:
 	if _clock == null or _finishing or _clock.get_phase() != "День" or current_job.state != HaulJob.State.ASSIGNED:

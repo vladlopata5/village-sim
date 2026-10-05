@@ -7,6 +7,9 @@ const NeedType = preload("res://scripts/need_type.gd")
 const StateText = preload("res://scripts/resident_state_text.gd")
 @export var show_state_numbers: bool = true
 var _selection: ResidentSelection
+var _control: RefCounted
+var profession_choice: OptionButton
+var intent_label: Label
 @onready var name_label: Label = $Margin/Column/Name
 @onready var age_label: Label = $Margin/Column/Age
 @onready var profession_label: Label = $Margin/Column/Profession
@@ -23,6 +26,25 @@ var _selection: ResidentSelection
 func _ready() -> void:
 	hide()
 	close_button.pressed.connect(_close)
+	profession_choice = OptionButton.new()
+	profession_choice.focus_mode = Control.FOCUS_NONE
+	for profession in Profession.Type.values():
+		profession_choice.add_item(Profession.display_name(profession), profession)
+	$Margin/Column.add_child(profession_choice)
+	$Margin/Column.move_child(profession_choice, 3)
+	profession_choice.item_selected.connect(_on_profession_selected)
+	intent_label = Label.new()
+	intent_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	$Margin/Column.add_child(intent_label)
+	$Margin/Column.move_child(intent_label, activity_label.get_index() + 1)
+
+func bind_control(control: RefCounted) -> void:
+	_control = control
+
+func _on_profession_selected(index: int) -> void:
+	if _control != null and _selection != null and _selection.selected_resident != null:
+		_control.assign_profession(_selection.selected_resident.id, profession_choice.get_item_id(index))
+	_refresh()
 
 func bind_selection(selection: ResidentSelection) -> void:
 	_selection = selection
@@ -42,6 +64,11 @@ func _refresh() -> void:
 	name_label.text = "Имя: " + data.resident_name
 	age_label.text = "Возраст: %d" % data.age
 	profession_label.text = "Профессия: " + Profession.display_name(data.profession)
+	profession_choice.select(profession_choice.get_item_index(data.profession))
+	profession_choice.disabled = _control == null
+	var intent = _control.current_intent(data.id) if _control != null else null
+	var reason: String = String(intent.reason_id) if intent != null else ""
+	intent_label.text = "Действие: " + (reason if not reason.is_empty() else _activity_text(data.activity))
 	id_label.text = "ID: " + data.id
 	hunger_label.text = _state_line("Голод", data.hunger, StateText.hunger_description(data.hunger))
 	fatigue_label.text = _state_line("Усталость", data.fatigue, StateText.fatigue_description(data.fatigue))

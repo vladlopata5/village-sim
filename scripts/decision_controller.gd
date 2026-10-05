@@ -24,6 +24,7 @@ var _critical_hunger_attempted := false
 var _next_decision_at := 0
 var _work_cycle_active := false
 var _work_cycle_ends_at := 0
+var _work_assignment: Dictionary = {}
 var decision_count := 0
 var social: Node
 var wander: Node
@@ -190,6 +191,11 @@ func request_decision(_reason: String = "free") -> void:
 func _on_completed(intent: Intent) -> void:
 	_next_decision_at = _clock.total_minutes + IDLE_MINUTES
 	if intent.reason_id == &"day_work" and _data.activity == Activity.Type.WORKING:
+		if not _work_assignment.is_empty() and (_work_assignment.profession != _data.profession or _work_assignment.location_id != _data.work_location_id):
+			_data.activity = Activity.Type.IDLE
+			_work_assignment = {}
+			request_decision("work_assignment_changed_during_route")
+			return
 		_work_cycle_active = true
 		_work_cycle_ends_at = _clock.total_minutes + Balance.WORK_CYCLE_MINUTES
 		if logger != null: logger.info(EventLog.AI, "%s: начал рабочий цикл (%d мин)" % [_data.resident_name, Balance.WORK_CYCLE_MINUTES])
@@ -202,8 +208,16 @@ func _end_work_cycle(reason: String) -> void:
 	_work_cycle_active = false
 	if logger != null: logger.info(EventLog.AI, "%s: завершил рабочий цикл — %s" % [_data.resident_name, reason])
 
+func get_committed_work_assignment() -> Dictionary:
+	return _work_assignment if _work_cycle_active and _data.activity == Activity.Type.WORKING else {}
+
 func _on_intent_changed(_intent: Intent) -> void:
 	if _data.activity != Activity.Type.WORKING: _end_work_cycle("смена действия")
+
+func capture_work_assignment(intent: Intent, resident: RefCounted) -> void:
+	# Run before the executor: a resident already at the goal can arrive synchronously.
+	if intent.reason_id == &"day_work":
+		_work_assignment = {"profession": resident.profession, "location_id": resident.work_location_id}
 
 func _on_minute(minute: int) -> void:
 	if _clock.get_phase() != _schedule.get_phase(): return # Await the phase source, not an old schedule.

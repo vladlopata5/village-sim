@@ -35,6 +35,8 @@ const LocationView = preload("res://scenes/world_location_view_2d.tscn")
 const WanderTarget = preload("res://scripts/wander_target.gd")
 const SocialWorld = preload("res://scripts/social_world.gd")
 var social_world = SocialWorld.new()
+const PlayerControl = preload("res://scripts/player_control.gd")
+var player_control = PlayerControl.new()
 var residents: Array[ResidentData] = []
 var resident_runtimes: Array[ResidentRuntime] = []
 var population_label: Label
@@ -58,6 +60,16 @@ func _ready() -> void:
 	add_child(production)
 	production.setup(game_time, gatherer_hut_data, residents, world_locations, _production_position_2d)
 	_create_test_residents()
+	player_control.logger = game_logger
+	player_control.setup(residents, buildings)
+	$HUD/ResidentCard.bind_control(player_control)
+	resident_selection.selection_changed.connect(_update_selection)
+	production.work_assignment_provider = _committed_work_assignment
+	for runtime in resident_runtimes:
+		player_control.register_intents(runtime.data.id, runtime.intents)
+		runtime.decision.work_available = _work_available.bind(runtime)
+		runtime.decision.work_request = _request_work.bind(runtime)
+		runtime.schedule.work_decision = runtime.decision.request_decision
 	add_child(social_world)
 	social_world.position_provider = _resident_position_2d
 	for runtime in resident_runtimes:
@@ -71,11 +83,13 @@ func _ready() -> void:
 	ground_resources.added.connect(_show_ground_resource)
 	ground_resources.removed.connect(_remove_ground_resource)
 	_configure_logistics()
+	if game_time.get_phase() == "День":
+		for runtime in resident_runtimes:
+			# Early schedule setup precedes work-source registration; hand ownership to AI.
+			runtime.intents.clear_reason(&"day_work")
+			runtime.decision.request_decision("startup_work")
 	production.changed.connect(_update_production)
 	gatherer_hut_data.resources.changed.connect(_on_hut_resources_changed)
-	for runtime in resident_runtimes:
-		if runtime.data.profession == Profession.Type.GATHERER:
-			runtime.decision.work_available = production.can_work.bind(runtime.data)
 	_update_production()
 	_update_logistics()
 	warehouse_data.resources.changed.connect(_update_warehouse_food)
@@ -272,27 +286,47 @@ func get_resident_runtime(data: ResidentData) -> ResidentRuntime:
 			return runtime
 	return null
 
-func _configure_logistics() -> void:
-	# This prototype has exactly one assigned porter; no job allocator yet.
+func _update_selection() -> void:
 	for runtime in resident_runtimes:
-		if runtime.data.profession != Profession.Type.PORTER or runtime.data.work_location_id != warehouse_data.id:
-			continue
-		logistics.cargo_dropped.connect(_drop_cargo.bind(runtime))
-		logistics.setup(warehouse_data, kitchen_data, runtime.data)
-		logistics.add_production_source(gatherer_hut_data)
-		runtime.decision.work_available = logistics.has_available_job.bind(runtime.data.id)
-		runtime.decision.work_request = _request_haul_work.bind(runtime)
-		runtime.schedule.work_decision = runtime.decision.request_decision
-		logistics.job_cancelled.connect(_on_haul_cancelled.bind(runtime))
-		logistics.changed.connect(_update_logistics)
-		logistics.delivered.connect(runtime.needs.evaluate)
-		logistics.bind_execution(game_time, world_locations, runtime.intents, runtime.schedule)
-		if game_time.get_phase() == "День":
-			runtime.intents.clear_reason(&"day_work")
-			runtime.decision.request_decision("startup_work")
-		return
+		if is_instance_valid(runtime.view): runtime.view.set_selected(runtime.data == resident_selection.selected_resident)
+
+func _committed_work_assignment(resident_id: String) -> Dictionary:
+	var runtime = get_resident_runtime(find_resident(resident_id))
+	return runtime.decision.get_committed_work_assignment() if runtime != null and is_instance_valid(runtime.decision) else {}
+
+func _work_available(runtime: ResidentRuntime) -> bool:
+	match runtime.data.profession:
+		Profession.Type.PORTER:
+			return logistics.executor_available() and logistics.has_available_job(runtime.data.id)
+		Profession.Type.GATHERER: return production.can_work(runtime.data)
+		_: return false
+
+func _request_work(runtime: ResidentRuntime) -> bool:
+	match runtime.data.profession:
+		Profession.Type.PORTER: return _request_haul_work(runtime)
+		Profession.Type.GATHERER: return runtime.schedule.request_work()
+		_: return false
+
+func _configure_logistics() -> void:
+	logistics.setup(warehouse_data, kitchen_data, null)
+	logistics.add_production_source(gatherer_hut_data)
+	for runtime in resident_runtimes: logistics.register_resident(runtime.data)
+	logistics.cargo_dropped.connect(_drop_executor_cargo)
+	logistics.job_cancelled.connect(_on_job_cancelled)
+	logistics.changed.connect(_update_logistics)
+	logistics.bind_world(game_time, world_locations)
+	logistics.recalculate()
+
+func _drop_executor_cargo(resource: ResourceType.Type, amount: int) -> void:
+	var runtime = get_resident_runtime(logistics.executor_resident())
+	if runtime != null: _drop_cargo(resource, amount, runtime)
+
+func _on_job_cancelled(resident_id: String) -> void:
+	var runtime = get_resident_runtime(find_resident(resident_id))
+	if runtime != null: _on_haul_cancelled(resident_id, runtime)
 
 func _request_haul_work(runtime: ResidentRuntime) -> bool:
+	if not logistics.use_executor(runtime.data, game_time, world_locations, runtime.intents, runtime.schedule): return false
 	logistics.recalculate()
 	var job = logistics.claim_best_job(runtime.data.id)
 	if job == null: return false

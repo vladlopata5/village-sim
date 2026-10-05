@@ -1,5 +1,7 @@
 extends Node
 ## One short walk and stay, independent of the source of the candidate position.
+const EventLog = preload("res://scripts/game_logger.gd")
+var logger: EventLog
 const Intent = preload("res://scripts/resident_intent.gd")
 const Balance = preload("res://scripts/balance_config.gd")
 var target_provider: Callable
@@ -24,7 +26,11 @@ func try_wander(priority: int) -> bool:
 	if target == null: return false
 	_active = Intent.new(Intent.Type.MOVE_TO, &"wander", target.position, priority, true)
 	_stay_ends_at = 0
-	if runtime.intents.submit(_active): return true
+	if runtime.intents.submit(_active):
+		if logger != null:
+			logger.info(EventLog.AI, "%s: начинает прогулку" % runtime.data.resident_name)
+			logger.debug(EventLog.AI, "%s WANDER target=%s" % [runtime.data.resident_name, target.position])
+		return true
 	_active = null
 	return false
 func _on_arrival(intent: Intent) -> void:
@@ -40,8 +46,12 @@ func _on_minute(minute: int) -> void:
 	var completed := _active
 	_active = null
 	_stay_ends_at = 0
+	if logger != null: logger.info(EventLog.AI, "%s: прогулка завершена" % runtime.data.resident_name)
 	runtime.intents.clear_completed(completed)
 func _on_intent_changed(intent: Intent) -> void:
 	if _active != null and intent != _active:
+		if logger != null:
+			logger.info(EventLog.AI, "%s: прогулка завершена" % runtime.data.resident_name)
+			logger.debug(EventLog.AI, "%s: WANDER прерван новым действием %s (forced=%d)" % [runtime.data.resident_name, intent.reason_id, runtime.intents.forced_priority])
 		_active = null
 		_stay_ends_at = 0

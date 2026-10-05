@@ -12,6 +12,7 @@ var resident_data: ResidentData
 var target_position: Vector2 = Vector2.ZERO
 var has_movement_target: bool = false
 var _time_speed: int = 1
+var selected := false
 var _active_intent: ResidentIntent
 
 func setup(data: ResidentData) -> void:
@@ -32,9 +33,14 @@ func setup(data: ResidentData) -> void:
 	_update_cargo()
 	queue_redraw()
 
+func set_selected(value: bool) -> void:
+	selected = value
+	queue_redraw()
+
 func _draw() -> void:
 	if resident_data == null:
 		return
+	if selected: draw_arc(Vector2.ZERO, 26.0, 0, TAU, 32, Color("69e5ff"), 3.0, true)
 	# A simple head and body, with a dark outline for visibility on the field.
 	draw_circle(Vector2.ZERO, 19.0, Color("28313b"))
 	draw_circle(Vector2.ZERO, 16.0, Color("f2c66d"))

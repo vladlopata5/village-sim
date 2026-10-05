@@ -24,9 +24,10 @@ func setup(resident: RefCounted, presentation: Node2D, clock: Node, locations: R
 	view = presentation
 	for controller in [intents, schedule, need_dynamics, needs, decision, social, wander]:
 		add_child(controller)
-	for controller in [schedule, needs, decision, social]:
+	for controller in [schedule, needs, decision, social, wander]:
 		controller.logger = logger
 	intents.setup(data)
+	intents.intent_changed.connect(decision.capture_work_assignment.bind(data))
 	intents.intent_changed.connect(view.apply_intent)
 	view.intent_completed.connect(intents.report_arrival)
 	schedule.setup(clock, locations, intents)
