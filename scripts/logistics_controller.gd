@@ -10,7 +10,7 @@ const FOOD = ResourceType.Type.FOOD
 const TARGET_STOCK := 3
 const Intent = preload("res://scripts/resident_intent.gd")
 const Activity = preload("res://scripts/resident_activity.gd")
-const HAUL_PRIORITY := 80
+const HAUL_PRIORITY := 8000
 signal cargo_dropped(resource: ResourceType.Type, amount: int)
 var before_work: Callable
 signal delivered
@@ -200,3 +200,7 @@ func _on_forced_interrupt(_previous: Intent) -> void:
 		changed.emit()
 	else:
 		cancel_job(current_job)
+
+func has_work() -> bool:
+	if current_job != null and current_job.is_active(): return true
+	return _source != null and _destination != null and _source.resources.get_available_amount(FOOD) > 0 and _destination.resources.get_amount(FOOD) + _destination.resources.get_reserved_in(FOOD) < TARGET_STOCK and _destination.resources.get_available_free_capacity(FOOD) > 0

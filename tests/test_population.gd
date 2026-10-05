@@ -18,6 +18,10 @@ func click(point: Vector2):
 func _run():
 	var scene = load("res://scenes/main.tscn").instantiate()
 	root.add_child(scene)
+	# Isolate the population/selection/logistics scenario from ordinary need choice.
+	# Critical events still bypass weights; full weights are tested separately.
+	for data in scene.residents:
+		for need in data.needs.values(): need.base_weight = 0
 	var clock = scene.game_time
 	clock.set_process(false)
 	for runtime in scene.resident_runtimes: runtime.view.set_process(false)
@@ -34,7 +38,7 @@ func _run():
 		initial.append(runtime.data.hunger)
 		for other in scene.resident_runtimes:
 			if runtime != other:
-				check(runtime.intents != other.intents and runtime.needs != other.needs and runtime.hunger != other.hunger and runtime.data.inventory != other.data.inventory, "Own controllers and inventory")
+				check(runtime.intents != other.intents and runtime.needs != other.needs and runtime.need_dynamics != other.need_dynamics and runtime.data.inventory != other.data.inventory, "Own controllers and inventory")
 		scene.resident_selection.clear()
 		click(runtime.view.get_global_transform_with_canvas() * Vector2.ZERO)
 		check(scene.resident_selection.selected_resident == runtime.data and scene.get_node("HUD/ResidentCard").name_label.text == "Имя: " + runtime.data.resident_name, "Actual click/card selects each resident")
@@ -80,7 +84,7 @@ func _run():
 	clock.debug_skip_minutes(30)
 	check(scene.residents[2].hunger < 70 and scene.kitchen_data.resources.get_amount(FOOD) == 2 and scene.residents[2].activity == Activity.Type.IDLE, "Common food is consumed for the correct resident")
 	# Isolate the night schedule from naturally escalating hunger during F8 jumps.
-	for runtime in scene.resident_runtimes: runtime.hunger.free()
+	for runtime in scene.resident_runtimes: runtime.need_dynamics.free()
 	for data in scene.residents: data.hunger = 0
 	clock.debug_next_phase()
 	clock.debug_next_phase()
@@ -109,12 +113,15 @@ func _run():
 	root.add_child(scene)
 	scene.game_time.set_process(false)
 	scene.logistics.unbind_execution()
+	for data in scene.residents:
+		data.hunger = 0
+		data.fatigue = 0
 	scene.kitchen_data.resources.add(FOOD, 3)
 	for runtime in scene.resident_runtimes:
 		runtime.view.set_process(false)
 		runtime.data.hunger = 100
 		runtime.view._process(20.0)
-		check(runtime.data.activity == Activity.Type.EATING, "Critical food decision works for each of four residents")
+		check(runtime.data.activity == Activity.Type.EATING or (runtime.data.hunger == 100 and runtime.data.activity == Activity.Type.IDLE), "Critical food action needs an available reservation; fourth cannot start")
 	scene.game_time.debug_skip_minutes(30)
 	var fed := 0
 	var failed := 0

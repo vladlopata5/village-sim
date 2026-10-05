@@ -60,6 +60,7 @@ func _state_line(title: String, value: int, description: String) -> String:
 
 func _activity_text(activity: Activity.Type) -> String:
 	match activity:
+		Activity.Type.RESTING: return "Отдыхает"
 		Activity.Type.MOVING: return "Идёт"
 		Activity.Type.SLEEPING: return "Спит"
 		Activity.Type.WORKING: return "Работает"

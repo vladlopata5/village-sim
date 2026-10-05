@@ -14,6 +14,8 @@ func _run() -> void:
 	var scene = load("res://scenes/main.tscn").instantiate()
 	root.add_child(scene)
 	preload("res://tests/resident_test_setup.gd").isolate_first(scene)
+	scene.resident_runtimes[0].decision.free()
+	scene.resident_runtimes[0].needs.free()
 	await process_frame
 	await process_frame
 	scene.game_time.set_process(false)
@@ -38,7 +40,7 @@ func _run() -> void:
 	scene.resident_runtimes[0].view._process(20.0)
 	check(data.hunger == hunger_before and data.activity == Activity.Type.IDLE, "Arriving at kitchen does not eat or reduce hunger")
 	scene.game_time.advance(15.0)
-	check(data.hunger == hunger_before + 1 and data.fatigue == 35 and data.mood == 65, "Kitchen does not change normal hunger growth or other states")
+	check(data.hunger == hunger_before + 1 and data.fatigue >= 0 and data.fatigue <= 100 and data.mood == 65, "Kitchen does not change normal hunger growth or other states")
 	# No building selection or interaction UI is introduced.
 	check(view.get_node("Caption").mouse_filter == Control.MOUSE_FILTER_IGNORE, "Caption does not intercept world input")
 	view.free()

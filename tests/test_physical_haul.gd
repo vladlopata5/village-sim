@@ -18,6 +18,8 @@ func make_scene() -> Node:
 	preload("res://tests/resident_test_setup.gd").isolate_first(scene)
 	scene.game_time.set_process(false)
 	scene.resident_runtimes[0].view.set_process(false)
+	scene.residents[0].fatigue = 0
+	for need in scene.residents[0].needs.values(): need.base_weight = 0
 	return scene
 func total(scene: Node) -> int:
 	return scene.warehouse_data.resources.get_amount(FOOD) + scene.kitchen_data.resources.get_amount(FOOD) + scene.residents[0].inventory.amount
@@ -63,7 +65,7 @@ func _run() -> void:
 			check(total(scene) == 10 and scene.kitchen_data.resources.get_amount(FOOD) == number + 1, "Stale arrival cannot duplicate delivery")
 		check(scene.warehouse_data.resources.get_amount(FOOD) == 7 and scene.kitchen_data.resources.get_amount(FOOD) == 3 and scene.kitchen_data.resources.get_reserved_in(FOOD) == 0 and scene.warehouse_data.resources.get_reserved_out(FOOD) == 0, "Target stock 3 stops new jobs with all reserves settled")
 		view._process(20.0)
-		check(data.activity == Activity.Type.WORKING, "After target returns to normal warehouse work")
+		check(data.activity == Activity.Type.IDLE, "No haul available: idle instead of placeholder work")
 		scene.free()
 	# Evening preserves both already-started stages, then returns to IDLE.
 	for picked_up in [false, true]:
@@ -114,10 +116,11 @@ func _run() -> void:
 	scene = make_scene()
 	scene.game_time.debug_next_phase()
 	scene.resident_runtimes[0].view._process(20.0)
+	scene.residents[0].get_need(preload("res://scripts/need_type.gd").Type.HUNGER).base_weight = 100
 	scene.residents[0].hunger = 75
 	check(scene.residents[0].inventory.amount == 1 and scene.resident_runtimes[0].intents.current_intent.reason_id == &"haul_destination", "Hunger cannot discard carried FOOD")
 	scene.resident_runtimes[0].view._process(20.0)
-	check(scene.residents[0].activity == Activity.Type.EATING and scene.residents[0].inventory.amount == 0 and scene.kitchen_data.resources.get_amount(FOOD) == 1, "Hungry porter begins meal only after delivery")
+	check(scene.residents[0].activity == Activity.Type.EATING and scene.residents[0].inventory.amount == 0 and scene.kitchen_data.resources.get_amount(FOOD) == 0, "Hungry porter begins meal only after delivery")
 	scene.game_time.debug_skip_minutes(30)
 	check(scene.residents[0].hunger < 70 and scene.resident_runtimes[0].intents.current_intent.reason_id == &"haul_source", "After meal resumes assigned haul during work period")
 	scene.free()

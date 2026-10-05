@@ -1,165 +1,172 @@
 extends Node
-## First need decision: hunger only. Uses existing buildings, places and intents.
+## Concrete ways to satisfy needs. Selection/comparison lives in DecisionController.
 const Data = preload("res://scripts/resident_data.gd")
-const BuildingData = preload("res://scripts/building_data.gd")
-const BuildingType = preload("res://scripts/building_type.gd")
 const Intent = preload("res://scripts/resident_intent.gd")
-const IntentController = preload("res://scripts/resident_intent_controller.gd")
-const Schedule = preload("res://scripts/resident_schedule_controller.gd")
 const Activity = preload("res://scripts/resident_activity.gd")
+const BuildingType = preload("res://scripts/building_type.gd")
 const ResourceType = preload("res://scripts/resource_type.gd")
-signal developer_message(message: String)
-const FAILED_ATTEMPT_MINUTES := 5
-var _food_building: BuildingData
-var _waiting_for_food := false
-var _empty_attempt := false
-const EAT_PRIORITY := 75
-const HUNGER_THRESHOLD := 70
+const FOOD = ResourceType.Type.FOOD
 const MEAL_MINUTES := 30
+const REST_MINUTES := 10
+const SLEEP_RECOVERY_TARGET := 20
+signal action_unavailable
+signal food_available
+signal developer_message(message: String)
+var decision: Node
 var _data: Data
-var _buildings: Array[BuildingData]
-var _locations: RefCounted
-var _intents: IntentController
-var _schedule: Schedule
 var _clock: Node
-var _eat_intent: Intent
-var _critical_attempted := false
+var _buildings: Array
+var _locations: RefCounted
+var _intents: Node
+var _food_building: RefCounted
+var _active_intent: Intent
+var _reserved_food := false
 var _meal_active := false
-var _meal_started_at: int = 0
-var _minutes_left: int = 0
+var _started_at := 0
+var _minutes_left := 0
+var _retry_food_at := 0
 
-func setup(clock: Node, data: Data, buildings: Array[BuildingData], locations: RefCounted, intents: IntentController, schedule: Schedule) -> void:
+func setup(clock: Node, data: Data, buildings: Array, locations: RefCounted, intents: Node, _schedule: Node) -> void:
 	_clock = clock
 	_data = data
 	_buildings = buildings
 	_locations = locations
 	_intents = intents
-	_schedule = schedule
-	for building in _buildings:
+	clock.minute_changed.connect(_on_minute_changed)
+	intents.intent_changed.connect(_on_intent_changed)
+	intents.intent_arrived.connect(_on_arrival)
+	for building in buildings:
 		if building.type == BuildingType.Type.FOOD:
-			building.resources.changed.connect(_on_storage_changed.bind(building))
-	_schedule.before_work = prepare_for_work
-	_data.hunger_changed.connect(evaluate)
-	_clock.minute_changed.connect(_on_minute_changed)
-	_clock.phase_changed.connect(_on_phase_changed)
-	_intents.intent_changed.connect(_on_intent_changed)
-	_intents.intent_arrived.connect(_on_intent_arrived)
-	_intents.intent_completed.connect(_on_action_completed)
-	evaluate()
+			building.resources.changed.connect(_on_stock_changed)
 
-
-func evaluate(at_action_boundary: bool = false) -> void:
-	if _data.hunger < 100:
-		_critical_attempted = false
-	var critical := _data.hunger == 100 and not _critical_attempted
-	if _meal_active:
-		if critical:
-			_critical_attempted = true
-			_intents.force_set_intent(_eat_intent)
-			_data.activity = Activity.Type.EATING
-		return
-	if _waiting_for_food and not critical:
-		return
-	if _eat_intent != null:
-		if _intents.current_intent == _eat_intent:
-			if critical:
-				_critical_attempted = true
-				_intents.force_set_intent(_eat_intent)
-			return
-		_eat_intent = null
-	if not critical:
-		if _data.hunger < HUNGER_THRESHOLD or _data.activity == Activity.Type.SLEEPING or _schedule.is_night:
-			return
-		# 76–99 finishes the current action; food comes before any next work.
-		if _data.hunger > 75 and (_intents.current_intent.type != Intent.Type.NONE or (_data.activity == Activity.Type.WORKING and not at_action_boundary)):
-			return
-	if critical:
-		_critical_attempted = true
-		_waiting_for_food = false
+func try_eat(priority: int, critical_priority: int = 0) -> bool:
+	if _intents.forced_priority > critical_priority:
+		return false
+	if _active_intent != null and _active_intent.reason_id == &"eat":
+		if critical_priority > _intents.forced_priority:
+			_intents.force_set_intent(_active_intent, critical_priority)
+			if _meal_active: _data.activity = Activity.Type.EATING
+		return true
+	if _clock.total_minutes < _retry_food_at and critical_priority == 0:
+		return false
 	for building in _buildings:
 		if building.type != BuildingType.Type.FOOD:
 			continue
 		var target: Variant = _locations.get_position(building.id)
-		if not target is Vector2:
+		if not target is Vector2 or not building.resources.reserve_out(FOOD, 1):
 			continue
-		var candidate = Intent.new(Intent.Type.MOVE_TO, &"eat", target, EAT_PRIORITY, true)
+		_cancel_own_action()
 		_food_building = building
-		_eat_intent = candidate
-		var accepted: bool = _intents.force_set_intent(candidate) if critical else _intents.submit(candidate)
-		if not accepted and _eat_intent == candidate:
-			_eat_intent = null
-		return
-	if critical:
-		_intents.force_set_intent(Intent.new())
-		_waiting_for_food = true
+		_reserved_food = true
+		_active_intent = Intent.new(Intent.Type.MOVE_TO, &"eat", target, priority, true)
+		var accepted: bool = _intents.force_set_intent(_active_intent, critical_priority) if critical_priority > 0 else _intents.submit(_active_intent)
+		if not accepted: _cancel_own_action()
+		return accepted
+	_retry_food_at = _clock.total_minutes + 10
+	var message := "%s не удалось поесть: нет доступной еды." % _data.resident_name
+	developer_message.emit(message)
+	print(message)
+	if critical_priority > 0:
+		_cancel_own_action()
+		_intents.force_set_intent(Intent.new(), critical_priority)
+	return false
 
-func prepare_for_work() -> bool:
-	evaluate(true)
-	if _data.hunger > 75 and _intents.current_intent.type != Intent.Type.NONE:
+func try_rest(priority: int, critical_priority: int = 0) -> bool:
+	if _intents.forced_priority > critical_priority:
 		return false
-	return not _meal_active and _eat_intent == null
+	_cancel_own_action()
+	var reason: StringName = &"critical_sleep" if critical_priority > 0 else &"rest"
+	_active_intent = Intent.new(Intent.Type.NONE, reason, Vector2.ZERO, priority, true)
+	var accepted: bool = _intents.force_set_intent(_active_intent, critical_priority) if critical_priority > 0 else _intents.submit(_active_intent)
+	if not accepted:
+		_cancel_own_action()
+		return false
+	_started_at = _clock.total_minutes
+	_minutes_left = REST_MINUTES
+	_data.activity = Activity.Type.SLEEPING if critical_priority > 0 else Activity.Type.RESTING
+	return true
 
-func _on_action_completed(_intent: Intent) -> void:
-	evaluate(true)
-
-func _on_intent_changed(intent: Intent) -> void:
-	if intent.type != Intent.Type.NONE and intent != _eat_intent:
-		_eat_intent = null
-		_meal_active = false
-		_minutes_left = 0
-
-func _on_intent_arrived(intent: Intent) -> void:
-	if _meal_active or intent != _eat_intent or (_schedule.is_night and _data.hunger < 100):
+func _on_arrival(intent: Intent) -> void:
+	if intent != _active_intent or intent.reason_id != &"eat" or _meal_active:
 		return
-	# Arrival ends movement, but this same intent stays current until eating ends.
+	# Consume once at the beginning: gradual benefit can never be free.
+	if not _reserved_food or not _food_target_valid():
+		_abort_unavailable()
+		return
 	intent.interruptible = false
-	_meal_active = true
-	_meal_started_at = _clock.total_minutes
-	_empty_attempt = _food_building.resources.get_amount(ResourceType.Type.FOOD) == 0
-	_minutes_left = FAILED_ATTEMPT_MINUTES if _empty_attempt else MEAL_MINUTES
+	_meal_active = true # Guard synchronous container/critical signals.
+	_reserved_food = false
+	if not _food_building.resources.take_reserved(FOOD, 1):
+		_abort_unavailable()
+		return
+	if _active_intent != intent or _intents.current_intent != intent:
+		return # A critical event during consumption already replaced this action.
+	_started_at = _clock.total_minutes
+	_minutes_left = MEAL_MINUTES
 	_data.activity = Activity.Type.EATING
 
-func _on_minute_changed(total_minutes: int) -> void:
-	if _meal_active and total_minutes > _meal_started_at:
-		_minutes_left -= 1
-		if _minutes_left == 0:
-			_finish_meal()
-	evaluate()
-
-func _on_phase_changed(_phase: String) -> void:
-	# A night goal is pending during a meal; only movement to food is cancelled.
-	if _schedule.is_night and not _meal_active and _data.hunger < 100:
-		_intents.clear_reason(&"eat")
-		_eat_intent = null
-	else:
-		evaluate()
-
-func _finish_meal() -> void:
-	# Keep the meal guard during changed emission; do not start a second meal.
-	var consumed := _food_building.resources.try_take(ResourceType.Type.FOOD, 1)
-	if consumed:
-		_data.hunger -= 60
-	else:
-		_waiting_for_food = true
-		var message := "%s не смог поесть: нет еды." % _data.resident_name
-		developer_message.emit(message)
-		print(message)
-	_meal_active = false
-	var completed := _eat_intent
-	_eat_intent = null
-	# Completion promotes pending atomically, before returning to the schedule.
-	_intents.clear_completed(completed)
-	if consumed and _intents.current_intent.type == Intent.Type.NONE and _data.activity == Activity.Type.IDLE:
-		_schedule.resume_current_phase()
-
-func _on_storage_changed(resource: ResourceType.Type, amount: int, building: BuildingData) -> void:
-	# A different place cannot pay for or unblock this kitchen meal.
-	if building != _food_building or resource != ResourceType.Type.FOOD or amount <= 0:
+func _on_minute_changed(minute: int) -> void:
+	if _active_intent == null:
 		return
-	_waiting_for_food = false
-	if _meal_active and _empty_attempt:
-		# Restocking starts a full meal, never a five-minute successful meal.
-		_empty_attempt = false
-		_meal_started_at = _clock.total_minutes
-		_minutes_left = MEAL_MINUTES
-	evaluate()
+	if _active_intent.reason_id == &"eat" and not _meal_active:
+		if not _food_target_valid() or _food_building.resources.get_reserved_out(FOOD) < 1:
+			_abort_unavailable()
+		return
+	if minute <= _started_at:
+		return
+	if _active_intent.reason_id == &"critical_sleep":
+		if _data.fatigue <= SLEEP_RECOVERY_TARGET: _finish()
+	else:
+		_minutes_left -= 1
+		if _minutes_left <= 0: _finish()
+
+func _finish() -> void:
+	var completed := _active_intent
+	_active_intent = null
+	_meal_active = false
+	_minutes_left = 0
+	_intents.clear_completed(completed)
+
+func _on_intent_changed(intent: Intent) -> void:
+	if _active_intent != null and intent != _active_intent:
+		_cancel_own_action()
+
+func _cancel_own_action() -> void:
+	if _reserved_food:
+		_food_building.resources.release_out(FOOD, 1)
+	_reserved_food = false
+	_active_intent = null
+	_meal_active = false
+	_minutes_left = 0
+
+func _abort_unavailable() -> void:
+	var old := _active_intent
+	_cancel_own_action()
+	_intents.cancel_current(old)
+	action_unavailable.emit()
+
+func _on_stock_changed(resource: ResourceType.Type, _amount: int) -> void:
+	if resource != FOOD: return
+	for building in _buildings:
+		if building.type == BuildingType.Type.FOOD and building.resources.get_available_amount(FOOD) > 0:
+			_retry_food_at = 0
+			food_available.emit()
+			return
+
+func evaluate(at_action_boundary: bool = false) -> void:
+	if is_instance_valid(decision):
+		if at_action_boundary: decision.request_decision("action_boundary")
+		else: decision.check_critical()
+
+func prepare_for_work() -> bool:
+	return decision.prepare_for_work() if is_instance_valid(decision) else true
+
+func _exit_tree() -> void:
+	_cancel_own_action()
+
+func _food_target_valid() -> bool:
+	var target: Variant = _locations.get_position(_food_building.id)
+	return target is Vector2 and target.is_equal_approx(_active_intent.target_position)
+
+func has_location(location_id: StringName) -> bool:
+	return _locations.get_position(location_id) is Vector2

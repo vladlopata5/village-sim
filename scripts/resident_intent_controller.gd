@@ -5,6 +5,7 @@ const ResidentData = preload("res://scripts/resident_data.gd")
 const Activity = preload("res://scripts/resident_activity.gd")
 signal forced_interrupt(previous: ResidentIntent)
 var _forced_intent: ResidentIntent
+var forced_priority: int = 0
 signal intent_changed(intent: ResidentIntent)
 signal intent_arrived(intent: ResidentIntent)
 signal intent_completed(intent: ResidentIntent)
@@ -30,9 +31,9 @@ func _activate(intent: ResidentIntent) -> void:
 	intent_changed.emit(current_intent)
 
 func submit(intent: ResidentIntent) -> bool:
-	if _forced_intent != null or intent == null or intent.type != ResidentIntent.Type.MOVE_TO:
+	if _forced_intent != null or intent == null or (intent.type == ResidentIntent.Type.NONE and intent.reason_id.is_empty()):
 		return false
-	if current_intent.type == ResidentIntent.Type.NONE:
+	if not has_current_action():
 		_activate(intent)
 		return true
 	var same_source_update := intent.priority == current_intent.priority and intent.reason_id == current_intent.reason_id
@@ -60,10 +61,11 @@ func report_arrival(arrived_intent: ResidentIntent) -> bool:
 	return true
 
 func clear_completed(completed_intent: ResidentIntent) -> bool:
-	if current_intent.type == ResidentIntent.Type.NONE or completed_intent != current_intent:
+	if not has_current_action() or completed_intent != current_intent:
 		return false
 	if completed_intent == _forced_intent:
 		_forced_intent = null
+		forced_priority = 0
 	var next := pending_intent
 	pending_intent = ResidentIntent.new()
 	_activate(next)
@@ -88,14 +90,33 @@ func continue_intent(previous: ResidentIntent, next: ResidentIntent) -> bool:
 	_activate(next)
 	return true
 
-func force_set_intent(intent: ResidentIntent) -> bool:
-	if intent == null:
+func force_set_intent(intent: ResidentIntent, critical_priority: int = 1) -> bool:
+	if intent == null or (_forced_intent != null and critical_priority < forced_priority):
 		return false
 	var previous := current_intent
+	forced_priority = critical_priority
 	pending_intent = ResidentIntent.new()
 	_forced_intent = intent # Reject ordinary submissions during cleanup too.
 	forced_interrupt.emit(previous)
+	if _forced_intent != intent:
+		return false # A newer critical action won during synchronous cleanup.
 	_activate(intent)
-	if intent.type == ResidentIntent.Type.NONE:
+	if intent.type == ResidentIntent.Type.NONE and intent.reason_id.is_empty():
 		_forced_intent = null
+		forced_priority = 0
+	return true
+
+func has_current_action() -> bool:
+	# NONE with a reason is a stationary action, without adding movement types.
+	return current_intent.type != ResidentIntent.Type.NONE or not current_intent.reason_id.is_empty()
+
+func cancel_current(intent: ResidentIntent) -> bool:
+	if intent != current_intent:
+		return false
+	if intent == _forced_intent:
+		_forced_intent = null
+		forced_priority = 0
+	var next := pending_intent
+	pending_intent = ResidentIntent.new()
+	_activate(next)
 	return true

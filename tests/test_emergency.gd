@@ -19,6 +19,9 @@ func make_scene() -> Node:
 	preload("res://tests/resident_test_setup.gd").isolate_first(scene)
 	scene.game_time.set_process(false)
 	scene.resident_runtimes[0].view.set_process(false)
+	scene.residents[0].fatigue = 0
+	for need in scene.residents[0].needs.values(): need.base_weight = 0
+	scene.kitchen_data.resources.add(FOOD, 1)
 	return scene
 func critical_key() -> void:
 	for pressed in [true, false]:
@@ -75,11 +78,12 @@ func _run() -> void:
 		var view = scene._ground_views[drop]
 		check(view.is_visible_in_tree() and view.global_position == position, "Ground picture at actual interruption point")
 		scene.resident_runtimes[0].view.intent_completed.emit(old)
-		check(scene.ground_resources.drops.size() == 1 and scene.kitchen_data.resources.get_amount(FOOD) == 0, "Late delivery cannot duplicate dropped FOOD")
+		check(scene.ground_resources.drops.size() == 1 and scene.kitchen_data.resources.get_amount(FOOD) == 1, "Late delivery cannot duplicate dropped FOOD")
 		scene.game_time.advance(100.0)
 		check(drop.age_minutes(scene.game_time.total_minutes) == 0, "Pause does not age physical resource")
 		# Isolate lifetime from further resident decisions while advancing all game minutes.
 		scene.logistics.unbind_execution()
+		scene.resident_runtimes[0].decision.free()
 		scene.resident_runtimes[0].needs.free()
 		scene.game_time.debug_skip_minutes(Drop.LIFETIME_MINUTES - 1)
 		check(scene.ground_resources.drops.size() == 1, "Drop remains through 4319 game minutes even on pause")
@@ -91,6 +95,7 @@ func _run() -> void:
 	scene = make_scene()
 	scene.game_time.debug_next_phase()
 	job = scene.logistics.current_job
+	scene.residents[0].get_need(preload("res://scripts/need_type.gd").Type.HUNGER).base_weight = 100
 	scene.residents[0].hunger = 90
 	check(job.state == Job.State.GOING_TO_SOURCE and scene.resident_runtimes[0].intents.current_intent.reason_id == &"haul_source", "Strong hunger does not interrupt work to source")
 	scene.resident_runtimes[0].view._process(20.0)
@@ -113,14 +118,29 @@ func _run() -> void:
 	# Already eating at the critical threshold keeps its elapsed meal time.
 	scene = make_scene()
 	scene.kitchen_data.resources.add(FOOD, 1)
+	scene.residents[0].get_need(preload("res://scripts/need_type.gd").Type.HUNGER).base_weight = 100
 	scene.residents[0].hunger = 75
+	scene.resident_runtimes[0].decision.request_decision("test")
 	scene.resident_runtimes[0].view._process(20.0)
 	scene.game_time.debug_skip_minutes(20)
 	scene.residents[0].hunger = 100
 	check(scene.residents[0].activity == Activity.Type.EATING, "Critical hunger retains already active food action")
 	scene.game_time.debug_skip_minutes(10)
-	check(scene.residents[0].hunger < 76 and scene.kitchen_data.resources.get_amount(FOOD) == 0, "Forced protection does not restart existing meal timer")
+	check(scene.residents[0].hunger == 80 and scene.kitchen_data.resources.get_amount(FOOD) == 0, "Forced protection does not restart existing meal timer")
 	scene.free()
+	# Exhaustion uses the same forced cleanup before and after resource pickup.
+	for picked_up in [false, true]:
+		scene = make_scene()
+		scene.game_time.debug_next_phase()
+		job = scene.logistics.current_job
+		if picked_up: scene.resident_runtimes[0].view._process(20)
+		var dropped_at: Vector2 = scene.resident_runtimes[0].view.position
+		scene.residents[0].fatigue = 100
+		check(job.state == Job.State.CANCELLED and scene.residents[0].activity == Activity.Type.SLEEPING, "Critical fatigue cancels ordinary haul and sleeps in place")
+		check(scene.warehouse_data.resources.get_reserved_out(FOOD) == 0 and scene.kitchen_data.resources.get_reserved_in(FOOD) == 0 and scene.residents[0].inventory.amount == 0, "Exhaustion settles correct reserves and clears carried slot")
+		check(scene.ground_resources.drops.size() == (1 if picked_up else 0), "Only already picked cargo becomes a physical drop")
+		if picked_up: check(scene.ground_resources.drops[0].world_position == dropped_at, "Exhaustion drop stays where resident stopped")
+		scene.free()
 	paused = false
 	print("Emergency checks: ", "PASS" if failures == 0 else "FAIL (%d)" % failures)
 	quit(0 if failures == 0 else 1)

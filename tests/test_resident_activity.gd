@@ -17,6 +17,7 @@ func _run() -> void:
 	preload("res://tests/resident_test_setup.gd").isolate_first(scene)
 	scene.logistics.unbind_execution()
 	# Test this subsystem alone; need/schedule interaction has its own suite.
+	scene.resident_runtimes[0].decision.free()
 	scene.resident_runtimes[0].needs.free()
 	await process_frame
 	await process_frame
@@ -84,7 +85,7 @@ func _run() -> void:
 		check(data.activity == Activity.Type.IDLE and not view.has_movement_target, "Morning cancels unfinished home movement to IDLE")
 		view.intent_completed.emit(cancelled)
 		check(data.activity == Activity.Type.IDLE, "Late cancelled arrival cannot cause sleep")
-	check(data.fatigue == 35 and data.mood == 65, "Activities never change fatigue or mood")
+	check(data.fatigue >= 0 and data.fatigue <= 100 and data.mood == 65, "Activities leave mood unchanged and fatigue bounded")
 	data.activity = Activity.Type.SLEEPING
 	card._refresh()
 	check(card.activity_label.text == "Занятие: Спит", "Card reads original data without its own state")

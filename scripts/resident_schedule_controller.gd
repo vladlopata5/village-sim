@@ -3,8 +3,8 @@ extends Node
 const ResidentIntent = preload("res://scripts/resident_intent.gd")
 const IntentController = preload("res://scripts/resident_intent_controller.gd")
 const Activity = preload("res://scripts/resident_activity.gd")
-const HOME_PRIORITY := 100
-const WORK_PRIORITY := 50
+const HOME_PRIORITY := 10000
+const WORK_PRIORITY := 7000
 const MANUAL_PRIORITY := 10
 var before_work: Callable
 var _locations: RefCounted
@@ -22,7 +22,7 @@ func setup(game_time: Node, locations: RefCounted, intents: IntentController) ->
 
 func request_manual_move(world_target: Vector2) -> bool:
 	# Keep work/sleep protected even after their movement intent has completed.
-	if _phase not in ["Утро", "Вечер"] or _intents.resident_data.activity == Activity.Type.EATING:
+	if _phase not in ["Утро", "Вечер"] or _intents.resident_data.activity in [Activity.Type.EATING, Activity.Type.RESTING, Activity.Type.SLEEPING]:
 		return false
 	return _intents.submit(ResidentIntent.new(ResidentIntent.Type.MOVE_TO, &"manual_move", world_target, MANUAL_PRIORITY, true))
 
@@ -37,7 +37,7 @@ func _on_phase_changed(phase: String) -> void:
 	# Eating retains its current intent until the meal is completed.
 	if data.activity == Activity.Type.EATING and phase != "Ночь":
 		return
-	if data.activity in [Activity.Type.WORKING, Activity.Type.SLEEPING]:
+	if data.activity in [Activity.Type.WORKING, Activity.Type.SLEEPING] and _intents.current_intent.reason_id != &"critical_sleep":
 		data.activity = Activity.Type.IDLE
 	match phase:
 		"День":

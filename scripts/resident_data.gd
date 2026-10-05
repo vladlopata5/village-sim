@@ -15,22 +15,32 @@ const Inventory = preload("res://scripts/resident_inventory.gd")
 var inventory = Inventory.new()
 var traits: Array[TraitData] = []
 ## Higher hunger/fatigue means more hungry/tired; higher mood means happier.
+const NeedType = preload("res://scripts/need_type.gd")
+const Need = preload("res://scripts/need.gd")
+var needs: Dictionary = {
+	NeedType.Type.HUNGER: Need.new(0, 100),
+	NeedType.Type.FATIGUE: Need.new(0, 100),
+}
 signal hunger_changed
-var hunger: int = 0:
-	set(value):
-		var bounded := clampi(value, 0, 100)
-		if hunger != bounded:
-			hunger = bounded
-			hunger_changed.emit()
-var fatigue: int = 0:
-	set(value):
-		fatigue = clampi(value, 0, 100)
+signal fatigue_changed
+# Compatibility accessors: one source of truth, not a second set of values.
+var hunger: int:
+	get: return needs[NeedType.Type.HUNGER].value
+	set(next): needs[NeedType.Type.HUNGER].value = next
+var fatigue: int:
+	get: return needs[NeedType.Type.FATIGUE].value
+	set(next): needs[NeedType.Type.FATIGUE].value = next
 var mood: int = 50:
 	set(value):
 		mood = clampi(value, 0, 100)
 
 func _init(unique_id: String, initial_name: String, initial_age: int, initial_profession: Profession.Type = Profession.Type.NONE) -> void:
+	needs[NeedType.Type.HUNGER].changed.connect(hunger_changed.emit)
+	needs[NeedType.Type.FATIGUE].changed.connect(fatigue_changed.emit)
 	id = unique_id
 	resident_name = initial_name
 	age = initial_age
 	profession = initial_profession
+
+func get_need(type: NeedType.Type) -> Need:
+	return needs[type]

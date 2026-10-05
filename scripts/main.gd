@@ -108,7 +108,7 @@ func _build_hud() -> void:
 	help.text = "WASD / стрелки — камера\nПробел — пауза • 1 / 2 / 4 — скорость\nЛКМ — выбор • ПКМ по полю — перемещение (утром и вечером)"
 	column.add_child(help)
 	var debug_help := Label.new()
-	debug_help.text = "F6 +1ч | F7 +6ч | F8 следующая фаза | F9 +25 голода | F10 голод 75 (Shift+F10: 100) | F11 +1 еды в кухню\nF12 пересчитать логистику"
+	debug_help.text = "F6 +1ч | F7 +6ч | F8 следующая фаза\nF9 +25 голода | Shift+F9 усталость 100 | F10 голод 75 | Shift+F10 голод 100\nF11 +1 еды в кухню | F12 пересчитать логистику"
 	debug_help.add_theme_font_size_override("font_size", 14)
 	column.add_child(debug_help)
 	_update_pause()
@@ -124,7 +124,9 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		KEY_F6: game_time.debug_skip_minutes(60)
 		KEY_F7: game_time.debug_skip_minutes(360)
 		KEY_F8: game_time.debug_next_phase()
-		KEY_F9: _debug_add_hunger()
+		KEY_F9:
+			if event.shift_pressed: _debug_set_fatigue()
+			else: _debug_add_hunger()
 		KEY_F10: _debug_set_hunger(100 if event.shift_pressed else 75)
 		KEY_F11: kitchen_data.resources.add(ResourceType.Type.FOOD, 1)
 		KEY_F12: logistics.recalculate()
@@ -135,6 +137,11 @@ func _debug_add_hunger() -> void:
 	var selected = resident_selection.selected_resident
 	if selected != null:
 		selected.hunger += 25
+
+func _debug_set_fatigue() -> void:
+	var selected = resident_selection.selected_resident
+	if selected != null:
+		selected.fatigue = 100
 
 func _debug_set_hunger(value: int = 75) -> void:
 	var selected = resident_selection.selected_resident
@@ -223,6 +230,7 @@ func _configure_logistics() -> void:
 		logistics.cargo_dropped.connect(_drop_cargo.bind(runtime))
 		logistics.before_work = runtime.needs.prepare_for_work
 		logistics.setup(warehouse_data, kitchen_data, runtime.data)
+		runtime.decision.work_available = logistics.has_work
 		logistics.changed.connect(_update_logistics)
 		logistics.delivered.connect(runtime.needs.evaluate)
 		logistics.bind_execution(game_time, world_locations, runtime.intents, runtime.schedule)
