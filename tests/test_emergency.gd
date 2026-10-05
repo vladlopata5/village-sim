@@ -1,4 +1,5 @@
 extends SceneTree
+const Seed = preload("res://tests/utility_test_seed.gd")
 const Intent = preload("res://scripts/resident_intent.gd")
 const Intents = preload("res://scripts/resident_intent_controller.gd")
 const Job = preload("res://scripts/haul_job.gd")
@@ -97,6 +98,7 @@ func _run() -> void:
 	job = scene.logistics.current_job
 	scene.residents[0].get_need(preload("res://scripts/need_type.gd").Type.HUNGER).base_weight = 100
 	scene.residents[0].hunger = 90
+	scene.resident_runtimes[0].decision.rng.seed = Seed.for_action([{"id": "WORK", "priority": 7000}, {"id": "EAT", "priority": preload("res://scripts/action_utility.gd").eat(90)}], "EAT")
 	check(job.state == Job.State.GOING_TO_SOURCE and scene.resident_runtimes[0].intents.current_intent.reason_id == &"haul_source", "Strong hunger does not interrupt work to source")
 	scene.resident_runtimes[0].view._process(20.0)
 	check(scene.residents[0].inventory.amount == 1 and scene.ground_resources.drops.is_empty(), "Strong hunger also retains loaded task")

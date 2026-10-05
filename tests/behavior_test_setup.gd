@@ -9,6 +9,7 @@ static func make_scene(tree: SceneTree) -> Node:
 	for job in scene.logistics.jobs.duplicate(): scene.logistics.cancel_job(job)
 	for runtime in scene.resident_runtimes:
 		runtime.view.set_process(false)
+		runtime.wander.target_provider = Callable()
 		scene.game_time.minute_changed.disconnect(runtime.need_dynamics._on_minute_changed)
 		for need in runtime.data.needs.values(): need.value = 0
 		runtime.decision.work_available = func(): return false

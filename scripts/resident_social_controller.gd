@@ -7,6 +7,7 @@ const NeedType = preload("res://scripts/need_type.gd")
 const Intent = preload("res://scripts/resident_intent.gd")
 const Choice = preload("res://scripts/weighted_choice.gd")
 const Balance = preload("res://scripts/balance_config.gd")
+signal conversation_position_requested(position: Vector2)
 var world: Node
 var runtime: Node
 var clock: Node
@@ -22,6 +23,8 @@ func setup(owner_runtime: Node, game_clock: Node) -> void:
 	clock.minute_changed.connect(_on_minute)
 	runtime.intents.intent_arrived.connect(_on_arrival)
 	runtime.intents.intent_changed.connect(_on_intent_changed)
+func position_in_conversation(position: Vector2) -> void:
+	conversation_position_requested.emit(position)
 func has_social_action() -> bool:
 	return is_instance_valid(world) and not world.options_for(runtime.data.id).is_empty()
 func try_social(priority: int) -> bool:

@@ -24,6 +24,7 @@ func make_scene():
 	scene.game_time.set_process(false)
 	for runtime in scene.resident_runtimes:
 		runtime.view.set_process(false)
+		runtime.wander.target_provider = Callable()
 		for need in runtime.data.needs.values():
 			need.value = 0
 			need.base_weight = 0

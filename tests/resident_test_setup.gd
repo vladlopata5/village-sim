@@ -5,6 +5,7 @@ static func isolate_first(scene: Node) -> void:
 		runtime.view.free()
 		runtime.free()
 	scene.resident_runtimes.resize(1)
+	scene.resident_runtimes[0].wander.target_provider = Callable()
 
 static func unbind_work(scene: Node) -> void:
 	# Isolated schedule/need tests inject a simple work action instead of real hauling.

@@ -99,7 +99,7 @@ func _run() -> void:
 		resident.data.get_need(need_type).value = 80
 		resident.decision.request_decision()
 		if action_id != "LEISURE": resident.view._process(100)
-		var parameter: String = {"EAT": "HUNGER=80, priority=8000", "SOCIAL": "SOCIAL=80, priority=6400", "LEISURE": "LEISURE=80, priority=6000"}[action_id]
+		var parameter: String = {"EAT": "HUNGER=80, utility=5102", "SOCIAL": "SOCIAL=80, priority=6400", "LEISURE": "LEISURE=80, priority=6000"}[action_id]
 		check(messages.any(func(line): return parameter in line), "INFO action start includes current need and priority")
 		check(messages.any(func(line): return "[AI][DEBUG]" in line and "max_priority=" in line and "threshold=" in line and "shifted=" in line and "random_weight=" in line and "selected=" in line and "discarded=" in line), "DEBUG decision includes pool, cutoff, weights, exclusions and selection")
 		scene.free()

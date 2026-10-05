@@ -32,6 +32,7 @@ const ResidentFactory = preload("res://scripts/resident_factory.gd")
 const ResidentGenerator = preload("res://scripts/resident_generator.gd")
 const ResidentRuntime = preload("res://scripts/resident_runtime.gd")
 const LocationView = preload("res://scenes/world_location_view_2d.tscn")
+const WanderTarget = preload("res://scripts/wander_target.gd")
 const SocialWorld = preload("res://scripts/social_world.gd")
 var social_world = SocialWorld.new()
 var residents: Array[ResidentData] = []
@@ -62,6 +63,8 @@ func _ready() -> void:
 	for runtime in resident_runtimes:
 		social_world.register(runtime)
 		runtime.social.world = social_world
+		runtime.wander.target_provider = _wander_target_2d.bind(runtime.data.id)
+		runtime.wander.target_available = _wander_available_2d.bind(runtime.data.id)
 	_build_hud()
 	add_child(ground_resources)
 	ground_resources.setup(game_time)
@@ -242,6 +245,12 @@ func _create_test_residents() -> void:
 		resident_runtimes.append(runtime)
 		runtime.logger = game_logger
 		runtime.setup(data, view, game_time, world_locations, buildings)
+
+func _wander_available_2d(resident_id: String) -> bool:
+	return field.FIELD.has_point(_resident_position_2d(resident_id))
+
+func _wander_target_2d(rng: RandomNumberGenerator, resident_id: String):
+	return WanderTarget.nearby(_resident_position_2d(resident_id), rng, field.FIELD)
 
 func _resident_position_2d(resident_id: String) -> Vector2:
 	var runtime = social_world.get_runtime(resident_id)

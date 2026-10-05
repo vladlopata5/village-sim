@@ -24,7 +24,9 @@ func _run():
 		for need in data.needs.values(): need.base_weight = 0
 	var clock = scene.game_time
 	clock.set_process(false)
-	for runtime in scene.resident_runtimes: runtime.view.set_process(false)
+	for runtime in scene.resident_runtimes:
+		runtime.view.set_process(false)
+		runtime.wander.target_provider = Callable()
 	await process_frame
 	await process_frame
 	check(scene.residents.size() == 4 and scene.resident_runtimes.size() == 4 and scene.population_label.text == "Жителей: 4", "Four resident data/controller/view bundles and count")

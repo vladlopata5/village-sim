@@ -119,8 +119,8 @@ func _run() -> void:
 	scene.game_time.debug_next_phase()
 	scene.resident_runtimes[0].view._process(20.0)
 	scene.residents[0].get_need(preload("res://scripts/need_type.gd").Type.HUNGER).base_weight = 100
-	scene.residents[0].hunger = 75
-	scene.resident_runtimes[0].decision.rng.seed = Seed.for_action([{"id": "WORK", "priority": 7000}, {"id": "EAT", "priority": 7500}], "EAT")
+	scene.residents[0].hunger = 90
+	scene.resident_runtimes[0].decision.rng.seed = Seed.for_action([{"id": "WORK", "priority": 7000}, {"id": "EAT", "priority": preload("res://scripts/action_utility.gd").eat(90)}], "EAT")
 	check(scene.residents[0].inventory.amount == 1 and scene.resident_runtimes[0].intents.current_intent.reason_id == &"haul_destination", "Hunger cannot discard carried FOOD")
 	scene.resident_runtimes[0].view._process(20.0)
 	check(scene.residents[0].activity == Activity.Type.EATING and scene.residents[0].inventory.amount == 0 and scene.kitchen_data.resources.get_amount(FOOD) == 0, "Hungry porter begins meal only after delivery")

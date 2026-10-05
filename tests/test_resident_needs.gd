@@ -15,8 +15,9 @@ func _run():
 		var speed_resident = speed_scene.resident_runtimes[0]
 		var clock = speed_scene.game_time
 		clock.set_speed(speed)
+		speed_resident.decision.work_available = func(): return false
 		speed_resident.data.hunger = 80
-		speed_resident.decision.rng.seed = Seed.for_action(speed_resident.decision.collect_actions(true), "EAT")
+		speed_resident.decision.rng.seed = Seed.for_action(speed_resident.decision.collect_actions(false), "EAT")
 		speed_resident.decision.request_decision()
 		check(speed_resident.intents.current_intent.reason_id == &"eat" and speed_scene.kitchen_data.resources.get_reserved_out(FOOD) == 1, "Concrete action reserves before movement")
 		clock.advance(15.0 / speed)
@@ -31,6 +32,7 @@ func _run():
 		check(speed_resident.data.hunger == 61 and speed_resident.data.activity == Activity.Type.EATING, "First ten minutes reduce hunger gradually")
 		clock.advance(19.0 / speed)
 		check(speed_resident.data.hunger == 23 and speed_resident.data.activity == Activity.Type.EATING, "Meal lasts thirty game minutes on each speed")
+		speed_resident.decision.work_available = Callable()
 		clock.advance(1.0 / speed)
 		check(speed_resident.data.hunger == 21 and speed_resident.intents.current_intent.reason_id == &"day_work", "End has no additional hunger jump and returns to work")
 		speed_resident.view._process(20)

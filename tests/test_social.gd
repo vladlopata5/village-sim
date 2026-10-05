@@ -17,6 +17,7 @@ func make_scene():
 	preload("res://tests/resident_test_setup.gd").unbind_work(scene)
 	for runtime in scene.resident_runtimes:
 		runtime.view.set_process(false)
+		runtime.wander.target_provider = Callable()
 		runtime.data.work_location_id = &""
 		runtime.decision.work_available = Callable()
 		runtime.data.hunger = 0

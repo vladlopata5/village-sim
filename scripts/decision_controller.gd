@@ -5,6 +5,7 @@ var logger: EventLog
 const NeedType = preload("res://scripts/need_type.gd")
 const Activity = preload("res://scripts/resident_activity.gd")
 const Intent = preload("res://scripts/resident_intent.gd")
+const Utility = preload("res://scripts/action_utility.gd")
 const Selector = preload("res://scripts/utility_selector.gd")
 const Balance = preload("res://scripts/balance_config.gd")
 const NEED_ACTION_THRESHOLD := Balance.NEED_ACTION_THRESHOLD
@@ -25,6 +26,7 @@ var _work_cycle_active := false
 var _work_cycle_ends_at := 0
 var decision_count := 0
 var social: Node
+var wander: Node
 var rng := RandomNumberGenerator.new()
 var last_selection: Dictionary = {}
 var _work_selected := false
@@ -99,13 +101,16 @@ func collect_actions(has_available_work: bool) -> Array:
 		var id := ""
 		match type:
 			NeedType.Type.HUNGER:
-				if _needs.has_food_action(): id = "EAT"
+				if _needs.has_food_action():
+					id = "EAT"
 			NeedType.Type.FATIGUE: id = "REST"
 			NeedType.Type.SOCIAL:
 				if is_instance_valid(social) and social.has_social_action(): id = "SOCIAL"
 			NeedType.Type.LEISURE:
 				if is_instance_valid(social): id = "LEISURE"
-		if not id.is_empty(): actions.append({"id": id, "priority": priority})
+		if not id.is_empty():
+			actions.append({"id": id, "priority": Utility.eat(_data.hunger) if id == "EAT" else float(priority)})
+	if is_instance_valid(wander) and wander.has_action(): actions.append({"id": "WANDER", "priority": Balance.WANDER_PRIORITY})
 	return actions
 
 func _choose_need(has_available_work: bool) -> bool:
@@ -122,10 +127,10 @@ func _choose_need(has_available_work: bool) -> bool:
 		last_selection = Selector.evaluate(actions)
 		var selected: Dictionary = Selector.pick(last_selection, rng)
 		var unavailable: Array = []
-		for id in ["WORK", "EAT", "REST", "SOCIAL", "LEISURE"]:
+		for id in ["WORK", "EAT", "REST", "SOCIAL", "LEISURE", "WANDER"]:
 			if not actions.any(func(row): return row.id == id): unavailable.append(id)
-		if logger != null and logger.debug_enabled: logger.debug(EventLog.AI, Selector.debug_text(_data.resident_name, last_selection, selected.id, unavailable))
-		var priority: int = selected.priority
+		if logger != null and logger.debug_enabled: logger.debug(EventLog.AI, _decision_debug_text(selected.id, unavailable))
+		var priority := roundi(selected.priority)
 		match selected.id:
 			"WORK":
 				_work_selected = true
@@ -135,16 +140,21 @@ func _choose_need(has_available_work: bool) -> bool:
 			"REST": started = _needs.try_rest(priority)
 			"SOCIAL": started = social.try_social(priority)
 			"LEISURE": started = social.try_leisure(priority)
+			"WANDER": started = wander.try_wander(priority)
 		if started: break
 		# A synchronous world change can invalidate an action between check and start.
 		actions = actions.filter(func(row): return row.id != selected.id)
 	if actions.is_empty():
 		last_selection = Selector.evaluate([])
-		if logger != null and logger.debug_enabled: logger.debug(EventLog.AI, Selector.debug_text(_data.resident_name, last_selection, "IDLE", ["WORK", "EAT", "REST", "SOCIAL", "LEISURE"]))
+		if logger != null and logger.debug_enabled: logger.debug(EventLog.AI, _decision_debug_text("IDLE", ["WORK", "EAT", "REST", "SOCIAL", "LEISURE", "WANDER"]))
 	_deciding = false
 	_critical_pending = false
 	check_critical()
 	return started
+
+func _decision_debug_text(selected: String, unavailable: Array) -> String:
+	var text: String = Selector.debug_text(_data.resident_name, last_selection, selected, unavailable)
+	return text.replace("EAT priority=", "EAT hunger=%d utility=" % _data.hunger)
 
 func request_decision(_reason: String = "free") -> void:
 	if _deciding: return
@@ -153,6 +163,7 @@ func request_decision(_reason: String = "free") -> void:
 		_critical_hunger_attempted = false
 	check_critical()
 	if _intents.has_current_action() or _data.activity == Activity.Type.SLEEPING: return
+	if _clock.get_phase() != _schedule.get_phase(): return # phase_changed owns this boundary.
 	_next_decision_at = _clock.total_minutes + IDLE_MINUTES
 	if _clock.get_phase() == "Ночь":
 		_schedule.resume_current_phase()
@@ -195,6 +206,7 @@ func _on_intent_changed(_intent: Intent) -> void:
 	if _data.activity != Activity.Type.WORKING: _end_work_cycle("смена действия")
 
 func _on_minute(minute: int) -> void:
+	if _clock.get_phase() != _schedule.get_phase(): return # Await the phase source, not an old schedule.
 	if _work_cycle_active:
 		if _data.activity != Activity.Type.WORKING:
 			_end_work_cycle("перерыв или смена расписания")
@@ -223,8 +235,9 @@ func has_more_important_action(current_priority: int) -> bool:
 	if _intents.pending_intent.reason_id != &"" and _intents.pending_intent.priority > current_priority: return true
 	if _clock.get_phase() == "День" and _has_work() and WORK_PRIORITY > current_priority: return true
 	for type in [NeedType.Type.HUNGER, NeedType.Type.FATIGUE, NeedType.Type.LEISURE]:
-		var priority: int = _data.get_need(type).get_priority()
-		if priority < NEED_ACTION_THRESHOLD or priority <= current_priority: continue
+		var priority: float = Utility.eat(_data.hunger) if type == NeedType.Type.HUNGER else _data.get_need(type).get_priority()
+		if priority <= current_priority: continue
+		if type != NeedType.Type.HUNGER and priority < NEED_ACTION_THRESHOLD: continue
 		if type != NeedType.Type.HUNGER or _needs.has_food_action(): return true
 	return false
 

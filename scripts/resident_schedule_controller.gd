@@ -27,6 +27,7 @@ func request_manual_move(world_target: Vector2) -> bool:
 	# Keep work/sleep protected even after their movement intent has completed.
 	if _phase not in ["Утро", "Вечер"] or _intents.resident_data.activity in [Activity.Type.EATING, Activity.Type.RESTING, Activity.Type.SLEEPING, Activity.Type.TALKING, Activity.Type.RELAXING]:
 		return false
+	if _intents.current_intent.reason_id == &"wander": _intents.cancel_current(_intents.current_intent)
 	return _intents.submit(ResidentIntent.new(ResidentIntent.Type.MOVE_TO, &"manual_move", world_target, MANUAL_PRIORITY, true))
 
 func _on_phase_changed(phase: String) -> void:
@@ -46,6 +47,7 @@ func _on_phase_changed(phase: String) -> void:
 	if changed_phase and logger != null: logger.sync_activity(data)
 	match phase:
 		"День":
+			if _intents.current_intent.reason_id == &"wander": _intents.cancel_current(_intents.current_intent)
 			if work_decision.is_valid():
 				_intents.clear_reason(&"manual_move")
 				work_decision.call()
@@ -62,12 +64,10 @@ func _move_to_location(location_id: StringName, reason: StringName, priority: in
 	var target: Variant = _locations.get_position(location_id)
 	# An absent place must not silently become a goal at world origin.
 	if target is Vector2:
-		var previously_working := logger != null and logger.was_working(_intents.resident_data)
 		var accepted := _intents.submit(ResidentIntent.new(ResidentIntent.Type.MOVE_TO, reason, target, priority, true))
 		if accepted and logger != null:
 			logger.sync_activity(_intents.resident_data)
 			if reason == &"night_home": logger.info(EventLog.SCHEDULE, "%s: получил ночное намерение идти домой" % _intents.resident_data.resident_name)
-			elif reason == &"day_work" and not previously_working: logger.info(EventLog.AI, "%s: выбрал работу (priority=%d)" % [_intents.resident_data.resident_name, WORK_PRIORITY])
 
 func _on_intent_completed(intent: ResidentIntent) -> void:
 	# Controller only reports accepted arrivals, never cancellations/stale goals.
@@ -79,6 +79,9 @@ func _on_intent_completed(intent: ResidentIntent) -> void:
 	elif is_night and intent.reason_id == &"night_home":
 		data.activity = Activity.Type.SLEEPING
 	if logger != null: logger.sync_activity(data)
+
+func get_phase() -> String:
+	return _phase
 
 func resume_current_phase() -> void:
 	_on_phase_changed(_phase)

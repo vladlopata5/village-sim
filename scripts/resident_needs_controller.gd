@@ -2,6 +2,7 @@ extends Node
 const EventLog = preload("res://scripts/game_logger.gd")
 var logger: EventLog
 ## Concrete ways to satisfy needs. Selection/comparison lives in DecisionController.
+const Utility = preload("res://scripts/action_utility.gd")
 const Balance = preload("res://scripts/balance_config.gd")
 const Data = preload("res://scripts/resident_data.gd")
 const Intent = preload("res://scripts/resident_intent.gd")
@@ -121,7 +122,7 @@ func _on_arrival(intent: Intent) -> void:
 	_data.activity = Activity.Type.EATING
 	if logger != null:
 		logger.sync_activity(_data)
-		logger.info(EventLog.NEED, "%s: начал есть (HUNGER=%d, priority=%d)" % [_data.resident_name, _data.hunger, _data.get_need(preload("res://scripts/need_type.gd").Type.HUNGER).get_priority()])
+		logger.info(EventLog.NEED, "%s: начал есть (HUNGER=%d, utility=%.0f)" % [_data.resident_name, _data.hunger, Utility.eat(_data.hunger)])
 
 func _on_minute_changed(minute: int) -> void:
 	if _active_intent == null:

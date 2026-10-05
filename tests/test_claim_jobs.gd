@@ -72,11 +72,11 @@ func _run():
 	check(offered.assigned_resident_id.is_empty(), "Morning offer is not assigned to Stepan")
 	scene.game_time.debug_next_phase()
 	check(offered.state == Job.State.GOING_TO_SOURCE and offered.assigned_resident_id == r.data.id, "At daytime decision porter claims and executes")
-	r.data.hunger = 80
-	check(r.intents.current_intent.reason_id == &"haul_source" and offered.state == Job.State.GOING_TO_SOURCE, "Ordinary hunger 8000 does not interrupt already-started source route")
+	r.data.hunger = 90
+	check(r.intents.current_intent.reason_id == &"haul_source" and offered.state == Job.State.GOING_TO_SOURCE, "Ordinary hunger 90 does not interrupt already-started source route")
 	r.view._process(20)
 	check(offered.state == Job.State.GOING_TO_DESTINATION, "Pickup continues same job")
-	r.decision.rng.seed = Seed.for_action([{"id": "WORK", "priority": 7000}, {"id": "EAT", "priority": 8000}], "EAT")
+	r.decision.rng.seed = Seed.for_action([{"id": "WORK", "priority": 7000}, {"id": "EAT", "priority": preload("res://scripts/action_utility.gd").eat(90)}], "EAT")
 	r.view._process(20)
 	check(offered.state == Job.State.COMPLETED and r.data.activity == Activity.EATING, "At delivery boundary seeded selector chooses hunger before next work")
 	check(scene.logistics.current_job.state == Job.State.RESERVED and scene.logistics.current_job.assigned_resident_id.is_empty(), "Next delivery remains unclaimed while eating")

@@ -33,18 +33,21 @@ func options_for(id: String) -> Array:
 		if other.data.activity == Activity.Type.TALKING and group != null:
 			if group.id in seen_groups: continue
 			seen_groups.append(group.id)
-		elif other.data.activity != Activity.Type.IDLE or other.intents.has_current_action(): continue
+		elif not _idle_available(other): continue
 		var distance := position_of(id).distance_to(position_of(other_id))
 		options.append({"target_id": other_id, "group_id": group.id if group != null else 0,
 			"option_weight": BASE_OPTION_WEIGHT / (1.0 + distance * DISTANCE_PENALTY / BASE_OPTION_WEIGHT)})
 	return options
+func _idle_available(runtime: Node) -> bool:
+	# A stationary fallback can yield to an invitation, even with SOCIAL=0.
+	return runtime.data.activity == Activity.Type.IDLE and (not runtime.intents.has_current_action() or runtime.intents.current_intent.reason_id == &"wander")
 func valid_option(option: Dictionary) -> bool:
 	if option.group_id != 0: return groups.has(option.group_id)
 	var target = get_runtime(option.target_id)
-	return target != null and target.data.activity == Activity.Type.IDLE and not target.intents.has_current_action()
+	return target != null and _idle_available(target)
 func option_position(option: Dictionary) -> Vector2:
 	if option.group_id != 0 and groups.has(option.group_id):
-		return position_of(groups[option.group_id].participants[0])
+		return groups[option.group_id].center
 	return position_of(option.target_id)
 func arrive(id: String, option: Dictionary) -> bool:
 	if not valid_option(option): return false
@@ -52,18 +55,22 @@ func arrive(id: String, option: Dictionary) -> bool:
 	if option.group_id != 0:
 		group = groups[option.group_id]
 	else:
-		group = Group.new(_next_group_id)
+		group = Group.new(_next_group_id, position_of(option.target_id))
 		_next_group_id += 1
 		groups[group.id] = group
-		group.participants.append(option.target_id)
+		var target = get_runtime(option.target_id)
+		if target.intents.current_intent.reason_id == &"wander": target.intents.cancel_current(target.intents.current_intent)
+		var target_position: Vector2 = group.add_participant(option.target_id)
 		get_runtime(option.target_id).social.begin_talking()
-	group.participants.append(id)
+		get_runtime(option.target_id).social.position_in_conversation(target_position)
+	var participant_position: Vector2 = group.add_participant(id)
 	get_runtime(id).social.begin_talking()
+	get_runtime(id).social.position_in_conversation(participant_position)
 	return true
 func leave(id: String) -> void:
 	var group = group_of(id)
 	if group == null: return
-	group.participants.erase(id)
+	group.remove_participant(id)
 	var departing = get_runtime(id)
 	if logger != null and departing != null: logger.info(EventLog.SOCIAL, "%s: вышел из разговора" % departing.data.resident_name)
 	if group.participants.size() < 2:

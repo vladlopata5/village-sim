@@ -697,3 +697,49 @@ SLEEP_SOCIAL_GROWTH_MULTIPLIER = 0.2 и SLEEP_LEISURE_GROWTH_MULTIPLIER = 0.2
 Проверки: формула/cutoff, одиночный и пустой pool, воспроизводимость одинакового
 seed, разные seed и статистика 10000 seed, исключение недоступных вариантов,
 critical/forced без расхода RNG, INFO/DEBUG и ненулевой замедленный рост во сне.
+
+
+## AI/behavior pass: прогулки, позиции и EAT response curve
+
+Дубликат «Фёдор: выбрал работу» на 07:14 воспроизведён: decision_count вырос
+на 1, INFO был записан дважды — DecisionController и ResidentScheduleController.
+Теперь выбор логирует только DecisionController, расписание сообщает команды
+ночи и реальные смены Activity. Это исправление владельца события, без фильтра
+логов и debounce. При совпадении minute/action completion с границей фазы normal
+решение ждёт phase_changed: расписание уже должно знать новую фазу.
+Реальные две normal decision point также были возможны у свободного жителя,
+когда idle deadline совпадал с phase_changed: оба подписчика запрашивали выбор.
+На такой границе решение принадлежит фазовому событию, что проверено регрессией.
+
+WANDER — обычный fallback в том же UtilitySelector, priority=500, radius=100,
+stay=10 игровых минут. Это прогулка с последующей стоянкой, не LEISURE и не
+снижение SOCIAL. WanderTarget содержит ID и позицию кандидата; источник цели
+внедряется отдельно, сейчас выбирает точку внутри открытого 2D-поля. Позже этот
+источник заменят Points of Interest. Полноценная POI-система не реализована.
+Движение и стоянка — этапы одного действия, завершение стоянки даёт одну новую
+normal decision point. Fallback уступает дневному расписанию, ручной команде
+утром/вечером и ночи/forced. Стоящий IDLE-участник прогулки может принять разговор.
+
+ConversationGroup имеет постоянный center, индивидуальные positions и свободные
+слоты. Новые участники получают свободный слот, существующие не перестраиваются.
+CONVERSATION_POSITION_RADIUS=64; дополнительные кольца не ограничивают число
+участников. SocialController передаёт команду выравнивания через сигнал временному
+представлению; короткое визуальное выравнивание не завершает SOCIAL намерение и
+не создаёт decision point. Пауза/скорость применяются как к остальному движению.
+SOCIAL=0 не запрещает принять приглашение, механики отказа нет.
+
+Need value и Action utility различаются. HUNGER остаётся 0..100 и сохраняет
+свой weight. Только EAT получает response curve:
+normalized = (HUNGER - EAT_MIN_HUNGER) / (100 - EAT_MIN_HUNGER)
+eat_utility = EAT_MAX_UTILITY * pow(normalized, EAT_UTILITY_EXPONENT)
+EAT_MIN_HUNGER=30, EAT_MAX_UTILITY=10000, EAT_UTILITY_EXPONENT=2.0.
+Ниже 30 EAT недоступен; на 30 доступен с utility=0, поэтому обычный WANDER
+привлекательнее. HUNGER 50/70/90 даёт примерно 816/3265/7347. Critical hunger
+100 обходит selector как прежде. SOCIAL/LEISURE/FATIGUE и WORK_PRIORITY не меняются.
+UtilitySelector остаётся прежним: cutoff .75, shifted utility, exponent 2, seeded
+weighted random. INFO начала еды и DEBUG показывают именно nonlinear utility.
+
+Регрессии: один work choice/log на 07:14; одно normal решение после окончания
+действия и при совпадении с 07:00; обязательная ночь без RNG; достижимость и
+длительность WANDER без снижения Need; четыре разных физических позиции
+разговора и стабильные слоты; нелинейная EAT в cutoff и forced hunger.
