@@ -9,7 +9,7 @@ func check(value: bool, message: String):
 		failures += 1
 		push_error(message)
 func _run():
-	for speed in [1, 2, 4]:
+	for speed in [1, 2, 4, 10, 20]:
 		var speed_scene = Setup.make_scene(self, 420)
 		var speed_resident = speed_scene.resident_runtimes[0]
 		var clock = speed_scene.game_time

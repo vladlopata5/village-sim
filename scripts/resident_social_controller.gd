@@ -7,8 +7,6 @@ const NeedType = preload("res://scripts/need_type.gd")
 const Intent = preload("res://scripts/resident_intent.gd")
 const Choice = preload("res://scripts/weighted_choice.gd")
 const Balance = preload("res://scripts/balance_config.gd")
-const SATISFIED_VALUE := 15
-const MAX_ACTION_MINUTES := 30
 var world: Node
 var runtime: Node
 var clock: Node
@@ -43,7 +41,9 @@ func try_leisure(priority: int) -> bool:
 		return false
 	_started_at = clock.total_minutes
 	runtime.data.activity = Activity.Type.RELAXING
-	if logger != null: logger.sync_activity(runtime.data)
+	if logger != null:
+		logger.sync_activity(runtime.data)
+		logger.info(EventLog.LEISURE, "%s: начал отдыхать" % runtime.data.resident_name)
 	return true
 func begin_talking() -> void:
 	# The waiting IDLE participant also owns an independent current action.
@@ -69,18 +69,23 @@ func _on_minute(minute: int) -> void:
 	elif activity == Activity.Type.TALKING:
 		_recheck_conversation(minute)
 	elif activity == Activity.Type.RELAXING:
-		if runtime.data.get_need(NeedType.Type.LEISURE).value <= SATISFIED_VALUE or minute - _started_at >= MAX_ACTION_MINUTES: _finish()
+		if minute - _started_at >= Balance.RELAX_DURATION_MINUTES: _finish()
 func _on_intent_changed(intent: Intent) -> void:
 	if _active != null and intent != _active:
+		_log_relax_end(_active, true)
 		_active = null
 		_option = {}
 		if world != null: world.leave(runtime.data.id)
 func _finish() -> void:
 	var previous = _active
+	_log_relax_end(previous, false)
 	_active = null
 	_option = {}
 	if world != null: world.leave(runtime.data.id)
 	if previous != null: runtime.intents.clear_completed(previous)
+func _log_relax_end(intent: Intent, interrupted: bool) -> void:
+	if intent != null and intent.reason_id == &"leisure" and logger != null:
+		logger.info(EventLog.LEISURE, "%s: закончил отдыхать%s" % [runtime.data.resident_name, " (прервано)" if interrupted else ""])
 func group_dissolved() -> void:
 	if runtime.data.activity == Activity.Type.TALKING and world.group_of(runtime.data.id) == null: _finish()
 func _exit_tree() -> void:
@@ -96,7 +101,8 @@ func _recheck_conversation(minute: int) -> void:
 	_next_conversation_recheck = minute + Balance.CONVERSATION_RECHECK_MINUTES
 	var current_priority: int = runtime.data.get_need(NeedType.Type.SOCIAL).get_priority()
 	var important: bool = runtime.decision.has_more_important_action(current_priority)
-	var voluntary := rng.randf() < Balance.CONVERSATION_EXIT_CHANCE
+	var satisfied := current_priority < Balance.NEED_ACTION_THRESHOLD
+	var voluntary := satisfied and rng.randf() < Balance.CONVERSATION_EXIT_CHANCE
 	if logger != null:
 		logger.debug(EventLog.SOCIAL, "%s: %s разговор (%d мин); более важное действие=%s; случайный выход=%s" % [runtime.data.resident_name, "завершает" if important or voluntary else "продолжает", elapsed, important, voluntary])
 	if important or voluntary: _finish()

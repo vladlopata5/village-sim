@@ -42,11 +42,17 @@ func _run() -> void:
 	check(entries.size() == count, "Repeated state is not logged again")
 	resident.activity = Activity.SLEEPING
 	event_log.sync_activity(resident)
-	check(entries[-2].ends_with("закончил работу") and entries[-1].ends_with("начал спать"), "Work exit and sleep entry are meaningful events")
+	check(entries[-2].ends_with("завершил рабочий цикл") and entries[-1].ends_with("начал спать"), "Work exit and sleep entry are meaningful events")
 	resident.activity = Activity.IDLE
 	event_log.sync_activity(resident)
 	check(entries[-1].ends_with("проснулся"), "Wake-up event")
-	for category in [EventLog.AI, EventLog.NEED, EventLog.LOGISTICS, EventLog.PRODUCTION, EventLog.SOCIAL, EventLog.SCHEDULE, EventLog.RESOURCE]:
+	clock.total_minutes = 1020
+	resident.activity = Activity.WORKING
+	event_log.sync_activity(resident)
+	resident.activity = Activity.IDLE
+	event_log.sync_activity(resident)
+	check(entries[-1].ends_with("закончил работу"), "Real shift end retains work-end wording")
+	for category in [EventLog.LEISURE, EventLog.AI, EventLog.NEED, EventLog.LOGISTICS, EventLog.PRODUCTION, EventLog.SOCIAL, EventLog.SCHEDULE, EventLog.RESOURCE]:
 		check(event_log.format_line(category, "test").contains("[%s]" % category), "All event categories available")
 	var hut = preload("res://scripts/building_data.gd").new(&"hut", "Хижина", preload("res://scripts/building_type.gd").Type.GATHERER_HUT)
 	var food = preload("res://scripts/resource_type.gd").Type.FOOD

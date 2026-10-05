@@ -174,7 +174,9 @@ func _extra_cases():
 	check(r[0].data.activity == Activity.Type.RELAXING, "No work permits leisure below 7000")
 	var original_position: Vector2 = r[0].view.position
 	scene.game_time.debug_skip_minutes(10)
-	check(r[0].data.activity == Activity.Type.IDLE and r[0].view.position == original_position, "Satisfied leisure ends and stays on the spot")
+	check(r[0].data.activity == Activity.Type.RELAXING and r[0].view.position == original_position, "Satisfied leisure remains committed")
+	scene.game_time.debug_skip_minutes(20)
+	check(r[0].data.activity == Activity.Type.IDLE, "Leisure completes after 30 minutes")
 	# Needs below 7000 still lose to an available job.
 	r[0].data.work_location_id = scene.warehouse_data.id
 	r[0].decision.work_available = func(): return true

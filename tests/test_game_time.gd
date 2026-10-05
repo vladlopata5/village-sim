@@ -16,7 +16,7 @@ func _run() -> void:
 	root.add_child(clock)
 	clock.set_process(false)
 	check(clock.get_clock_text() == "06:00", "Initial clock")
-	for speed in [1, 2, 4]:
+	for speed in [1, 2, 4, 10, 20]:
 		clock.total_minutes = 360
 		clock.set_speed(speed)
 		clock.advance(10.0)
@@ -71,6 +71,9 @@ func _run() -> void:
 	var scene_clock = scene.get_node("GameTime")
 	scene_clock.set_process(false)
 	check(scene.clock_label.text == "06:00", "Scene initial HUD")
+	for index in [3, 4]:
+		scene.speed_buttons[index].pressed.emit()
+		check(scene_clock.speed_multiplier == [10, 20][index - 3], "Fast HUD speed button")
 	scene.speed_buttons[2].pressed.emit()
 	check(scene_clock.speed_multiplier == 4, "HUD speed button")
 	scene.pause_button.pressed.emit()

@@ -40,7 +40,7 @@ func _run() -> void:
 	clock.set_process(false)
 	clock.minute_changed.connect(func(value: int): minutes.append(value))
 	clock.phase_changed.connect(func(value: String): phases.append(value))
-	for speed in [1, 2, 4]:
+	for speed in [1, 2, 4, 10, 20]:
 		clock.set_speed(speed)
 		for paused_case in [false, true]:
 			self.paused = paused_case

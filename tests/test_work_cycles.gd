@@ -12,7 +12,7 @@ func check(condition: bool, message: String) -> void:
 		push_error(message)
 func _run() -> void:
 	for need_type in [Type.SOCIAL, Type.LEISURE]:
-		for speed in [1, 2, 4]:
+		for speed in [1, 2, 4, 10, 20]:
 			var scene = Setup.make_scene(self)
 			var resident = scene.resident_runtimes[2]
 			resident.data.work_location_id = scene.gatherer_hut_data.id

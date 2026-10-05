@@ -114,7 +114,7 @@ func _build_hud() -> void:
 	pause_button.focus_mode = Control.FOCUS_NONE
 	pause_button.pressed.connect(_toggle_pause)
 	row.add_child(pause_button)
-	for multiplier in [1, 2, 4]:
+	for multiplier in game_time.SUPPORTED_SPEEDS:
 		var button := Button.new()
 		button.text = "x%d" % multiplier
 		button.toggle_mode = true
@@ -197,7 +197,7 @@ func _update_phase(phase: String) -> void:
 
 func _update_speed(multiplier: int) -> void:
 	for index in range(speed_buttons.size()):
-		speed_buttons[index].set_pressed_no_signal([1, 2, 4][index] == multiplier)
+		speed_buttons[index].set_pressed_no_signal(game_time.SUPPORTED_SPEEDS[index] == multiplier)
 
 func _create_test_residents() -> void:
 	var generator = ResidentGenerator.new(42, "settlement")

@@ -1,5 +1,6 @@
 extends Node
 ## All rates in one place: 60 fractional units = one need point.
+const Balance = preload("res://scripts/balance_config.gd")
 const Data = preload("res://scripts/resident_data.gd")
 const NeedType = preload("res://scripts/need_type.gd")
 const Activity = preload("res://scripts/resident_activity.gd")
@@ -35,16 +36,19 @@ func _on_minute_changed(_minute: int) -> void:
 	elif activity == Activity.Type.EATING: hunger_rate = HUNGER_EATING
 	_apply(NeedType.Type.HUNGER, hunger_rate)
 	_apply(NeedType.Type.FATIGUE, FATIGUE_RATES[activity])
-	_apply(NeedType.Type.SOCIAL, SOCIAL_RATES[activity])
-	_apply(NeedType.Type.LEISURE, LEISURE_RATES[activity])
-func _apply(type: NeedType.Type, rate: int) -> void:
+	_apply_slow_growth(NeedType.Type.SOCIAL, SOCIAL_RATES[activity], Balance.SOCIAL_GROWTH_DIVISOR)
+	_apply_slow_growth(NeedType.Type.LEISURE, LEISURE_RATES[activity], Balance.LEISURE_GROWTH_DIVISOR)
+func _apply_slow_growth(type: NeedType.Type, rate: int, divisor: int) -> void:
+	# Keep satisfaction unchanged; positive growth uses finer integer fractions.
+	_apply(type, rate * divisor if rate < 0 else rate, UNITS_PER_POINT * divisor)
+func _apply(type: NeedType.Type, rate: int, units_per_point: int = UNITS_PER_POINT) -> void:
 	var need = _data.get_need(type)
 	if (need.value == 100 and rate > 0) or (need.value == 0 and rate < 0):
 		_fractions[type] = 0
 		return
 	_fractions[type] += rate
-	var points := int(float(_fractions[type]) / UNITS_PER_POINT)
+	var points := int(float(_fractions[type]) / units_per_point)
 	if points != 0:
-		_fractions[type] -= points * UNITS_PER_POINT
+		_fractions[type] -= points * units_per_point
 		need.value += points
 		if need.value in [0, 100]: _fractions[type] = 0

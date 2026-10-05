@@ -22,7 +22,7 @@ func _run():
 	check(r.decision.decision_count == count, "No per-frame or per-minute ordinary decision")
 	scene.game_time.debug_skip_minutes(1)
 	check(r.decision.decision_count == count + 1, "Idle segment completes at ten game minutes")
-	r.data.hunger = 10
+	r.data.hunger = 30
 	r.data.fatigue = 0
 	r.decision.request_decision()
 	check(r.intents.current_intent.reason_id == &"eat" and scene.kitchen_data.resources.get_reserved_out(FOOD) == 1, "1000 threshold selects concrete food action and reserves before path")
@@ -66,15 +66,15 @@ func _run():
 	scene = Setup.make_scene(self, 420)
 	r = scene.resident_runtimes[0]
 	r.decision.work_available = func(): return false
-	r.data.hunger = 20
+	r.data.hunger = 30
 	r.decision.request_decision()
-	check(r.intents.current_intent.reason_id == &"eat", "No real work permits a need at 2000")
+	check(r.intents.current_intent.reason_id == &"eat", "No real work permits a need at 3000")
 	scene.free()
 	# Critical levels remain separate from ordinary need weights/priorities.
 	scene = Setup.make_scene(self)
 	r = scene.resident_runtimes[0]
 	r.intents.submit(Intent.new(Intent.Type.MOVE_TO, &"locked", Vector2(500, 0), 50000, false))
-	r.data.hunger = 100
+	r.data.hunger = 300
 	current = r.intents.current_intent
 	check(current.reason_id == &"eat" and r.intents.forced_priority == 200, "Critical hunger interrupts a locked ordinary action")
 	r.data.fatigue = 100

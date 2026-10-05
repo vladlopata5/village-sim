@@ -2,6 +2,7 @@ extends Node
 const EventLog = preload("res://scripts/game_logger.gd")
 var logger: EventLog
 ## Concrete ways to satisfy needs. Selection/comparison lives in DecisionController.
+const Balance = preload("res://scripts/balance_config.gd")
 const Data = preload("res://scripts/resident_data.gd")
 const Intent = preload("res://scripts/resident_intent.gd")
 const Activity = preload("res://scripts/resident_activity.gd")
@@ -46,6 +47,7 @@ func setup(clock: Node, data: Data, buildings: Array, locations: RefCounted, int
 	_available_food_amount = _count_available_food()
 
 func try_eat(priority: int, critical_priority: int = 0) -> bool:
+	if critical_priority == 0 and _data.hunger < Balance.EAT_MIN_HUNGER: return false
 	if _intents.forced_priority > critical_priority:
 		return false
 	if _active_intent != null and _active_intent.reason_id == &"eat":
@@ -175,10 +177,10 @@ func _count_available_food() -> int:
 	return total
 
 func can_try_eat() -> bool:
-	return not _food_unavailable
+	return _data.hunger >= Balance.EAT_MIN_HUNGER and not _food_unavailable
 
 func has_food_action() -> bool:
-	return _available_food_amount > 0 and not _food_unavailable
+	return can_try_eat() and _available_food_amount > 0
 
 func _on_food_availability_changed(resource: ResourceType.Type, _amount: int) -> void:
 	if resource != FOOD or _exiting: return

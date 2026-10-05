@@ -44,7 +44,7 @@ func dispose(f):
 	f.production.free()
 	f.view.free()
 func _run():
-	for speed in [1, 2, 4]:
+	for speed in [1, 2, 4, 10, 20]:
 		for frames in [1, 30, 120]:
 			var speed_fixture = fixture()
 			speed_fixture.clock.set_speed(speed)

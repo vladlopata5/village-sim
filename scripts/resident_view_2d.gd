@@ -1,5 +1,6 @@
 extends Node2D
 ## Temporary representation. This reference points to data owned outside the view.
+const Clock = preload("res://scripts/game_time.gd")
 const ResidentData = preload("res://scripts/resident_data.gd")
 const ResidentIntent = preload("res://scripts/resident_intent.gd")
 signal selection_requested(data: ResidentData)
@@ -56,7 +57,7 @@ func move_to(world_target: Vector2) -> void:
 	has_movement_target = not global_position.is_equal_approx(target_position)
 
 func set_time_speed(multiplier: int) -> void:
-	if multiplier in [1, 2, 4]:
+	if multiplier in Clock.SUPPORTED_SPEEDS:
 		_time_speed = multiplier
 
 func _process(delta: float) -> void:

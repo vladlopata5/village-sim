@@ -1,5 +1,6 @@
 extends Node
 ## Simulation time has no dependencies on the visual world.
+const SUPPORTED_SPEEDS := [1, 2, 4, 10, 20]
 signal minute_changed(total_minutes: int)
 signal phase_changed(phase: String)
 signal speed_changed(multiplier: int)
@@ -62,7 +63,7 @@ func debug_next_phase() -> void:
 	_last_tick_usec = Time.get_ticks_usec()
 
 func set_speed(multiplier: int) -> void:
-	if multiplier not in [1, 2, 4]:
+	if multiplier not in SUPPORTED_SPEEDS:
 		return
 	if is_processing():
 		_process(0.0)

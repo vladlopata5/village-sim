@@ -6,6 +6,7 @@ const AI := &"AI"
 const NEED := &"NEED"
 const LOGISTICS := &"LOGISTICS"
 const PRODUCTION := &"PRODUCTION"
+const LEISURE := &"LEISURE"
 const SOCIAL := &"SOCIAL"
 const SCHEDULE := &"SCHEDULE"
 const RESOURCE := &"RESOURCE"
@@ -42,7 +43,8 @@ func sync_activity(data: RefCounted) -> void:
 	if previous == current: return
 	_activities[data.id] = current
 	if previous == Activity.Type.WORKING:
-		info(SCHEDULE, "%s: закончил работу" % data.resident_name)
+		var finished := "завершил рабочий цикл" if is_instance_valid(_clock) and _clock.get_phase() == "День" else "закончил работу"
+		info(SCHEDULE, "%s: %s" % [data.resident_name, finished])
 	elif previous == Activity.Type.SLEEPING:
 		info(SCHEDULE, "%s: проснулся" % data.resident_name)
 	if current == Activity.Type.WORKING:

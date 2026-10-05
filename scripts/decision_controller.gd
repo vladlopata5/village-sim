@@ -146,7 +146,7 @@ func _on_completed(intent: Intent) -> void:
 func _end_work_cycle(reason: String) -> void:
 	if not _work_cycle_active: return
 	_work_cycle_active = false
-	if logger != null: logger.info(EventLog.AI, "%s: рабочий цикл завершён — %s" % [_data.resident_name, reason])
+	if logger != null: logger.info(EventLog.AI, "%s: завершил рабочий цикл — %s" % [_data.resident_name, reason])
 
 func _on_intent_changed(_intent: Intent) -> void:
 	if _data.activity != Activity.Type.WORKING: _end_work_cycle("смена действия")
@@ -168,6 +168,7 @@ func _on_phase(phase: String) -> void:
 	request_decision("phase_changed")
 
 func _on_food_available() -> void:
+	if not _needs.has_food_action(): return
 	# A changed world is an option for the next normal boundary, not a forced event.
 	if _deciding or _intents.has_current_action() or _data.activity != Activity.Type.IDLE: return
 	if _data.get_need(NeedType.Type.HUNGER).get_priority() < NEED_ACTION_THRESHOLD: return
