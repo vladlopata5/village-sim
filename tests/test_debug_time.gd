@@ -42,8 +42,8 @@ func _run() -> void:
 	clock.phase_changed.connect(func(value: String): phases.append(value))
 	for speed in [1, 2, 4]:
 		clock.set_speed(speed)
-		for paused in [false, true]:
-			self.paused = paused
+		for paused_case in [false, true]:
+			self.paused = paused_case
 			clock.total_minutes = 360
 			minutes.clear()
 			phases.clear()
@@ -51,7 +51,7 @@ func _run() -> void:
 			check(clock.total_minutes == 420 and minutes.size() == 60 and phases == ["День"], "Hour jump emits each minute and phase regardless of speed/pause")
 			clock.debug_skip_minutes(360)
 			check(clock.total_minutes == 780 and minutes.size() == 420, "Six-hour jump independent of speed/pause")
-			check(self.paused == paused and clock.speed_multiplier == speed, "Debug keeps pause and speed")
+			check(self.paused == paused_case and clock.speed_multiplier == speed, "Debug keeps pause and speed")
 	clock.total_minutes = 1010
 	phases.clear()
 	minutes.clear()

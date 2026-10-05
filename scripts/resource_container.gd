@@ -2,6 +2,7 @@ extends RefCounted
 ## Local quantities and reservations. Reservations never transfer resources.
 const ResourceType = preload("res://scripts/resource_type.gd")
 signal changed(resource: ResourceType.Type, amount: int)
+signal availability_changed(resource: ResourceType.Type, available_amount: int)
 var owner_id: StringName
 var _allowed_resource_types: Array = [] # Empty means unrestricted; capacities still required.
 var _amounts: Dictionary = {}
@@ -51,7 +52,9 @@ func get_available_free_capacity(resource: ResourceType.Type) -> int:
 func add(resource: ResourceType.Type, amount: int) -> bool:
 	if amount <= 0 or amount > get_available_free_capacity(resource):
 		return false
+	var previous_available := get_available_amount(resource)
 	_amounts[resource] = get_amount(resource) + amount
+	_emit_availability(resource, previous_available)
 	changed.emit(resource, get_amount(resource))
 	return true
 
@@ -61,20 +64,26 @@ func has_resource(resource: ResourceType.Type, amount: int) -> bool:
 func try_take(resource: ResourceType.Type, amount: int) -> bool:
 	if not has_resource(resource, amount):
 		return false
+	var previous_available := get_available_amount(resource)
 	_amounts[resource] = get_amount(resource) - amount
+	_emit_availability(resource, previous_available)
 	changed.emit(resource, get_amount(resource))
 	return true
 
 func reserve_out(resource: ResourceType.Type, amount: int) -> bool:
 	if not has_resource(resource, amount):
 		return false
+	var previous_available := get_available_amount(resource)
 	_reserved_out[resource] = get_reserved_out(resource) + amount
+	_emit_availability(resource, previous_available)
 	return true
 
 func release_out(resource: ResourceType.Type, amount: int) -> bool:
 	if amount <= 0 or amount > get_reserved_out(resource):
 		return false
+	var previous_available := get_available_amount(resource)
 	_reserved_out[resource] = get_reserved_out(resource) - amount
+	_emit_availability(resource, previous_available)
 	return true
 
 func reserve_in(resource: ResourceType.Type, amount: int) -> bool:
@@ -92,15 +101,23 @@ func release_in(resource: ResourceType.Type, amount: int) -> bool:
 func take_reserved(resource: ResourceType.Type, amount: int) -> bool:
 	if amount <= 0 or amount > get_reserved_out(resource):
 		return false
+	var previous_available := get_available_amount(resource)
 	_reserved_out[resource] = get_reserved_out(resource) - amount
 	_amounts[resource] = get_amount(resource) - amount
+	_emit_availability(resource, previous_available)
 	changed.emit(resource, get_amount(resource))
 	return true
 
 func add_reserved(resource: ResourceType.Type, amount: int) -> bool:
 	if not allows_resource(resource) or amount <= 0 or amount > get_reserved_in(resource):
 		return false
+	var previous_available := get_available_amount(resource)
 	_reserved_in[resource] = get_reserved_in(resource) - amount
 	_amounts[resource] = get_amount(resource) + amount
+	_emit_availability(resource, previous_available)
 	changed.emit(resource, get_amount(resource))
 	return true
+
+func _emit_availability(resource: ResourceType.Type, previous_available: int) -> void:
+	var available := get_available_amount(resource)
+	if available != previous_available: availability_changed.emit(resource, available)

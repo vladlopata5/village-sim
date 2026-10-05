@@ -10,30 +10,30 @@ func check(value: bool, message: String):
 		push_error(message)
 func _run():
 	for speed in [1, 2, 4]:
-		var scene = Setup.make_scene(self, 420)
-		var r = scene.resident_runtimes[0]
-		var clock = scene.game_time
+		var speed_scene = Setup.make_scene(self, 420)
+		var speed_resident = speed_scene.resident_runtimes[0]
+		var clock = speed_scene.game_time
 		clock.set_speed(speed)
-		r.data.hunger = 80
-		r.decision.request_decision()
-		check(r.intents.current_intent.reason_id == &"eat" and scene.kitchen_data.resources.get_reserved_out(FOOD) == 1, "Concrete action reserves before movement")
+		speed_resident.data.hunger = 80
+		speed_resident.decision.request_decision()
+		check(speed_resident.intents.current_intent.reason_id == &"eat" and speed_scene.kitchen_data.resources.get_reserved_out(FOOD) == 1, "Concrete action reserves before movement")
 		clock.advance(15.0 / speed)
-		check(r.data.hunger == 81, "Hunger still grows during route")
-		r.view._process(20)
-		check(r.data.activity == Activity.Type.EATING and not r.intents.current_intent.interruptible and scene.kitchen_data.resources.get_amount(FOOD) == 1 and scene.kitchen_data.resources.get_reserved_out(FOOD) == 0, "Arrival consumes exactly promised food and retains meal")
+		check(speed_resident.data.hunger == 81, "Hunger still grows during route")
+		speed_resident.view._process(20)
+		check(speed_resident.data.activity == Activity.Type.EATING and not speed_resident.intents.current_intent.interruptible and speed_scene.kitchen_data.resources.get_amount(FOOD) == 1 and speed_scene.kitchen_data.resources.get_reserved_out(FOOD) == 0, "Arrival consumes exactly promised food and retains meal")
 		paused = true
 		clock.advance(1000)
-		check(r.data.hunger == 81 and r.data.activity == Activity.Type.EATING, "Pause freezes meal")
+		check(speed_resident.data.hunger == 81 and speed_resident.data.activity == Activity.Type.EATING, "Pause freezes meal")
 		paused = false
 		clock.advance(10.0 / speed)
-		check(r.data.hunger == 61 and r.data.activity == Activity.Type.EATING, "First ten minutes reduce hunger gradually")
+		check(speed_resident.data.hunger == 61 and speed_resident.data.activity == Activity.Type.EATING, "First ten minutes reduce hunger gradually")
 		clock.advance(19.0 / speed)
-		check(r.data.hunger == 23 and r.data.activity == Activity.Type.EATING, "Meal lasts thirty game minutes on each speed")
+		check(speed_resident.data.hunger == 23 and speed_resident.data.activity == Activity.Type.EATING, "Meal lasts thirty game minutes on each speed")
 		clock.advance(1.0 / speed)
-		check(r.data.hunger == 21 and r.intents.current_intent.reason_id == &"day_work", "End has no additional hunger jump and returns to work")
-		r.view._process(20)
-		check(r.data.activity == Activity.Type.WORKING, "Work after meal")
-		scene.free()
+		check(speed_resident.data.hunger == 21 and speed_resident.intents.current_intent.reason_id == &"day_work", "End has no additional hunger jump and returns to work")
+		speed_resident.view._process(20)
+		check(speed_resident.data.activity == Activity.Type.WORKING, "Work after meal")
+		speed_scene.free()
 	# Ordinary night still waits for the paid meal; the route is interruptible.
 	var scene = Setup.make_scene(self, 1370)
 	var r = scene.resident_runtimes[0]

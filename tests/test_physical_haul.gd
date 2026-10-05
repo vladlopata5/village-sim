@@ -29,16 +29,17 @@ func _run() -> void:
 	inventory.clear()
 	check(inventory.amount == 0, "Inventory clears cargo")
 	for speed in [1, 2, 4]:
-		var scene = make_scene()
-		var view = scene.resident_runtimes[0].view
-		var clock = scene.game_time
-		var data = scene.residents[0]
+		var delivery_scene = make_scene()
+		delivery_scene.warehouse_data.resources.add(FOOD, 10)
+		var view = delivery_scene.resident_runtimes[0].view
+		var clock = delivery_scene.game_time
+		var data = delivery_scene.residents[0]
 		clock.set_speed(speed)
 		clock.debug_next_phase()
-		check(scene.logistics.current_job.state == Job.State.GOING_TO_SOURCE and view.target_position == scene.world_locations.get_position(&"warehouse_01"), "Day starts haul to source")
-		for number in range(5):
-			var job = scene.logistics.current_job
-			check(total(scene) == 10 and data.inventory.amount == 0 and scene.warehouse_data.resources.get_reserved_out(FOOD) == 1, "Before pickup FOOD exists only in containers")
+		check(delivery_scene.logistics.current_job.state == Job.State.GOING_TO_SOURCE and view.target_position == delivery_scene.world_locations.get_position(&"warehouse_01"), "Day starts haul to source")
+		for number in range(20):
+			var job = delivery_scene.logistics.current_job
+			check(total(delivery_scene) == 20 and data.inventory.amount == 0 and delivery_scene.warehouse_data.resources.get_reserved_out(FOOD) == 1, "Before pickup FOOD exists only in containers")
 			paused = true
 			var before: Vector2 = view.global_position
 			view._process(1.0)
@@ -46,41 +47,41 @@ func _run() -> void:
 			paused = false
 			view._process(20.0)
 			check(job.state == Job.State.GOING_TO_DESTINATION and data.inventory.amount == 1 and data.activity == Activity.Type.HAULING, "Pickup switches to carrying destination route")
-			check(scene.warehouse_data.resources.get_amount(FOOD) == 9 - number and scene.warehouse_data.resources.get_reserved_out(FOOD) == 0 and total(scene) == 10, "Pickup consumes exactly the reserved unit")
-			check(view.cargo_indicator.visible and not scene.resident_runtimes[0].intents.current_intent.interruptible, "Visible cargo and noninterruptible transport")
-			var card = scene.get_node("HUD/ResidentCard")
-			scene.resident_selection.select(data)
+			check(delivery_scene.warehouse_data.resources.get_amount(FOOD) == 19 - number and delivery_scene.warehouse_data.resources.get_reserved_out(FOOD) == 0 and total(delivery_scene) == 20, "Pickup consumes exactly the reserved unit")
+			check(view.cargo_indicator.visible and not delivery_scene.resident_runtimes[0].intents.current_intent.interruptible, "Visible cargo and noninterruptible transport")
+			var card = delivery_scene.get_node("HUD/ResidentCard")
+			delivery_scene.resident_selection.select(data)
 			card._refresh()
 			check(card.activity_label.text == "Занятие: Несёт груз", "Card reads HAULING")
-			check(not scene.resident_runtimes[0].schedule.request_manual_move(Vector2.ZERO), "Manual commands cannot interrupt haul")
+			check(not delivery_scene.resident_runtimes[0].schedule.request_manual_move(Vector2.ZERO), "Manual commands cannot interrupt haul")
 			paused = true
 			before = view.global_position
 			view._process(1.0)
 			check(view.global_position == before and data.inventory.amount == 1, "Pause retains carried FOOD")
 			paused = false
-			var destination_intent = scene.resident_runtimes[0].intents.current_intent
+			var destination_intent = delivery_scene.resident_runtimes[0].intents.current_intent
 			view._process(20.0)
-			check(job.state == Job.State.COMPLETED and data.inventory.amount == 0 and not view.cargo_indicator.visible and scene.kitchen_data.resources.get_amount(FOOD) == number + 1 and total(scene) == 10, "Delivery puts unit only in kitchen")
+			check(job.state == Job.State.COMPLETED and data.inventory.amount == 0 and not view.cargo_indicator.visible and delivery_scene.kitchen_data.resources.get_amount(FOOD) == number + 1 and total(delivery_scene) == 20, "Delivery puts unit only in kitchen")
 			view.intent_completed.emit(destination_intent)
-			check(total(scene) == 10 and scene.kitchen_data.resources.get_amount(FOOD) == number + 1, "Stale arrival cannot duplicate delivery")
-		check(scene.warehouse_data.resources.get_amount(FOOD) == 5 and scene.kitchen_data.resources.get_amount(FOOD) == 5 and scene.kitchen_data.resources.get_reserved_in(FOOD) == 0 and scene.warehouse_data.resources.get_reserved_out(FOOD) == 0, "Capacity 5 stops new jobs with all reserves settled")
+			check(total(delivery_scene) == 20 and delivery_scene.kitchen_data.resources.get_amount(FOOD) == number + 1, "Stale arrival cannot duplicate delivery")
+		check(delivery_scene.warehouse_data.resources.get_amount(FOOD) == 0 and delivery_scene.kitchen_data.resources.get_amount(FOOD) == 20 and delivery_scene.kitchen_data.resources.get_reserved_in(FOOD) == 0 and delivery_scene.warehouse_data.resources.get_reserved_out(FOOD) == 0, "Capacity 20 stops new jobs with all reserves settled")
 		view._process(20.0)
 		check(data.activity == Activity.Type.IDLE, "No haul available: idle instead of placeholder work")
-		scene.free()
+		delivery_scene.free()
 	# Evening preserves both already-started stages, then returns to IDLE.
 	for picked_up in [false, true]:
-		var scene = make_scene()
-		scene.game_time.debug_next_phase()
-		var job = scene.logistics.current_job
+		var evening_scene = make_scene()
+		evening_scene.game_time.debug_next_phase()
+		var job = evening_scene.logistics.current_job
 		if picked_up:
-			scene.resident_runtimes[0].view._process(20.0)
-		scene.game_time.debug_next_phase()
-		check(job.is_active() and not scene.resident_runtimes[0].schedule.request_manual_move(Vector2.ZERO), "17:00 and manual input do not discard started haul")
+			evening_scene.resident_runtimes[0].view._process(20.0)
+		evening_scene.game_time.debug_next_phase()
+		check(job.is_active() and not evening_scene.resident_runtimes[0].schedule.request_manual_move(Vector2.ZERO), "17:00 and manual input do not discard started haul")
 		if not picked_up:
-			scene.resident_runtimes[0].view._process(20.0)
-		scene.resident_runtimes[0].view._process(20.0)
-		check(job.state == Job.State.COMPLETED and scene.residents[0].activity == Activity.Type.IDLE and total(scene) == 10, "Evening delivery completes and returns IDLE")
-		scene.free()
+			evening_scene.resident_runtimes[0].view._process(20.0)
+		evening_scene.resident_runtimes[0].view._process(20.0)
+		check(job.state == Job.State.COMPLETED and evening_scene.residents[0].activity == Activity.Type.IDLE and total(evening_scene) == 10, "Evening delivery completes and returns IDLE")
+		evening_scene.free()
 	# Night before pickup releases both reserves; next day gets a new job.
 	var scene = make_scene()
 	scene.game_time.debug_next_phase()

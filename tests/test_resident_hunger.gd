@@ -21,33 +21,33 @@ func _run() -> void:
 	# No scene, renderer or UI needed; equal game time at different speeds/FPS.
 	for speed in [1, 2, 4]:
 		for frames in [1, 30, 120]:
-			var clock = Clock.new()
-			root.add_child(clock)
-			clock.set_process(false)
-			clock.set_speed(speed)
-			var data = Data.new("test", "Тест", 30)
-			data.hunger = 20
-			var hunger = Hunger.new()
-			root.add_child(hunger)
-			hunger.setup(clock, data)
+			var speed_clock = Clock.new()
+			root.add_child(speed_clock)
+			speed_clock.set_process(false)
+			speed_clock.set_speed(speed)
+			var speed_data = Data.new("test", "Тест", 30)
+			speed_data.hunger = 20
+			var speed_hunger = Hunger.new()
+			root.add_child(speed_hunger)
+			speed_hunger.setup(speed_clock, speed_data)
 			for _frame in range(frames):
-				clock.advance(60.0 / speed / frames)
+				speed_clock.advance(60.0 / speed / frames)
 			# Exact binary fractions above: total minute count is 60.
-			check(data.hunger == 24, "Awake hour has same growth on every speed and frame count")
-			data.activity = Activity.Type.SLEEPING
-			clock.advance(60.0 / speed)
-			check(data.hunger == 25, "Sleeping hour grows four times slower")
-			data.activity = Activity.Type.WORKING
-			clock.advance(15.0 / speed)
-			check(data.hunger == 26, "Working uses awake rate")
+			check(speed_data.hunger == 24, "Awake hour has same growth on every speed and frame count")
+			speed_data.activity = Activity.Type.SLEEPING
+			speed_clock.advance(60.0 / speed)
+			check(speed_data.hunger == 25, "Sleeping hour grows four times slower")
+			speed_data.activity = Activity.Type.WORKING
+			speed_clock.advance(15.0 / speed)
+			check(speed_data.hunger == 26, "Working uses awake rate")
 			paused = true
-			clock.advance(1000.0)
-			check(data.hunger == 26, "Pause blocks ordinary hunger growth")
-			clock.debug_skip_minutes(60)
-			check(data.hunger == 30 and paused, "Explicit debug time advances hunger on pause independent of speed")
+			speed_clock.advance(1000.0)
+			check(speed_data.hunger == 26, "Pause blocks ordinary hunger growth")
+			speed_clock.debug_skip_minutes(60)
+			check(speed_data.hunger == 30 and paused, "Explicit debug time advances hunger on pause independent of speed")
 			paused = false
-			clock.queue_free()
-			hunger.queue_free()
+			speed_clock.queue_free()
+			speed_hunger.queue_free()
 	var clock = Clock.new()
 	root.add_child(clock)
 	clock.set_process(false)

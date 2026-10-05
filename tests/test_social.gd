@@ -41,7 +41,7 @@ func _run():
 	var scene = make_scene()
 	var r = scene.resident_runtimes
 	var world = scene.social_world
-	check(r[0].data.get_need(Type.SOCIAL).base_weight == 70 and r[0].data.get_need(Type.LEISURE).base_weight == 50, "New base weights")
+	check(r[0].data.get_need(Type.SOCIAL).base_weight == 80 and r[0].data.get_need(Type.LEISURE).base_weight == 75, "New base weights")
 	# Make one compatible target; every other activity is excluded.
 	for incompatible in [Activity.Type.MOVING, Activity.Type.WORKING, Activity.Type.EATING, Activity.Type.RESTING, Activity.Type.RELAXING, Activity.Type.SLEEPING, Activity.Type.HAULING]:
 		r[1].data.activity = incompatible
@@ -80,6 +80,11 @@ func _run():
 	r[0].data.get_need(Type.SOCIAL).value = 0
 	for runtime in r: runtime.data.get_need(Type.LEISURE).value = 0
 	scene.game_time.debug_skip_minutes(1)
+	check(world.groups.values()[0].participants.size() == 4, "SOCIAL zero cannot end conversation before 15 minutes")
+	r[0].data.get_need(Type.LEISURE).value = 80
+	for runtime in r:
+		runtime.social.rng.seed = continuing_seed()
+	scene.game_time.debug_skip_minutes(13)
 	check(world.groups.values()[0].participants.size() == 3 and r[1].data.activity == Activity.Type.TALKING, "One participant leaves independently; other three continue")
 	print("Conversation proof: one leaves independently, 3 remain TALKING")
 	# Forced fatigue leaves immediately, even though social action is locked.
@@ -170,12 +175,19 @@ func _extra_cases():
 	var original_position: Vector2 = r[0].view.position
 	scene.game_time.debug_skip_minutes(10)
 	check(r[0].data.activity == Activity.Type.IDLE and r[0].view.position == original_position, "Satisfied leisure ends and stays on the spot")
-	# An available job wins over SOCIAL=100 (7000) and LEISURE=100 (5000).
+	# Needs below 7000 still lose to an available job.
 	r[0].data.work_location_id = scene.warehouse_data.id
 	r[0].decision.work_available = func(): return true
-	r[0].data.get_need(Type.SOCIAL).value = 100
-	r[0].data.get_need(Type.LEISURE).value = 100
+	r[0].data.get_need(Type.SOCIAL).value = 87
+	r[0].data.get_need(Type.LEISURE).value = 93
 	scene.game_time.total_minutes = 420
 	r[0].schedule._on_phase_changed("День")
 	check(r[0].intents.current_intent.reason_id == &"day_work", "Work wins at priority 7000 and below")
 	scene.free()
+
+func continuing_seed() -> int:
+	var random = RandomNumberGenerator.new()
+	for seed_value in range(100):
+		random.seed = seed_value
+		if random.randf() >= 0.2: return seed_value
+	return 0

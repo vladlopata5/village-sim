@@ -46,7 +46,7 @@ func _run():
 	check(r.intents.current_intent == current and r.data.activity == Activity.Type.MOVING, "Ordinary changes leave started work route untouched")
 	r.view._process(20)
 	check(r.data.activity == Activity.Type.WORKING, "Work route arrival starts work segment")
-	scene.game_time.debug_skip_minutes(10)
+	scene.game_time.debug_skip_minutes(60)
 	check(r.data.activity == Activity.Type.RESTING, "Next action boundary compares needs: fatigue 9000 wins hunger 8000 and work 7000")
 	check(scene.kitchen_data.resources.get_reserved_out(FOOD) == 0, "Unchosen hunger does not reserve food")
 	r.data.hunger = 99

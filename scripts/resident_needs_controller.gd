@@ -26,7 +26,10 @@ var _reserved_food := false
 var _meal_active := false
 var _started_at := 0
 var _minutes_left := 0
-var _retry_food_at := 0
+var _food_unavailable := false
+var _available_food_amount := 0
+var food_search_count := 0
+var _exiting := false
 
 func setup(clock: Node, data: Data, buildings: Array, locations: RefCounted, intents: Node, _schedule: Node) -> void:
 	_clock = clock
@@ -39,7 +42,8 @@ func setup(clock: Node, data: Data, buildings: Array, locations: RefCounted, int
 	intents.intent_arrived.connect(_on_arrival)
 	for building in buildings:
 		if building.type == BuildingType.Type.FOOD:
-			building.resources.changed.connect(_on_stock_changed)
+			building.resources.availability_changed.connect(_on_food_availability_changed)
+	_available_food_amount = _count_available_food()
 
 func try_eat(priority: int, critical_priority: int = 0) -> bool:
 	if _intents.forced_priority > critical_priority:
@@ -49,8 +53,12 @@ func try_eat(priority: int, critical_priority: int = 0) -> bool:
 			_intents.force_set_intent(_active_intent, critical_priority)
 			if _meal_active: _data.activity = Activity.Type.EATING
 		return true
-	if _clock.total_minutes < _retry_food_at and critical_priority == 0:
+	if _food_unavailable:
+		if critical_priority > 0:
+			_cancel_own_action()
+			_intents.force_set_intent(Intent.new(), critical_priority)
 		return false
+	food_search_count += 1
 	for building in _buildings:
 		if building.type != BuildingType.Type.FOOD:
 			continue
@@ -65,7 +73,7 @@ func try_eat(priority: int, critical_priority: int = 0) -> bool:
 		if not accepted: _cancel_own_action()
 		if logger != null: logger.sync_activity(_data)
 		return accepted
-	_retry_food_at = _clock.total_minutes + 10
+	_food_unavailable = true
 	var message := "%s не удалось поесть: нет доступной еды." % _data.resident_name
 	developer_message.emit(message)
 	if logger != null: logger.info(EventLog.NEED, message + " Не удалось зарезервировать 1 FOOD.")
@@ -143,26 +151,43 @@ func _on_intent_changed(intent: Intent) -> void:
 
 func _cancel_own_action() -> void:
 	if _meal_active and logger != null: logger.info(EventLog.NEED, "%s: приём пищи прерван" % _data.resident_name)
-	if _reserved_food:
-		_food_building.resources.release_out(FOOD, 1)
+	var release_food := _reserved_food
+	var previous_building := _food_building
+	# Clear owned state before release emits availability and can wake another resident.
 	_reserved_food = false
 	_active_intent = null
 	_meal_active = false
 	_minutes_left = 0
+	if release_food: previous_building.resources.release_out(FOOD, 1)
 
 func _abort_unavailable() -> void:
+	if logger != null: logger.info(EventLog.NEED, "%s: действие еды стало недоступно — новая decision point" % _data.resident_name)
 	var old := _active_intent
 	_cancel_own_action()
 	_intents.cancel_current(old)
 	action_unavailable.emit()
 
-func _on_stock_changed(resource: ResourceType.Type, _amount: int) -> void:
-	if resource != FOOD: return
+func _count_available_food() -> int:
+	var total := 0
 	for building in _buildings:
-		if building.type == BuildingType.Type.FOOD and building.resources.get_available_amount(FOOD) > 0:
-			_retry_food_at = 0
-			food_available.emit()
-			return
+		if building.type == BuildingType.Type.FOOD and _locations.get_position(building.id) is Vector2:
+			total += building.resources.get_available_amount(FOOD)
+	return total
+
+func can_try_eat() -> bool:
+	return not _food_unavailable
+
+func has_food_action() -> bool:
+	return _available_food_amount > 0 and not _food_unavailable
+
+func _on_food_availability_changed(resource: ResourceType.Type, _amount: int) -> void:
+	if resource != FOOD or _exiting: return
+	var previous := _available_food_amount
+	_available_food_amount = _count_available_food()
+	if logger != null: logger.debug(EventLog.RESOURCE, "%s: FOOD availability %d → %d" % [_data.resident_name, previous, _available_food_amount])
+	if _available_food_amount > previous:
+		_food_unavailable = false
+		food_available.emit()
 
 func evaluate(at_action_boundary: bool = false) -> void:
 	if is_instance_valid(decision):
@@ -173,6 +198,7 @@ func prepare_for_work() -> bool:
 	return decision.prepare_for_work() if is_instance_valid(decision) else true
 
 func _exit_tree() -> void:
+	_exiting = true
 	_cancel_own_action()
 
 func _food_target_valid() -> bool:

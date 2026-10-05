@@ -6,6 +6,7 @@ const Activity = preload("res://scripts/resident_activity.gd")
 const NeedType = preload("res://scripts/need_type.gd")
 const Intent = preload("res://scripts/resident_intent.gd")
 const Choice = preload("res://scripts/weighted_choice.gd")
+const Balance = preload("res://scripts/balance_config.gd")
 const SATISFIED_VALUE := 15
 const MAX_ACTION_MINUTES := 30
 var world: Node
@@ -15,6 +16,7 @@ var rng := RandomNumberGenerator.new()
 var _active: Intent
 var _option: Dictionary = {}
 var _started_at := 0
+var _next_conversation_recheck := 0
 func setup(owner_runtime: Node, game_clock: Node) -> void:
 	runtime = owner_runtime
 	clock = game_clock
@@ -51,6 +53,7 @@ func begin_talking() -> void:
 		runtime.intents.submit(_active)
 	_active.interruptible = false
 	_started_at = clock.total_minutes
+	_next_conversation_recheck = _started_at + Balance.MIN_CONVERSATION_MINUTES
 	runtime.data.activity = Activity.Type.TALKING
 	if logger != null:
 		logger.sync_activity(runtime.data)
@@ -63,9 +66,10 @@ func _on_minute(minute: int) -> void:
 	var activity = runtime.data.activity
 	if activity == Activity.Type.MOVING:
 		if not world.valid_option(_option): _finish()
-	elif activity in [Activity.Type.TALKING, Activity.Type.RELAXING]:
-		var type = NeedType.Type.SOCIAL if activity == Activity.Type.TALKING else NeedType.Type.LEISURE
-		if runtime.data.get_need(type).value <= SATISFIED_VALUE or minute - _started_at >= MAX_ACTION_MINUTES: _finish()
+	elif activity == Activity.Type.TALKING:
+		_recheck_conversation(minute)
+	elif activity == Activity.Type.RELAXING:
+		if runtime.data.get_need(NeedType.Type.LEISURE).value <= SATISFIED_VALUE or minute - _started_at >= MAX_ACTION_MINUTES: _finish()
 func _on_intent_changed(intent: Intent) -> void:
 	if _active != null and intent != _active:
 		_active = null
@@ -81,3 +85,18 @@ func group_dissolved() -> void:
 	if runtime.data.activity == Activity.Type.TALKING and world.group_of(runtime.data.id) == null: _finish()
 func _exit_tree() -> void:
 	if is_instance_valid(world): world.leave(runtime.data.id)
+
+func _recheck_conversation(minute: int) -> void:
+	var elapsed := minute - _started_at
+	if elapsed >= Balance.MAX_CONVERSATION_MINUTES:
+		if logger != null: logger.debug(EventLog.SOCIAL, "%s: выходит — максимальная длительность" % runtime.data.resident_name)
+		_finish()
+		return
+	if minute < _next_conversation_recheck: return
+	_next_conversation_recheck = minute + Balance.CONVERSATION_RECHECK_MINUTES
+	var current_priority: int = runtime.data.get_need(NeedType.Type.SOCIAL).get_priority()
+	var important: bool = runtime.decision.has_more_important_action(current_priority)
+	var voluntary := rng.randf() < Balance.CONVERSATION_EXIT_CHANCE
+	if logger != null:
+		logger.debug(EventLog.SOCIAL, "%s: %s разговор (%d мин); более важное действие=%s; случайный выход=%s" % [runtime.data.resident_name, "завершает" if important or voluntary else "продолжает", elapsed, important, voluntary])
+	if important or voluntary: _finish()

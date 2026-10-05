@@ -53,6 +53,9 @@ func _ready() -> void:
 	_create_test_kitchen()
 	_create_test_warehouse()
 	_create_test_gatherer_hut()
+	# Account for the elapsed work minute before residents choose their next action.
+	add_child(production)
+	production.setup(game_time, gatherer_hut_data, residents, world_locations, _production_position_2d)
 	_create_test_residents()
 	add_child(social_world)
 	social_world.position_provider = _resident_position_2d
@@ -65,8 +68,6 @@ func _ready() -> void:
 	ground_resources.added.connect(_show_ground_resource)
 	ground_resources.removed.connect(_remove_ground_resource)
 	_configure_logistics()
-	add_child(production)
-	production.setup(game_time, gatherer_hut_data, residents, world_locations, _production_position_2d)
 	production.changed.connect(_update_production)
 	gatherer_hut_data.resources.changed.connect(_on_hut_resources_changed)
 	for runtime in resident_runtimes:
@@ -178,7 +179,7 @@ func _debug_set_hunger(value: int = 75) -> void:
 
 func _update_food(resource: ResourceType.Type, amount: int) -> void:
 	if resource == ResourceType.Type.FOOD:
-		food_label.text = "Еда в кухне: %d/5" % amount
+		food_label.text = "Еда в кухне: %d/%d" % [amount, kitchen_data.resources.get_capacity(ResourceType.Type.FOOD)]
 		_update_logistics()
 
 func _toggle_pause() -> void:
@@ -313,7 +314,7 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _create_test_kitchen() -> void:
 	kitchen_data = BuildingData.new(&"communal_kitchen_01", "Общая кухня", BuildingType.Type.FOOD)
-	kitchen_data.resources.set_capacity(ResourceType.Type.FOOD, 5)
+	kitchen_data.resources.set_capacity(ResourceType.Type.FOOD, Balance.KITCHEN_FOOD_CAPACITY)
 	buildings.append(kitchen_data)
 	# Same ID links two distinct data objects: building meaning and world place.
 	var location = WorldLocation.new(kitchen_data.id, kitchen_data.display_name)

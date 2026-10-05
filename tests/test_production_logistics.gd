@@ -87,7 +87,8 @@ func _run():
 	check(gatherer.data.activity == Activity.MOVING and scene.gatherer_hut_data.production_progress == 0, "Walking to work is not production")
 	gatherer.view._process(20)
 	check(gatherer.data.activity == Activity.WORKING, "Physical arrival starts actual WORKING")
-	scene.game_time.debug_skip_minutes(60)
+	carrier.decision._next_decision_at = scene.game_time.total_minutes + 60
+	scene.game_time.debug_skip_minutes(30)
 	check(scene.gatherer_hut_data.resources.get_amount(FOOD) == 1 and scene.warehouse_data.resources.get_amount(FOOD) == 0 and scene.kitchen_data.resources.get_amount(FOOD) == 0, "Produced FOOD exists only in hut, never globally")
 	check(scene.logistics.current_job.state == Job.State.RESERVED and scene.logistics.current_job.source_location_id == scene.gatherer_hut_data.id, "Production offers export without forcing porter movement")
 	carrier.decision.request_decision("test_work_point")

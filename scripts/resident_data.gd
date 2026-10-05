@@ -17,11 +17,12 @@ var traits: Array[TraitData] = []
 ## Higher hunger/fatigue means more hungry/tired; higher mood means happier.
 const NeedType = preload("res://scripts/need_type.gd")
 const Need = preload("res://scripts/need.gd")
+const Balance = preload("res://scripts/balance_config.gd")
 var needs: Dictionary = {
-	NeedType.Type.HUNGER: Need.new(0, 100),
-	NeedType.Type.FATIGUE: Need.new(0, 100),
-	NeedType.Type.SOCIAL: Need.new(0, 70),
-	NeedType.Type.LEISURE: Need.new(0, 50),
+	NeedType.Type.HUNGER: Need.new(0, Balance.HUNGER_BASE_WEIGHT),
+	NeedType.Type.FATIGUE: Need.new(0, Balance.FATIGUE_BASE_WEIGHT),
+	NeedType.Type.SOCIAL: Need.new(0, Balance.SOCIAL_BASE_WEIGHT),
+	NeedType.Type.LEISURE: Need.new(0, Balance.LEISURE_BASE_WEIGHT),
 }
 signal hunger_changed
 signal fatigue_changed

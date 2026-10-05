@@ -91,7 +91,7 @@ func _run():
 	var availability = r.decision.work_available
 	r.decision.work_available = func(): return false
 	for job in scene.logistics.jobs.duplicate(): scene.logistics.cancel_job(job)
-	while scene.kitchen_data.resources.get_amount(FOOD) < 5: scene.kitchen_data.resources.add(FOOD, 1)
+	while scene.kitchen_data.resources.get_amount(FOOD) < 20: scene.kitchen_data.resources.add(FOOD, 1)
 	r.decision.work_available = availability
 	r.decision.request_decision()
 	check(r.data.activity == Activity.IDLE and not r.intents.has_current_action(), "No job and no need: idle, no placeholder work")

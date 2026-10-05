@@ -20,6 +20,8 @@ var _deciding := false
 var _critical_pending := false
 var _critical_hunger_attempted := false
 var _next_decision_at := 0
+var _work_cycle_active := false
+var _work_cycle_ends_at := 0
 var decision_count := 0
 var social: Node
 var work_available: Callable
@@ -38,6 +40,7 @@ func setup(clock: Node, data: RefCounted, intents: Node, needs: Node, schedule: 
 	clock.minute_changed.connect(_on_minute)
 	clock.phase_changed.connect(_on_phase)
 	intents.intent_completed.connect(_on_completed)
+	intents.intent_changed.connect(_on_intent_changed)
 	needs.action_unavailable.connect(request_decision.bind("unavailable"))
 	needs.food_available.connect(_on_food_available)
 	_next_decision_at = clock.total_minutes + IDLE_MINUTES
@@ -84,13 +87,14 @@ func _choose_need(has_available_work: bool) -> bool:
 		var b_priority: int = _data.get_need(b).get_priority()
 		return a < b if a_priority == b_priority else a_priority > b_priority)
 	if logger != null:
+		logger.debug(EventLog.AI, "%s: SOCIAL=%d; LEISURE=%d; WORK_PRIORITY=%d" % [_data.resident_name, _data.get_need(NeedType.Type.SOCIAL).get_priority(), _data.get_need(NeedType.Type.LEISURE).get_priority(), WORK_PRIORITY])
 		logger.debug(EventLog.AI, "%s: лучшая Need priority=%d; работа доступна=%s; WORK_PRIORITY=%d" % [_data.resident_name, _data.get_need(types[0]).get_priority(), has_available_work, WORK_PRIORITY])
 	var started := false
 	for type in types:
 		var priority: int = _data.get_need(type).get_priority()
 		if priority < NEED_ACTION_THRESHOLD or (has_available_work and priority <= WORK_PRIORITY): continue
 		match type:
-			NeedType.Type.HUNGER: started = _needs.try_eat(priority)
+			NeedType.Type.HUNGER: started = _needs.can_try_eat() and _needs.try_eat(priority)
 			NeedType.Type.FATIGUE: started = _needs.try_rest(priority)
 			NeedType.Type.SOCIAL: started = is_instance_valid(social) and social.try_social(priority)
 			NeedType.Type.LEISURE: started = is_instance_valid(social) and social.try_leisure(priority)
@@ -102,6 +106,9 @@ func _choose_need(has_available_work: bool) -> bool:
 
 func request_decision(_reason: String = "free") -> void:
 	if _deciding: return
+	if _work_cycle_active and _data.activity == Activity.Type.WORKING: return
+	if not _intents.has_current_action() and _data.hunger == 100 and _needs.has_food_action():
+		_critical_hunger_attempted = false
 	check_critical()
 	if _intents.has_current_action() or _data.activity == Activity.Type.SLEEPING: return
 	_next_decision_at = _clock.total_minutes + IDLE_MINUTES
@@ -128,24 +135,54 @@ func request_decision(_reason: String = "free") -> void:
 
 func _on_completed(intent: Intent) -> void:
 	_next_decision_at = _clock.total_minutes + IDLE_MINUTES
-	if intent.reason_id == &"day_work" or _data.activity == Activity.Type.SLEEPING: return
+	if intent.reason_id == &"day_work" and _data.activity == Activity.Type.WORKING:
+		_work_cycle_active = true
+		_work_cycle_ends_at = _clock.total_minutes + Balance.WORK_CYCLE_MINUTES
+		if logger != null: logger.info(EventLog.AI, "%s: начал рабочий цикл (%d мин)" % [_data.resident_name, Balance.WORK_CYCLE_MINUTES])
+		return
+	if _data.activity == Activity.Type.SLEEPING: return
 	request_decision("completed")
 
-func _on_minute(minute: int) -> void:
-	if minute >= _next_decision_at and not _intents.has_current_action() and _data.activity in [Activity.Type.IDLE, Activity.Type.WORKING]:
-		# Standing work/idle is a ten-minute segment; this is its completion.
-		_data.activity = Activity.Type.IDLE
-		request_decision("segment_completed")
+func _end_work_cycle(reason: String) -> void:
+	if not _work_cycle_active: return
+	_work_cycle_active = false
+	if logger != null: logger.info(EventLog.AI, "%s: рабочий цикл завершён — %s" % [_data.resident_name, reason])
 
-func _on_phase(_phase: String) -> void:
+func _on_intent_changed(_intent: Intent) -> void:
+	if _data.activity != Activity.Type.WORKING: _end_work_cycle("смена действия")
+
+func _on_minute(minute: int) -> void:
+	if _work_cycle_active:
+		if _data.activity != Activity.Type.WORKING:
+			_end_work_cycle("перерыв или смена расписания")
+		elif minute >= _work_cycle_ends_at:
+			_end_work_cycle("%d минут фактической работы" % Balance.WORK_CYCLE_MINUTES)
+			_data.activity = Activity.Type.IDLE
+			request_decision("work_cycle_completed")
+		return
+	if minute >= _next_decision_at and not _intents.has_current_action() and _data.activity == Activity.Type.IDLE:
+		request_decision("idle_completed")
+
+func _on_phase(phase: String) -> void:
+	if phase != "День": _end_work_cycle("смена распорядка")
 	request_decision("phase_changed")
 
 func _on_food_available() -> void:
-	if _data.hunger == 100 and _intents.forced_priority != CRITICAL_HUNGER:
-		_critical_hunger_attempted = false
-		check_critical()
-	elif not _intents.has_current_action() and _data.activity == Activity.Type.IDLE:
-		request_decision("new_food_option")
+	# A changed world is an option for the next normal boundary, not a forced event.
+	if _deciding or _intents.has_current_action() or _data.activity != Activity.Type.IDLE: return
+	if _data.get_need(NeedType.Type.HUNGER).get_priority() < NEED_ACTION_THRESHOLD: return
+	if logger != null: logger.info(EventLog.NEED, "%s: FOOD стала доступна — новая decision point" % _data.resident_name)
+	request_decision("food_available")
+
+func has_more_important_action(current_priority: int) -> bool:
+	# Read-only availability comparison; it never starts an action or claims a job.
+	if _intents.pending_intent.reason_id != &"" and _intents.pending_intent.priority > current_priority: return true
+	if _clock.get_phase() == "День" and _has_work() and WORK_PRIORITY > current_priority: return true
+	for type in [NeedType.Type.HUNGER, NeedType.Type.FATIGUE, NeedType.Type.LEISURE]:
+		var priority: int = _data.get_need(type).get_priority()
+		if priority < NEED_ACTION_THRESHOLD or priority <= current_priority: continue
+		if type != NeedType.Type.HUNGER or _needs.has_food_action(): return true
+	return false
 
 func _has_work() -> bool:
 	if _data.work_location_id.is_empty() or not _needs.has_location(_data.work_location_id): return false
