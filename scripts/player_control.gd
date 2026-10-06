@@ -31,6 +31,7 @@ func describe_assignment(resident_id: String, assignment_id: StringName) -> Stri
 func setup(population: Array, buildings: Array) -> void:
 	for resident in population: _residents[resident.id] = resident
 	for building in buildings:
+		if not building.is_built(): continue
 		match building.type:
 			BuildingType.Type.STORAGE:
 				_workplaces[Profession.Type.PORTER] = building.id

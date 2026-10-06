@@ -45,7 +45,7 @@ func setup(clock: Node, data: Data, buildings: Array, locations: RefCounted, int
 	intents.intent_changed.connect(_on_intent_changed)
 	intents.intent_arrived.connect(_on_arrival)
 	for building in buildings:
-		if building.type == BuildingType.Type.FOOD:
+		if building.is_built() and building.type == BuildingType.Type.FOOD:
 			building.resources.availability_changed.connect(_on_food_availability_changed)
 	_available_food_amount = _count_available_food()
 
@@ -59,7 +59,7 @@ func try_eat(priority: int, critical_priority: int = 0) -> bool:
 	if _food_unavailable: return false
 	food_search_count += 1
 	for building in _buildings:
-		if building.type != BuildingType.Type.FOOD:
+		if not building.is_built() or building.type != BuildingType.Type.FOOD:
 			continue
 		var target: Variant = _locations.get_position(building.id)
 		if not target is Vector2 or not building.resources.reserve_out(FOOD, 1):
@@ -89,7 +89,7 @@ func _try_critical_eat(priority: int, critical_priority: int) -> bool:
 func _select_critical_eat_target() -> RefCounted:
 	# Preserve the existing first-feasible building policy. Own reservation is feasible too.
 	for building in _buildings:
-		if building.type != BuildingType.Type.FOOD or not _locations.get_position(building.id) is Vector2: continue
+		if not building.is_built() or building.type != BuildingType.Type.FOOD or not _locations.get_position(building.id) is Vector2: continue
 		if building.resources.get_available_amount(FOOD) > 0 or is_current_eat_compatible(building): return building
 	return null
 
@@ -123,7 +123,7 @@ func has_target_food_action(target_id: StringName) -> bool:
 
 func get_food_target(target_id: StringName):
 	for building in _buildings:
-		if building.id == target_id and building.type == BuildingType.Type.FOOD: return building
+		if building.id == target_id and building.is_built() and building.type == BuildingType.Type.FOOD: return building
 	return null
 
 func try_eat_at(target_id: StringName, priority: int) -> bool:
@@ -244,7 +244,7 @@ func _abort_unavailable() -> void:
 func _count_available_food() -> int:
 	var total := 0
 	for building in _buildings:
-		if building.type == BuildingType.Type.FOOD and _locations.get_position(building.id) is Vector2:
+		if building.is_built() and building.type == BuildingType.Type.FOOD and _locations.get_position(building.id) is Vector2:
 			total += building.resources.get_available_amount(FOOD)
 	return total
 
@@ -277,7 +277,7 @@ func _exit_tree() -> void:
 
 func _food_target_valid() -> bool:
 	var target: Variant = _locations.get_position(_food_building.id)
-	return _buildings.has(_food_building) and target is Vector2 and target.is_equal_approx(_active_intent.target_position)
+	return _buildings.has(_food_building) and _food_building.is_built() and target is Vector2 and target.is_equal_approx(_active_intent.target_position)
 
 func has_location(location_id: StringName) -> bool:
 	return _locations.get_position(location_id) is Vector2

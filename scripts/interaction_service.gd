@@ -9,6 +9,7 @@ var _targets: Dictionary = {}
 func register_target(id: StringName, label: String, data: RefCounted, position: Callable, capabilities: Array = [], profession: int = -1) -> void:
 	_targets[id] = {"label": label, "data": data, "position": position, "capabilities": capabilities, "profession": profession}
 func register_building(building: RefCounted, position: Callable) -> void:
+	if not building.is_built(): return
 	var capabilities: Array = []
 	var profession := -1
 	match building.type:

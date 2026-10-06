@@ -355,3 +355,11 @@ critical EAT merge, UtilitySelector, веса и общая иерархия у�
 Минимальный UI списка ResidentAssignment реализован в панели выбранного жителя:
 незавершённые поручения, читаемые цель/состояние, индивидуальная отмена и прокрутка.
 История, reorder и importance controls остаются вне текущего объёма.
+
+## 2026-10-06 — первый контур Building Placement
+
+Реализованы сворачиваемая нижняя панель четырёх текущих типов, placement ghost,
+footprint overlap и создание UNDER_CONSTRUCTION в общем реестре. BuildingInstance
+сохраняется весь lifecycle UNDER_CONSTRUCTION → BUILT; Definition описывает тип.
+Стартовые здания/дома BUILT. Доставка материалов, строительный progress и builder
+profession ещё не реализованы; этот шаг не объявляет строительную систему завершённой.

@@ -3,7 +3,7 @@ const EventLog = preload("res://scripts/game_logger.gd")
 var logger: EventLog
 ## Available reserved jobs; workers claim work explicitly. One prototype executor.
 const HaulJob = preload("res://scripts/haul_job.gd")
-const BuildingData = preload("res://scripts/building_data.gd")
+const BuildingInstance = preload("res://scripts/building_instance.gd")
 const BuildingType = preload("res://scripts/building_type.gd")
 const ResidentData = preload("res://scripts/resident_data.gd")
 const Profession = preload("res://scripts/resident_profession.gd")
@@ -26,15 +26,15 @@ var _haul_intent: Intent
 var _finishing := false
 signal changed
 var current_job: HaulJob
-var _source: BuildingData
-var _destination: BuildingData
+var _source: BuildingInstance
+var _destination: BuildingInstance
 var _resident: ResidentData
 var _next_id := 1
 var _routes: Array = []
 var _buildings: Dictionary = {}
 var _recalculating := false
 
-func setup(source: BuildingData, destination: BuildingData, resident: ResidentData) -> void:
+func setup(source: BuildingInstance, destination: BuildingInstance, resident: ResidentData) -> void:
 	_source = source # Assigned porter's warehouse, not the source of every job.
 	_destination = destination
 	_resident = resident
@@ -43,7 +43,7 @@ func setup(source: BuildingData, destination: BuildingData, resident: ResidentDa
 	_routes = [{"source": source, "destination": destination, "export": false}]
 	if resident != null: register_resident(resident)
 
-func add_production_source(hut: BuildingData) -> void:
+func add_production_source(hut: BuildingInstance) -> void:
 	_buildings[hut.id] = hut
 	_routes.append({"source": hut, "destination": _source, "export": true})
 
@@ -51,7 +51,7 @@ func _route_has_job(route: Dictionary) -> bool:
 	return jobs.any(func(job): return job.is_active() and job.source_location_id == route.source.id and job.destination_location_id == route.destination.id)
 
 func _route_can_create(route: Dictionary) -> bool:
-	return not _route_has_job(route) and route.source.resources.get_available_amount(FOOD) >= 1 and route.destination.resources.get_available_free_capacity(FOOD) >= 1
+	return route.source.is_built() and route.destination.is_built() and not _route_has_job(route) and route.source.resources.get_available_amount(FOOD) >= 1 and route.destination.resources.get_available_free_capacity(FOOD) >= 1
 
 func recalculate() -> void:
 	if _recalculating: return
@@ -75,24 +75,24 @@ func recalculate() -> void:
 
 func _refresh_priorities() -> void:
 	for job in jobs:
-		var source: BuildingData = _buildings.get(job.source_location_id)
-		var destination: BuildingData = _buildings.get(job.destination_location_id)
+		var source: BuildingInstance = _buildings.get(job.source_location_id)
+		var destination: BuildingInstance = _buildings.get(job.destination_location_id)
 		if source == null or destination == null: continue
 		if source.type == BuildingType.Type.GATHERER_HUT:
 			job.priority = Priority.export_priority(source.resources, job.resource_type, source.logistics_weight)
 		else:
 			job.priority = Priority.import_priority(destination.resources, job.resource_type, destination.logistics_weight)
 
-func _job_source(job: HaulJob) -> BuildingData:
+func _job_source(job: HaulJob) -> BuildingInstance:
 	return _buildings.get(job.source_location_id)
-func _job_destination(job: HaulJob) -> BuildingData:
+func _job_destination(job: HaulJob) -> BuildingInstance:
 	return _buildings.get(job.destination_location_id)
 
 func register_resident(resident: ResidentData) -> void:
 	_residents[resident.id] = resident
 
 func _eligible(resident: ResidentData, job: HaulJob) -> bool:
-	return resident != null and resident.profession == Profession.Type.PORTER and resident.work_location_id == _source.id and _buildings.has(job.source_location_id) and _buildings.has(job.destination_location_id)
+	return resident != null and resident.profession == Profession.Type.PORTER and resident.work_location_id == _source.id and _buildings.has(job.source_location_id) and _buildings.has(job.destination_location_id) and _job_source(job).is_built() and _job_destination(job).is_built()
 
 func claim_best_job(resident_id: String) -> HaulJob:
 	var resident: ResidentData = _residents.get(resident_id)

@@ -22,7 +22,7 @@ func setup(clock: Node, hut: RefCounted, population: Array, locations: RefCounte
 	_position_provider = position_provider
 	clock.minute_changed.connect(_on_minute)
 func can_work(resident: RefCounted) -> bool:
-	return building.type == BuildingType.Type.GATHERER_HUT and resident.profession == Profession.Type.GATHERER and resident.work_location_id == building.id and building.resources.get_available_free_capacity(FOOD) > 0 and _locations.get_position(building.id) is Vector2
+	return building.is_built() and building.type == BuildingType.Type.GATHERER_HUT and resident.profession == Profession.Type.GATHERER and resident.work_location_id == building.id and building.resources.get_available_free_capacity(FOOD) > 0 and _locations.get_position(building.id) is Vector2
 func _contributes(resident: RefCounted) -> bool:
 	var assignment: Dictionary = work_assignment_provider.call(resident.id) if work_assignment_provider.is_valid() else {}
 	if assignment.is_empty(): return can_work(resident)
@@ -30,6 +30,7 @@ func _contributes(resident: RefCounted) -> bool:
 	return assignment.profession == Profession.Type.GATHERER and assignment.location_id == building.id
 
 func _on_minute(_minute: int) -> void:
+	if not building.is_built(): return
 	# Physical/output capacity is checked before adding even one work minute.
 	if building.resources.get_available_free_capacity(FOOD) <= 0:
 		if not _output_blocked and logger != null: logger.info(EventLog.PRODUCTION, "%s: производство остановлено — выходной контейнер заполнен" % building.display_name)

@@ -25,7 +25,12 @@ var gatherer_hut_data: BuildingData
 var production_label: Label
 var warehouse_data: BuildingData
 var food_label: Label
-var buildings: Array[BuildingData] = []
+const BuildingInstance = preload("res://scripts/building_instance.gd")
+const BuildingDefinition = preload("res://scripts/building_definition.gd")
+var buildings: Array[BuildingInstance] = []
+var placement = preload("res://scripts/building_placement.gd").new()
+var construction_panel: PanelContainer
+var placement_input: Node
 var kitchen_data: BuildingData
 var world_locations = WorldLocations2D.new()
 const ResidentFactory = preload("res://scripts/resident_factory.gd")
@@ -119,6 +124,7 @@ func _ready() -> void:
 	_update_phase(game_time.get_phase())
 	field.show_phase(game_time.get_phase())
 	_update_speed(game_time.speed_multiplier)
+	_setup_construction()
 
 func _build_hud() -> void:
 	var panel = preload("res://scripts/prototype_hud.gd").new()
@@ -271,11 +277,15 @@ func _create_test_residents() -> void:
 	for index in range(residents.size()):
 		var data = residents[index]
 		assert(find_resident(data.id) == data, "Resident IDs must be unique")
+		var home_building = BuildingData.new(data.home_location_id, home_names[index], BuildingType.Type.HOME)
+		home_building.position = home_positions[index]
+		buildings.append(home_building)
 		var home = WorldLocation.new(data.home_location_id, home_names[index])
 		var home_view = LocationView.instantiate()
 		home_view.name = String(home.id)
 		$World.add_child(home_view)
 		home_view.position = home_positions[index]
+		home_view.building_data = home_building
 		home_view.setup(home)
 		world_locations.register(home, home_view)
 		interactions.register_target(home.id, home.display_name, home, world_locations.get_position.bind(home.id))
@@ -410,6 +420,7 @@ func _create_test_kitchen() -> void:
 	view.name = "CommunalKitchen"
 	view.setup(kitchen_data)
 	view.position = Vector2(-280, 240)
+	kitchen_data.position = view.position
 	$World.add_child(view)
 	world_locations.register(location, view)
 	interactions.register_building(kitchen_data, world_locations.get_position.bind(location.id))
@@ -430,6 +441,7 @@ func _create_test_warehouse() -> void:
 	view.name = "Warehouse"
 	view.setup(warehouse_data)
 	view.position = Vector2(300, 240)
+	warehouse_data.position = view.position
 	$World.add_child(view)
 	world_locations.register(location, view)
 	interactions.register_building(warehouse_data, world_locations.get_position.bind(location.id))
@@ -445,6 +457,7 @@ func _create_test_gatherer_hut() -> void:
 	view.name = "GathererHut"
 	view.setup(gatherer_hut_data)
 	view.position = Vector2(380, -240)
+	gatherer_hut_data.position = view.position
 	$World.add_child(view)
 	world_locations.register(location, view)
 	interactions.register_building(gatherer_hut_data, world_locations.get_position.bind(location.id))
@@ -508,3 +521,32 @@ func _remove_ground_resource(drop) -> void:
 	if is_instance_valid(view):
 		view.queue_free()
 	_ground_views.erase(drop)
+
+func _setup_construction() -> void:
+	placement.setup(buildings)
+	placement.logger = game_logger
+	placement.placed.connect(_show_placed_building)
+	construction_panel = preload("res://scripts/construction_panel.gd").new()
+	$HUD.add_child(construction_panel)
+	var definitions: Array = []
+	for category in [BuildingType.Type.HOME, BuildingType.Type.STORAGE, BuildingType.Type.FOOD, BuildingType.Type.GATHERER_HUT]:
+		definitions.append(BuildingDefinition.for_type(category))
+	construction_panel.setup(definitions)
+	construction_panel.definition_selected.connect(_select_building_definition)
+	# Added last: unhandled world clicks reach this adapter before resident selection.
+	placement_input = preload("res://scripts/building_placement_input.gd").new()
+	add_child(placement_input)
+	placement_input.setup(placement, field, $World)
+
+func _select_building_definition(definition: BuildingDefinition) -> void:
+	interaction_menu.hide()
+	placement.select(definition)
+
+func _show_placed_building(building: BuildingInstance) -> void:
+	var view = BuildingView2D.instantiate()
+	view.name = String(building.id)
+	view.position = building.position
+	$World.add_child(view)
+	view.setup(building)
+	world_locations.register(WorldLocation.new(building.id, building.display_name), view)
+	# Under-construction instances have no food/employment/haul capabilities.

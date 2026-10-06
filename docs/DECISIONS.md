@@ -1030,3 +1030,30 @@ execution: отмена QUEUED не прерывает похожее незав
 неиспользованную бронь, consumed FOOD не возвращает; ACTIVE TALK выходит из группы.
 Оба действия продолжают использовать прежний normal decision flow. Новый PlayerCommand не создаётся.
 ScrollContainer ограничивает содержимое размером панели; кнопка «Закрыть» остаётся вне прокрутки.
+
+## 2026-10-06 — Definition / Instance и placement
+
+BuildingDefinition (RefCounted) хранит id типа, category, display_name и size.
+BuildingInstance (RefCounted) хранит уникальный id, definition, world position,
+state UNDER_CONSTRUCTION/BUILT и прежние instance-owned resources/production_progress.
+BuildingData оставлен коротким совместимым конструктором-подклассом Instance:
+старые вызовы new(id,name,type) создают BUILT, без второго реестра или копий данных.
+Стартовые домашние точки тоже имеют BUILT instance с прежним home_location_id;
+WorldLocations2D и домашние маршруты сохранены. Размеры совпадают с preview/footprint:
+дом 64×48, остальные типы 144×96, без grid snapping/rotation.
+
+BuildingPlacement проверяет Rect2.intersects по registry Main.buildings, выдаёт
+уникальные building_XXXX (с проверкой коллизий ID), добавляет UNDER_CONSTRUCTION.
+Одно подтверждение завершает mode; preview уничтожается после confirm/cancel.
+View и WorldLocation подключаются Main по placed; данные не зависят от visual node.
+ConstructionPanel посылает выбранное определение, хранит только UI-collapse.
+BuildingPlacementInput — поздний unhandled-input adapter: GUI принимает свои
+клики раньше, placement раньше ResidentView selection/Main RMB. Motion отслеживается
+отдельно без потребления GUI; преобразование в world учитывает текущую камеру.
+Esc приоритетно отменяет placement; RMB не создаёт command/menu в этом режиме.
+
+Обычные entry points еды, производства, логистики, назначения работы и building
+interactions проверяют is_built(). Новые стройки остаются в том же списке,
+но не регистрируются как функциональные объекты. Рецепты, utility, потребности,
+формулы срочности и существующие маршруты не переписаны. Переход в BUILT пока
+не является доступным gameplay-действием; материалы/работа строителей — следующий этап.
