@@ -111,17 +111,21 @@ func _run() -> void:
 	click(view.global_position, MOUSE_BUTTON_LEFT, view)
 	var target := Vector2(-200, 100)
 	click(target, MOUSE_BUTTON_RIGHT, view)
-	check(intents.current_intent.reason_id == &"manual_move", "Actual right click creates daytime manual intent")
+	check(intents.current_intent.reason_id == &"player_move", "Actual right click creates PlayerCommand")
 	key(KEY_F8)
 	key(KEY_F8)
 	key(KEY_F8)
-	check(clock.get_clock_text() == "23:00" and intents.current_intent.reason_id == &"night_home", "F8 sequence replaces manual goal with night home")
+	check(clock.get_clock_text() == "23:00" and intents.current_intent.reason_id == &"player_move", "F8 updates schedule but active PlayerCommand overrides night")
 	click(target, MOUSE_BUTTON_RIGHT, view)
-	check(intents.current_intent.reason_id == &"night_home", "Night blocks manual click")
+	check(intents.current_intent.reason_id == &"player_move", "Night accepts replacement PlayerCommand")
 	var before: Vector2 = view.global_position
 	view._process(0.5)
 	check(view.global_position == before, "Debug night on pause does not move resident")
 	self.paused = false
+	view._process(20)
+	check(scene.resident_runtimes[0].commands.active_command == null, "PlayerCommand completes on arrival")
+	night.resume_current_phase() # Decision is removed in this isolated clock fixture.
+	before = view.global_position
 	view._process(0.5)
 	check(view.global_position.distance_to(scene.world_locations.get_position(scene.residents[0].home_location_id)) < before.distance_to(scene.world_locations.get_position(scene.residents[0].home_location_id)), "Resident moves toward home after resume")
 	self.paused = true
@@ -130,7 +134,7 @@ func _run() -> void:
 	check(clock.get_clock_text() == "06:00" and not night.is_night and intents.current_intent.type == Intent.Type.NONE and not view.has_movement_target, "Morning clears unfinished night goal and unlocks manual input")
 	check(view.global_position == before, "Morning does not teleport or assign movement")
 	click(target, MOUSE_BUTTON_RIGHT, view)
-	check(intents.current_intent.reason_id == &"manual_move", "Actual morning right click works again")
+	check(intents.current_intent.reason_id == &"player_move", "Actual morning right click works again")
 	self.paused = false
 	view._process(0.5)
 	check(view.global_position != before, "Morning manual movement resumes")

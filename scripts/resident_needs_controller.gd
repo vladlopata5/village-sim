@@ -48,6 +48,7 @@ func setup(clock: Node, data: Data, buildings: Array, locations: RefCounted, int
 	_available_food_amount = _count_available_food()
 
 func try_eat(priority: int, critical_priority: int = 0) -> bool:
+	if _intents.player_controlled: return false
 	if critical_priority == 0 and _data.hunger < Balance.EAT_MIN_HUNGER: return false
 	if _intents.forced_priority > critical_priority:
 		return false
@@ -87,6 +88,7 @@ func try_eat(priority: int, critical_priority: int = 0) -> bool:
 	return false
 
 func try_rest(priority: int, critical_priority: int = 0) -> bool:
+	if _intents.player_controlled: return false
 	if _intents.forced_priority > critical_priority:
 		return false
 	_cancel_own_action()

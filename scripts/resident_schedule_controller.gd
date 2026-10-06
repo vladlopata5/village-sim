@@ -33,6 +33,7 @@ func request_manual_move(world_target: Vector2) -> bool:
 func _on_phase_changed(phase: String) -> void:
 	var changed_phase := phase != _phase
 	_phase = phase
+	if _intents.player_controlled: return # Track phase, defer AI until command completion.
 	# A route belonging to the previous phase must not finish in the new phase.
 	_intents.clear_reason(&"day_work")
 	_intents.clear_reason(&"night_home")

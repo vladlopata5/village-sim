@@ -778,14 +778,11 @@ LogisticsController хранит задачи независимо от Степ
 брони и формулы срочности не меняются. В дальнейшем каждый executor может стать
 отдельным исполнителем при общей коллекции задач.
 
-PlayerOrder — отдельный RefCounted, не профессия и не огромный utility score.
-Поля: id, resident_id, type (пока пустой semantic ID), target (данные/ID места),
-state: PENDING/ACTIVE/SUSPENDED/COMPLETED/CANCELLED. Конкретных типов приказов,
-исполнения, очереди и сохранения пока нет. Будущий persistent task допускает
-suspend/resume после critical/forced/ночи. Планируемое разделение: survival →
-обязательные системные события → Player Order → professional work → обычные
-личные действия → WANDER. Это архитектурная цель, не изменение нынешнего selector.
-Profession задаёт длительную роль, PlayerOrder — конкретную задачу игрока.
+На этом шаге появилась первоначальная заготовка PlayerOrder. В следующем
+согласованном шаге она заменена двумя отдельными понятиями PlayerCommand и
+ResidentAssignment; player_order.gd удалён. Текущая иерархия и lifecycle описаны
+ниже в разделе «PlayerCommand и контекстные взаимодействия». Profession остаётся
+длительной ролью, не командой и не поручением.
 
 WANDER INFO сообщает начало и завершение прогулки, включая отмену; DEBUG содержит
 цель и причину прерывания. Координаты не идут в INFO. WANDER_PRIORITY=500,
@@ -805,3 +802,76 @@ GATHERER открывает хижину; PORTER — доставку. Смен�
 завершение старого gatherer cycle, исправление устаревшего рабочего маршрута,
 обе стадии HaulJob при снятии роли, реальная доставка новым PORTER Анной,
 новая роль на следующем normal completion, critical survival и WANDER INFO/DEBUG.
+
+
+## PlayerCommand и контекстные взаимодействия — 2026-10-06
+
+Это изменение заменяет прежнюю заготовку PlayerOrder: player_order.gd удалён.
+Теперь два разных понятия. PlayerCommand — немедленный MOVE_TO, один ACTIVE
+на жителя, новый отменяет старый. Не является utility score и не имеет очереди.
+ResidentAssignment — отдельные данные с QUEUED/ACTIVE/SUSPENDED/COMPLETED/CANCELLED;
+конкретные типы, исполнение и очередь сейчас не добавлены. В будущем поручение
+не прерывает committed action, ждёт очереди, имеет высокий AI priority и допускает
+suspend/resume. Profession остаётся постоянным management state, не поручением.
+
+Актуальная иерархия управления: ACTIVE PlayerCommand → critical/forced AI →
+ResidentAssignment (будущий слой) → profession/schedule work → normal Utility AI →
+WANDER. Игрок сознательно может заставить жителя сделать опасное действие.
+Команда удерживает управление даже при hunger/fatigue=100 и смене фаз суток.
+После прибытия lock снимается, command COMPLETED/active=null, запускается обычная
+decision point; critical и текущая фаза снова учитываются по существующим правилам.
+
+PlayerCommandController принадлежит каждому ResidentRuntime и хранит active_command.
+ResidentData не содержит визуальных ссылок или координат команды. Временная
+Vector2-цель относится к command/intent и входному 2D-адаптеру. PlayerControl.move_to
+передаёт команду по resident_id. ResidentIntentController.begin_player_intent ставит
+player_controlled до cleanup, использует общий _replace_forced/forced_interrupt и
+блокирует обычные/critical попытки замены до завершения. Это отдельное владение,
+не огромное число priority. Simulation observers очищают действие до вызова
+визуального исполнителя, включая синхронное прибытие в уже достигнутую точку.
+
+Cleanup: EAT на пути освобождает reserved FOOD; начатая EATING не возвращает уже
+съеденный ресурс. TALKING выходит из группы, при <2 группа распадается по прежним
+правилам; RELAXING/WANDER очищают действие; SLEEPING просыпается. Рабочий цикл
+отменяется без потери накопленного building progress. Haul до pickup CANCELLED с
+release reserved_out/in; после pickup освобождается только reserved_in, inventory
+очищается и груз остаётся GroundResource в текущей позиции. Путь cleanup доставки
+не продублирован. Deferred job re-decision не заменяет ACTIVE PlayerCommand.
+
+ПКМ по пустому полю при выборе одного жителя → MOVE_TO; без выбора ничего.
+ПКМ не меняет selection. ПКМ по зарегистрированному объекту → контекстное меню,
+без автоматического движения. InteractionTargets2D выполняет общий hit-test
+представления; подмена 2D/3D не требует переноса правил в визуальные узлы.
+
+InteractionOption: id, label, enabled, disabled_reason, interaction_kind, target_id.
+Kind: PLAYER_COMMAND / RESIDENT_ASSIGNMENT / MANAGEMENT_ACTION.
+InteractionService регистрирует игровые данные, capability и position provider;
+get_interactions(resident_ids, target_id) возвращает список; execute перепроверяет
+доступность и вызывает PlayerControl. UI только отображает кнопки и делегирует.
+Общий «Идти к» разрешён для зданий, жителей, домашних маркеров и GroundResource.
+Здания используют существующую WorldLocation/work point, житель — точку рядом.
+Employment есть только у рабочего capability: склад PORTER, хижина GATHERER;
+исполняется через assign_workplace API с проверкой места. «Уже работает здесь»
+отключён. Новая occupancy/лимиты рабочих мест не придуманы.
+
+Кухня: «Идти к», «Поесть» disabled с причиной о следующем этапе поручений;
+при отсутствии доступной FOOD дополнительно видна причина «Нет доступной еды».
+GroundResource: «Идти к», «Поднять»/«Отнести на склад» disabled как первые будущие
+поручения, без ручной haul-системы. Удалённая/истёкшая цель не исполняет старую
+опцию. Меню около курсора, disabled кнопки отличаются; ЛКМ исполняет пункт,
+клик снаружи закрывает, новый ПКМ обновляет, смена selection закрывает.
+
+Будущий group_interactions = intersection interactions каждого выбранного жителя,
+с enabled только при доступности всем. API принимает массив ID уже сейчас;
+мультивыбор UI и групповая очередь не добавлены. UtilitySelector, need weights,
+WANDER balance, production и logistics priority formulas не менялись.
+
+INFO категория PLAYER: команда, замена/отмена и выполнение; DEBUG — прерванное
+Activity. Координаты команды допустимы в INFO по принятому debug-контракту.
+Тест test_player_commands.gd покрывает реальный ПКМ/ЛКМ, без выбора, lock выше
+critical и фазы, все cleanup, обе стадии haul, замену/приход/одну decision point,
+меню объектов и disabled, management spy API, истёкшую цель, intersection и логи.
+Старые test_night_home/test_resident_schedule теперь явно изолируют низкоприоритетный
+schedule/manual источник, не устаревший контракт ПКМ. test_debug_time и population
+проверяют актуальный PlayerCommand. Новое абсолютное ночное поведение проверяется
+отдельно без отключения регрессий расписания.

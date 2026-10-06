@@ -56,6 +56,7 @@ func setup(clock: Node, data: RefCounted, intents: Node, needs: Node, schedule: 
 	check_critical()
 
 func check_critical() -> void:
+	if _intents.player_controlled: return
 	if _data.hunger < 100: _critical_hunger_attempted = false
 	if _deciding:
 		_critical_pending = true
@@ -158,6 +159,7 @@ func _decision_debug_text(selected: String, unavailable: Array) -> String:
 	return text.replace("EAT priority=", "EAT hunger=%d utility=" % _data.hunger)
 
 func request_decision(_reason: String = "free") -> void:
+	if _intents.player_controlled: return
 	if _deciding: return
 	if _work_cycle_active and _data.activity == Activity.Type.WORKING: return
 	if not _intents.has_current_action() and _data.hunger == 100 and _needs.has_food_action():
@@ -189,6 +191,7 @@ func request_decision(_reason: String = "free") -> void:
 	if logger != null: logger.sync_activity(_data)
 
 func _on_completed(intent: Intent) -> void:
+	if intent.reason_id == &"player_move": _critical_hunger_attempted = false
 	_next_decision_at = _clock.total_minutes + IDLE_MINUTES
 	if intent.reason_id == &"day_work" and _data.activity == Activity.Type.WORKING:
 		if not _work_assignment.is_empty() and (_work_assignment.profession != _data.profession or _work_assignment.location_id != _data.work_location_id):

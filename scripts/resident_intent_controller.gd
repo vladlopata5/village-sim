@@ -6,6 +6,7 @@ const Activity = preload("res://scripts/resident_activity.gd")
 signal forced_interrupt(previous: ResidentIntent)
 var _forced_intent: ResidentIntent
 var forced_priority: int = 0
+var player_controlled := false
 signal intent_changed(intent: ResidentIntent)
 signal intent_arrived(intent: ResidentIntent)
 signal intent_completed(intent: ResidentIntent)
@@ -66,6 +67,7 @@ func clear_completed(completed_intent: ResidentIntent) -> bool:
 	if completed_intent == _forced_intent:
 		_forced_intent = null
 		forced_priority = 0
+		player_controlled = false
 	var next := pending_intent
 	pending_intent = ResidentIntent.new()
 	_activate(next)
@@ -83,6 +85,7 @@ func clear_reason(reason_id: StringName) -> void:
 
 func continue_intent(previous: ResidentIntent, next: ResidentIntent) -> bool:
 	# Same action, next movement stage: preserve its pending higher priority goal.
+	if player_controlled: return false
 	if previous != current_intent or previous.type == ResidentIntent.Type.NONE or next == null or next.type != ResidentIntent.Type.MOVE_TO:
 		return false
 	if previous == _forced_intent:
@@ -90,9 +93,18 @@ func continue_intent(previous: ResidentIntent, next: ResidentIntent) -> bool:
 	_activate(next)
 	return true
 
+func begin_player_intent(intent: ResidentIntent) -> bool:
+	if intent == null: return false
+	player_controlled = true # Lock before any reservation cleanup emits world events.
+	return _replace_forced(intent, 0)
+
 func force_set_intent(intent: ResidentIntent, critical_priority: int = 1) -> bool:
+	if player_controlled: return false
 	if intent == null or (_forced_intent != null and critical_priority < forced_priority):
 		return false
+	return _replace_forced(intent, critical_priority)
+
+func _replace_forced(intent: ResidentIntent, critical_priority: int) -> bool:
 	var previous := current_intent
 	forced_priority = critical_priority
 	pending_intent = ResidentIntent.new()
@@ -111,11 +123,13 @@ func has_current_action() -> bool:
 	return current_intent.type != ResidentIntent.Type.NONE or not current_intent.reason_id.is_empty()
 
 func cancel_current(intent: ResidentIntent) -> bool:
+	if player_controlled: return false
 	if intent != current_intent:
 		return false
 	if intent == _forced_intent:
 		_forced_intent = null
 		forced_priority = 0
+		player_controlled = false
 	var next := pending_intent
 	pending_intent = ResidentIntent.new()
 	_activate(next)

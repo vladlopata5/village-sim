@@ -14,13 +14,9 @@ func next_phase() -> void:
 		event.physical_keycode = KEY_F8
 		event.pressed = pressed
 		root.push_input(event, true)
-func right_click(scene: Node, target: Vector2) -> void:
-	for pressed in [true, false]:
-		var event := InputEventMouseButton.new()
-		event.button_index = MOUSE_BUTTON_RIGHT
-		event.position = scene.resident_runtimes[0].view.get_canvas_transform() * target
-		event.pressed = pressed
-		root.push_input(event, true)
+func schedule_move(scene: Node, target: Vector2) -> void:
+	# Isolate schedule arbitration. Actual RMB is now the absolute PlayerCommand layer.
+	scene.resident_runtimes[0].schedule.request_manual_move(target)
 func _run() -> void:
 	var scene = load("res://scenes/main.tscn").instantiate()
 	root.add_child(scene)
@@ -47,16 +43,16 @@ func _run() -> void:
 	for speed in [1, 2, 4]:
 		clock.set_speed(speed)
 		check(clock.get_clock_text() == "06:00" and data.activity == Activity.Type.IDLE, "Cycle starts morning IDLE")
-		right_click(scene, Vector2(-100, 180))
-		check(intents.current_intent.reason_id == &"manual_move", "Morning right click accepted")
+		schedule_move(scene, Vector2(-100, 180))
+		check(intents.current_intent.reason_id == &"manual_move", "Morning low-priority move accepted")
 		paused = true
 		var before: Vector2 = view.global_position
 		next_phase()
 		check(clock.get_clock_text() == "07:00" and intents.current_intent.reason_id == &"day_work" and intents.current_intent.priority == 7000 and view.target_position == work.global_position, "F8 to day replaces manual goal with work goal")
 		view._process(1.0)
 		check(view.global_position == before and data.activity == Activity.Type.MOVING, "Paused work command does not move")
-		right_click(scene, Vector2(-100, 180))
-		check(intents.current_intent.reason_id == &"day_work", "Day right click cannot replace work route")
+		schedule_move(scene, Vector2(-100, 180))
+		check(intents.current_intent.reason_id == &"day_work", "Day low-priority move cannot replace work route")
 		paused = false
 		view._process(0.1)
 		check(view.global_position.is_equal_approx(before.move_toward(work.global_position, 12.0 * speed)), "Work resumes at current speed without catch-up")
@@ -64,12 +60,12 @@ func _run() -> void:
 		check(data.activity == Activity.Type.WORKING and view.global_position == work.global_position and intents.current_intent.type == Intent.Type.NONE, "Work arrival completes intent and enters WORKING")
 		card._refresh()
 		check(card.activity_label.text == "Занятие: Работает", "Card reads WORKING from data")
-		right_click(scene, Vector2(-100, 180))
-		check(data.activity == Activity.Type.WORKING and not view.has_movement_target, "Day manual input remains blocked after arrival")
+		schedule_move(scene, Vector2(-100, 180))
+		check(data.activity == Activity.Type.WORKING and not view.has_movement_target, "Day low-priority input remains blocked after arrival")
 		next_phase()
 		check(clock.get_clock_text() == "17:00" and data.activity == Activity.Type.IDLE, "F8 ends working at 17:00")
-		right_click(scene, Vector2(-100, 180))
-		check(intents.current_intent.reason_id == &"manual_move", "Evening right click accepted")
+		schedule_move(scene, Vector2(-100, 180))
+		check(intents.current_intent.reason_id == &"manual_move", "Evening low-priority move accepted")
 		paused = true
 		before = view.global_position
 		next_phase()
@@ -81,8 +77,8 @@ func _run() -> void:
 		check(view.global_position.is_equal_approx(before.move_toward(home.global_position, 12.0 * speed)), "Home resumes at current speed without catch-up")
 		view._process(20.0)
 		check(data.activity == Activity.Type.SLEEPING and view.global_position == home.global_position, "Home arrival enters SLEEPING")
-		right_click(scene, Vector2(-100, 180))
-		check(data.activity == Activity.Type.SLEEPING and not view.has_movement_target, "Night click cannot wake resident")
+		schedule_move(scene, Vector2(-100, 180))
+		check(data.activity == Activity.Type.SLEEPING and not view.has_movement_target, "Night low-priority move cannot wake resident")
 		next_phase()
 		check(clock.get_clock_text() == "06:00" and data.activity == Activity.Type.IDLE and not view.has_movement_target, "F8 wakes resident at next morning")
 	# Cancel unfinished work at evening, ignore late arrival.

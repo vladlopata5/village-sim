@@ -50,7 +50,7 @@ func _run():
 		command.button_index = MOUSE_BUTTON_RIGHT
 		command.pressed = true
 		scene._unhandled_input(command)
-		check(runtime.view.target_position == target and runtime.intents.current_intent.reason_id == &"manual_move", "Right click addresses selected runtime")
+		check(runtime.view.target_position == target and runtime.intents.current_intent.reason_id == &"player_move", "Right click addresses selected runtime")
 		runtime.view._process(20.0)
 	clock.debug_skip_minutes(15)
 	for index in range(4): check(scene.residents[index].hunger == initial[index] + 1, "Every hunger advances independently")

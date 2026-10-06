@@ -37,6 +37,14 @@ const SocialWorld = preload("res://scripts/social_world.gd")
 var social_world = SocialWorld.new()
 const PlayerControl = preload("res://scripts/player_control.gd")
 var player_control = PlayerControl.new()
+const InteractionService = preload("res://scripts/interaction_service.gd")
+const InteractionTargets2D = preload("res://scripts/interaction_targets_2d.gd")
+const InteractionMenu = preload("res://scripts/interaction_menu.gd")
+var interactions = InteractionService.new()
+var interaction_targets = InteractionTargets2D.new()
+var interaction_menu: PanelContainer
+var _ground_ids: Dictionary = {}
+var _next_ground_id := 1
 var residents: Array[ResidentData] = []
 var resident_runtimes: Array[ResidentRuntime] = []
 var population_label: Label
@@ -50,6 +58,7 @@ var speed_buttons: Array[Button] = []
 
 func _ready() -> void:
 	game_logger.setup(game_time)
+	interactions.control = player_control
 	for system in [social_world, ground_resources, logistics, production]:
 		system.logger = game_logger
 	$HUD/ResidentCard.bind_selection(resident_selection)
@@ -67,6 +76,7 @@ func _ready() -> void:
 	production.work_assignment_provider = _committed_work_assignment
 	for runtime in resident_runtimes:
 		player_control.register_intents(runtime.data.id, runtime.intents)
+		player_control.register_commands(runtime.data.id, runtime.commands)
 		runtime.decision.work_available = _work_available.bind(runtime)
 		runtime.decision.work_request = _request_work.bind(runtime)
 		runtime.schedule.work_decision = runtime.decision.request_decision
@@ -78,6 +88,9 @@ func _ready() -> void:
 		runtime.wander.target_provider = _wander_target_2d.bind(runtime.data.id)
 		runtime.wander.target_available = _wander_available_2d.bind(runtime.data.id)
 	_build_hud()
+	interaction_menu = InteractionMenu.new()
+	interaction_menu.service = interactions
+	$HUD.add_child(interaction_menu)
 	add_child(ground_resources)
 	ground_resources.setup(game_time)
 	ground_resources.added.connect(_show_ground_resource)
@@ -151,7 +164,7 @@ func _build_hud() -> void:
 	logistics_label = Label.new()
 	column.add_child(logistics_label)
 	var help := Label.new()
-	help.text = "WASD / стрелки — камера\nПробел — пауза • 1 / 2 / 4 — скорость\nЛКМ — выбор • ПКМ по полю — перемещение (утром и вечером)"
+	help.text = "WASD / стрелки — камера\nПробел — пауза • 1 / 2 / 4 — скорость\nЛКМ — выбор • ПКМ по земле — приказ • ПКМ по объекту — действия"
 	column.add_child(help)
 	var debug_help := Label.new()
 	debug_help.text = "F6 +1ч | F7 +6ч | F8 следующая фаза\nF9 +25 голода | Shift+F9 усталость 100 | F10 голод 75 | Shift+F10 голод 100\nF11 +1 еды в кухню | F12 пересчитать логистику"
@@ -245,6 +258,8 @@ func _create_test_residents() -> void:
 		home_view.position = home_positions[index]
 		home_view.setup(home)
 		world_locations.register(home, home_view)
+		interactions.register_target(home.id, home.display_name, home, world_locations.get_position.bind(home.id))
+		interaction_targets.register(home.id, home_view)
 		var view = ResidentView2D.instantiate()
 		view.name = "ResidentView_" + data.id
 		view.setup(data)
@@ -259,6 +274,11 @@ func _create_test_residents() -> void:
 		resident_runtimes.append(runtime)
 		runtime.logger = game_logger
 		runtime.setup(data, view, game_time, world_locations, buildings)
+		interactions.register_target(StringName(data.id), data.resident_name, data, _resident_interaction_position.bind(data.id))
+		interaction_targets.register(StringName(data.id), view)
+
+func _resident_interaction_position(resident_id: String) -> Vector2:
+	return _resident_position_2d(resident_id) + Vector2(36, 0)
 
 func _wander_available_2d(resident_id: String) -> bool:
 	return field.FIELD.has_point(_resident_position_2d(resident_id))
@@ -287,6 +307,7 @@ func get_resident_runtime(data: ResidentData) -> ResidentRuntime:
 	return null
 
 func _update_selection() -> void:
+	if is_instance_valid(interaction_menu): interaction_menu.hide()
 	for runtime in resident_runtimes:
 		if is_instance_valid(runtime.view): runtime.view.set_selected(runtime.data == resident_selection.selected_resident)
 
@@ -350,9 +371,13 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event.button_index == MOUSE_BUTTON_LEFT:
 		resident_selection.clear()
 	else:
-		var runtime = get_resident_runtime(resident_selection.selected_resident)
-		if runtime != null and is_instance_valid(runtime.view):
-			runtime.schedule.request_manual_move(field.to_global(field_point))
+		var selected = resident_selection.selected_resident
+		if selected != null:
+			var target_id: StringName = interaction_targets.hit(event.position)
+			if not target_id.is_empty(): interaction_menu.open_for([selected.id], target_id, event.position)
+			else:
+				interaction_menu.hide()
+				player_control.move_to(selected.id, field.to_global(field_point))
 	get_viewport().set_input_as_handled()
 
 func _create_test_kitchen() -> void:
@@ -367,6 +392,8 @@ func _create_test_kitchen() -> void:
 	view.position = Vector2(-280, 240)
 	$World.add_child(view)
 	world_locations.register(location, view)
+	interactions.register_building(kitchen_data, world_locations.get_position.bind(location.id))
+	interaction_targets.register(location.id, view)
 
 func _update_warehouse_food(resource: ResourceType.Type, amount: int) -> void:
 	if resource == ResourceType.Type.FOOD:
@@ -385,6 +412,8 @@ func _create_test_warehouse() -> void:
 	view.position = Vector2(300, 240)
 	$World.add_child(view)
 	world_locations.register(location, view)
+	interactions.register_building(warehouse_data, world_locations.get_position.bind(location.id))
+	interaction_targets.register(location.id, view)
 
 func _create_test_gatherer_hut() -> void:
 	gatherer_hut_data = BuildingData.new(&"gatherer_hut_01", "Хижина собирателя", BuildingType.Type.GATHERER_HUT)
@@ -398,6 +427,8 @@ func _create_test_gatherer_hut() -> void:
 	view.position = Vector2(380, -240)
 	$World.add_child(view)
 	world_locations.register(location, view)
+	interactions.register_building(gatherer_hut_data, world_locations.get_position.bind(location.id))
+	interaction_targets.register(location.id, view)
 
 func _on_hut_resources_changed(_resource: ResourceType.Type, _amount: int) -> void:
 	logistics.recalculate()
@@ -440,8 +471,19 @@ func _show_ground_resource(drop) -> void:
 	$World.add_child(view)
 	view.setup(drop)
 	_ground_views[drop] = view
+	var id := StringName("ground_%d" % _next_ground_id)
+	_next_ground_id += 1
+	_ground_ids[drop] = id
+	interactions.register_target(id, "FOOD на земле", drop, _ground_position.bind(drop), [&"ground_resource"])
+	interaction_targets.register(id, view)
+
+func _ground_position(drop: RefCounted) -> Vector2: return drop.world_position
 
 func _remove_ground_resource(drop) -> void:
+	var id: StringName = _ground_ids.get(drop, &"")
+	interactions.remove_target(id)
+	interaction_targets.remove(id)
+	_ground_ids.erase(drop)
 	var view = _ground_views.get(drop)
 	if is_instance_valid(view):
 		view.queue_free()

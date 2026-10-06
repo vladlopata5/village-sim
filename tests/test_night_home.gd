@@ -13,17 +13,14 @@ func check(condition: bool, message: String) -> void:
 		failures += 1
 		push_error(message)
 
-func right_click(point: Vector2) -> void:
-	var motion := InputEventMouseMotion.new()
-	motion.position = point
-	root.push_input(motion, true)
-	for pressed in [true, false]:
-		var event := InputEventMouseButton.new()
-		event.position = point
-		event.button_index = MOUSE_BUTTON_RIGHT
-		event.pressed = pressed
-		root.push_input(event, true)
-
+func schedule_move(point: Vector2) -> void:
+	# This suite isolates the old low-priority schedule source. RMB is tested separately.
+	var scene = root.get_node("Main")
+	var selected = scene.resident_selection.selected_resident
+	if selected != null:
+		var field = scene.get_node("World/Field")
+		var world_point: Vector2 = field.to_global(field.get_global_transform_with_canvas().affine_inverse() * point)
+		scene.get_resident_runtime(selected).schedule.request_manual_move(world_point)
 func _run() -> void:
 	# The time reaction also works without Main, a renderer, selection or UI.
 	var clock_without_ui = Clock.new()
@@ -83,8 +80,8 @@ func _run() -> void:
 			clock.advance(1.0)
 		selection.select(scene.residents[0])
 		var manual_target := Vector2(-100, 180)
-		right_click(field.get_global_transform_with_canvas() * manual_target)
-		check(view.target_position.is_equal_approx(field.to_global(manual_target)), "Day click routes through controller")
+		schedule_move(field.get_global_transform_with_canvas() * manual_target)
+		check(view.target_position.is_equal_approx(field.to_global(manual_target)), "Low-priority move routes through controller")
 		selection.clear()
 		view.global_position = start
 		clock.total_minutes = 1379
@@ -96,13 +93,13 @@ func _run() -> void:
 		var expected: Vector2 = start.move_toward(home.global_position, 15.0 * multiplier)
 		check(view.global_position.is_equal_approx(expected), "Home movement speed x%d" % multiplier)
 		selection.select(scene.residents[0])
-		right_click(field.get_global_transform_with_canvas() * manual_target)
-		check(view.target_position == home.global_position, "Night right click cannot override home")
+		schedule_move(field.get_global_transform_with_canvas() * manual_target)
+		check(view.target_position == home.global_position, "Night low-priority move cannot override home")
 		view._process(30.0)
 		check(view.global_position == home.global_position and not view.has_movement_target, "Stops at home")
 		check(intents.current_intent.type == ResidentIntent.Type.NONE, "Home arrival clears intent")
-		right_click(field.get_global_transform_with_canvas() * manual_target)
-		check(view.global_position == home.global_position and not view.has_movement_target, "Night click cannot send resident away after arrival")
+		schedule_move(field.get_global_transform_with_canvas() * manual_target)
+		check(view.global_position == home.global_position and not view.has_movement_target, "Night low-priority move cannot send resident away after arrival")
 		clock.total_minutes = 1439
 		clock.advance(1.0 / multiplier)
 		check(controller.is_night, "Midnight keeps night priority")
@@ -123,7 +120,7 @@ func _run() -> void:
 	clock.advance(1000.0)
 	check(clock.get_clock_text() == "23:00", "Clock does not leave night on pause")
 	clock.set_speed(4)
-	right_click(field.get_global_transform_with_canvas() * Vector2(-100, 180))
+	schedule_move(field.get_global_transform_with_canvas() * Vector2(-100, 180))
 	check(view.target_position == home.global_position, "Night priority holds on pause")
 	clock.toggle_pause()
 	view._process(0.125)
@@ -131,7 +128,7 @@ func _run() -> void:
 	clock.set_speed(1)
 	clock.total_minutes = 1799
 	clock.advance(1.0)
-	right_click(field.get_global_transform_with_canvas() * Vector2(-100, 180))
+	schedule_move(field.get_global_transform_with_canvas() * Vector2(-100, 180))
 	check(not controller.is_night and view.target_position.is_equal_approx(Vector2(-100, 180)), "Morning restores manual commands")
 	var data = scene.residents[0]
 	check(data.fatigue >= 0 and data.fatigue <= 100 and data.mood == 65 and data.traits.size() == 3, "Night reaction keeps fatigue bounded and preserves mood/traits")

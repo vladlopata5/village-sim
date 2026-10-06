@@ -47,6 +47,10 @@ func _draw() -> void:
 	draw_circle(Vector2(0, -22), 10.0, Color("28313b"))
 	draw_circle(Vector2(0, -22), 7.0, Color("ffe5bb"))
 
+func interaction_hit(screen_position: Vector2) -> bool:
+	var point: Vector2 = get_global_transform_with_canvas().affine_inverse() * screen_position
+	return point.length() <= 19.0 or point.distance_to(Vector2(0, -22)) <= 10.0
+
 func _unhandled_input(event: InputEvent) -> void:
 	if resident_data == null or not is_visible_in_tree():
 		return

@@ -4,7 +4,7 @@ const Profession = preload("res://scripts/resident_profession.gd").Type
 const Activity = preload("res://scripts/resident_activity.gd").Type
 const Type = preload("res://scripts/need_type.gd").Type
 const Job = preload("res://scripts/haul_job.gd")
-const Order = preload("res://scripts/player_order.gd")
+const Assignment = preload("res://scripts/resident_assignment.gd")
 const Intent = preload("res://scripts/resident_intent.gd")
 const FOOD = preload("res://scripts/resource_type.gd").Type.FOOD
 var failures := 0
@@ -65,9 +65,9 @@ func _run() -> void:
 	check(scene._work_available(resident), "New PORTER can request haul work independent of Stepan")
 	scene.player_control.assign_profession(resident.data.id, Profession.GATHERER)
 	check(scene._work_available(resident), "New GATHERER can request gatherer work")
-	var order = Order.new(&"test_order", resident.data.id)
-	check(order.state == Order.State.PENDING and order.target == null and order.type == &"", "PlayerOrder is inert persistent-task data, no invented concrete types")
-	check(Order.State.size() == 5 and order.resident_id == resident.data.id, "Order lifecycle foundation is separate from profession")
+	var order = Assignment.new(&"test_order", resident.data.id)
+	check(order.state == Assignment.State.QUEUED and order.target == null and order.type == &"", "ResidentAssignment is inert persistent-task data, no invented concrete types")
+	check(Assignment.State.size() == 5 and order.resident_id == resident.data.id, "Order lifecycle foundation is separate from profession")
 	scene.free()
 	# Each personal committed action survives management, including its movement stage.
 	for action in ["eat", "leisure", "wander", "social", "sleep", "personal_route"]:

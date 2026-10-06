@@ -2,6 +2,7 @@ extends RefCounted
 ## Shared event output. It observes simulation state and never changes it.
 const Activity = preload("res://scripts/resident_activity.gd")
 const DEFAULT_DEBUG_ENABLED := false
+const PLAYER := &"PLAYER"
 const AI := &"AI"
 const NEED := &"NEED"
 const LOGISTICS := &"LOGISTICS"
