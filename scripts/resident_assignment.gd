@@ -1,6 +1,7 @@
 extends RefCounted
 ## Persistent request. List order is history, never execution priority.
 const EAT_AT_TARGET := &"eat_at_target"
+const TALK_TO := &"talk_to"
 enum Importance { LOW, NORMAL, HIGH }
 var importance: Importance = Importance.NORMAL
 enum State { QUEUED, ACTIVE, SUSPENDED, COMPLETED, CANCELLED }

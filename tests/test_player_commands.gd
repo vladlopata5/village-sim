@@ -221,7 +221,7 @@ func _run() -> void:
 	camera.position = Vector2.ZERO
 	camera.force_update_scroll()
 	click(scene.resident_runtimes[1].view.get_global_transform_with_canvas() * Vector2.ZERO)
-	check(scene.interaction_menu.visible and scene.interaction_menu.options.size() == 1, "Resident target has generic go-to option")
+	check(scene.interaction_menu.visible and scene.interaction_menu.options.any(func(row): return row.id == &"go_to") and scene.interaction_menu.options.any(func(row): return row.id == &"talk"), "Resident target offers go-to command and talk assignment")
 	var drop = scene.ground_resources.create_drop(FOOD, 1, Vector2(-200, 200))
 	click(scene._ground_views[drop].get_global_transform_with_canvas() * Vector2.ZERO)
 	check(scene.interaction_menu.visible and scene.interaction_menu.options.size() == 3 and resident.commands.active_command == active, "RMB on another object replaces an already-open menu without a command")

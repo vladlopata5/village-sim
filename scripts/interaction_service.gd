@@ -42,6 +42,9 @@ func _for_resident(resident_id: String, target_id: StringName) -> Array:
 	var options: Array = [Option.new(&"go_to", "Идти к", Option.Kind.PLAYER_COMMAND, target_id, point is Vector2, "Место недоступно" if not point is Vector2 else "")]
 	for capability in target.capabilities:
 		match capability:
+			&"resident":
+				if String(target_id) != resident_id:
+					options.append(Option.new(&"talk", "Поговорить с %s" % target.label, Option.Kind.RESIDENT_ASSIGNMENT, target_id))
 			&"food":
 				options.append(Option.new(&"eat", "Поесть здесь", Option.Kind.RESIDENT_ASSIGNMENT, target_id))
 			&"employment":
@@ -60,6 +63,9 @@ func execute(resident_ids: Array, option: Option) -> bool:
 			&"go_to":
 				var point: Variant = _targets[option.target_id].position.call()
 				if not point is Vector2 or not control.move_to(resident_id, point): return false
+			&"talk":
+				var assignment := Assignment.new(&"", resident_id, Assignment.TALK_TO, option.target_id)
+				if not control.add_assignment(resident_id, assignment): return false
 			&"eat":
 				var assignment := Assignment.new(&"", resident_id, Assignment.EAT_AT_TARGET, option.target_id)
 				if not control.add_assignment(resident_id, assignment): return false

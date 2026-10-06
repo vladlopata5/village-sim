@@ -86,6 +86,7 @@ func _ready() -> void:
 	for runtime in resident_runtimes:
 		social_world.register(runtime)
 		runtime.social.world = social_world
+		runtime.assignments.bind_social_world()
 		runtime.wander.target_provider = _wander_target_2d.bind(runtime.data.id)
 		runtime.wander.target_available = _wander_available_2d.bind(runtime.data.id)
 	_build_hud()
@@ -282,7 +283,7 @@ func _create_test_residents() -> void:
 		resident_runtimes.append(runtime)
 		runtime.logger = game_logger
 		runtime.setup(data, view, game_time, world_locations, buildings)
-		interactions.register_target(StringName(data.id), data.resident_name, data, _resident_interaction_position.bind(data.id))
+		interactions.register_target(StringName(data.id), data.resident_name, data, _resident_interaction_position.bind(data.id), [&"resident"])
 		interaction_targets.register(StringName(data.id), view)
 
 func _resident_interaction_position(resident_id: String) -> Vector2:

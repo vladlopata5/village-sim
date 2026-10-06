@@ -38,7 +38,7 @@ func setup(resident: RefCounted, presentation: Node2D, clock: Node, locations: R
 	schedule.setup(clock, locations, intents)
 	need_dynamics.setup(clock, data)
 	needs.setup(clock, data, buildings, locations, intents, schedule)
-	assignments.setup(data, needs, intents)
+	assignments.setup(data, needs, intents, social, clock)
 	decision.assignments = assignments
 	social.setup(self, clock)
 	social.conversation_position_requested.connect(view.move_to)

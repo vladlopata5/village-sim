@@ -7,6 +7,8 @@ const NeedType = preload("res://scripts/need_type.gd")
 const Intent = preload("res://scripts/resident_intent.gd")
 const Choice = preload("res://scripts/weighted_choice.gd")
 const Balance = preload("res://scripts/balance_config.gd")
+signal social_started(intent: Intent)
+signal social_ended
 signal conversation_position_requested(position: Vector2)
 var world: Node
 var runtime: Node
@@ -31,8 +33,18 @@ func try_social(priority: int) -> bool:
 	if world == null: return false
 	var option = Choice.pick(world.options_for(runtime.data.id), rng)
 	if option == null: return false
+	return _start_social(option, priority)
+func has_target_action(target_id: StringName) -> bool:
+	return is_instance_valid(world) and not world.target_option(runtime.data.id, String(target_id)).is_empty()
+func try_social_at(target_id: StringName, priority: int) -> bool:
+	if not has_target_action(target_id): return false
+	return _start_social(world.target_option(runtime.data.id, String(target_id)), priority)
+func cancel_social() -> void:
+	_finish()
+func _start_social(option: Dictionary, priority: int) -> bool:
 	_option = option
 	_active = Intent.new(Intent.Type.MOVE_TO, &"social", world.option_position(option), priority, true)
+	social_started.emit(_active)
 	if not runtime.intents.submit(_active):
 		_active = null
 		_option = {}
@@ -81,12 +93,14 @@ func _on_intent_changed(intent: Intent) -> void:
 		_active = null
 		_option = {}
 		if world != null: world.leave(runtime.data.id)
+		social_ended.emit()
 func _finish() -> void:
 	var previous = _active
 	_log_relax_end(previous, false)
 	_active = null
 	_option = {}
 	if world != null: world.leave(runtime.data.id)
+	social_ended.emit()
 	if previous != null: runtime.intents.clear_completed(previous)
 func _log_relax_end(intent: Intent, interrupted: bool) -> void:
 	if intent != null and intent.reason_id == &"leisure" and logger != null:
