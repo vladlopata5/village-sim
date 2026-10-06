@@ -24,6 +24,10 @@ func cancel_assignment(resident_id: String, assignment_id: StringName) -> bool:
 	var controller: Node = _assignments.get(resident_id)
 	return is_instance_valid(controller) and controller.cancel(assignment_id)
 
+func describe_assignment(resident_id: String, assignment_id: StringName) -> String:
+	var controller: Node = _assignments.get(resident_id)
+	return controller.describe_assignment(assignment_id) if is_instance_valid(controller) else ""
+
 func setup(population: Array, buildings: Array) -> void:
 	for resident in population: _residents[resident.id] = resident
 	for building in buildings:

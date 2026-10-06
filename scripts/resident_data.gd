@@ -18,6 +18,7 @@ const Profession = preload("res://scripts/resident_profession.gd")
 var profession: Profession.Type
 const Inventory = preload("res://scripts/resident_inventory.gd")
 const Assignment = preload("res://scripts/resident_assignment.gd")
+signal assignments_changed
 var assignments: Array[Assignment] = []
 var inventory = Inventory.new()
 var traits: Array[TraitData] = []
@@ -54,3 +55,6 @@ func _init(unique_id: String, initial_name: String, initial_age: int, initial_pr
 
 func get_need(type: NeedType.Type) -> Need:
 	return needs[type]
+
+func notify_assignments_changed() -> void:
+	assignments_changed.emit()

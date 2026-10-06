@@ -1,5 +1,7 @@
 extends PanelContainer
 ## The card reads the selection's data; it keeps no copy of resident fields.
+const Assignment = preload("res://scripts/resident_assignment.gd")
+const ResidentData = preload("res://scripts/resident_data.gd")
 const ResidentSelection = preload("res://scripts/resident_selection.gd")
 const Profession = preload("res://scripts/resident_profession.gd")
 const Activity = preload("res://scripts/resident_activity.gd")
@@ -8,19 +10,21 @@ const StateText = preload("res://scripts/resident_state_text.gd")
 @export var show_state_numbers: bool = true
 var _selection: ResidentSelection
 var _control: RefCounted
+var _assignment_resident: ResidentData
+@onready var assignment_list: VBoxContainer = $Margin/Column/Scroll/Content/Assignments
 var profession_choice: OptionButton
 var intent_label: Label
-@onready var name_label: Label = $Margin/Column/Name
-@onready var age_label: Label = $Margin/Column/Age
-@onready var profession_label: Label = $Margin/Column/Profession
-@onready var id_label: Label = $Margin/Column/ID
-@onready var traits_label: Label = $Margin/Column/Traits
-@onready var hunger_label: Label = $Margin/Column/Hunger
-@onready var fatigue_label: Label = $Margin/Column/Fatigue
-@onready var social_label: Label = $Margin/Column/Social
-@onready var leisure_label: Label = $Margin/Column/Leisure
-@onready var mood_label: Label = $Margin/Column/Mood
-@onready var activity_label: Label = $Margin/Column/Activity
+@onready var name_label: Label = $Margin/Column/Scroll/Content/Name
+@onready var age_label: Label = $Margin/Column/Scroll/Content/Age
+@onready var profession_label: Label = $Margin/Column/Scroll/Content/Profession
+@onready var id_label: Label = $Margin/Column/Scroll/Content/ID
+@onready var traits_label: Label = $Margin/Column/Scroll/Content/Traits
+@onready var hunger_label: Label = $Margin/Column/Scroll/Content/Hunger
+@onready var fatigue_label: Label = $Margin/Column/Scroll/Content/Fatigue
+@onready var social_label: Label = $Margin/Column/Scroll/Content/Social
+@onready var leisure_label: Label = $Margin/Column/Scroll/Content/Leisure
+@onready var mood_label: Label = $Margin/Column/Scroll/Content/Mood
+@onready var activity_label: Label = $Margin/Column/Scroll/Content/Activity
 @onready var close_button: Button = $Margin/Column/Close
 
 func _ready() -> void:
@@ -30,16 +34,17 @@ func _ready() -> void:
 	profession_choice.focus_mode = Control.FOCUS_NONE
 	for profession in Profession.Type.values():
 		profession_choice.add_item(Profession.display_name(profession), profession)
-	$Margin/Column.add_child(profession_choice)
-	$Margin/Column.move_child(profession_choice, 3)
+	$Margin/Column/Scroll/Content.add_child(profession_choice)
+	$Margin/Column/Scroll/Content.move_child(profession_choice, 3)
 	profession_choice.item_selected.connect(_on_profession_selected)
 	intent_label = Label.new()
 	intent_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	$Margin/Column.add_child(intent_label)
-	$Margin/Column.move_child(intent_label, activity_label.get_index() + 1)
+	$Margin/Column/Scroll/Content.add_child(intent_label)
+	$Margin/Column/Scroll/Content.move_child(intent_label, activity_label.get_index() + 1)
 
 func bind_control(control: RefCounted) -> void:
 	_control = control
+	_refresh_assignments()
 
 func _on_profession_selected(index: int) -> void:
 	if _control != null and _selection != null and _selection.selected_resident != null:
@@ -48,8 +53,8 @@ func _on_profession_selected(index: int) -> void:
 
 func bind_selection(selection: ResidentSelection) -> void:
 	_selection = selection
-	_selection.selection_changed.connect(_refresh)
-	_refresh()
+	_selection.selection_changed.connect(_on_selection_changed)
+	_on_selection_changed()
 
 func _process(_delta: float) -> void:
 	if visible:
@@ -101,3 +106,52 @@ func _activity_text(activity: Activity.Type) -> String:
 		Activity.Type.EATING: return "Ест"
 		Activity.Type.HAULING: return "Несёт груз"
 		_: return "Бездельничает"
+
+func _on_selection_changed() -> void:
+	if _assignment_resident != null:
+		_assignment_resident.assignments_changed.disconnect(_refresh_assignments)
+	_assignment_resident = _selection.selected_resident
+	if _assignment_resident != null:
+		_assignment_resident.assignments_changed.connect(_refresh_assignments)
+	$Margin/Column/Scroll.scroll_vertical = 0
+	_refresh_assignments()
+	_refresh()
+
+func _refresh_assignments() -> void:
+	# Rebuild on assignment/selection events only, never from the per-frame card refresh.
+	for child in assignment_list.get_children():
+		assignment_list.remove_child(child)
+		child.queue_free()
+	if _assignment_resident == null: return
+	for assignment in _assignment_resident.assignments:
+		if assignment.state not in [Assignment.State.QUEUED, Assignment.State.ACTIVE, Assignment.State.SUSPENDED]: continue
+		var row := VBoxContainer.new()
+		row.set_meta("assignment_id", assignment.id)
+		assignment_list.add_child(row)
+		var description := Label.new()
+		description.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		description.text = _control.describe_assignment(_assignment_resident.id, assignment.id) if _control != null else "Поручение"
+		row.add_child(description)
+		var state_label := Label.new()
+		state_label.text = _assignment_state_text(assignment.state)
+		row.add_child(state_label)
+		var cancel_button := Button.new()
+		cancel_button.text = "Отменить"
+		cancel_button.focus_mode = Control.FOCUS_NONE
+		cancel_button.disabled = _control == null
+		cancel_button.pressed.connect(_cancel_assignment.bind(_assignment_resident.id, assignment.id))
+		row.add_child(cancel_button)
+	if assignment_list.get_child_count() == 0:
+		var empty := Label.new()
+		empty.text = "Поручений нет"
+		assignment_list.add_child(empty)
+
+func _cancel_assignment(resident_id: String, assignment_id: StringName) -> void:
+	if _control != null: _control.cancel_assignment(resident_id, assignment_id)
+
+func _assignment_state_text(state: Assignment.State) -> String:
+	match state:
+		Assignment.State.QUEUED: return "Ожидает"
+		Assignment.State.ACTIVE: return "Выполняется"
+		Assignment.State.SUSPENDED: return "Приостановлено"
+		_: return ""

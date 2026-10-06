@@ -1017,3 +1017,16 @@ ACTIVE execution имеет прежнее преимущество; защит�
 одного результата разговора остаётся в соответствующих обработчиках.
 FOOD reservation, eating flow, ConversationGroup, временные проверки и utility
 не унифицируются. Семантика игры, ASSIGNMENT_BONUS и UtilitySelector не меняются.
+
+
+## 2026-10-06 — UI списка поручений
+
+ResidentCard отображает незавершённые assignments через сигнал ResidentData.assignments_changed.
+Контроллер испускает его при добавлении и централизованной смене состояния; список не перестраивается
+каждый frame. PlayerControl.describe_assignment отдаёт читаемое описание конкретной цели.
+Кнопка хранит resident_id + assignment_id и вызывает только PlayerControl.cancel_assignment.
+Существующая проверка active_assignment == assignment ограничивает cleanup принадлежащим ему
+execution: отмена QUEUED не прерывает похожее независимое действие. ACTIVE EAT освобождает
+неиспользованную бронь, consumed FOOD не возвращает; ACTIVE TALK выходит из группы.
+Оба действия продолжают использовать прежний normal decision flow. Новый PlayerCommand не создаётся.
+ScrollContainer ограничивает содержимое размером панели; кнопка «Закрыть» остаётся вне прокрутки.

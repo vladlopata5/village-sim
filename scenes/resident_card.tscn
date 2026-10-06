@@ -29,47 +29,65 @@ theme_override_constants/margin_bottom = 16
 layout_mode = 2
 theme_override_constants/separation = 8
 
-[node name="Name" type="Label" parent="Margin/Column"]
+[node name="Scroll" type="ScrollContainer" parent="Margin/Column"]
+layout_mode = 2
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="Content" type="VBoxContainer" parent="Margin/Column/Scroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 8
+
+[node name="Name" type="Label" parent="Margin/Column/Scroll/Content"]
 layout_mode = 2
 autowrap_mode = 3
 
-[node name="Age" type="Label" parent="Margin/Column"]
+[node name="Age" type="Label" parent="Margin/Column/Scroll/Content"]
 layout_mode = 2
 
-[node name="Profession" type="Label" parent="Margin/Column"]
+[node name="Profession" type="Label" parent="Margin/Column/Scroll/Content"]
 layout_mode = 2
 autowrap_mode = 3
 
-[node name="ID" type="Label" parent="Margin/Column"]
+[node name="ID" type="Label" parent="Margin/Column/Scroll/Content"]
 layout_mode = 2
 autowrap_mode = 3
 
-[node name="Hunger" type="Label" parent="Margin/Column"]
+[node name="Hunger" type="Label" parent="Margin/Column/Scroll/Content"]
 layout_mode = 2
 autowrap_mode = 3
 
-[node name="Fatigue" type="Label" parent="Margin/Column"]
+[node name="Fatigue" type="Label" parent="Margin/Column/Scroll/Content"]
 layout_mode = 2
 autowrap_mode = 3
 
-[node name="Social" type="Label" parent="Margin/Column"]
+[node name="Social" type="Label" parent="Margin/Column/Scroll/Content"]
 layout_mode = 2
 autowrap_mode = 3
 
-[node name="Leisure" type="Label" parent="Margin/Column"]
+[node name="Leisure" type="Label" parent="Margin/Column/Scroll/Content"]
 layout_mode = 2
 autowrap_mode = 3
 
-[node name="Mood" type="Label" parent="Margin/Column"]
+[node name="Mood" type="Label" parent="Margin/Column/Scroll/Content"]
 layout_mode = 2
 autowrap_mode = 3
 
-[node name="Activity" type="Label" parent="Margin/Column"]
+[node name="Activity" type="Label" parent="Margin/Column/Scroll/Content"]
 layout_mode = 2
 
-[node name="Traits" type="Label" parent="Margin/Column"]
+[node name="Traits" type="Label" parent="Margin/Column/Scroll/Content"]
 layout_mode = 2
 autowrap_mode = 3
+
+[node name="AssignmentsHeading" type="Label" parent="Margin/Column/Scroll/Content"]
+layout_mode = 2
+text = "Поручения"
+
+[node name="Assignments" type="VBoxContainer" parent="Margin/Column/Scroll/Content"]
+layout_mode = 2
+theme_override_constants/separation = 12
 
 [node name="Close" type="Button" parent="Margin/Column"]
 layout_mode = 2

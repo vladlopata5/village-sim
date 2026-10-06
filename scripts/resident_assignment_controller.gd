@@ -42,6 +42,7 @@ func add(assignment: Assignment) -> bool:
 		assignment.id = StringName("%s_assignment_%d" % [_data.id, _serial])
 	if find(assignment.id) != null: return false
 	_data.assignments.append(assignment)
+	_data.notify_assignments_changed()
 	if logger != null: logger.info(EventLog.PLAYER, "%s: добавлено поручение — %s" % [_data.resident_name, _label(assignment)])
 	return true
 
@@ -136,6 +137,7 @@ func _change_state(assignment: Assignment, state: Assignment.State) -> void:
 	elif active_assignment == assignment:
 		active_assignment = null
 		_owned_intent = null
+	_data.notify_assignments_changed()
 
 func _requeue_assignment(assignment: Assignment, message: String = "") -> void:
 	_change_state(assignment, Assignment.State.QUEUED)
@@ -232,3 +234,11 @@ func _on_social_available() -> void:
 		if assignment.type == Assignment.TALK_TO and assignment.state == Assignment.State.QUEUED and _available(assignment):
 			_social.runtime.decision.request_decision("social_available")
 			return
+
+func describe_assignment(assignment_id: StringName) -> String:
+	var assignment: Assignment = find(assignment_id)
+	if assignment == null: return ""
+	if assignment.type == Assignment.EAT_AT_TARGET:
+		var kitchen = _needs.get_food_target(assignment.target)
+		return "Поесть — %s" % (kitchen.display_name if kitchen != null else "Место недоступно")
+	return _label(assignment)
