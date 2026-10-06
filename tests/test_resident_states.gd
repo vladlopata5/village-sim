@@ -45,8 +45,8 @@ func _run() -> void:
 	var clock = scene.get_node("GameTime")
 	check(data.hunger == 20 and data.fatigue >= 0 and data.fatigue <= 100 and data.mood == 65, "Stepan starts with explicit test values")
 	selection.select(data)
-	check(card.hunger_label.text == "Голод: 20/100 — Сыт", "Initial hunger display")
-	check(card.fatigue_label.text == "Усталость: 35/100 — Немного устал", "Initial fatigue display")
+	check(card.hunger_label.text == "Голод: 20 — Сыт", "Initial hunger display")
+	check(card.fatigue_label.text == "Усталость: 35 — Немного устал", "Initial fatigue display")
 	check(card.mood_label.text == "Настроение: 65/100 — Хорошее", "Initial mood display")
 	clock.set_process(false)
 	for speed in [1, 2, 4]:
@@ -61,8 +61,8 @@ func _run() -> void:
 	paused = true
 	await process_frame
 	await process_frame
-	check(card.hunger_label.text == "Голод: 75/100 — Очень голоден", "Card reads updated hunger on pause")
-	check(card.fatigue_label.text == "Усталость: 50/100 — Устал", "Card reads updated fatigue on pause")
+	check(card.hunger_label.text == "Голод: 75 — Очень голоден", "Card reads updated hunger on pause")
+	check(card.fatigue_label.text == "Усталость: 50 — Устал", "Card reads updated fatigue on pause")
 	check(card.mood_label.text == "Настроение: 0/100 — Очень плохое", "Card reads updated mood on pause")
 	card.show_state_numbers = false
 	await process_frame

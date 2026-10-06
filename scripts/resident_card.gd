@@ -14,10 +14,11 @@ var _assignment_resident: ResidentData
 @onready var assignment_list: VBoxContainer = $Margin/Column/Scroll/Content/Assignments
 var profession_choice: OptionButton
 var intent_label: Label
+var summary_label: Label
 @onready var name_label: Label = $Margin/Column/Scroll/Content/Name
-@onready var age_label: Label = $Margin/Column/Scroll/Content/Age
+@onready var age_label: Label = $Margin/Column/Scroll/Content/Metadata/Age
 @onready var profession_label: Label = $Margin/Column/Scroll/Content/Profession
-@onready var id_label: Label = $Margin/Column/Scroll/Content/ID
+@onready var id_label: Label = $Margin/Column/Scroll/Content/Metadata/ID
 @onready var traits_label: Label = $Margin/Column/Scroll/Content/Traits
 @onready var hunger_label: Label = $Margin/Column/Scroll/Content/Hunger
 @onready var fatigue_label: Label = $Margin/Column/Scroll/Content/Fatigue
@@ -30,6 +31,10 @@ var intent_label: Label
 func _ready() -> void:
 	hide()
 	close_button.pressed.connect(_close)
+	summary_label = Label.new()
+	summary_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	$Margin/Column/Scroll/Content.add_child(summary_label)
+	$Margin/Column/Scroll/Content.move_child(summary_label, 1)
 	profession_choice = OptionButton.new()
 	profession_choice.focus_mode = Control.FOCUS_NONE
 	for profession in Profession.Type.values():
@@ -40,7 +45,7 @@ func _ready() -> void:
 	intent_label = Label.new()
 	intent_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	$Margin/Column/Scroll/Content.add_child(intent_label)
-	$Margin/Column/Scroll/Content.move_child(intent_label, activity_label.get_index() + 1)
+	$Margin/Column/Scroll/Content.move_child(intent_label, mood_label.get_index() + 1)
 
 func bind_control(control: RefCounted) -> void:
 	_control = control
@@ -65,6 +70,7 @@ func _refresh() -> void:
 		hide()
 		return
 	var data = _selection.selected_resident
+	summary_label.text = "%s • %s" % [Profession.display_name(data.profession), _activity_text(data.activity)]
 	activity_label.text = "Занятие: " + _activity_text(data.activity)
 	name_label.text = "Имя: " + data.resident_name
 	age_label.text = "Возраст: %d" % data.age
@@ -73,17 +79,18 @@ func _refresh() -> void:
 	profession_choice.disabled = _control == null
 	var intent = _control.current_intent(data.id) if _control != null else null
 	var reason: String = String(intent.reason_id) if intent != null else ""
-	intent_label.text = "Действие: " + (reason if not reason.is_empty() else _activity_text(data.activity))
+	intent_label.text = "Действие: " + _intent_text(reason)
+	intent_label.visible = not reason.is_empty() and not (reason == "social" and data.activity == Activity.Type.TALKING) and not (reason == "eat" and data.activity == Activity.Type.EATING) and not (reason == "leisure" and data.activity == Activity.Type.RELAXING)
 	id_label.text = "ID: " + data.id
 	hunger_label.text = _state_line("Голод", data.hunger, StateText.hunger_description(data.hunger))
 	fatigue_label.text = _state_line("Усталость", data.fatigue, StateText.fatigue_description(data.fatigue))
 	social_label.text = _state_line("Общение", data.get_need(NeedType.Type.SOCIAL).value, "Хочет общения" if data.get_need(NeedType.Type.SOCIAL).value >= 25 else "Достаточно общения")
 	leisure_label.text = _state_line("Досуг", data.get_need(NeedType.Type.LEISURE).value, "Хочет развлечься" if data.get_need(NeedType.Type.LEISURE).value >= 25 else "Достаточно досуга")
-	mood_label.text = _state_line("Настроение", data.mood, StateText.mood_description(data.mood))
+	mood_label.text = "Настроение: %d/100 — %s" % [data.mood, StateText.mood_description(data.mood)] if show_state_numbers else "Настроение: " + StateText.mood_description(data.mood)
 	var trait_names := PackedStringArray()
 	for trait_definition in data.traits:
 		trait_names.append("• " + trait_definition.display_name)
-	traits_label.text = "Известные черты:\n" + "\n".join(trait_names) if not trait_names.is_empty() else "Известные черты: нет"
+	traits_label.text = "Черты\n" + "\n".join(trait_names) if not trait_names.is_empty() else "Черты: нет"
 	show()
 
 func _close() -> void:
@@ -92,7 +99,7 @@ func _close() -> void:
 
 func _state_line(title: String, value: int, description: String) -> String:
 	if show_state_numbers:
-		return "%s: %d/100 — %s" % [title, value, description]
+		return "%s: %d — %s" % [title, value, description]
 	return "%s: %s" % [title, description]
 
 func _activity_text(activity: Activity.Type) -> String:
@@ -126,6 +133,7 @@ func _refresh_assignments() -> void:
 	for assignment in _assignment_resident.assignments:
 		if assignment.state not in [Assignment.State.QUEUED, Assignment.State.ACTIVE, Assignment.State.SUSPENDED]: continue
 		var row := VBoxContainer.new()
+		row.add_theme_constant_override("separation", 2)
 		row.set_meta("assignment_id", assignment.id)
 		assignment_list.add_child(row)
 		var description := Label.new()
@@ -137,6 +145,8 @@ func _refresh_assignments() -> void:
 		row.add_child(state_label)
 		var cancel_button := Button.new()
 		cancel_button.text = "Отменить"
+		cancel_button.size_flags_horizontal = Control.SIZE_SHRINK_END
+		cancel_button.add_theme_font_size_override("font_size", 14)
 		cancel_button.focus_mode = Control.FOCUS_NONE
 		cancel_button.disabled = _control == null
 		cancel_button.pressed.connect(_cancel_assignment.bind(_assignment_resident.id, assignment.id))
@@ -155,3 +165,7 @@ func _assignment_state_text(state: Assignment.State) -> String:
 		Assignment.State.ACTIVE: return "Выполняется"
 		Assignment.State.SUSPENDED: return "Приостановлено"
 		_: return ""
+
+func _intent_text(reason: String) -> String:
+	var labels := {"eat": "Идёт поесть", "social": "Идёт к собеседнику", "leisure": "Отдыхает", "wander": "Прогулка", "day_work": "Работа по расписанию", "night_home": "Возвращается домой", "haul_source": "Идёт за грузом", "haul_destination": "Доставляет груз", "player_move": "Идёт по приказу игрока", "critical_sleep": "Восстанавливает силы", "rest": "Отдыхает"}
+	return labels.get(reason, reason)

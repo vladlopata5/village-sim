@@ -67,7 +67,7 @@ func _run():
 	scene.resident_selection.select(r[0].data)
 	var card = scene.get_node("HUD/ResidentCard")
 	card._refresh()
-	check("80/100" in card.social_label.text and "Разговаривает" in card.activity_label.text, "Card reads selected social need and activity")
+	check("Общение: 80" in card.social_label.text and "Разговаривает" in card.activity_label.text, "Card reads selected social need and activity")
 	var old_social: int = r[0].data.get_need(Type.SOCIAL).value
 	paused = true
 	scene.game_time.advance(1000)

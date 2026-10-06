@@ -121,7 +121,8 @@ func _ready() -> void:
 	_update_speed(game_time.speed_multiplier)
 
 func _build_hud() -> void:
-	var panel := PanelContainer.new()
+	var panel = preload("res://scripts/prototype_hud.gd").new()
+	panel.name = "DebugPanel"
 	panel.position = Vector2(16, 16)
 	$HUD.add_child(panel)
 	var margin := MarginContainer.new()
@@ -131,17 +132,27 @@ func _build_hud() -> void:
 	var column := VBoxContainer.new()
 	margin.add_child(column)
 	var title := Label.new()
-	title.text = "Village Sim — временный прототип"
-	column.add_child(title)
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 12)
-	column.add_child(row)
+	title.text = "Village Sim"
+	var header := HBoxContainer.new()
+	header.name = "Header"
+	header.add_theme_constant_override("separation", 12)
+	column.add_child(header)
+	header.add_child(title)
 	clock_label = Label.new()
-	clock_label.add_theme_font_size_override("font_size", 24)
-	row.add_child(clock_label)
+	clock_label.add_theme_font_size_override("font_size", 20)
+	header.add_child(clock_label)
 	phase_label = Label.new()
-	phase_label.custom_minimum_size.x = 80
-	row.add_child(phase_label)
+	phase_label.custom_minimum_size.x = 60
+	header.add_child(phase_label)
+	var collapse_button := Button.new()
+	header.add_child(collapse_button)
+	var extended := VBoxContainer.new()
+	extended.name = "ExtendedContent"
+	column.add_child(extended)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 8)
+	extended.add_child(row)
+	panel.configure(extended, collapse_button)
 	pause_button = Button.new()
 	pause_button.focus_mode = Control.FOCUS_NONE
 	pause_button.pressed.connect(_toggle_pause)
@@ -156,22 +167,22 @@ func _build_hud() -> void:
 		speed_buttons.append(button)
 	population_label = Label.new()
 	population_label.text = "Жителей: %d" % residents.size()
-	column.add_child(population_label)
+	extended.add_child(population_label)
 	production_label = Label.new()
-	column.add_child(production_label)
+	extended.add_child(production_label)
 	warehouse_food_label = Label.new()
-	column.add_child(warehouse_food_label)
+	extended.add_child(warehouse_food_label)
 	food_label = Label.new()
-	column.add_child(food_label)
+	extended.add_child(food_label)
 	logistics_label = Label.new()
-	column.add_child(logistics_label)
+	extended.add_child(logistics_label)
 	var help := Label.new()
 	help.text = "WASD / стрелки — камера\nПробел — пауза • 1 / 2 / 4 — скорость\nЛКМ — выбор • ПКМ по земле — приказ • ПКМ по объекту — действия"
-	column.add_child(help)
+	extended.add_child(help)
 	var debug_help := Label.new()
 	debug_help.text = "Shift+1 +1ч | Shift+2 +6ч | Shift+3 следующая фаза\nShift+4 +25 голода | Shift+5 усталость 100\nShift+6 голод 75 | Shift+7 голод 100\nShift+8 +1 еды в кухню | Shift+9 логистика"
 	debug_help.add_theme_font_size_override("font_size", 14)
-	column.add_child(debug_help)
+	extended.add_child(debug_help)
 	_update_pause()
 
 func _unhandled_key_input(event: InputEvent) -> void:

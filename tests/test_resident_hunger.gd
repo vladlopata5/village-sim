@@ -89,7 +89,7 @@ func _run() -> void:
 	var minute: int = clock.total_minutes
 	key(KEY_4)
 	await process_frame
-	check(data.hunger == 45 and card.hunger_label.text == "Голод: 45/100 — Немного голоден", "Shift+4 on pause adds 25 and live card reads data")
+	check(data.hunger == 45 and card.hunger_label.text == "Голод: 45 — Немного голоден", "Shift+4 on pause adds 25 and live card reads data")
 	key(KEY_4, true)
 	check(data.hunger == 45, "Held-key echo is ignored")
 	check(clock.total_minutes == minute and paused, "Shift+4 never advances time or changes pause")

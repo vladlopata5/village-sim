@@ -27,7 +27,7 @@ func _run() -> void:
 		check(trait_definition is TraitData and not trait_definition is Node, "Trait is separate non-visual data")
 		check(trait_definition.id == expected_ids[index] and not trait_definition.display_name.is_empty(), "Stable trait_definition ID and display name")
 	selection.select(data)
-	check(card.traits_label.text == "Известные черты:\n• Трудолюбивый\n• Общительный\n• Упрямый", "Card displays trait_definition names from data")
+	check(card.traits_label.text == "Черты\n• Трудолюбивый\n• Общительный\n• Упрямый", "Card displays trait_definition names from data")
 	# A display-name change must not change identity or require UI edits.
 	var first_trait = data.traits[0]
 	var original_name: String = first_trait.display_name
@@ -52,11 +52,11 @@ func _run() -> void:
 	await process_frame
 	check(card.traits_label.text.contains("Упрямый"), "Trait addition updates open card on pause")
 	selection.select(other)
-	check(card.traits_label.text == "Известные черты:\n• Трудолюбивый", "Switching resident reads the new list")
+	check(card.traits_label.text == "Черты\n• Трудолюбивый", "Switching resident reads the new list")
 	other.traits.clear()
 	await process_frame
 	await process_frame
-	check(card.traits_label.text == "Известные черты: нет", "Empty trait_definition list is displayed")
+	check(card.traits_label.text == "Черты: нет", "Empty trait_definition list is displayed")
 	selection.select(data)
 	await process_frame
 	await process_frame
