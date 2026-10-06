@@ -1,4 +1,4 @@
-[gd_scene load_steps=7 format=3]
+[gd_scene load_steps=8 format=3]
 
 [ext_resource type="Script" path="res://scripts/main.gd" id="1"]
 [ext_resource type="Script" path="res://scripts/game_time.gd" id="2"]
@@ -7,6 +7,8 @@
 
 [ext_resource type="Script" path="res://scripts/resident_selection.gd" id="5"]
 [ext_resource type="PackedScene" path="res://scenes/resident_card.tscn" id="6"]
+
+[ext_resource type="PackedScene" path="res://scenes/building_card.tscn" id="7"]
 
 [node name="Main" type="Node"]
 process_mode = 3
@@ -33,3 +35,5 @@ script = ExtResource("5")
 [node name="ResidentCard" parent="HUD" instance=ExtResource("6")]
 
 [node name="Residents" type="Node" parent="."]
+
+[node name="BuildingCard" parent="HUD" instance=ExtResource("7")]

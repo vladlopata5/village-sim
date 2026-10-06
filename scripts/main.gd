@@ -67,6 +67,7 @@ func _ready() -> void:
 	for system in [social_world, ground_resources, logistics, production]:
 		system.logger = game_logger
 	$HUD/ResidentCard.bind_selection(resident_selection)
+	$HUD/BuildingCard.bind_selection(resident_selection)
 	_create_test_kitchen()
 	_create_test_warehouse()
 	_create_test_gatherer_hut()
@@ -340,6 +341,9 @@ func _update_selection() -> void:
 	if is_instance_valid(interaction_menu): interaction_menu.hide()
 	for runtime in resident_runtimes:
 		if is_instance_valid(runtime.view): runtime.view.set_selected(runtime.data == resident_selection.selected_resident)
+	for building in buildings:
+		var view = world_locations.get_view(building.id)
+		if view != null: view.set_selected(building == resident_selection.selected_building)
 
 func _committed_work_assignment(resident_id: String) -> Dictionary:
 	var runtime = get_resident_runtime(find_resident(resident_id))
@@ -399,7 +403,9 @@ func _unhandled_input(event: InputEvent) -> void:
 	if not field.FIELD.has_point(field_point):
 		return
 	if event.button_index == MOUSE_BUTTON_LEFT:
-		resident_selection.clear()
+		var hit_building: BuildingInstance = _building_hit(event.position)
+		if hit_building != null: resident_selection.select_building(hit_building)
+		else: resident_selection.clear()
 	else:
 		var selected = resident_selection.selected_resident
 		if selected != null:
@@ -550,3 +556,12 @@ func _show_placed_building(building: BuildingInstance) -> void:
 	view.setup(building)
 	world_locations.register(WorldLocation.new(building.id, building.display_name), view)
 	# Under-construction instances have no food/employment/haul capabilities.
+
+func _building_hit(screen_position: Vector2) -> BuildingInstance:
+	# Exact resident hits have already consumed their click before Main.
+	# Among buildings, later registry entries win (same order as world visuals).
+	for index in range(buildings.size() - 1, -1, -1):
+		var building := buildings[index]
+		var view = world_locations.get_view(building.id)
+		if view != null and view.selection_hit(screen_position): return building
+	return null

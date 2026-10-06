@@ -1057,3 +1057,26 @@ interactions проверяют is_built(). Новые стройки остаю
 но не регистрируются как функциональные объекты. Рецепты, utility, потребности,
 формулы срочности и существующие маршруты не переписаны. Переход в BUILT пока
 не является доступным gameplay-действием; материалы/работа строителей — следующий этап.
+
+## 2026-10-07 — один selection для ResidentData / BuildingInstance
+
+Существующий resident_selection.gd расширен минимально: одна _selected_entity
+(ссылка на simulation data), вычисляемые selected_resident/selected_building,
+select/select_building/clear и прежний selection_changed. Старое имя узла/API
+сохранено для совместимости, второго независимого selection flow нет.
+
+ResidentView принимает точное попадание раньше Main. Здания не принимают ЛКМ
+сами: Main после GUI/placement/residents проверяет selection_hit представления
+по footprint. Это сохраняет приоритет resident даже поверх поздно добавленной
+стройки. При наложении зданий выигрывает последний instance по порядку registry,
+совпадающему с добавлением visuals. WorldLocations2D.get_view использует существующее
+сопоставление, отдельный registry выбора зданий не создаётся. Main обновляет
+рамки обоих типов по одному selection_changed; сами данные не содержат UI.
+
+BuildingCard имеет постоянные nodes/ScrollContainer для общих полей, ресурсов,
+производства, строительства и закрытия. ResourceContainer.changed обновляет
+выбранные ресурсы сразу; state/progress читаются через тот же live-data pattern,
+что ResidentCard. Snapshot предотвращает лишнее обновление текста, узлы не
+пересоздаются каждый frame. Пока дополнительных simulation signals/event bus
+не требуется. Context interactions, UtilitySelector и механика строительства
+не изменены. Четыре стартовых домашних marker views тоже выделяют footprint.

@@ -17,3 +17,7 @@ func get_position(location_id: StringName) -> Variant:
 	if not is_instance_valid(view):
 		return null
 	return view.global_position
+
+func get_view(location_id: StringName) -> Node2D:
+	var view = _views.get(location_id)
+	return view if is_instance_valid(view) else null
