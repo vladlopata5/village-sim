@@ -617,3 +617,43 @@ SUSPENDED оставлен для будущего; сейчас прерван�
 test_resident_assignments.gd проверяют список, бонус/importance/порядок, seeded
 weighted выбор, точную кухню, event availability, shared meal, PlayerCommand cleanup,
 постоянное/временное исчезновение цели и API отмены.
+
+
+## 2026-10-06 — локальная совместимость critical EAT
+
+Critical hunger не игнорируется: HUNGER=100 по-прежнему проходит существующий
+critical bypass. ResidentNeedsController сначала определяет конкретный способ еды.
+Уже начатая/оплаченная EATING сама является решением; другую кухню в этот момент
+не выбираем. На пути выбирается первая подходящая FOOD-кухня в существующем порядке
+реестра. Это прежняя политика concrete target selection, без нового distance score.
+Собственная действующая бронь учитывается как доступное решение, даже когда
+get_available_amount=0: она уже принадлежит текущему eating flow.
+
+is_current_eat_compatible проверяет MOVE_TO/eat, идентичность принятого current
+intent, конкретное BuildingData кухни и стадию исполнения. На пути необходимы
+действующая собственная бронь и неизменившаяся позиция цели; после начала еды
+используется _meal_active, включая синхронные сигналы при take_reserved.
+Совместимость применяется к EAT_AT_TARGET и обычному autonomous EAT одинаково.
+
+Совпадение → retain_current_as_critical сохраняет прежний intent и защищает его
+существующим critical level 200 без forced_interrupt/intent_changed/реактивации.
+Pending intent также сохраняется. Assignment остаётся ACTIVE; одна reservation,
+один take_reserved, исходный таймер, один приём пищи. Успешное завершение этого
+же flow переводит поручение в COMPLETED. INFO merge испускается на critical
+transition, не каждый tick. Существующий DecisionController предотвращает повторы.
+
+Другой concrete target на пути → обычное создание critical EAT и прежний cleanup:
+поручение прежней кухни QUEUED, его бронь освобождается, новая кухня получает свою
+бронь. Поручение не ретаргетится и не считается выполненным едой в другой кухне.
+PlayerCommand как раньше немедленно прерывает и merged EAT: поручение QUEUED,
+неиспользованная бронь освобождается, consumed FOOD не возвращается.
+
+Это локальное compatibility rule, не новая hierarchy critical vs assignments.
+UtilitySelector, ASSIGNMENT_BONUS, importance/порядок/duplicate assignments,
+PlayerCommand, thresholds, hunger formula, meal duration, контекстное меню и
+reservation model не изменены. Sleep/fatigue merge и новые типы поручений не добавлены.
+Пока EAT_AT_TARGET — единственный тип поручения: прежнее forced поведение для
+несовместимой деятельности проверяется на non-eat committed action RELAXING.
+Тест test_critical_eat_compatibility.gd покрывает same/different target, оплаченный
+приём пищи, autonomous EAT, сохранение pending и брони, completion, отсутствие
+дубликатов и PlayerCommand; прежний полный test suite также обязателен.

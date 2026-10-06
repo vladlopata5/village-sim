@@ -54,16 +54,9 @@ func try_eat(priority: int, critical_priority: int = 0) -> bool:
 	if critical_priority == 0 and _data.hunger < Balance.EAT_MIN_HUNGER: return false
 	if _intents.forced_priority > critical_priority:
 		return false
-	if _active_intent != null and _active_intent.reason_id == &"eat":
-		if critical_priority > _intents.forced_priority:
-			_intents.force_set_intent(_active_intent, critical_priority)
-			if _meal_active: _data.activity = Activity.Type.EATING
-		return true
-	if _food_unavailable:
-		if critical_priority > 0:
-			_cancel_own_action()
-			_intents.force_set_intent(Intent.new(), critical_priority)
-		return false
+	if critical_priority > 0: return _try_critical_eat(priority, critical_priority)
+	if _active_intent != null and _active_intent.reason_id == &"eat": return true
+	if _food_unavailable: return false
 	food_search_count += 1
 	for building in _buildings:
 		if building.type != BuildingType.Type.FOOD:
@@ -72,6 +65,47 @@ func try_eat(priority: int, critical_priority: int = 0) -> bool:
 		if not target is Vector2 or not building.resources.reserve_out(FOOD, 1):
 			continue
 		return _start_reserved_meal(building, target, priority, critical_priority)
+	return _eat_unavailable(critical_priority)
+
+func _try_critical_eat(priority: int, critical_priority: int) -> bool:
+	# Once food consumption has begun, the paid meal is already the concrete solution.
+	# _meal_active also covers synchronous signals inside take_reserved.
+	if _meal_active and is_current_eat_compatible(_food_building):
+		return _merge_critical_eat(critical_priority)
+	if _food_unavailable and (_active_intent == null or _active_intent.reason_id != &"eat"):
+		_cancel_own_action()
+		_intents.force_set_intent(Intent.new(), critical_priority)
+		return false
+	food_search_count += 1
+	var building: RefCounted = _select_critical_eat_target()
+	if building == null: return _eat_unavailable(critical_priority)
+	if is_current_eat_compatible(building): return _merge_critical_eat(critical_priority)
+	if logger != null and _active_intent != null and _active_intent.reason_id == &"eat":
+		logger.debug(EventLog.NEED, "%s: critical EAT target отличается — %s → %s" % [_data.resident_name, _food_building.display_name, building.display_name])
+	var target: Vector2 = _locations.get_position(building.id)
+	if not building.resources.reserve_out(FOOD, 1): return _eat_unavailable(critical_priority)
+	return _start_reserved_meal(building, target, priority, critical_priority)
+
+func _select_critical_eat_target() -> RefCounted:
+	# Preserve the existing first-feasible building policy. Own reservation is feasible too.
+	for building in _buildings:
+		if building.type != BuildingType.Type.FOOD or not _locations.get_position(building.id) is Vector2: continue
+		if building.resources.get_available_amount(FOOD) > 0 or is_current_eat_compatible(building): return building
+	return null
+
+func is_current_eat_compatible(building: RefCounted) -> bool:
+	if building == null or _food_building != building or _active_intent == null: return false
+	if _active_intent != _intents.current_intent or _active_intent.type != Intent.Type.MOVE_TO or _active_intent.reason_id != &"eat": return false
+	if _meal_active: return true # Already paid: no second target, reservation or timer.
+	return _reserved_food and _food_target_valid() and building.resources.get_reserved_out(FOOD) >= 1
+
+func _merge_critical_eat(critical_priority: int) -> bool:
+	if not _intents.retain_current_as_critical(_active_intent, critical_priority): return false
+	if logger != null:
+		logger.info(EventLog.NEED, "%s: critical hunger совпал с текущим EAT (%s) — действие продолжается" % [_data.resident_name, _food_building.display_name])
+	return true
+
+func _eat_unavailable(critical_priority: int) -> bool:
 	_food_unavailable = true
 	var message := "%s не удалось поесть: нет доступной еды." % _data.resident_name
 	developer_message.emit(message)

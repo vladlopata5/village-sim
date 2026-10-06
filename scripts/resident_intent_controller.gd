@@ -98,6 +98,14 @@ func begin_player_intent(intent: ResidentIntent) -> bool:
 	player_controlled = true # Lock before any reservation cleanup emits world events.
 	return _replace_forced(intent, 0)
 
+func retain_current_as_critical(intent: ResidentIntent, critical_priority: int) -> bool:
+	# Protect compatible execution without reactivation, interrupt signals or lost pending.
+	if player_controlled or intent == null or intent != current_intent: return false
+	if critical_priority < forced_priority or (_forced_intent != null and _forced_intent != intent): return false
+	_forced_intent = intent
+	forced_priority = critical_priority
+	return true
+
 func force_set_intent(intent: ResidentIntent, critical_priority: int = 1) -> bool:
 	if player_controlled: return false
 	if intent == null or (_forced_intent != null and critical_priority < forced_priority):
