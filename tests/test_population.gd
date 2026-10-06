@@ -74,11 +74,11 @@ func _run():
 	scene.resident_selection.select(scene.residents[2])
 	paused = true
 	var event := InputEventKey.new()
-	event.physical_keycode = KEY_F10
-	event.pressed = true
+	event.physical_keycode = KEY_7
 	event.shift_pressed = true
+	event.pressed = true
 	scene._unhandled_key_input(event)
-	check(scene.residents[2].hunger == 100 and scene.resident_runtimes[2].intents.current_intent.reason_id == &"eat", "Shift+F10 affects selected resident on pause")
+	check(scene.residents[2].hunger == 100 and scene.resident_runtimes[2].intents.current_intent.reason_id == &"eat", "Shift+7 affects selected resident on pause")
 	for index in [0, 1, 3]: check(scene.residents[index].hunger == hunger_before[index], "Other hunger values untouched by debug command")
 	check(scene.resident_runtimes[0].intents.current_intent == untouched, "Another resident's emergency does not interrupt porter")
 	paused = false
@@ -86,7 +86,7 @@ func _run():
 	check(scene.residents[2].activity == Activity.Type.EATING, "Non-porter eats at shared kitchen")
 	clock.debug_skip_minutes(30)
 	check(scene.residents[2].hunger < 70 and scene.kitchen_data.resources.get_amount(FOOD) == 4 and scene.residents[2].activity == Activity.Type.MOVING, "Common food is consumed for the correct resident")
-	# Isolate the night schedule from naturally escalating hunger during F8 jumps.
+	# Isolate the night schedule from naturally escalating hunger during Shift+3 jumps.
 	for runtime in scene.resident_runtimes: runtime.need_dynamics.free()
 	for data in scene.residents: data.hunger = 0
 	clock.debug_next_phase()

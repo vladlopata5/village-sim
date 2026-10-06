@@ -16,11 +16,13 @@ func check(condition: bool, message: String) -> void:
 func key(code: Key, echo: bool = false) -> void:
 	var event := InputEventKey.new()
 	event.physical_keycode = code
+	event.shift_pressed = true
 	event.pressed = true
 	event.echo = echo
 	root.push_input(event, true)
 	event = InputEventKey.new()
 	event.physical_keycode = code
+	event.shift_pressed = true
 	root.push_input(event, true)
 
 func click(world: Vector2, button: MouseButton, view: Node2D) -> void:
@@ -96,26 +98,26 @@ func _run() -> void:
 	var intents = scene.resident_runtimes[0].intents
 	var night = scene.resident_runtimes[0].schedule
 	self.paused = true
-	key(KEY_F6)
-	check(clock.total_minutes == 420 and scene.clock_label.text == "07:00", "F6 on pause updates clock through GameTime")
-	key(KEY_F7)
-	check(clock.total_minutes == 780 and scene.clock_label.text == "13:00", "F7 on pause advances six hours")
-	key(KEY_F7, true)
+	key(KEY_1)
+	check(clock.total_minutes == 420 and scene.clock_label.text == "07:00", "Shift+1 on pause updates clock through GameTime")
+	key(KEY_2)
+	check(clock.total_minutes == 780 and scene.clock_label.text == "13:00", "Shift+2 on pause advances six hours")
+	key(KEY_2, true)
 	check(clock.total_minutes == 780, "Repeated key event does not jump")
-	key(KEY_F8)
-	check(clock.total_minutes == 1020 and scene.phase_label.text == "Вечер", "F8 updates phase UI via signal")
+	key(KEY_3)
+	check(clock.total_minutes == 1020 and scene.phase_label.text == "Вечер", "Shift+3 updates phase UI via signal")
 	# Start fresh morning through normal debug progression.
-	key(KEY_F8)
-	key(KEY_F8)
+	key(KEY_3)
+	key(KEY_3)
 	check(clock.total_minutes == 1800 and not night.is_night, "Next day starts at 06:00")
 	click(view.global_position, MOUSE_BUTTON_LEFT, view)
 	var target := Vector2(-200, 100)
 	click(target, MOUSE_BUTTON_RIGHT, view)
 	check(intents.current_intent.reason_id == &"player_move", "Actual right click creates PlayerCommand")
-	key(KEY_F8)
-	key(KEY_F8)
-	key(KEY_F8)
-	check(clock.get_clock_text() == "23:00" and intents.current_intent.reason_id == &"player_move", "F8 updates schedule but active PlayerCommand overrides night")
+	key(KEY_3)
+	key(KEY_3)
+	key(KEY_3)
+	check(clock.get_clock_text() == "23:00" and intents.current_intent.reason_id == &"player_move", "Shift+3 updates schedule but active PlayerCommand overrides night")
 	click(target, MOUSE_BUTTON_RIGHT, view)
 	check(intents.current_intent.reason_id == &"player_move", "Night accepts replacement PlayerCommand")
 	var before: Vector2 = view.global_position
@@ -130,7 +132,7 @@ func _run() -> void:
 	check(view.global_position.distance_to(scene.world_locations.get_position(scene.residents[0].home_location_id)) < before.distance_to(scene.world_locations.get_position(scene.residents[0].home_location_id)), "Resident moves toward home after resume")
 	self.paused = true
 	before = view.global_position
-	key(KEY_F8)
+	key(KEY_3)
 	check(clock.get_clock_text() == "06:00" and not night.is_night and intents.current_intent.type == Intent.Type.NONE and not view.has_movement_target, "Morning clears unfinished night goal and unlocks manual input")
 	check(view.global_position == before, "Morning does not teleport or assign movement")
 	click(target, MOUSE_BUTTON_RIGHT, view)

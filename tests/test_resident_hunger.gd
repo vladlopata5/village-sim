@@ -14,6 +14,7 @@ func key(code: Key, echo: bool = false) -> void:
 	for pressed in [true, false]:
 		var event := InputEventKey.new()
 		event.physical_keycode = code
+		event.shift_pressed = true
 		event.pressed = pressed
 		event.echo = echo
 		root.push_input(event, true)
@@ -81,36 +82,36 @@ func _run() -> void:
 	view.set_process(false)
 	data = scene.residents[0]
 	var card = scene.get_node("HUD/ResidentCard")
-	key(KEY_F9)
-	check(data.hunger == 20, "F9 without selection does nothing")
+	key(KEY_4)
+	check(data.hunger == 20, "Shift+4 without selection does nothing")
 	scene.resident_selection.select(data)
 	paused = true
 	var minute: int = clock.total_minutes
-	key(KEY_F9)
+	key(KEY_4)
 	await process_frame
-	check(data.hunger == 45 and card.hunger_label.text == "Голод: 45/100 — Немного голоден", "F9 on pause adds 25 and live card reads data")
-	key(KEY_F9, true)
+	check(data.hunger == 45 and card.hunger_label.text == "Голод: 45/100 — Немного голоден", "Shift+4 on pause adds 25 and live card reads data")
+	key(KEY_4, true)
 	check(data.hunger == 45, "Held-key echo is ignored")
-	check(clock.total_minutes == minute and paused, "F9 never advances time or changes pause")
+	check(clock.total_minutes == minute and paused, "Shift+4 never advances time or changes pause")
 	var other = Data.new("other", "Другой", 20)
 	scene.resident_selection.select(other)
-	key(KEY_F9)
-	check(other.hunger == 25 and data.hunger == 45, "F9 changes only selected resident")
+	key(KEY_4)
+	check(other.hunger == 25 and data.hunger == 45, "Shift+4 changes only selected resident")
 	scene.resident_selection.select(data)
-	key(KEY_F9)
-	key(KEY_F9)
-	key(KEY_F9)
-	check(data.hunger == 100, "F9 respects upper bound")
-	key(KEY_F8)
+	key(KEY_4)
+	key(KEY_4)
+	key(KEY_4)
+	check(data.hunger == 100, "Shift+4 respects upper bound")
+	key(KEY_3)
 	check(scene.resident_runtimes[0].intents.current_intent.reason_id == &"day_work", "Hunger 100 does not override work schedule")
 	paused = false
 	view._process(20.0)
 	check(data.activity == Activity.Type.WORKING, "Hunger 100 does not prevent work arrival")
-	key(KEY_F8)
-	key(KEY_F8)
+	key(KEY_3)
+	key(KEY_3)
 	view._process(20.0)
 	check(data.activity == Activity.Type.SLEEPING, "Hunger 100 does not prevent sleep")
-	key(KEY_F8)
+	key(KEY_3)
 	check(data.activity == Activity.Type.IDLE and data.fatigue >= 0 and data.fatigue <= 100 and data.mood == 65, "Morning still wakes; mood unchanged and fatigue bounded")
 	# Data continues to evolve without its visual representation or card selection.
 	data.hunger = 20

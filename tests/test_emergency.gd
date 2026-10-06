@@ -27,7 +27,7 @@ func make_scene() -> Node:
 func critical_key() -> void:
 	for pressed in [true, false]:
 		var event := InputEventKey.new()
-		event.physical_keycode = KEY_F10
+		event.physical_keycode = KEY_7
 		event.shift_pressed = true
 		event.pressed = pressed
 		root.push_input(event, true)
@@ -51,7 +51,7 @@ func _run() -> void:
 	var job = scene.logistics.current_job
 	scene.resident_selection.select(scene.residents[0])
 	critical_key()
-	check(scene.residents[0].hunger == 100 and scene.resident_runtimes[0].intents.current_intent.reason_id == &"eat", "Actual Shift+F10 immediately creates critical food route")
+	check(scene.residents[0].hunger == 100 and scene.resident_runtimes[0].intents.current_intent.reason_id == &"eat", "Actual Shift+7 immediately creates critical food route")
 	check(job.state == Job.State.CANCELLED and scene.warehouse_data.resources.get_reserved_out(FOOD) == 0 and scene.kitchen_data.resources.get_reserved_in(FOOD) == 0, "Critical before pickup cancels job and both reserves")
 	check(scene.warehouse_data.resources.get_amount(FOOD) == 10 and scene.ground_resources.drops.is_empty() and scene.residents[0].inventory.amount == 0, "No resource moved before pickup")
 	scene.free()

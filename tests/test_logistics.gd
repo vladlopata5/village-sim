@@ -83,10 +83,11 @@ func _run() -> void:
 	paused = true
 	for pressed in [true, false]:
 		var event := InputEventKey.new()
-		event.physical_keycode = KEY_F12
+		event.physical_keycode = KEY_9
+		event.shift_pressed = true
 		event.pressed = pressed
 		root.push_input(event, true)
-	check(scene.resident_runtimes[0].view.global_position == position and scene.resident_runtimes[0].intents.current_intent == intent and scene.warehouse_data.resources.get_amount(FOOD) == 10 and scene.kitchen_data.resources.get_amount(FOOD) == 0, "F12 on pause makes no movement, intent or transfer")
+	check(scene.resident_runtimes[0].view.global_position == position and scene.resident_runtimes[0].intents.current_intent == intent and scene.warehouse_data.resources.get_amount(FOOD) == 10 and scene.kitchen_data.resources.get_amount(FOOD) == 0, "Shift+9 on pause makes no movement, intent or transfer")
 	check(scene.logistics_label.text.contains("зарезервировано на вывоз: 1") and scene.logistics_label.text.contains("зарезервировано под доставку: 1") and scene.logistics_label.text.contains("доступна доставка FOOD"), "UI shows actual job and both reserves")
 	paused = false
 	scene.game_time.debug_next_phase()

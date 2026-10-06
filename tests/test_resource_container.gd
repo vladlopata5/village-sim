@@ -13,6 +13,7 @@ func key(code: Key, echo: bool = false) -> void:
 	for pressed in [true, false]:
 		var event := InputEventKey.new()
 		event.physical_keycode = code
+		event.shift_pressed = true
 		event.pressed = pressed
 		event.echo = echo
 		root.push_input(event, true)
@@ -62,8 +63,8 @@ func _run() -> void:
 	r.decision.request_decision()
 	check(r.data.activity == Activity.Type.IDLE and scene.warehouse_data.resources.get_amount(ResourceType.Type.FOOD) == 10, "No local food means no kitchen trip or free hunger benefit")
 	scene.resident_selection.select(r.data)
-	key(KEY_F11)
-	check(scene.kitchen_data.resources.get_amount(ResourceType.Type.FOOD) == 1 and scene.kitchen_data.resources.get_reserved_out(ResourceType.Type.FOOD) == 1, "F11 adds kitchen food and permits a newly available option")
+	key(KEY_8)
+	check(scene.kitchen_data.resources.get_amount(ResourceType.Type.FOOD) == 1 and scene.kitchen_data.resources.get_reserved_out(ResourceType.Type.FOOD) == 1, "Shift+8 adds kitchen food and permits a newly available option")
 	r.view._process(20)
 	scene.game_time.debug_skip_minutes(30)
 	check(r.data.hunger == 20 and scene.kitchen_data.resources.get_amount(ResourceType.Type.FOOD) == 0, "Restocked kitchen pays for meal")

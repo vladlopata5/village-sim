@@ -50,7 +50,7 @@
 
 ## Phase 2 — Один житель
 
-Статус: завершён. NightHomeController и ResidentIntent — ранняя основа Phase 3. F6/F7/F8 остаются временными инструментами разработки.
+Статус: завершён. NightHomeController и ResidentIntent — ранняя основа Phase 3. Shift+1/Shift+2/Shift+3 остаются временными инструментами разработки.
 
 Добавить одного жителя.
 

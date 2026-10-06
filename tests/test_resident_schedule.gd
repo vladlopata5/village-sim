@@ -11,7 +11,8 @@ func check(condition: bool, message: String) -> void:
 func next_phase() -> void:
 	for pressed in [true, false]:
 		var event := InputEventKey.new()
-		event.physical_keycode = KEY_F8
+		event.physical_keycode = KEY_3
+		event.shift_pressed = true
 		event.pressed = pressed
 		root.push_input(event, true)
 func schedule_move(scene: Node, target: Vector2) -> void:
@@ -48,7 +49,7 @@ func _run() -> void:
 		paused = true
 		var before: Vector2 = view.global_position
 		next_phase()
-		check(clock.get_clock_text() == "07:00" and intents.current_intent.reason_id == &"day_work" and intents.current_intent.priority == 7000 and view.target_position == work.global_position, "F8 to day replaces manual goal with work goal")
+		check(clock.get_clock_text() == "07:00" and intents.current_intent.reason_id == &"day_work" and intents.current_intent.priority == 7000 and view.target_position == work.global_position, "Shift+3 to day replaces manual goal with work goal")
 		view._process(1.0)
 		check(view.global_position == before and data.activity == Activity.Type.MOVING, "Paused work command does not move")
 		schedule_move(scene, Vector2(-100, 180))
@@ -63,13 +64,13 @@ func _run() -> void:
 		schedule_move(scene, Vector2(-100, 180))
 		check(data.activity == Activity.Type.WORKING and not view.has_movement_target, "Day low-priority input remains blocked after arrival")
 		next_phase()
-		check(clock.get_clock_text() == "17:00" and data.activity == Activity.Type.IDLE, "F8 ends working at 17:00")
+		check(clock.get_clock_text() == "17:00" and data.activity == Activity.Type.IDLE, "Shift+3 ends working at 17:00")
 		schedule_move(scene, Vector2(-100, 180))
 		check(intents.current_intent.reason_id == &"manual_move", "Evening low-priority move accepted")
 		paused = true
 		before = view.global_position
 		next_phase()
-		check(clock.get_clock_text() == "23:00" and intents.current_intent.reason_id == &"night_home" and intents.current_intent.priority == 10000 and data.activity == Activity.Type.MOVING, "F8 night preempts evening goal")
+		check(clock.get_clock_text() == "23:00" and intents.current_intent.reason_id == &"night_home" and intents.current_intent.priority == 10000 and data.activity == Activity.Type.MOVING, "Shift+3 night preempts evening goal")
 		view._process(1.0)
 		check(view.global_position == before, "Paused home command does not move")
 		paused = false
@@ -80,7 +81,7 @@ func _run() -> void:
 		schedule_move(scene, Vector2(-100, 180))
 		check(data.activity == Activity.Type.SLEEPING and not view.has_movement_target, "Night low-priority move cannot wake resident")
 		next_phase()
-		check(clock.get_clock_text() == "06:00" and data.activity == Activity.Type.IDLE and not view.has_movement_target, "F8 wakes resident at next morning")
+		check(clock.get_clock_text() == "06:00" and data.activity == Activity.Type.IDLE and not view.has_movement_target, "Shift+3 wakes resident at next morning")
 	# Cancel unfinished work at evening, ignore late arrival.
 	next_phase()
 	var cancelled_work = intents.current_intent

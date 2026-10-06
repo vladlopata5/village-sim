@@ -168,7 +168,7 @@ func _build_hud() -> void:
 	help.text = "WASD / стрелки — камера\nПробел — пауза • 1 / 2 / 4 — скорость\nЛКМ — выбор • ПКМ по земле — приказ • ПКМ по объекту — действия"
 	column.add_child(help)
 	var debug_help := Label.new()
-	debug_help.text = "F6 +1ч | F7 +6ч | F8 следующая фаза\nF9 +25 голода | Shift+F9 усталость 100 | F10 голод 75 | Shift+F10 голод 100\nF11 +1 еды в кухню | F12 пересчитать логистику"
+	debug_help.text = "Shift+1 +1ч | Shift+2 +6ч | Shift+3 следующая фаза\nShift+4 +25 голода | Shift+5 усталость 100\nShift+6 голод 75 | Shift+7 голод 100\nShift+8 +1 еды в кухню | Shift+9 логистика"
 	debug_help.add_theme_font_size_override("font_size", 14)
 	column.add_child(debug_help)
 	_update_pause()
@@ -176,21 +176,28 @@ func _build_hud() -> void:
 func _unhandled_key_input(event: InputEvent) -> void:
 	if not event is InputEventKey or not event.pressed or event.echo:
 		return
-	match event.physical_keycode:
-		KEY_SPACE: _toggle_pause()
-		KEY_1: game_time.set_speed(1)
-		KEY_2: game_time.set_speed(2)
-		KEY_4: game_time.set_speed(4)
-		KEY_F6: game_time.debug_skip_minutes(60)
-		KEY_F7: game_time.debug_skip_minutes(360)
-		KEY_F8: game_time.debug_next_phase()
-		KEY_F9:
-			if event.shift_pressed: _debug_set_fatigue()
-			else: _debug_add_hunger()
-		KEY_F10: _debug_set_hunger(100 if event.shift_pressed else 75)
-		KEY_F11: kitchen_data.resources.add(ResourceType.Type.FOOD, 1)
-		KEY_F12: logistics.recalculate()
-		_: return
+	if event.physical_keycode == KEY_SPACE:
+		_toggle_pause()
+		get_viewport().set_input_as_handled()
+		return
+	if event.shift_pressed:
+		match event.physical_keycode:
+			KEY_1: game_time.debug_skip_minutes(60)
+			KEY_2: game_time.debug_skip_minutes(360)
+			KEY_3: game_time.debug_next_phase()
+			KEY_4: _debug_add_hunger()
+			KEY_5: _debug_set_fatigue()
+			KEY_6: _debug_set_hunger(75)
+			KEY_7: _debug_set_hunger(100)
+			KEY_8: kitchen_data.resources.add(ResourceType.Type.FOOD, 1)
+			KEY_9: logistics.recalculate()
+			_: return
+	else:
+		match event.physical_keycode:
+			KEY_1: game_time.set_speed(1)
+			KEY_2: game_time.set_speed(2)
+			KEY_4: game_time.set_speed(4)
+			_: return
 	get_viewport().set_input_as_handled()
 
 func _debug_add_hunger() -> void:

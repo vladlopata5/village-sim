@@ -29,9 +29,9 @@ func _run():
 	residents[2].data.fatigue = 100
 	scene.resident_selection.select(residents[3].data)
 	var event := InputEventKey.new()
-	event.physical_keycode = KEY_F9
-	event.pressed = true
+	event.physical_keycode = KEY_5
 	event.shift_pressed = true
+	event.pressed = true
 	scene._unhandled_key_input(event)
 	check(residents[0].intents.current_intent.reason_id == &"eat" and residents[1].data.activity == Activity.Type.RESTING and residents[2].intents.forced_priority == 200 and residents[3].intents.forced_priority == 100, "Four independent choices: ordinary food/rest, critical food/sleep")
 	check(scene.kitchen_data.resources.get_reserved_out(FOOD) == 2 and scene.kitchen_data.resources.get_available_amount(FOOD) == 1, "Two selected meal methods reserve distinct available units")
