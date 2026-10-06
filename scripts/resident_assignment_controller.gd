@@ -69,8 +69,7 @@ func start(assignment_id: StringName) -> bool:
 	var assignment: Assignment = find(assignment_id)
 	if assignment == null or assignment.state != Assignment.State.QUEUED or active_assignment != null: return false
 	if not _available(assignment): return false
-	assignment.state = Assignment.State.ACTIVE
-	active_assignment = assignment
+	_change_state(assignment, Assignment.State.ACTIVE)
 	if logger != null: logger.info(EventLog.ASSIGNMENT, "%s: начал поручение — %s" % [_data.resident_name, _label(assignment)])
 
 	# Bonus is selector utility only; preserve the existing eat/schedule intent rules.
@@ -80,19 +79,17 @@ func start(assignment_id: StringName) -> bool:
 	else:
 		accepted = _needs.try_eat_at(assignment.target, roundi(_base_utility(assignment)))
 	if not accepted and active_assignment == assignment:
-		assignment.state = Assignment.State.QUEUED
-		active_assignment = null
-		_owned_intent = null
+		_requeue_assignment(assignment)
 	return accepted
 
 func cancel(assignment_id: StringName) -> bool:
 	var assignment: Assignment = find(assignment_id)
 	if assignment == null or assignment.state in [Assignment.State.COMPLETED, Assignment.State.CANCELLED]: return false
-	assignment.state = Assignment.State.CANCELLED
-	if active_assignment == assignment:
-		var old := _owned_intent
-		active_assignment = null
-		_owned_intent = null
+	var owns_execution := active_assignment == assignment
+	var old := _owned_intent
+	# Detach before executor cleanup emits callbacks or availability changes.
+	_change_state(assignment, Assignment.State.CANCELLED)
+	if owns_execution:
 		if assignment.type == Assignment.TALK_TO: _social.cancel_social()
 		else: _needs.cancel_eat(old)
 	if logger != null: logger.info(EventLog.ASSIGNMENT, "%s: поручение отменено — %s" % [_data.resident_name, _label(assignment)])
@@ -106,30 +103,47 @@ func _on_eat_outcome(intent: Intent, outcome: StringName, target_id: StringName)
 		if outcome == &"completed": _complete_one_waiting_eat(target_id)
 		return
 	var assignment := active_assignment
-	active_assignment = null
-	_owned_intent = null
 	match outcome:
 		&"completed":
 			_complete_assignment(assignment, false)
 		&"removed":
-			assignment.state = Assignment.State.CANCELLED
+			_change_state(assignment, Assignment.State.CANCELLED)
 			if logger != null: logger.info(EventLog.ASSIGNMENT, "%s: поручение отменено — кухня удалена" % _data.resident_name)
 		_:
-			assignment.state = Assignment.State.QUEUED
-			if logger != null and outcome == &"interrupted":
+			var message := ""
+			if outcome == &"interrupted":
 				var reason := "PlayerCommand" if _intents.player_controlled else "смена действия"
-				logger.info(EventLog.ASSIGNMENT, "%s: поручение приостановлено — прервано %s" % [_data.resident_name, reason])
+				message = "поручение приостановлено — прервано %s" % reason
+			_requeue_assignment(assignment, message)
 
 func _complete_one_waiting_eat(target_id: StringName) -> void:
-	# Chronological order is only a completion tie-break, never action utility/FIFO.
+	var assignment := _first_waiting_match(Assignment.EAT_AT_TARGET,
+		func(task: Assignment): return task.target == target_id)
+	if assignment != null: _complete_assignment(assignment, true)
+
+func _first_waiting_match(type: StringName, matches: Callable) -> Assignment:
+	# Chronological order is only a completion tie-break, never utility/FIFO.
 	for assignment in _data.assignments:
-		if assignment.type != Assignment.EAT_AT_TARGET or assignment.target != target_id: continue
-		if assignment.state not in [Assignment.State.QUEUED, Assignment.State.SUSPENDED]: continue
-		_complete_assignment(assignment, true)
-		return # One paid, finished meal can satisfy at most one result instance.
+		if assignment.type != type or assignment.state not in [Assignment.State.QUEUED, Assignment.State.SUSPENDED]: continue
+		if matches.call(assignment): return assignment
+	return null # Caller completes at most this one result instance.
+
+func _change_state(assignment: Assignment, state: Assignment.State) -> void:
+	assignment.state = state
+	if state == Assignment.State.ACTIVE:
+		active_assignment = assignment
+		_owned_intent = null
+	elif active_assignment == assignment:
+		active_assignment = null
+		_owned_intent = null
+
+func _requeue_assignment(assignment: Assignment, message: String = "") -> void:
+	_change_state(assignment, Assignment.State.QUEUED)
+	if logger != null and not message.is_empty():
+		logger.info(EventLog.ASSIGNMENT, "%s: %s" % [_data.resident_name, message])
 
 func _complete_assignment(assignment: Assignment, independent: bool) -> void:
-	assignment.state = Assignment.State.COMPLETED
+	_change_state(assignment, Assignment.State.COMPLETED)
 	if logger != null:
 		var message := "поручение выполнено независимо" if independent else "поручение выполнено"
 		logger.info(EventLog.ASSIGNMENT, "%s: %s — %s" % [_data.resident_name, message, _label(assignment)])
@@ -168,11 +182,11 @@ func _on_social_ended() -> void:
 
 func _return_talk_to_waiting() -> void:
 	var assignment := active_assignment
-	active_assignment = null
-	_owned_intent = null
-	assignment.state = Assignment.State.QUEUED if _target_exists(assignment) else Assignment.State.CANCELLED
-	if logger != null:
-		logger.info(EventLog.ASSIGNMENT, "%s: поручение приостановлено — %s" % [_data.resident_name, _label(assignment)])
+	if _target_exists(assignment):
+		_requeue_assignment(assignment, "поручение приостановлено — %s" % _label(assignment))
+	else:
+		_change_state(assignment, Assignment.State.CANCELLED)
+		if logger != null: logger.info(EventLog.ASSIGNMENT, "%s: поручение отменено — %s" % [_data.resident_name, _label(assignment)])
 
 func _sync_membership() -> void:
 	if not is_instance_valid(_social.world): return
@@ -196,17 +210,13 @@ func _check_talk_result(_minute: int = 0) -> void:
 	if active_assignment != null and active_assignment.type == Assignment.TALK_TO:
 		if _shared_long_enough(active_assignment):
 			var assignment := active_assignment
-			active_assignment = null
-			_owned_intent = null
 			_conversation_result_used = true
 			_complete_assignment(assignment, false)
 		return
-	for assignment in _data.assignments:
-		if assignment.type != Assignment.TALK_TO or assignment.state not in [Assignment.State.QUEUED, Assignment.State.SUSPENDED]: continue
-		if not _shared_long_enough(assignment): continue
+	var waiting_assignment := _first_waiting_match(Assignment.TALK_TO, _shared_long_enough)
+	if waiting_assignment != null:
 		_conversation_result_used = true
-		_complete_assignment(assignment, true)
-		return # One conversation satisfies one instance, never all duplicates.
+		_complete_assignment(waiting_assignment, true)
 
 func _shared_long_enough(assignment: Assignment) -> bool:
 	var id := String(assignment.target)
