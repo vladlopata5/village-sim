@@ -983,3 +983,27 @@ reservation model не изменены. Sleep/fatigue merge и новые ти�
 Тест test_critical_eat_compatibility.gd покрывает same/different target, оплаченный
 приём пищи, autonomous EAT, сохранение pending и брони, completion, отсутствие
 дубликатов и PlayerCommand; прежний полный test suite также обязателен.
+
+
+## 2026-10-06 — поручение как отдельный экземпляр желаемого результата
+
+ResidentAssignment представляет один экземпляр результата. Если результат достигнут
+независимо от assignment-механизма, одно подходящее ожидающее поручение может быть
+выполнено. Пока это реализовано только для EAT_AT_TARGET, без универсального framework.
+ResidentNeedsController.eat_outcome передаёт конкретный target kitchen ID вместе с
+intent и outcome. Только completed после успешных 30 минут еды запускает matching;
+путь, reservation, начало еды, ошибка или interrupt не являются результатом.
+
+ResidentAssignmentController._on_eat_outcome сначала обрабатывает поручение, связанное
+с данным ACTIVE eating flow, и не запускает дополнительный поиск для этого события.
+Если flow не связан с ACTIVE assignment, _complete_one_waiting_eat находит первую
+хронологически добавленную EAT_AT_TARGET той же кухни в QUEUED/SUSPENDED и завершает
+только её. COMPLETED/CANCELLED и другие targets пропускаются. Совпадение — по ID
+конкретного места, не по названию, типу здания или координатам.
+
+Один успешный приём пищи закрывает максимум один экземпляр поручения. Дубликаты
+сохраняются как отдельные единицы работы; порядок добавления используется только
+как deterministic completion tie-breaker, не меняет utility, importance или выбор
+UtilitySelector. Независимое завершение пишет один INFO «поручение выполнено
+независимо — Поесть здесь»; ACTIVE completion сохраняет прежний лог без второго.
+Critical merge, PlayerCommand, eating/reservations/needs и availability не изменены.

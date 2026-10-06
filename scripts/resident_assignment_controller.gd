@@ -83,15 +83,16 @@ func cancel(assignment_id: StringName) -> bool:
 func _on_eat_started(intent: Intent) -> void:
 	if active_assignment != null and _owned_intent == null: _owned_intent = intent
 
-func _on_eat_outcome(intent: Intent, outcome: StringName) -> void:
-	if active_assignment == null or intent != _owned_intent: return
+func _on_eat_outcome(intent: Intent, outcome: StringName, target_id: StringName) -> void:
+	if active_assignment == null or intent != _owned_intent:
+		if outcome == &"completed": _complete_one_waiting_eat(target_id)
+		return
 	var assignment := active_assignment
 	active_assignment = null
 	_owned_intent = null
 	match outcome:
 		&"completed":
-			assignment.state = Assignment.State.COMPLETED
-			if logger != null: logger.info(EventLog.ASSIGNMENT, "%s: поручение выполнено — Поесть здесь" % _data.resident_name)
+			_complete_eat_assignment(assignment, false)
 		&"removed":
 			assignment.state = Assignment.State.CANCELLED
 			if logger != null: logger.info(EventLog.ASSIGNMENT, "%s: поручение отменено — кухня удалена" % _data.resident_name)
@@ -100,3 +101,17 @@ func _on_eat_outcome(intent: Intent, outcome: StringName) -> void:
 			if logger != null and outcome == &"interrupted":
 				var reason := "PlayerCommand" if _intents.player_controlled else "смена действия"
 				logger.info(EventLog.ASSIGNMENT, "%s: поручение приостановлено — прервано %s" % [_data.resident_name, reason])
+
+func _complete_one_waiting_eat(target_id: StringName) -> void:
+	# Chronological order is only a completion tie-break, never action utility/FIFO.
+	for assignment in _data.assignments:
+		if assignment.type != Assignment.EAT_AT_TARGET or assignment.target != target_id: continue
+		if assignment.state not in [Assignment.State.QUEUED, Assignment.State.SUSPENDED]: continue
+		_complete_eat_assignment(assignment, true)
+		return # One paid, finished meal can satisfy at most one result instance.
+
+func _complete_eat_assignment(assignment: Assignment, independent: bool) -> void:
+	assignment.state = Assignment.State.COMPLETED
+	if logger != null:
+		var message := "поручение выполнено независимо" if independent else "поручение выполнено"
+		logger.info(EventLog.ASSIGNMENT, "%s: %s — Поесть здесь" % [_data.resident_name, message])

@@ -14,7 +14,7 @@ const MEAL_MINUTES := 30
 const REST_MINUTES := 10
 const SLEEP_RECOVERY_TARGET := 20
 signal eat_started(intent: Intent)
-signal eat_outcome(intent: Intent, outcome: StringName)
+signal eat_outcome(intent: Intent, outcome: StringName, target_id: StringName)
 signal action_unavailable
 signal food_available
 signal developer_message(message: String)
@@ -211,7 +211,7 @@ func _finish() -> void:
 	_active_intent = null
 	_meal_active = false
 	_minutes_left = 0
-	if completed.reason_id == &"eat": eat_outcome.emit(completed, &"completed")
+	if completed.reason_id == &"eat": eat_outcome.emit(completed, &"completed", _food_building.id)
 	_intents.clear_completed(completed)
 	if logger != null: logger.sync_activity(_data)
 
@@ -229,14 +229,14 @@ func _cancel_own_action() -> void:
 	_active_intent = null
 	_meal_active = false
 	_minutes_left = 0
-	if previous_intent != null and previous_intent.reason_id == &"eat": eat_outcome.emit(previous_intent, &"interrupted")
+	if previous_intent != null and previous_intent.reason_id == &"eat": eat_outcome.emit(previous_intent, &"interrupted", previous_building.id)
 	if release_food: previous_building.resources.release_out(FOOD, 1)
 
 func _abort_unavailable() -> void:
 	if logger != null: logger.info(EventLog.NEED, "%s: действие еды стало недоступно — новая decision point" % _data.resident_name)
 	var old := _active_intent
 	var outcome: StringName = &"unavailable" if _buildings.has(_food_building) else &"removed"
-	eat_outcome.emit(old, outcome)
+	eat_outcome.emit(old, outcome, _food_building.id)
 	_cancel_own_action()
 	_intents.cancel_current(old)
 	action_unavailable.emit()
