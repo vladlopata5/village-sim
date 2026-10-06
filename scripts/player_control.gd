@@ -9,7 +9,20 @@ var _residents: Dictionary = {}
 var _intents: Dictionary = {}
 var _workplaces: Dictionary = {}
 var _commands: Dictionary = {}
+var _assignments: Dictionary = {}
 var _workplace_professions: Dictionary = {}
+const Assignment = preload("res://scripts/resident_assignment.gd")
+
+func register_assignments(resident_id: String, controller: Node) -> void:
+	_assignments[resident_id] = controller
+
+func add_assignment(resident_id: String, assignment: Assignment) -> bool:
+	var controller: Node = _assignments.get(resident_id)
+	return is_instance_valid(controller) and controller.add(assignment)
+
+func cancel_assignment(resident_id: String, assignment_id: StringName) -> bool:
+	var controller: Node = _assignments.get(resident_id)
+	return is_instance_valid(controller) and controller.cancel(assignment_id)
 
 func setup(population: Array, buildings: Array) -> void:
 	for resident in population: _residents[resident.id] = resident

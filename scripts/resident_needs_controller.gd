@@ -13,6 +13,8 @@ const FOOD = ResourceType.Type.FOOD
 const MEAL_MINUTES := 30
 const REST_MINUTES := 10
 const SLEEP_RECOVERY_TARGET := 20
+signal eat_started(intent: Intent)
+signal eat_outcome(intent: Intent, outcome: StringName)
 signal action_unavailable
 signal food_available
 signal developer_message(message: String)
@@ -69,14 +71,7 @@ func try_eat(priority: int, critical_priority: int = 0) -> bool:
 		var target: Variant = _locations.get_position(building.id)
 		if not target is Vector2 or not building.resources.reserve_out(FOOD, 1):
 			continue
-		_cancel_own_action()
-		_food_building = building
-		_reserved_food = true
-		_active_intent = Intent.new(Intent.Type.MOVE_TO, &"eat", target, priority, true)
-		var accepted: bool = _intents.force_set_intent(_active_intent, critical_priority) if critical_priority > 0 else _intents.submit(_active_intent)
-		if not accepted: _cancel_own_action()
-		if logger != null: logger.sync_activity(_data)
-		return accepted
+		return _start_reserved_meal(building, target, priority, critical_priority)
 	_food_unavailable = true
 	var message := "%s не удалось поесть: нет доступной еды." % _data.resident_name
 	developer_message.emit(message)
@@ -86,6 +81,41 @@ func try_eat(priority: int, critical_priority: int = 0) -> bool:
 		_intents.force_set_intent(Intent.new(), critical_priority)
 		if logger != null: logger.sync_activity(_data)
 	return false
+
+func has_target_food_action(target_id: StringName) -> bool:
+	if _data.hunger < Balance.EAT_MIN_HUNGER: return false
+	var building = get_food_target(target_id)
+	return building != null and _locations.get_position(target_id) is Vector2 and building.resources.get_available_amount(FOOD) > 0
+
+func get_food_target(target_id: StringName):
+	for building in _buildings:
+		if building.id == target_id and building.type == BuildingType.Type.FOOD: return building
+	return null
+
+func try_eat_at(target_id: StringName, priority: int) -> bool:
+	if _intents.player_controlled or _intents.has_current_action() or not has_target_food_action(target_id): return false
+	var building = get_food_target(target_id)
+	var target: Vector2 = _locations.get_position(target_id)
+	if not building.resources.reserve_out(FOOD, 1): return false
+	return _start_reserved_meal(building, target, priority, 0)
+
+func _start_reserved_meal(building: RefCounted, target: Vector2, priority: int, critical_priority: int) -> bool:
+	_cancel_own_action()
+	_food_building = building
+	_reserved_food = true
+	_active_intent = Intent.new(Intent.Type.MOVE_TO, &"eat", target, priority, true)
+	eat_started.emit(_active_intent) # Ownership before synchronous arrival/cleanup.
+	var accepted: bool = _intents.force_set_intent(_active_intent, critical_priority) if critical_priority > 0 else _intents.submit(_active_intent)
+	if not accepted: _cancel_own_action()
+	if logger != null: logger.sync_activity(_data)
+	return accepted
+
+func cancel_eat(intent: Intent) -> bool:
+	if intent == null or intent != _active_intent: return false
+	_cancel_own_action()
+	_intents.cancel_current(intent)
+	action_unavailable.emit()
+	return true
 
 func try_rest(priority: int, critical_priority: int = 0) -> bool:
 	if _intents.player_controlled: return false
@@ -147,6 +177,7 @@ func _finish() -> void:
 	_active_intent = null
 	_meal_active = false
 	_minutes_left = 0
+	if completed.reason_id == &"eat": eat_outcome.emit(completed, &"completed")
 	_intents.clear_completed(completed)
 	if logger != null: logger.sync_activity(_data)
 
@@ -156,6 +187,7 @@ func _on_intent_changed(intent: Intent) -> void:
 
 func _cancel_own_action() -> void:
 	if _meal_active and logger != null: logger.info(EventLog.NEED, "%s: приём пищи прерван" % _data.resident_name)
+	var previous_intent := _active_intent
 	var release_food := _reserved_food
 	var previous_building := _food_building
 	# Clear owned state before release emits availability and can wake another resident.
@@ -163,11 +195,14 @@ func _cancel_own_action() -> void:
 	_active_intent = null
 	_meal_active = false
 	_minutes_left = 0
+	if previous_intent != null and previous_intent.reason_id == &"eat": eat_outcome.emit(previous_intent, &"interrupted")
 	if release_food: previous_building.resources.release_out(FOOD, 1)
 
 func _abort_unavailable() -> void:
 	if logger != null: logger.info(EventLog.NEED, "%s: действие еды стало недоступно — новая decision point" % _data.resident_name)
 	var old := _active_intent
+	var outcome: StringName = &"unavailable" if _buildings.has(_food_building) else &"removed"
+	eat_outcome.emit(old, outcome)
 	_cancel_own_action()
 	_intents.cancel_current(old)
 	action_unavailable.emit()
@@ -208,7 +243,7 @@ func _exit_tree() -> void:
 
 func _food_target_valid() -> bool:
 	var target: Variant = _locations.get_position(_food_building.id)
-	return target is Vector2 and target.is_equal_approx(_active_intent.target_position)
+	return _buildings.has(_food_building) and target is Vector2 and target.is_equal_approx(_active_intent.target_position)
 
 func has_location(location_id: StringName) -> bool:
 	return _locations.get_position(location_id) is Vector2

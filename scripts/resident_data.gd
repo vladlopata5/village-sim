@@ -12,6 +12,8 @@ var age: int
 const Profession = preload("res://scripts/resident_profession.gd")
 var profession: Profession.Type
 const Inventory = preload("res://scripts/resident_inventory.gd")
+const Assignment = preload("res://scripts/resident_assignment.gd")
+var assignments: Array[Assignment] = []
 var inventory = Inventory.new()
 var traits: Array[TraitData] = []
 ## Higher hunger/fatigue means more hungry/tired; higher mood means happier.

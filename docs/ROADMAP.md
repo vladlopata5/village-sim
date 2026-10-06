@@ -108,14 +108,16 @@
 Добавлен первый PlayerCommand MOVE_TO: абсолютное управление игрока выше AI,
 ПКМ по земле выдаёт команду, ПКМ по объекту открывает capability-based меню.
 PlayerOrder заменён разделением PlayerCommand / ResidentAssignment; поручения
-пока только структура, без очереди. UtilitySelector и баланс не изменены.
+теперь работают как хронологический список: EAT_AT_TARGET участвует вместе с
+обычными action candidates через UtilitySelector с ASSIGNMENT_BONUS=3000.
+Формула UtilitySelector и баланс потребностей не изменены.
 Подробности текущего контракта и проверок в PHASE_4.md.
 
 Дополнительно согласован первый Player Control Layer: выбор одного жителя с выделением,
 карточка и назначение NONE/PORTER/GATHERER через simulation API. Автономный AI
 сохраняется; безопасный рабочий цикл/доставка завершается после смены назначения.
 Первоначальная заготовка PlayerOrder затем заменена PlayerCommand и
-ResidentAssignment; исполнение поручений и их очередь пока не реализованы. Подробности в PHASE_4.md.
+ResidentAssignment; реализовано поручение «Поесть здесь», без FIFO и без UI списка. Подробности в PHASE_4.md.
 
 Статус: продолжается. Реализованы четыре жителя, HUNGER/FATIGUE/SOCIAL/LEISURE, питание, отдых, групповые разговоры, critical/forced и pending, локальные ограниченные ресурсы, две физические трассы доставки и запрос задач носильщиком через DecisionController. В принятый объём Phase 4 добавлена первая производственная цепочка: GATHERER Фёдор реально WORKING в gatherer_hut_01 → FOOD в локальном output → PORTER Степан → Склад → Кухня. Общий production_progress принадлежит зданию; полный output останавливает накопление. Срочность задач динамическая по projected fill с reserved_in/out; кухня снабжается до capacity=20 без старого target=3. Подробности и проверки в PHASE_4.md. Phase 4 ещё не объявлен завершённым.
 

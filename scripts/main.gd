@@ -77,6 +77,7 @@ func _ready() -> void:
 	for runtime in resident_runtimes:
 		player_control.register_intents(runtime.data.id, runtime.intents)
 		player_control.register_commands(runtime.data.id, runtime.commands)
+		player_control.register_assignments(runtime.data.id, runtime.assignments)
 		runtime.decision.work_available = _work_available.bind(runtime)
 		runtime.decision.work_request = _request_work.bind(runtime)
 		runtime.schedule.work_decision = runtime.decision.request_decision

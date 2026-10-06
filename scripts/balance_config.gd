@@ -1,5 +1,6 @@
 extends RefCounted
 ## Prototype balance values; no editor settings framework.
+const ASSIGNMENT_BONUS := 3000
 const UTILITY_CANDIDATE_RATIO := 0.75
 const UTILITY_RANDOM_EXPONENT := 2.0
 const SLEEP_SOCIAL_GROWTH_MULTIPLIER := 0.2

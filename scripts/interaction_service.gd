@@ -1,9 +1,9 @@
 extends RefCounted
 ## Capability registry. No visual nodes and no simulation rules inside menu UI.
+const Assignment = preload("res://scripts/resident_assignment.gd")
 const Option = preload("res://scripts/interaction_option.gd")
 const BuildingType = preload("res://scripts/building_type.gd")
 const Profession = preload("res://scripts/resident_profession.gd")
-const FOOD = preload("res://scripts/resource_type.gd").Type.FOOD
 var control: RefCounted
 var _targets: Dictionary = {}
 func register_target(id: StringName, label: String, data: RefCounted, position: Callable, capabilities: Array = [], profession: int = -1) -> void:
@@ -43,9 +43,7 @@ func _for_resident(resident_id: String, target_id: StringName) -> Array:
 	for capability in target.capabilities:
 		match capability:
 			&"food":
-				var reason := "Поручения будут добавлены следующим этапом"
-				if target.data.resources.get_available_amount(FOOD) == 0: reason = "Нет доступной еды. " + reason
-				options.append(Option.new(&"eat", "Поесть", Option.Kind.RESIDENT_ASSIGNMENT, target_id, false, reason))
+				options.append(Option.new(&"eat", "Поесть здесь", Option.Kind.RESIDENT_ASSIGNMENT, target_id))
 			&"employment":
 				var already: bool = data.profession == target.profession and data.work_location_id == target_id
 				options.append(Option.new(&"employment", "Устроиться на работу", Option.Kind.MANAGEMENT_ACTION, target_id, not already, "Уже работает здесь" if already else ""))
@@ -62,6 +60,9 @@ func execute(resident_ids: Array, option: Option) -> bool:
 			&"go_to":
 				var point: Variant = _targets[option.target_id].position.call()
 				if not point is Vector2 or not control.move_to(resident_id, point): return false
+			&"eat":
+				var assignment := Assignment.new(&"", resident_id, Assignment.EAT_AT_TARGET, option.target_id)
+				if not control.add_assignment(resident_id, assignment): return false
 			&"employment":
 				if not control.assign_workplace(resident_id, option.target_id): return false
 			_: return false

@@ -3,6 +3,7 @@ extends RefCounted
 const Activity = preload("res://scripts/resident_activity.gd")
 const DEFAULT_DEBUG_ENABLED := false
 const PLAYER := &"PLAYER"
+const ASSIGNMENT := &"ASSIGNMENT"
 const AI := &"AI"
 const NEED := &"NEED"
 const LOGISTICS := &"LOGISTICS"

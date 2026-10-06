@@ -1,6 +1,8 @@
 extends RefCounted
-## Future persistent AI task: queued after current action, can suspend/resume.
-## This step adds data only, no concrete types, queue or executor.
+## Persistent request. List order is history, never execution priority.
+const EAT_AT_TARGET := &"eat_at_target"
+enum Importance { LOW, NORMAL, HIGH }
+var importance: Importance = Importance.NORMAL
 enum State { QUEUED, ACTIVE, SUSPENDED, COMPLETED, CANCELLED }
 var id: StringName
 var resident_id: String

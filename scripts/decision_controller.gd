@@ -26,6 +26,7 @@ var _work_cycle_active := false
 var _work_cycle_ends_at := 0
 var _work_assignment: Dictionary = {}
 var decision_count := 0
+var assignments: Node
 var social: Node
 var wander: Node
 var rng := RandomNumberGenerator.new()
@@ -113,6 +114,7 @@ func collect_actions(has_available_work: bool) -> Array:
 		if not id.is_empty():
 			actions.append({"id": id, "priority": Utility.eat(_data.hunger) if id == "EAT" else float(priority)})
 	if is_instance_valid(wander) and wander.has_action(): actions.append({"id": "WANDER", "priority": Balance.WANDER_PRIORITY})
+	if is_instance_valid(assignments): actions.append_array(assignments.collect_actions())
 	return actions
 
 func _choose_need(has_available_work: bool) -> bool:
@@ -143,6 +145,9 @@ func _choose_need(has_available_work: bool) -> bool:
 			"SOCIAL": started = social.try_social(priority)
 			"LEISURE": started = social.try_leisure(priority)
 			"WANDER": started = wander.try_wander(priority)
+			_:
+				if selected.id.begins_with("ASSIGNMENT:"):
+					started = assignments.start(StringName(selected.id.trim_prefix("ASSIGNMENT:")))
 		if started: break
 		# A synchronous world change can invalidate an action between check and start.
 		actions = actions.filter(func(row): return row.id != selected.id)

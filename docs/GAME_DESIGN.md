@@ -810,13 +810,14 @@ GATHERER открывает хижину; PORTER — доставку. Смен�
 Теперь два разных понятия. PlayerCommand — немедленный MOVE_TO, один ACTIVE
 на жителя, новый отменяет старый. Не является utility score и не имеет очереди.
 ResidentAssignment — отдельные данные с QUEUED/ACTIVE/SUSPENDED/COMPLETED/CANCELLED;
-конкретные типы, исполнение и очередь сейчас не добавлены. В будущем поручение
-не прерывает committed action, ждёт очереди, имеет высокий AI priority и допускает
-suspend/resume. Profession остаётся постоянным management state, не поручением.
+На этом первоначальном шаге конкретные типы и исполнение ещё не добавлялись.
+Следующий шаг ниже реализует EAT_AT_TARGET: список не является FIFO, поручение
+участвует в UtilitySelector с бонусом и не прерывает committed action.
+SUSPENDED остаётся архитектурной возможностью, без отдельного scheduler. Profession остаётся постоянным management state, не поручением.
 
-Актуальная иерархия управления: ACTIVE PlayerCommand → critical/forced AI →
-ResidentAssignment (будущий слой) → profession/schedule work → normal Utility AI →
-WANDER. Игрок сознательно может заставить жителя сделать опасное действие.
+PlayerCommand остаётся выше AI; critical/forced сохраняют существующий bypass.
+После следующего шага ResidentAssignment участвует вместе с work/needs/WANDER
+в обычном UtilitySelector с бонусом, не образует жёсткий слой выше работы. Игрок сознательно может заставить жителя сделать опасное действие.
 Команда удерживает управление даже при hunger/fatigue=100 и смене фаз суток.
 После прибытия lock снимается, command COMPLETED/active=null, запускается обычная
 decision point; critical и текущая фаза снова учитываются по существующим правилам.
@@ -854,8 +855,8 @@ Employment есть только у рабочего capability: склад PORT
 исполняется через assign_workplace API с проверкой места. «Уже работает здесь»
 отключён. Новая occupancy/лимиты рабочих мест не придуманы.
 
-Кухня: «Идти к», «Поесть» disabled с причиной о следующем этапе поручений;
-при отсутствии доступной FOOD дополнительно видна причина «Нет доступной еды».
+Кухня после следующего шага: «Идти к» и enabled «Поесть здесь»;
+поручение можно добавить без FOOD, его action candidate ждёт доступности еды.
 GroundResource: «Идти к», «Поднять»/«Отнести на склад» disabled как первые будущие
 поручения, без ручной haul-системы. Удалённая/истёкшая цель не исполняет старую
 опцию. Меню около курсора, disabled кнопки отличаются; ЛКМ исполняет пункт,
@@ -875,3 +876,70 @@ critical и фазы, все cleanup, обе стадии haul, замену/п�
 schedule/manual источник, не устаревший контракт ПКМ. test_debug_time и population
 проверяют актуальный PlayerCommand. Новое абсолютное ночное поведение проверяется
 отдельно без отключения регрессий расписания.
+
+
+## 2026-10-06 — реальные ResidentAssignment: EAT_AT_TARGET
+
+ResidentData.assignments — собственный хронологический список данных поручений.
+ResidentAssignment содержит id, resident_id, type, target (WorldLocation ID кухни),
+state и importance. Единственный реализованный type — eat_at_target. States:
+QUEUED / ACTIVE / SUSPENDED / COMPLETED / CANCELLED. Importance LOW/NORMAL/HIGH
+предусмотрена, default NORMAL; сейчас ни один уровень не влияет на utility.
+Завершённые и отменённые записи остаются в списке как простая история; кандидаты
+берутся только из QUEUED. Порядок хранится для будущего UI, не означает FIFO.
+
+PlayerControl.add_assignment(resident_id, assignment) проверяет владельца, тип,
+существующую FOOD-кухню и уникальность ID; добавляет в конец без decision point
+и без прерывания текущего committed action. cancel_assignment(resident_id, id)
+отменяет queued/active поручение; активная еда очищается обычным исполнителем,
+бронь снимается, уже съеденная FOOD не возвращается. UI списка пока нет.
+
+ResidentAssignmentController каждого ResidentRuntime проверяет target и собирает
+обычные action candidates для DecisionController. Они вместе с WORK/EAT/REST/
+SOCIAL/LEISURE/WANDER проходят существующий UtilitySelector, без второго scheduler.
+ASSIGNMENT_BONUS = 3000 — временный одинаковый бонус из balance_config.gd:
+
+    normalized = (HUNGER - 30) / 70
+    base_action_utility = 10000 * pow(normalized, 2)
+    assignment_utility = base_action_utility + 3000
+
+HUNGER < 30 исключает EAT_AT_TARGET, как обычную EAT. Cutoff 0.75, shifted utility,
+exponent 2 и seeded RNG не изменены. Бонус повышает привлекательность, но поручение
+может проиграть другому доступному кандидату. Список кандидатов стабильно сортируется
+по ID поручения: место в хронологическом списке не даёт бонус и не меняет RNG-pool.
+Бонус относится только к selector utility, не к приоритету MOVE_TO: underlying eat
+intent сохраняет обычную base utility и существующие правила расписания/forced AI.
+Новая жёсткая иерархия assignment vs critical не вводится.
+
+Контекст кухни: «Идти к» — PlayerCommand; «Поесть здесь» — поручение. Второй пункт
+enabled даже без еды: постановка поручения и доступность action candidate различны.
+Нет FOOD / временно отсутствует позиция → QUEUED и нет кандидата, без retry cooldown
+или нового polling. Доставка/освобождение FOOD использует существующий availability
+signal: свободный голодный житель получает одну normal decision point, занятый
+продолжает действие. Временное отсутствие позиции учитывается при следующем
+обычном решении; отдельный таймер повторного поиска не добавлен.
+
+Выбор → ACTIVE → reserve_out в конкретной target kitchen → обычный eat intent →
+обычный путь → take_reserved при начале EATING → 30 минут постепенного уменьшения
+hunger → COMPLETED до единственного нового decision point. Другая кухня не подменяет
+цель. ResidentNeedsController предоставляет общий исполнитель и сигналы eat_started /
+eat_outcome; отдельной еды, таймера или формулы удовлетворения для поручений нет.
+
+До еды временно невозможная цель/бронь возвращает поручение в QUEUED с освобождением
+собственной брони. Удалённое BuildingData в реестре означает окончательную невозможность
+и CANCELLED; отсутствие/перемещение визуальной позиции при сохранённых данных — временное.
+PlayerCommand использует прежний forced cleanup: ACTIVE → QUEUED, бронь освобождена,
+consumed FOOD не возвращается, поручение не считается выполненным. После завершения
+команды оно снова участвует в normal decisions. Остальные forced/critical правила
+сохранены: прерванная еда requeued; если critical hunger усилил уже начатую еду в той
+же кухне, успешное завершение этой же еды выполняет поручение.
+
+PlayerCommand остаётся немедленным абсолютным управлением, один active, новый заменяет
+старый. ResidentAssignment — сохраняемое предложение normal AI, не приказ и не FIFO.
+SUSPENDED оставлен для будущего; сейчас прерванное выполнение возвращается в QUEUED.
+
+Логи: PLAYER добавление; ASSIGNMENT начало/успех/отмена/прерывание; временная
+недоступность только DEBUG без искусственного INFO rate-limit. Новые тесты
+test_resident_assignments.gd проверяют список, бонус/importance/порядок, seeded
+weighted выбор, точную кухню, event availability, shared meal, PlayerCommand cleanup,
+постоянное/временное исчезновение цели и API отмены.
