@@ -1186,3 +1186,37 @@ availability; Main объединяет уведомления одной тра
 IDLE носильщиков. Действующие committed actions не прерываются availability event.
 ResourceContainer.reservations_changed также сообщает об incoming promises;
 глобального event bus, retry cooldown и frame polling не добавлено.
+
+
+## Phase 4 — жильё: связь, вместимость и ручное управление (2026-10-07)
+
+Дом — необязательная связь ResidentData.home_location_id → конкретный BUILT
+BuildingInstance типа HOME (дом). Пустой ID означает «Нет дома» и допустим без
+штрафов. Этот ID — единственный source of truth; жильцы дома получаются query
+по населению, отдельного mutable occupant list в BuildingInstance нет.
+BuildingDefinition.housing_capacity: дом 4 (HOUSE_RESIDENT_CAPACITY), другие типы 0.
+Несколько жителей могут делить один дом. Строящийся дом не принимает жильцов.
+
+Игрок через RMB по дому выбирает «Назначить дом» либо «Выселиться» для своего
+текущего дома. Заполненный другой дом показывает disabled «Дом заполнен».
+PlayerControl.assign_home сначала валидирует новый дом/capacity, затем одним
+изменением заменяет прежний ID; неудачная попытка сохраняет старый дом.
+clear_home снимает связь. Это management action, не PlayerCommand и не поручение,
+поэтому текущий сон/еда/разговор/работа/command/assignment не прерываются.
+
+ResidentCard показывает «Дом: имя (ID)» либо «Дом: Нет дома». BuildingCard готового
+дома показывает «Жильцы: N / 4» и имена, при пустом доме — «Нет жильцов».
+Строящийся дом показывает обычную construction section. Новый завершённый дом
+просто становится eligible: автоматического расселения нет.
+Изменение связи уведомляет карточки жителя и старого/нового дома локальными signals,
+без отдельного HousingController, глобального bus или нового frame polling.
+Invalid/missing home ID безопасно отображается как «Нет дома».
+
+Важно: старый прототип уже использовал home_location_id для ночного маркера.
+На этом foundation шаге ResidentScheduleController сохраняет исходный ID ночной
+цели при setup и продолжает разрешать её актуальную позицию прежним способом.
+Player housing assignment не меняет этот старый маршрут, fatigue recovery,
+critical sleep, длительность или качество сна. Ночное поведение новых домов,
+выбор sleep-location и housing quality — отдельные будущие этапы. Начальные
+четыре prototype home связи сохранены; новые/сгенерированные жители без заданного
+ID остаются homeless. Это не автоматическое расселение построенных домов.

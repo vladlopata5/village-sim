@@ -4,6 +4,9 @@ const Assignment = preload("res://scripts/resident_assignment.gd")
 const FOOD = preload("res://scripts/resource_type.gd").Type.FOOD
 const Need = preload("res://scripts/need_type.gd").Type
 class ControlSpy extends RefCounted:
+	signal home_changed(resident_id: String, previous: StringName, current: StringName)
+	func get_home(_resident_id: String) -> RefCounted: return null
+	func notify_home() -> void: home_changed.emit("", &"", &"")
 	var calls: Array = []
 	func describe_assignment(_resident: String, _assignment: StringName) -> String: return "Проверка"
 	func cancel_assignment(resident: String, assignment: StringName) -> bool:
@@ -46,6 +49,7 @@ func _run() -> void:
 	actor.assignments._change_state(talk, Assignment.State.QUEUED)
 	var spy := ControlSpy.new()
 	card.bind_control(spy)
+	spy.notify_home() # Exercise the management notification contract of the UI test double.
 	row(card, second.id).get_child(2).pressed.emit()
 	check(spy.calls == [[actor.data.id, second.id]] and second.state == Assignment.State.QUEUED and actor.data.assignments.size() == 3, "Exact ID through API, UI never mutates data")
 	card.bind_control(scene.player_control)

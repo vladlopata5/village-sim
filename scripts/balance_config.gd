@@ -43,3 +43,5 @@ const BUILDER_DISTANCE_WEIGHT = 1000.0
 
 const PORTER_DISTANCE_SCALE = 600.0
 const PORTER_DISTANCE_WEIGHT = 1000.0
+
+const HOUSE_RESIDENT_CAPACITY = 4 # Temporary prototype housing balance.

@@ -13,6 +13,7 @@ func register_building(building: RefCounted, position: Callable) -> void:
 	var capabilities: Array = []
 	var profession := -1
 	match building.type:
+		BuildingType.Type.HOME: capabilities.append(&"housing")
 		BuildingType.Type.FOOD: capabilities.append(&"food")
 		BuildingType.Type.STORAGE:
 			capabilities.append(&"employment")
@@ -48,6 +49,13 @@ func _for_resident(resident_id: String, target_id: StringName) -> Array:
 					options.append(Option.new(&"talk", "Поговорить с %s" % target.label, Option.Kind.RESIDENT_ASSIGNMENT, target_id))
 			&"food":
 				options.append(Option.new(&"eat", "Поесть здесь", Option.Kind.RESIDENT_ASSIGNMENT, target_id))
+			&"housing":
+				if not control.is_housing_target(target.data): continue
+				if data.home_location_id == target_id:
+					options.append(Option.new(&"clear_home", "Выселиться", Option.Kind.MANAGEMENT_ACTION, target_id))
+				else:
+					var full: bool = control.get_home_occupants(target_id).size() >= target.data.definition.housing_capacity
+					options.append(Option.new(&"assign_home", "Назначить дом", Option.Kind.MANAGEMENT_ACTION, target_id, not full, "Дом заполнен" if full else ""))
 			&"employment":
 				var already: bool = data.profession == target.profession and data.work_location_id == target_id
 				options.append(Option.new(&"employment", "Устроиться на работу", Option.Kind.MANAGEMENT_ACTION, target_id, not already, "Уже работает здесь" if already else ""))
@@ -70,6 +78,10 @@ func execute(resident_ids: Array, option: Option) -> bool:
 			&"eat":
 				var assignment := Assignment.new(&"", resident_id, Assignment.EAT_AT_TARGET, option.target_id)
 				if not control.add_assignment(resident_id, assignment): return false
+			&"assign_home":
+				if not control.assign_home(resident_id, option.target_id): return false
+			&"clear_home":
+				if not control.clear_home(resident_id): return false
 			&"employment":
 				if not control.assign_workplace(resident_id, option.target_id): return false
 			_: return false

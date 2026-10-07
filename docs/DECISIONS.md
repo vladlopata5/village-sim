@@ -1167,3 +1167,31 @@ default workplace; контекстное employment назначает конк
   changes инвалидируют cached work availability. Отложенный Main handler будит только
   свободных IDLE porters. Builder transport, needs, PlayerCommand, UtilitySelector
   и import/export weights не изменены.
+
+
+## 2026-10-07 — housing foundation, без изменения сна
+
+- ResidentData.home_location_id уже существовал. Он становится единственным
+  источником housing relationship; added home_changed(old,new) сигналит только
+  реальное изменение. Списка жильцов внутри дома нет: PlayerControl query сканирует
+  население. Existing Factory уже передаёт home ID, Generator использует пустой.
+- BuildingDefinition.housing_capacity = HOUSE_RESIDENT_CAPACITY=4 только для HOME,
+  остальные 0. Только BUILT HOME с положительной capacity допустим для назначения.
+- PlayerControl assign_home/clear_home проверяют ID/тип/state/capacity. Reassign
+  валидирует destination перед заменой; failed assignment сохраняет прежнюю связь.
+  Same-home повтор — no-op false. Назначение не трогает AI/intents/commands/tasks.
+- Housing capability в InteractionService даёт management options «Назначить дом» /
+  «Выселиться», полный другой дом disabled. UI вызывает simulation API. Main
+  регистрирует стартовые дома и завершённые новые дома через тот же building API.
+- PlayerControl использует общий world buildings Array и forward-ит локальный
+  ResidentData.home_changed. ResidentCard обновляет строку на selection/home events;
+  BuildingCard обновляет query/строки для old/new homes, а state signal открывает
+  housing section при completion. Нового polling/bus/controller нет.
+- Конфликт со старым NightHome flow решён минимальной развязкой: Schedule фиксирует
+  bootstrap night marker ID при setup, вместо чтения изменяемой housing связи на
+  каждой фазе. Маршрут/позиционное разрешение и sleep/fatigue правила сохранены.
+  Назначение нового дома и homelessness пока не выбирают место сна. Старый тест
+  missing location теперь удаляет night marker, сохраняя проверку отсутствующей
+  координаты без подмены housing management на sleep-location behavior.
+- Default/invalid home безопасен. Demolition, auto-fill, beds, quality, penalties,
+  семьи и housing AI отсутствуют; эти механики будут отдельными этапами.

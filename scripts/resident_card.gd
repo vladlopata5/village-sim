@@ -15,6 +15,7 @@ var _assignment_resident: ResidentData
 var profession_choice: OptionButton
 var intent_label: Label
 var summary_label: Label
+@onready var home_label: Label = $Margin/Column/Scroll/Content/Home
 @onready var name_label: Label = $Margin/Column/Scroll/Content/Name
 @onready var age_label: Label = $Margin/Column/Scroll/Content/Metadata/Age
 @onready var profession_label: Label = $Margin/Column/Scroll/Content/Profession
@@ -48,7 +49,10 @@ func _ready() -> void:
 	$Margin/Column/Scroll/Content.move_child(intent_label, mood_label.get_index() + 1)
 
 func bind_control(control: RefCounted) -> void:
+	if _control != null and _control.home_changed.is_connected(_on_home_changed): _control.home_changed.disconnect(_on_home_changed)
 	_control = control
+	_control.home_changed.connect(_on_home_changed)
+	_refresh_home()
 	_refresh_assignments()
 
 func _on_profession_selected(index: int) -> void:
@@ -122,6 +126,7 @@ func _on_selection_changed() -> void:
 		_assignment_resident.assignments_changed.connect(_refresh_assignments)
 	$Margin/Column/Scroll.scroll_vertical = 0
 	_refresh_assignments()
+	_refresh_home()
 	_refresh()
 
 func _refresh_assignments() -> void:
@@ -169,3 +174,11 @@ func _assignment_state_text(state: Assignment.State) -> String:
 func _intent_text(reason: String) -> String:
 	var labels := {"builder_source": "Идёт за строительным материалом", "builder_delivery": "Доставляет материалы на стройку", "builder_site": "Строительная работа", "eat": "Идёт поесть", "social": "Идёт к собеседнику", "leisure": "Отдыхает", "wander": "Прогулка", "day_work": "Работа по расписанию", "night_home": "Возвращается домой", "haul_source": "Идёт за грузом", "haul_destination": "Доставляет груз", "player_move": "Идёт по приказу игрока", "critical_sleep": "Восстанавливает силы", "rest": "Отдыхает"}
 	return labels.get(reason, reason)
+
+
+func _on_home_changed(resident_id: String, _previous: StringName, _current: StringName) -> void:
+	if _selection != null and _selection.selected_resident != null and _selection.selected_resident.id == resident_id: _refresh_home()
+
+func _refresh_home() -> void:
+	var home: RefCounted = _control.get_home(_selection.selected_resident.id) if _control != null and _selection != null and _selection.selected_resident != null else null
+	home_label.text = "Дом: %s (%s)" % [home.display_name, home.id] if home != null else "Дом: Нет дома"

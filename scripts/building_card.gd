@@ -6,6 +6,10 @@ const Types = preload("res://scripts/building_type.gd")
 const ResourceType = preload("res://scripts/resource_type.gd")
 const Balance = preload("res://scripts/balance_config.gd")
 const FOOD = ResourceType.Type.FOOD
+var _control: RefCounted
+@onready var housing_section: VBoxContainer = $Margin/Column/Scroll/Content/Housing
+@onready var housing_count: Label = $Margin/Column/Scroll/Content/Housing/Count
+@onready var housing_residents: Label = $Margin/Column/Scroll/Content/Housing/Residents
 var _selection: Selection
 var _building: Instance
 var _last_snapshot: Array = []
@@ -66,6 +70,7 @@ func _refresh() -> void:
 	production_section.visible = _building.is_built() and _building.type == Types.Type.GATHERER_HUT
 	production_label.text = "FOOD • прогресс: %d / %d рабочих минут" % [_building.production_progress, Balance.GATHERER_WORK_MINUTES_PER_FOOD]
 	construction_section.visible = not _building.is_built()
+	_refresh_housing()
 	var materials := PackedStringArray()
 	for resource in _building.definition.construction_requirements:
 		materials.append("%s: %d / %d" % [ResourceType.display_name(resource), _building.get_delivered_amount(resource), _building.get_required_amount(resource)])
@@ -82,3 +87,22 @@ func _type_text(category: int) -> String:
 		_: return "Здание"
 func _close() -> void:
 	if _selection != null and _selection.selected_building != null: _selection.clear()
+
+
+func bind_control(control: RefCounted) -> void:
+	if _control != null and _control.home_changed.is_connected(_on_home_changed): _control.home_changed.disconnect(_on_home_changed)
+	_control = control
+	_control.home_changed.connect(_on_home_changed)
+	_refresh_housing()
+
+func _on_home_changed(_resident_id: String, previous: StringName, current: StringName) -> void:
+	if _building != null and _building.id in [previous, current]: _refresh_housing()
+
+func _refresh_housing() -> void:
+	housing_section.visible = _control != null and _control.is_housing_target(_building)
+	if not housing_section.visible: return
+	var occupants: Array = _control.get_home_occupants(_building.id)
+	housing_count.text = "Жильцы: %d / %d" % [occupants.size(), _building.definition.housing_capacity]
+	var names := PackedStringArray()
+	for resident in occupants: names.append("• " + resident.resident_name)
+	housing_residents.text = "\n".join(names) if not names.is_empty() else "Нет жильцов"

@@ -66,6 +66,11 @@ autowrap_mode = 3
 visible = false
 layout_mode = 2
 
+[node name="Home" type="Label" parent="Margin/Column/Scroll/Content"]
+layout_mode = 2
+autowrap_mode = 3
+text = "Дом: Нет дома"
+
 [node name="Mood" type="Label" parent="Margin/Column/Scroll/Content"]
 layout_mode = 2
 autowrap_mode = 3

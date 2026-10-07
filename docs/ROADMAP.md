@@ -391,3 +391,12 @@ HaulJob создаётся только после успешного atomic cla
 диспетчер работников. Добавлено независимое физическое выполнение нескольких
 носильщиков и local event-driven availability без нового scheduler. Builder
 construction transport остаётся отдельным workflow.
+
+
+### Выполнено в Phase 4: housing relationship/data/UI foundation (2026-10-07)
+
+Optional ResidentData.home_location_id, prototype HOME capacity=4, query жильцов,
+ручные assign/clear/reassign через management API/context menu и event-driven
+ResidentCard/BuildingCard. Homeless допустим, завершённый дом не auto-fills.
+Следующие отдельные этапы: sleep-location behavior и housing quality; в этом шаге
+новое назначение дома не меняет сон и не создаёт PlayerCommand/ResidentAssignment.

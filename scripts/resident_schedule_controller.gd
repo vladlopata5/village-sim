@@ -12,6 +12,8 @@ var before_work: Callable
 var work_decision: Callable
 var _locations: RefCounted
 var _phase: String = ""
+# Preserve the legacy prototype night route; player housing is data/UI only here.
+var _night_location_id: StringName = &""
 var is_night: bool:
 	get: return _phase == "Ночь"
 var _intents: IntentController
@@ -19,6 +21,7 @@ var _intents: IntentController
 func setup(game_time: Node, locations: RefCounted, intents: IntentController) -> void:
 	_locations = locations
 	_intents = intents
+	_night_location_id = intents.resident_data.home_location_id if intents.resident_data != null else &""
 	_intents.intent_completed.connect(_on_intent_completed)
 	game_time.phase_changed.connect(_on_phase_changed)
 	_on_phase_changed(game_time.get_phase())
@@ -57,7 +60,7 @@ func _on_phase_changed(phase: String) -> void:
 				_intents.clear_reason(&"manual_move")
 			else:
 				_move_to_location(data.work_location_id, &"day_work", WORK_PRIORITY)
-		"Ночь": _move_to_location(data.home_location_id, &"night_home", HOME_PRIORITY)
+		"Ночь": _move_to_location(_night_location_id, &"night_home", HOME_PRIORITY)
 
 func _move_to_location(location_id: StringName, reason: StringName, priority: int) -> void:
 	if reason == &"day_work" and before_work.is_valid() and not before_work.call():

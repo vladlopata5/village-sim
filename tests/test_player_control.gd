@@ -10,6 +10,9 @@ const FOOD = preload("res://scripts/resource_type.gd").Type.FOOD
 var failures := 0
 var lines: Array[String] = []
 class ControlSpy extends RefCounted:
+	signal home_changed(resident_id: String, previous: StringName, current: StringName)
+	func get_home(_resident_id: String) -> RefCounted: return null
+	func notify_home() -> void: home_changed.emit("", &"", &"")
 	var calls: Array = []
 	func assign_profession(resident_id: String, profession: int) -> bool:
 		calls.append([resident_id, profession])
@@ -52,6 +55,7 @@ func _run() -> void:
 	scene.resident_selection.select(resident.data)
 	var spy = ControlSpy.new()
 	card.bind_control(spy)
+	spy.notify_home() # Exercise the management notification contract of the UI test double.
 	card.profession_choice.item_selected.emit(card.profession_choice.get_item_index(Profession.PORTER))
 	check(spy.calls == [[resident.data.id, Profession.PORTER]] and resident.data.profession == Profession.NONE, "UI delegates ID/profession to simulation API; no direct mutation")
 	card.bind_control(scene.player_control)

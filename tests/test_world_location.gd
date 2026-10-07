@@ -58,6 +58,7 @@ func _run() -> void:
 	view._process(20.0)
 	check(data.activity == Activity.Type.IDLE, "Manual arrival remains IDLE")
 	data.home_location_id = &"missing"
+	home.free() # Missing legacy night destination remains safe independently of housing.
 	while clock.get_phase() != "Ночь":
 		clock.debug_next_phase()
 	check(not view.has_movement_target and data.activity == Activity.Type.IDLE, "Missing home does not issue bogus movement or sleep")

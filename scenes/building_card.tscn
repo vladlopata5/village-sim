@@ -57,6 +57,14 @@ text = "Производство"
 [node name="Progress" type="Label" parent="Margin/Column/Scroll/Content/Production"]
 layout_mode = 2
 autowrap_mode = 3
+[node name="Housing" type="VBoxContainer" parent="Margin/Column/Scroll/Content"]
+visible = false
+layout_mode = 2
+[node name="Count" type="Label" parent="Margin/Column/Scroll/Content/Housing"]
+layout_mode = 2
+[node name="Residents" type="Label" parent="Margin/Column/Scroll/Content/Housing"]
+layout_mode = 2
+autowrap_mode = 3
 [node name="Construction" type="VBoxContainer" parent="Margin/Column/Scroll/Content"]
 layout_mode = 2
 [node name="Heading" type="Label" parent="Margin/Column/Scroll/Content/Construction"]

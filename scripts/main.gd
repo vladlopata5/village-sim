@@ -78,6 +78,7 @@ func _ready() -> void:
 	player_control.logger = game_logger
 	player_control.setup(residents, buildings)
 	$HUD/ResidentCard.bind_control(player_control)
+	$HUD/BuildingCard.bind_control(player_control)
 	resident_selection.selection_changed.connect(_update_selection)
 	production.work_assignment_provider = _committed_work_assignment
 	for runtime in resident_runtimes:
@@ -291,7 +292,7 @@ func _create_test_residents() -> void:
 		home_view.building_data = home_building
 		home_view.setup(home)
 		world_locations.register(home, home_view)
-		interactions.register_target(home.id, home.display_name, home, world_locations.get_position.bind(home.id))
+		interactions.register_building(home_building, world_locations.get_position.bind(home.id))
 		interaction_targets.register(home.id, home_view)
 		var view = ResidentView2D.instantiate()
 		view.z_index = 1 # Residents remain visible at buildings placed later in the world tree.

@@ -878,3 +878,33 @@ porter, committed snapshot, opt-in DEBUG и две реальных паралл
 а также event-driven возврат работы без продвижения часов. Старые pool assertions
 в logistics/claim/production/player-control tests заменены assertions новой модели;
 физическая доставка, interrupts, production chain и builder regressions сохранены.
+
+
+## Housing foundation (2026-10-07)
+
+Реализована необязательная home relationship и ручное management управление:
+ResidentData.home_location_id — sole source; BuildingDefinition.housing_capacity
+у HOME=4 (prototype balance), остальных=0. Жильцы вычисляются query по населению.
+Assign/clear/reassign идут через PlayerControl; только BUILT HOME, проверка новой
+capacity до изменения старого дома. Повтор того же ID не создаёт дублей.
+
+RMB HOME: «Назначить дом» / «Выселиться»; полный другой дом disabled с причиной.
+ResidentCard показывает имя и конкретный ID / «Нет дома». BuildingCard BUILT HOME
+показывает N/capacity и имена / «Нет жильцов». State completion открывает housing
+для нового дома без auto-fill. Home events сразу обновляют resident/old/new house
+карточки без нового polling. Under-construction и non-HOME housing block скрыт.
+
+Legacy ночной marker ID сохранён в Schedule на setup отдельно от housing ID,
+чтобы это управление не меняло существующий сон. Sleep/fatigue formulas, forced
+survival, intents, PlayerCommand, ResidentAssignment, builder и logistics semantics
+не меняются. Sleep-location behavior и качество жилья будут отдельными задачами.
+
+Новый test_housing.gd покрывает defaults/capacity/types/states, assign/clear/full
+и безопасный reassign, query source of truth, stale context validation, реальный
+RMB menu, непосредственные signal UI updates при выключенном card process,
+оба дома после переселения, completion нового дома, invalid reference,
+непрерывание committed action/command/assignment и прежний ночной маршрут.
+
+Итоговая проверка: 52/52 test suites; housing — 64 checks, 0 failures;
+Godot analyzer — 125 scripts, 0 diagnostics; headless startup — exit 0, пустой stderr.
+Проверен реальный render ResidentCard с home name/ID и BuildingCard с 2/4 жильцов.

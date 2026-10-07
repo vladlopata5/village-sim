@@ -10,7 +10,14 @@ const TraitData = preload("res://scripts/trait_data.gd")
 ## The resident exists as data, independently of any scene or renderer.
 ## The creator assigns an ID unique within the settlement.
 var work_location_id: StringName = &""
-var home_location_id: StringName = &""
+signal home_changed(previous: StringName, current: StringName)
+# Sole housing relationship. Empty/invalid references are valid homeless data.
+var home_location_id: StringName = &"":
+	set(value):
+		if home_location_id == value: return
+		var previous := home_location_id
+		home_location_id = value
+		home_changed.emit(previous, value)
 var id: String
 var resident_name: String
 var age: int
