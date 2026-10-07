@@ -101,3 +101,31 @@ func add_skill_xp(skill: Skill.Type, amount: int) -> bool:
 	_skill_xp[skill] += amount
 	skill_changed.emit(skill, amount, previous_level)
 	return true
+
+const Relationship = preload("res://scripts/resident_relationship.gd")
+signal relationship_changed(other_resident_id: StringName)
+# Outgoing directed records only. Never update another resident's reverse record.
+var relationships: Dictionary = {}
+func get_relationship(other_id: StringName) -> Relationship:
+	if other_id == StringName(id) or other_id.is_empty(): return null
+	return relationships.get(other_id)
+func has_relationship(other_id: StringName) -> bool:
+	return get_relationship(other_id) != null
+func get_opinion(other_id: StringName) -> int:
+	var relation := get_relationship(other_id)
+	return relation.opinion if relation != null else Balance.OPINION_NEUTRAL
+func set_opinion(other_id: StringName, value: int) -> bool:
+	if other_id == StringName(id) or other_id.is_empty(): return false
+	var bounded := clampi(value, Balance.OPINION_MIN, Balance.OPINION_MAX)
+	if get_opinion(other_id) == bounded: return false
+	var relation := get_relationship(other_id)
+	if relation == null:
+		relation = Relationship.new(other_id)
+		relationships[other_id] = relation
+		relation.opinion_changed.connect(_on_relationship_opinion_changed.bind(other_id))
+	relation.opinion = bounded
+	return true
+func change_opinion(other_id: StringName, delta: int) -> bool:
+	return set_opinion(other_id, get_opinion(other_id) + delta)
+func _on_relationship_opinion_changed(other_id: StringName) -> void:
+	relationship_changed.emit(other_id)

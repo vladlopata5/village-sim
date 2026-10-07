@@ -1320,3 +1320,45 @@ ResidentCard подписывается traits_changed только выбран
 Регрессионные harnesses явно убирают traits через API, чтобы проверять базовое
 поведение независимо от starting generation. Новые trait tests проверяют effects
 с явно заданными чертами и настоящие маршруты/critical contexts.
+
+
+### Directed relationships и границы будущей social architecture (2026-10-07)
+
+Реализован только слой A: Directed opinion — субъективное A→B. ResidentData
+владеет sparse dictionary stable other ID → ResidentRelationship. Минимальные
+поля объекта: other_resident_id/opinion; никаких future placeholder fields.
+OPINION_MIN=−100, MAX=100, NEUTRAL=0 централизованы в balance_config.
+get_opinion/get_relationship/has_relationship не создают record. set/change
+создают его только при фактическом изменении; neutral set(0)/change(0) без
+record — no-op. Self/empty writes возвращают false, reads neutral/null.
+set/change возвращают true только когда эффективное мнение изменилось.
+
+Record setter clamp-ит и эмитит opinion_changed только при изменении. ResidentData
+передаёт этот локальный сигнал как relationship_changed(other_id), включая запись
+через полученный data object. Второй resident не вызывается, обратное мнение не
+синхронизируется. Если будущее событие влияет на обоих, caller сам применит два
+разных delta. Existing record может сохраняться при возврате к neutral.
+
+ResidentCard читает current roster через PlayerControl.get_residents, подписывается
+только на relationship_changed выбранного resident и отключает старую подписку.
+Локальный PlayerControl.residents_changed сообщает об изменениях при setup
+population; новый global bus/removal system не нужен. Отсутствующие targets
+сохранённых records в карточку не попадают. Frame refresh отношения не опрашивает.
+
+Долгосрочные слои B–G пока только архитектурное направление:
+- B. Compatibility — более стабильная pair-level характеристика, отдельно от
+  opinion; её будущая симметрия ещё не определена.
+- C. Social memories — причины/события, которые позже изменят opinion через
+  change_opinion; объяснимые contributions возможны, сейчас их нет.
+- D. Relationship states — будущие semantic directed states (friend/rival/etc.),
+  без автоматического вывода FRIEND из opinion=60 на этом этапе.
+- E. Shared events — отдельные события с event_id/participants/time/data; будущие
+  references из relationships/memories, без копирования общего текста в обе связи.
+- F. Genealogy/kinship — объективная family structure, не subjective opinion и
+  не opinion tags. Parent/child связь может сосуществовать с opinion −40.
+- G. Chronicle/biography — будущее представление значимых life/shared events.
+
+Эти слои не реализованы; placeholder controllers/fields и compatibility score
+не добавлены. Нет automatic conversation opinion, decay, social AI modifiers
+или случайных initial opinions. Существующие social execution/selector/modifiers
+не меняются. Current API/data даёт отдельное место для будущего directed metadata.

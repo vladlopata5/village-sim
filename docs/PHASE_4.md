@@ -1066,3 +1066,31 @@ events, policies и temporary states; сейчас реализованы тол
 exit 0, пустой stderr; новых warnings/errors нет. Regression harnesses проверяют
 base behavior без traits, новые сценарии — seeded data, conflicts, effective
 utility/selector, все movement routes, forced bypass и signal UI на паузе.
+
+
+## Directed relationship/opinion foundation
+
+ResidentRelationship (RefCounted) хранит other_resident_id:StringName/opinion:int.
+ResidentData.relationships — sparse outgoing dictionary, без симметричной пары.
+API get_opinion/get_relationship/has_relationship читает neutral/null без allocation;
+set_opinion/change_opinion создаёт объект при первой фактической модификации.
+Self/empty targets отвергаются. Clamp −100..100, neutral=0 берётся из balance_config.
+Object opinion_changed передаётся только владельцу как relationship_changed(other_id);
+no-op и clamp без изменения не эмитят событий. Начальные жители имеют 0 записей.
+
+ResidentCard содержит компактный Relationships label внутри существующей прокрутки.
+Показывает selected→other с +positive/0/negative, только current roster и без себя.
+Selection, opinion signal и local PlayerControl roster signal обновляют label,
+без frame polling. Список текущих residents query-ится через PlayerControl;
+records временно отсутствующих targets безопасно сохраняются и не отображаются.
+
+ConversationGroup, TALK_TO, UtilitySelector, ResidentModifiers и gameplay не меняются.
+Разговор не создаёт opinions; TALK_TO completion тоже не начисляет relationship delta.
+Нет decay/compatibility/states/friend thresholds/memories/shared events/genealogy.
+Дальнейшее разделение B–G описано в DECISIONS без реализации этих слоёв сейчас.
+
+Проверка foundation отношений: 57/57 test suites PASS; test_resident_relationships
+— 74 checks, 0 failures. Godot analyzer — 132 scripts, 0 diagnostics.
+Headless startup — exit 0, пустой stderr; новых warnings/errors нет. Проверены
+directed/sparse/clamp/self/no-op/signal semantics, paused UI/reverse selection/
+roster refresh, отсутствие conversation opinion gain/decay и social AI effects.

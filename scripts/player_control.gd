@@ -5,6 +5,7 @@ const BuildingInstance = preload("res://scripts/building_instance.gd")
 const BuildingType = preload("res://scripts/building_type.gd")
 const EventLog = preload("res://scripts/game_logger.gd")
 var logger: EventLog
+signal residents_changed
 signal profession_changed(resident_id: String)
 signal home_changed(resident_id: String, previous: StringName, current: StringName)
 var _buildings: Array = [] # Shared world collection, not a separate housing registry.
@@ -33,11 +34,14 @@ func describe_assignment(resident_id: String, assignment_id: StringName) -> Stri
 
 func setup(population: Array, buildings: Array) -> void:
 	_buildings = buildings
+	var population_changed := false
 	for resident in population:
+		population_changed = population_changed or _residents.get(resident.id) != resident
 		_residents[resident.id] = resident
 		var callback := _on_resident_home_changed.bind(resident.id)
 		if not resident.home_changed.is_connected(callback): resident.home_changed.connect(callback)
 	for building in buildings: register_building(building)
+	if population_changed: residents_changed.emit()
 
 func register_building(building: RefCounted) -> void:
 	if building not in _buildings: _buildings.append(building)
@@ -54,6 +58,7 @@ func register_commands(resident_id: String, controller: Node) -> void:
 	_commands[resident_id] = controller
 
 func get_resident(resident_id: String): return _residents.get(resident_id)
+func get_residents() -> Array: return _residents.values()
 
 func move_to(resident_id: String, destination: Vector2) -> bool:
 	var controller: Node = _commands.get(resident_id)

@@ -13,6 +13,7 @@ const StateText = preload("res://scripts/resident_state_text.gd")
 var _selection: ResidentSelection
 var _control: RefCounted
 var _assignment_resident: ResidentData
+@onready var relationships_label: Label = $Margin/Column/Scroll/Content/Relationships
 @onready var skills_label: Label = $Margin/Column/Scroll/Content/Skills
 @onready var assignment_list: VBoxContainer = $Margin/Column/Scroll/Content/Assignments
 var profession_choice: OptionButton
@@ -53,7 +54,10 @@ func _ready() -> void:
 
 func bind_control(control: RefCounted) -> void:
 	if _control != null and _control.home_changed.is_connected(_on_home_changed): _control.home_changed.disconnect(_on_home_changed)
+	if _control != null and _control.residents_changed.is_connected(_refresh_relationships): _control.residents_changed.disconnect(_refresh_relationships)
 	_control = control
+	_control.residents_changed.connect(_refresh_relationships)
+	_refresh_relationships()
 	_control.home_changed.connect(_on_home_changed)
 	_refresh_home()
 	_refresh_assignments()
@@ -123,13 +127,16 @@ func _on_selection_changed() -> void:
 		_assignment_resident.assignments_changed.disconnect(_refresh_assignments)
 		_assignment_resident.skill_changed.disconnect(_on_skill_changed)
 		_assignment_resident.traits_changed.disconnect(_refresh_traits)
+		_assignment_resident.relationship_changed.disconnect(_on_relationship_changed)
 	_assignment_resident = _selection.selected_resident
 	if _assignment_resident != null:
 		_assignment_resident.assignments_changed.connect(_refresh_assignments)
 		_assignment_resident.skill_changed.connect(_on_skill_changed)
 		_assignment_resident.traits_changed.connect(_refresh_traits)
+		_assignment_resident.relationship_changed.connect(_on_relationship_changed)
 	_refresh_skills()
 	_refresh_traits()
+	_refresh_relationships()
 	$Margin/Column/Scroll.scroll_vertical = 0
 	_refresh_assignments()
 	_refresh_home()
@@ -205,3 +212,16 @@ func _refresh_traits() -> void:
 	if _assignment_resident != null:
 		for trait_type in _assignment_resident.traits: names.append("• " + Trait.display_name(trait_type))
 	traits_label.text = "Черты\n" + "\n".join(names) if not names.is_empty() else "Черты: нет"
+
+func _on_relationship_changed(_other_id: StringName) -> void:
+	_refresh_relationships()
+func _refresh_relationships() -> void:
+	var lines := PackedStringArray(["Отношения"])
+	if _assignment_resident != null and _control != null:
+		for other in _control.get_residents():
+			if other.id == _assignment_resident.id: continue
+			var opinion: int = _assignment_resident.get_opinion(StringName(other.id))
+			var number := "%+d" % opinion if opinion > 0 else "%d" % opinion
+			lines.append("%s: %s" % [other.resident_name, number])
+	if lines.size() == 1: lines.append("Нет других жителей")
+	relationships_label.text = "\n".join(lines)

@@ -1311,3 +1311,26 @@ traits_changed обновляет блок event-driven, в том числе н
 Weather/mood/events/health/policies/temporary states — будущие sources, сейчас
 не реализованы. Traits изменяют существующие параметры, а не создают отдельные
 случайные special behavior branches.
+
+
+### Направленное мнение — foundation отношений
+
+ResidentData хранит собственные исходящие relationships по stable ID другого
+жителя. ResidentRelationship содержит только other_resident_id и opinion.
+Opinion субъективно и направленно: A→B=40 и B→A=−10 независимы. Диапазон
+−100..100, neutral=0; set/change clamp. Self/empty targets не создают записей.
+
+Storage sparse: отсутствующий record означает neutral opinion. Read/get не
+создаёт запись; первая фактическая модификация создаёт directed object. Начальные
+жители нейтральны, без full matrix и случайной/trait-based генерации мнений.
+Связь хранит ID, не Node/View; временно отсутствующий target не ломает данные.
+
+ResidentCard показывает остальных текущих жителей и selected→other opinion:
+«Степан: +40», «Фёдор: 0», «Марина: −15». Себя не показывает. Обновление по
+selection/relationship_changed/roster event, без polling и отдельного окна.
+
+Opinion пока не влияет на SOCIAL utility/partner choice, ConversationGroup,
+TALK_TO, work, traits/modifiers, needs, skills, housing, movement или sleep.
+Разговоры и completion TALK_TO не изменяют мнение; decay и semantic friendship
+thresholds нет. Будущие social events могут применять change_opinion; memories,
+compatibility, states, shared events и genealogy остаются отдельными слоями.

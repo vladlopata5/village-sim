@@ -443,3 +443,13 @@ Gameplay effects, task requirements, AI preferences и training — отдель
 EAT threshold, movement speed и selector parameters. UI traits event-driven.
 UtilitySelector generic, forced/critical/night/management bypass сохранён.
 Mood/weather/health/events/policies и skill gameplay modifiers — будущие этапы.
+
+
+### Выполнено в Phase 4: directed relationship foundation (2026-10-07)
+
+ResidentData хранит sparse исходящие ResidentRelationship: stable target ID и
+opinion −100..100. Отсутствующая запись neutral; initial opinions=0. Независимые
+направления, get/set/change API, local signals и event-driven ResidentCard.
+Gameplay effects, compatibility, social memories, relationship states, shared
+events, genealogy и chronicle/biography — следующие отдельные дизайнерские этапы.
+Conversation gain/decay и friendship thresholds сейчас отсутствуют.

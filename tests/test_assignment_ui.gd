@@ -4,9 +4,13 @@ const Assignment = preload("res://scripts/resident_assignment.gd")
 const FOOD = preload("res://scripts/resource_type.gd").Type.FOOD
 const Need = preload("res://scripts/need_type.gd").Type
 class ControlSpy extends RefCounted:
+	signal residents_changed
+	func get_residents() -> Array: return []
 	signal home_changed(resident_id: String, previous: StringName, current: StringName)
 	func get_home(_resident_id: String) -> RefCounted: return null
-	func notify_home() -> void: home_changed.emit("", &"", &"")
+	func notify_home() -> void:
+		home_changed.emit("", &"", &"")
+		residents_changed.emit()
 	var calls: Array = []
 	func describe_assignment(_resident: String, _assignment: StringName) -> String: return "Проверка"
 	func cancel_assignment(resident: String, assignment: StringName) -> bool:

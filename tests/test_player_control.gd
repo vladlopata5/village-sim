@@ -10,9 +10,13 @@ const FOOD = preload("res://scripts/resource_type.gd").Type.FOOD
 var failures := 0
 var lines: Array[String] = []
 class ControlSpy extends RefCounted:
+	signal residents_changed
+	func get_residents() -> Array: return []
 	signal home_changed(resident_id: String, previous: StringName, current: StringName)
 	func get_home(_resident_id: String) -> RefCounted: return null
-	func notify_home() -> void: home_changed.emit("", &"", &"")
+	func notify_home() -> void:
+		home_changed.emit("", &"", &"")
+		residents_changed.emit()
 	var calls: Array = []
 	func assign_profession(resident_id: String, profession: int) -> bool:
 		calls.append([resident_id, profession])

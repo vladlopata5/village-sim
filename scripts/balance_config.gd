@@ -63,3 +63,8 @@ const GLUTTON_EAT_THRESHOLD_MODIFIER = -10
 const RESTLESS_MOVEMENT_SPEED_MULTIPLIER = 1.10
 const FOOLISH_UTILITY_CANDIDATE_RATIO = 0.55
 const FOOLISH_UTILITY_RANDOM_EXPONENT = 1.50
+
+# Directed relationship foundation; neutral reads do not allocate records.
+const OPINION_MIN = -100
+const OPINION_MAX = 100
+const OPINION_NEUTRAL = 0
