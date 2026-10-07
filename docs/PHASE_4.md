@@ -851,3 +851,30 @@ Analyzer: 121 scripts, 0 diagnostics. Headless startup: 120 frames, exit 0, stde
 Проверен реальный render 10/10 WOOD, 120/180 work-minutes, 2/2 builders. Жители
 рисуются поверх зданий, поставленных позднее, чтобы работающий builder оставался видимым.
 UtilitySelector, need balance и PlayerCommand implementation не изменены.
+
+
+## PORTER: dynamic delivery selection (2026-10-07)
+
+Реализовано: свободный пул HaulJob удалён. Normal AI выбирает WORK, затем PORTER
+создаёт временные DeliveryCandidate по current BUILT source/destination state,
+оценивает full route и claim-ит лучшую доставку. HaulJob рождается после успешных
+обеих reservations сразу с конкретным resident; исполнение остаётся committed.
+
+World urgency сохраняет import кухни / export хижины по направлению пары.
+Score = urgency − (full_route/600)^2*1000 + personal_modifier(0).
+Максимум и resource/source/destination tie-break детерминированные; отдельного
+UtilitySelector внутри logistics нет. Stale claim имеет bounded re-evaluation.
+Два PORTER могут одновременно резервировать/переносить FOOD собственными
+PorterHaulExecutor, учитывая projected fill друг друга. No over-reservation.
+
+ResourceContainer локально сигналит изменения reservations; IDLE porter получает
+отложенную обычную точку выбора после relevant availability event. Minute polling
+и старый refresh/rebuild pool удалены. Builder WOOD workflow не меняется.
+
+Проверки: test_delivery_candidates.gd покрывает отсутствие speculative jobs,
+concrete pairs, BUILT/resource/capacity filters, full-route scoring/calibration,
+stable ties, stale/reentrant/failed atomic claim, current reservations второго
+porter, committed snapshot, opt-in DEBUG и две реальных параллельных доставки,
+а также event-driven возврат работы без продвижения часов. Старые pool assertions
+в logistics/claim/production/player-control tests заменены assertions новой модели;
+физическая доставка, interrupts, production chain и builder regressions сохранены.

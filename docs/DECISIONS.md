@@ -1142,3 +1142,28 @@ GathererProduction обслуживает дополнительные хижи�
 porter executor. PlayerControl.register_building регистрирует workplace, сохраняя прежний
 default workplace; контекстное employment назначает конкретное завершённое здание.
 Дома получают обычное взаимодействие «Идти к», housing mechanics не добавлены.
+
+
+## 2026-10-07 — доставки выбирает PORTER, свободный HaulJob pool удалён
+
+- LogisticsController больше не создаёт RESERVED offers, не refresh-ит job priorities
+  и не наблюдает игровые минуты. Он предоставляет availability, временные concrete
+  DeliveryCandidate и атомарный claim, хранит только active owned jobs.
+- Category WORK=7000 выбирается обычным AI; затем max porter_score выбирает доставку
+  детерминированно. Route = resident→source→destination. Penalty=(route/600)^2*1000;
+  personal modifier hook возвращает 0. Stable tie-break: resource/source/destination.
+- Сохраняем прежнее значение world urgency: import кухни для storage→kitchen,
+  export хижины для hut→storage. Обе стороны валидируются; сумма import+export
+  сознательно не добавлена, поскольку это новый баланс, не текущая эквивалентность.
+- Только успешные source reserve_out + destination reserve_in создают HaulJob
+  сразу с assigned_resident_id. Claim защищён от вложенного claim в resource signals,
+  перепроверяет target/worker после сигналов и откатывает свои брони. Stale failure
+  пересчитывает оставшиеся candidates, максимум исходное число попыток.
+- У каждого носильщика отдельный PorterHaulExecutor. Pickup/delivery остаются
+  физическими; job после claim committed, snapshot priority не обновляется.
+  Completion передаёт normal decision, forced cleanup сохраняет ресурс на земле
+  после pickup. Обычная отмена загруженного рейса остаётся запрещённой.
+- reservations_changed — локальный сигнал ResourceContainer; amount и incoming/outgoing
+  changes инвалидируют cached work availability. Отложенный Main handler будит только
+  свободных IDLE porters. Builder transport, needs, PlayerCommand, UtilitySelector
+  и import/export weights не изменены.

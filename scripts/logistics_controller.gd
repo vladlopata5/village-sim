@@ -1,303 +1,226 @@
 extends RefCounted
+## Delivery selection/reservation service. Only already-owned committed jobs persist.
 const EventLog = preload("res://scripts/game_logger.gd")
-var logger: EventLog
-## Available reserved jobs; workers claim work explicitly. One prototype executor.
 const HaulJob = preload("res://scripts/haul_job.gd")
+const Candidate = preload("res://scripts/delivery_candidate.gd")
+const Executor = preload("res://scripts/porter_haul_executor.gd")
 const BuildingInstance = preload("res://scripts/building_instance.gd")
 const BuildingType = preload("res://scripts/building_type.gd")
 const ResidentData = preload("res://scripts/resident_data.gd")
 const Profession = preload("res://scripts/resident_profession.gd")
 const ResourceType = preload("res://scripts/resource_type.gd")
-const FOOD = ResourceType.Type.FOOD
+const Balance = preload("res://scripts/balance_config.gd")
 const Priority = preload("res://scripts/logistics_priority.gd")
-const Intent = preload("res://scripts/resident_intent.gd")
-const Activity = preload("res://scripts/resident_activity.gd")
-const HAUL_PRIORITY := 8000
-signal cargo_dropped(resource: ResourceType.Type, amount: int)
-signal job_cancelled(resident_id: String)
-var jobs: Array[HaulJob] = []
-var _residents: Dictionary = {}
-signal delivered
-var _clock: Node
-var _locations: RefCounted
-var _intents: Node
-var _schedule: Node
-var _haul_intent: Intent
-var _finishing := false
+const FOOD = ResourceType.Type.FOOD
 signal changed
-var current_job: HaulJob
+signal availability_changed
+signal cargo_dropped(resource: ResourceType.Type, amount: int, resident_id: String)
+signal job_cancelled(resident_id: String)
+signal delivered
+var logger: EventLog
+var position_provider: Callable
+var jobs: Array[HaulJob] = [] # Active committed deliveries, never offers.
+var current_job: HaulJob # Last claim for prototype debug UI; execution uses resident ownership.
+var _residents: Dictionary = {}
+var _executors: Dictionary = {}
+var _buildings: Dictionary = {}
 var _source: BuildingInstance
 var _destination: BuildingInstance
 var _resident: ResidentData
+var _clock: Node
+var _locations: RefCounted
 var _next_id := 1
-var _routes: Array = []
-var _buildings: Dictionary = {}
-var _recalculating := false
+var _claiming := false
+var _available := false
+var _availability_dirty := true
 
 func setup(source: BuildingInstance, destination: BuildingInstance, resident: ResidentData) -> void:
-	_source = source # Assigned porter's warehouse, not the source of every job.
+	_source = source
 	_destination = destination
 	_resident = resident
-	_buildings[source.id] = source
-	_buildings[destination.id] = destination
-	_routes = [{"source": source, "destination": destination, "export": false}]
+	register_building(source)
+	register_building(destination)
 	if resident != null: register_resident(resident)
-
-func add_production_source(hut: BuildingInstance) -> void:
-	_buildings[hut.id] = hut
-	_routes.append({"source": hut, "destination": _source, "export": true})
-
-func _route_has_job(route: Dictionary) -> bool:
-	return jobs.any(func(job): return job.is_active() and job.source_location_id == route.source.id and job.destination_location_id == route.destination.id)
-
-func _route_can_create(route: Dictionary) -> bool:
-	return route.source.is_built() and route.destination.is_built() and not _route_has_job(route) and route.source.resources.get_available_amount(FOOD) >= 1 and route.destination.resources.get_available_free_capacity(FOOD) >= 1
-
+func register_building(building: BuildingInstance) -> void:
+	if _buildings.has(building.id): return
+	_buildings[building.id] = building
+	building.resources.availability_changed.connect(_on_amount_changed)
+	building.resources.reservations_changed.connect(_on_reservations_changed)
+	building.construction_changed.connect(recalculate)
+	recalculate()
+func remove_building(id: StringName) -> void:
+	var building: BuildingInstance = _buildings.get(id)
+	if building == null: return
+	for active in jobs.duplicate():
+		if active.source_location_id == id or active.destination_location_id == id:
+			var owner = _executors.get(active.assigned_resident_id)
+			if owner != null: owner.cancel("здание удалено")
+			else: cancel_job(active)
+	building.resources.availability_changed.disconnect(_on_amount_changed)
+	building.resources.reservations_changed.disconnect(_on_reservations_changed)
+	building.construction_changed.disconnect(recalculate)
+	_buildings.erase(id)
+	for executor in _executors.values(): executor.validate_job()
+	recalculate()
+func add_production_source(hut: BuildingInstance) -> void: register_building(hut)
+func add_kitchen(kitchen: BuildingInstance) -> void: register_building(kitchen)
+func add_warehouse(warehouse: BuildingInstance) -> void: register_building(warehouse)
+func register_resident(resident: ResidentData) -> void: _residents[resident.id] = resident
+func _on_amount_changed(resource: ResourceType.Type, _amount: int) -> void:
+	if resource == FOOD: recalculate()
+func _on_reservations_changed(resource: ResourceType.Type) -> void:
+	if resource == FOOD: recalculate()
 func recalculate() -> void:
-	if _recalculating: return
-	_recalculating = true
-	jobs = jobs.filter(func(job): return job.is_active())
-	for route in _routes:
-		if not _route_can_create(route): continue
-		if not route.source.resources.reserve_out(FOOD, 1): continue
-		if not route.destination.resources.reserve_in(FOOD, 1):
-			route.source.resources.release_out(FOOD, 1)
-			continue
-		var job = HaulJob.new(StringName("haul_%04d" % _next_id), route.source.id, route.destination.id, FOOD, 1)
-		_next_id += 1
-		jobs.append(job)
-		if logger != null: logger.debug(EventLog.LOGISTICS, "%s: reserved_out=1 у %s; reserved_in=1 у %s" % [job.id, route.source.display_name, route.destination.display_name])
-	_refresh_priorities()
-	if current_job == null or not current_job.is_active():
-		if not jobs.is_empty(): current_job = jobs[0]
-	_recalculating = false
+	# Explicit debug refresh / local events only. No clock polling or job creation.
+	_availability_dirty = true
+	if _claiming: return
 	changed.emit()
-
-func _refresh_priorities() -> void:
-	for job in jobs:
-		var source: BuildingInstance = _buildings.get(job.source_location_id)
-		var destination: BuildingInstance = _buildings.get(job.destination_location_id)
-		if source == null or destination == null: continue
-		if source.type == BuildingType.Type.GATHERER_HUT:
-			job.priority = Priority.export_priority(source.resources, job.resource_type, source.logistics_weight)
-		else:
-			job.priority = Priority.import_priority(destination.resources, job.resource_type, destination.logistics_weight)
-
-func _job_source(job: HaulJob) -> BuildingInstance:
-	return _buildings.get(job.source_location_id)
-func _job_destination(job: HaulJob) -> BuildingInstance:
-	return _buildings.get(job.destination_location_id)
-
-func register_resident(resident: ResidentData) -> void:
-	_residents[resident.id] = resident
-
-func _eligible(resident: ResidentData, job: HaulJob) -> bool:
-	return resident != null and resident.profession == Profession.Type.PORTER and _porter_workplace_valid(resident) and _buildings.has(job.source_location_id) and _buildings.has(job.destination_location_id) and _job_source(job).is_built() and _job_destination(job).is_built()
-
-func claim_best_job(resident_id: String) -> HaulJob:
-	var resident: ResidentData = _residents.get(resident_id)
-	if resident == null: return null
-	for job in jobs:
-		if job.is_active() and job.assigned_resident_id == resident_id: return null
-	_refresh_priorities()
-	var best: HaulJob = null
-	for job in jobs:
-		if job.state != HaulJob.State.RESERVED or not job.assigned_resident_id.is_empty() or not _eligible(resident, job): continue
-		if best == null or job.priority > best.priority or (job.priority == best.priority and String(job.id) < String(best.id)):
-			best = job
-	if best != null:
-		# No yield or signal between selection and ownership: subsequent claims see ASSIGNED.
-		best.assigned_resident_id = resident_id
-		best.state = HaulJob.State.ASSIGNED
-		current_job = best
-		if logger != null:
-			logger.info(EventLog.LOGISTICS, "%s: принял HaulJob %s — %s → %s" % [resident.resident_name, best.id, _job_source(best).display_name, _job_destination(best).display_name])
-			logger.debug(EventLog.LOGISTICS, "%s: HaulJob priority=%.1f" % [best.id, best.priority])
-		changed.emit()
-	return best
-
+	availability_changed.emit()
+func _pairs() -> Array:
+	var pairs: Array = []
+	for source in _buildings.values():
+		for destination in _buildings.values():
+			if source == destination: continue
+			if source.type == BuildingType.Type.STORAGE and destination.type == BuildingType.Type.FOOD:
+				pairs.append({"source": source, "destination": destination, "export": false})
+			elif source.type == BuildingType.Type.GATHERER_HUT and destination.type == BuildingType.Type.STORAGE:
+				pairs.append({"source": source, "destination": destination, "export": true})
+	return pairs
+func _valid_pair(pair: Dictionary) -> bool:
+	var source: BuildingInstance = pair.source
+	var destination: BuildingInstance = pair.destination
+	return _buildings.get(source.id) == source and _buildings.get(destination.id) == destination and source != destination and source.is_built() and destination.is_built() and source.resources.get_available_amount(FOOD) > 0 and destination.resources.allows_resource(FOOD) and destination.resources.get_available_free_capacity(FOOD) > 0 and _point(source) is Vector2 and _point(destination) is Vector2
+func _point(building: BuildingInstance) -> Variant:
+	return _locations.get_position(building.id) if _locations != null else building.position
+func _eligible(resident: ResidentData) -> bool:
+	if resident == null or resident.profession != Profession.Type.PORTER or resident.inventory.amount != 0: return false
+	var workplace: BuildingInstance = _buildings.get(resident.work_location_id)
+	return workplace != null and workplace.is_built() and workplace.type == BuildingType.Type.STORAGE
+func _can_claim(resident: ResidentData) -> bool:
+	if not _eligible(resident) or jobs.any(func(job): return job.assigned_resident_id == resident.id): return false
+	var executor = _executors.get(resident.id)
+	return executor == null or executor.can_start()
 func has_available_job(resident_id: String) -> bool:
 	var resident: ResidentData = _residents.get(resident_id)
-	if resident == null: return false
+	if not _can_claim(resident): return false
+	if _availability_dirty:
+		_available = _pairs().any(_valid_pair)
+		_availability_dirty = false
+	return _available and position_provider.is_valid() and position_provider.call(resident_id) is Vector2
+func collect_candidates(resident_id: String) -> Array:
+	# Call at WORK selection (or explicit read-only debug/tests), not world updates.
+	var resident: ResidentData = _residents.get(resident_id)
+	if not _can_claim(resident) or not position_provider.is_valid(): return []
+	var position: Variant = position_provider.call(resident_id)
+	if not position is Vector2: return []
+	var candidates: Array = []
+	for pair in _pairs():
+		if not _valid_pair(pair): continue
+		var candidate := Candidate.new()
+		candidate.source = pair.source
+		candidate.destination = pair.destination
+		candidate.resource_type = FOOD
+		candidate.world_urgency = Priority.export_priority(pair.source.resources, FOOD, pair.source.logistics_weight) if pair.export else Priority.import_priority(pair.destination.resources, FOOD, pair.destination.logistics_weight)
+		candidate.route_distance = position.distance_to(_point(pair.source)) + _point(pair.source).distance_to(_point(pair.destination))
+		candidate.distance_penalty = distance_penalty(candidate.route_distance)
+		candidate.personal_modifier = _get_personal_delivery_modifier(resident, candidate)
+		candidate.porter_score = candidate.world_urgency - candidate.distance_penalty + candidate.personal_modifier
+		candidates.append(candidate)
+	return candidates
+func distance_penalty(distance: float) -> float:
+	return pow(distance / Balance.PORTER_DISTANCE_SCALE, 2.0) * Balance.PORTER_DISTANCE_WEIGHT
+func _get_personal_delivery_modifier(_worker: ResidentData, _candidate: Candidate) -> float: return 0.0
+func _best(candidates: Array) -> Candidate:
+	var best: Candidate = null
+	for candidate in candidates:
+		if best == null or candidate.porter_score > best.porter_score or (candidate.porter_score == best.porter_score and candidate.stable_key() < best.stable_key()): best = candidate
+	return best
+func claim_best_job(resident_id: String) -> HaulJob:
+	if _claiming: return null
+	var resident: ResidentData = _residents.get(resident_id)
+	var candidates := collect_candidates(resident_id)
+	var limit := candidates.size()
+	var attempted: Dictionary = {}
+	for _attempt in range(limit):
+		candidates = candidates.filter(func(candidate): return not attempted.has(candidate.stable_key()))
+		var best := _best(candidates)
+		if best == null: break
+		if logger != null and logger.debug_enabled:
+			for candidate in candidates:
+				logger.debug(EventLog.LOGISTICS, "%s: candidate %s → %s urgency=%.1f distance=%.1f penalty=%.1f personal=%.1f score=%.1f" % [resident.resident_name, candidate.source.display_name, candidate.destination.display_name, candidate.world_urgency, candidate.route_distance, candidate.distance_penalty, candidate.personal_modifier, candidate.porter_score])
+		attempted[best.stable_key()] = true
+		var job := _claim_candidate(resident, best)
+		if job != null: return job
+		candidates = collect_candidates(resident_id) # Bounded fresh evaluation, no stale execution.
+	return null
+func _claim_candidate(resident: ResidentData, candidate: Candidate) -> HaulJob:
+	if not _can_claim(resident) or not _valid_pair({"source": candidate.source, "destination": candidate.destination}): return null
+	_claiming = true # Reserve callbacks cannot recursively claim a half-owned delivery.
+	var out: bool = candidate.source.resources.reserve_out(candidate.resource_type, 1)
+	var incoming: bool = out and candidate.destination.resources.reserve_in(candidate.resource_type, 1)
+	# Forced/player/world changes inside synchronous resource signals are rechecked too.
+	var valid: bool = incoming and _can_claim(resident) and _buildings.get(candidate.source.id) == candidate.source and _buildings.get(candidate.destination.id) == candidate.destination and candidate.source.is_built() and candidate.destination.is_built()
+	valid = valid and _point(candidate.source) is Vector2 and _point(candidate.destination) is Vector2
+	valid = valid and candidate.source.resources.get_reserved_out(candidate.resource_type) >= 1 and candidate.destination.resources.get_reserved_in(candidate.resource_type) >= 1
+	if not valid:
+		if out: candidate.source.resources.release_out(candidate.resource_type, 1)
+		if incoming: candidate.destination.resources.release_in(candidate.resource_type, 1)
+		_claiming = false
+		recalculate()
+		return null
+	var job := HaulJob.new(StringName("haul_%04d" % _next_id), candidate.source.id, candidate.destination.id, candidate.resource_type, 1, resident.id, candidate.porter_score)
+	_next_id += 1
+	jobs.append(job)
+	current_job = job
+	var executor = _executors.get(resident.id)
+	if executor != null: executor.job = job
+	_claiming = false
+	if logger != null: logger.info(EventLog.LOGISTICS, "%s: выбрал доставку 1 FOOD — %s → %s" % [resident.resident_name, candidate.source.display_name, candidate.destination.display_name])
+	recalculate()
+	return job
+func get_job(resident_id: String) -> HaulJob:
 	for job in jobs:
-		if job.state == HaulJob.State.RESERVED and _eligible(resident, job): return true
-	return resident.profession == Profession.Type.PORTER and _source != null and _porter_workplace_valid(resident) and _can_create_job()
-
-func executor_available() -> bool:
-	return _haul_intent == null and not _finishing
-
-func use_executor(resident: ResidentData, clock: Node, locations: RefCounted, intents: Node, schedule: Node) -> bool:
-	if not executor_available(): return false
-	_disconnect_resident()
-	_resident = resident
-	bind_execution(clock, locations, intents, schedule)
-	return true
-
-func executor_resident() -> ResidentData:
-	return _resident
-
-func start_claimed_job(job: HaulJob, resident_id: String) -> bool:
-	if job == null or job != current_job or job.assigned_resident_id != resident_id or _resident == null or _resident.id != resident_id: return false
-	return _start_if_possible()
-
+		if job.assigned_resident_id == resident_id: return job
+	return null
+func finish_job(job: HaulJob) -> void:
+	jobs.erase(job)
+	recalculate()
 func cancel_job(job: HaulJob) -> bool:
-	if job == null or not jobs.has(job) or not job.is_active() or job.state in [HaulJob.State.CARRYING, HaulJob.State.GOING_TO_DESTINATION]:
-		return false
-	_job_source(job).resources.release_out(job.resource_type, job.amount)
-	_job_destination(job).resources.release_in(job.resource_type, job.amount)
+	if job == null or job not in jobs or not job.is_active() or job.state in [HaulJob.State.CARRYING, HaulJob.State.GOING_TO_DESTINATION]: return false
+	var executor = _executors.get(job.assigned_resident_id)
+	if executor != null and executor.job == job: return executor.cancel("отмена задачи")
+	# Isolated data-level claim without execution binding.
+	_buildings[job.source_location_id].resources.release_out(job.resource_type, job.amount)
+	_buildings[job.destination_location_id].resources.release_in(job.resource_type, job.amount)
 	job.state = HaulJob.State.CANCELLED
-	if logger != null: logger.info(EventLog.LOGISTICS, "HaulJob %s отменён до подбора; обе брони освобождены" % job.id)
-	var old: Intent = _haul_intent if job == current_job else null
-	if old != null: _haul_intent = null
-	if _intents != null and old != null and _intents.current_intent == old:
-		_intents.clear_reason(old.reason_id)
-	changed.emit()
-	if not job.assigned_resident_id.is_empty(): job_cancelled.emit(job.assigned_resident_id)
+	finish_job(job)
+	job_cancelled.emit(job.assigned_resident_id)
 	return true
-
 func bind_world(clock: Node, locations: RefCounted) -> void:
 	_clock = clock
 	_locations = locations
-	if not _clock.phase_changed.is_connected(_on_phase_changed): _clock.phase_changed.connect(_on_phase_changed)
-	if not _clock.minute_changed.is_connected(_on_minute): _clock.minute_changed.connect(_on_minute)
-
 func bind_execution(clock: Node, locations: RefCounted, intents: Node, schedule: Node) -> void:
+	use_executor(intents.resident_data, clock, locations, intents, schedule)
+func use_executor(resident: ResidentData, clock: Node, locations: RefCounted, intents: Node, _schedule: Node) -> bool:
 	bind_world(clock, locations)
-	_intents = intents
-	_schedule = schedule
-	_intents.forced_interrupt.connect(_on_forced_interrupt)
-	_intents.intent_arrived.connect(_on_arrival)
-	_intents.intent_changed.connect(_on_intent_changed)
-	recalculate()
-
+	_resident = resident
+	if not _executors.has(resident.id):
+		var executor := Executor.new()
+		executor.setup(self, resident, clock, locations, intents)
+		_executors[resident.id] = executor
+	return executor_available(resident.id)
+func executor_available(resident_id: String = "") -> bool:
+	var executor = _executors.get(resident_id if not resident_id.is_empty() else (_resident.id if _resident != null else ""))
+	return executor == null or executor.job == null
+func start_claimed_job(job: HaulJob, resident_id: String) -> bool:
+	var executor = _executors.get(resident_id)
+	return executor != null and job != null and job.assigned_resident_id == resident_id and executor.start(job)
 func unbind_execution() -> void:
-	# Also used by isolated subsystem tests that do not execute deliveries.
-	if _clock == null:
-		return
-	_clock.phase_changed.disconnect(_on_phase_changed)
-	_clock.minute_changed.disconnect(_on_minute)
-	_disconnect_resident()
-	_clock = null
+	for executor in _executors.values(): executor.unbind()
+	_executors.clear()
+func has_work() -> bool: return _resident != null and has_available_job(_resident.id)
 
-func _disconnect_resident() -> void:
-	if not is_instance_valid(_intents): return
-	for connection in [[_intents.forced_interrupt, _on_forced_interrupt], [_intents.intent_arrived, _on_arrival], [_intents.intent_changed, _on_intent_changed]]:
-		if connection[0].is_connected(connection[1]): connection[0].disconnect(connection[1])
-	_intents = null
-	_schedule = null
-
-func _start_if_possible() -> bool:
-	if _clock == null or _finishing or _clock.get_phase() != "День" or current_job.state != HaulJob.State.ASSIGNED:
-		return false
-	if _resident.inventory.amount != 0 or (_intents.has_current_action() and _intents.current_intent.reason_id not in [&"day_work", &"manual_move"]):
-		return false
-	var target: Variant = _locations.get_position(current_job.source_location_id)
-	if not target is Vector2:
-		return false
-	# No deferred source route: start only when it can become current immediately.
-	if _intents.current_intent.type != Intent.Type.NONE and (not _intents.current_intent.interruptible or _intents.current_intent.priority >= HAUL_PRIORITY):
-		return false
-	current_job.state = HaulJob.State.GOING_TO_SOURCE
-	_haul_intent = Intent.new(Intent.Type.MOVE_TO, &"haul_source", target, HAUL_PRIORITY, true)
-	if not _intents.submit(_haul_intent):
-		current_job.state = HaulJob.State.ASSIGNED
-		_haul_intent = null
-		return false
-	if logger != null: logger.sync_activity(_resident)
-	return true
-
-func _on_intent_changed(intent: Intent) -> void:
-	if current_job != null and current_job.state == HaulJob.State.GOING_TO_SOURCE and intent != _haul_intent:
-		cancel_job(current_job)
-
-func _on_minute(_minute: int) -> void:
-	recalculate() # Offer/update work, never claim or start it.
-
-func _on_phase_changed(phase: String) -> void:
-	if phase == "Ночь" and current_job != null and current_job.state in [HaulJob.State.ASSIGNED, HaulJob.State.GOING_TO_SOURCE]:
-		cancel_job(current_job)
-	elif phase == "День":
-		recalculate()
-
-func _on_arrival(intent: Intent) -> void:
-	if intent != _haul_intent or current_job == null:
-		return
-	if current_job.state == HaulJob.State.GOING_TO_SOURCE:
-		var target: Variant = _locations.get_position(current_job.destination_location_id)
-		if not target is Vector2 or _resident.inventory.amount != 0:
-			cancel_job(current_job)
-			return
-		# Lock before signals from resource/inventory updates can create decisions.
-		intent.interruptible = false
-		if not _job_source(current_job).resources.take_reserved(FOOD, 1):
-			intent.interruptible = true
-			cancel_job(current_job)
-			return
-		_resident.inventory.put(FOOD, 1)
-		current_job.state = HaulJob.State.CARRYING
-		_resident.activity = Activity.Type.HAULING
-		if logger != null: logger.info(EventLog.LOGISTICS, "%s: забрал 1 FOOD — %s" % [_resident.resident_name, _job_source(current_job).display_name])
-		changed.emit()
-		if current_job.state != HaulJob.State.CARRYING or _intents.current_intent != intent:
-			return # A forced interrupt during the pickup notification already cancelled it.
-		current_job.state = HaulJob.State.GOING_TO_DESTINATION
-		_haul_intent = Intent.new(Intent.Type.MOVE_TO, &"haul_destination", target, HAUL_PRIORITY, false)
-		_intents.continue_intent(intent, _haul_intent)
-		changed.emit()
-	elif current_job.state == HaulJob.State.GOING_TO_DESTINATION:
-		_finish_delivery(intent)
-
-func _finish_delivery(intent: Intent) -> void:
-	if _resident.inventory.amount != 1 or _job_destination(current_job).resources.get_reserved_in(FOOD) < 1:
-		return # Keep cargo and the locked goal if a promised destination is invalid.
-	_finishing = true
-	# Remove carried FOOD before container.changed can trigger a new decision.
-	_resident.inventory.clear()
-	if not _job_destination(current_job).resources.add_reserved(FOOD, 1):
-		_resident.inventory.put(FOOD, 1)
-		_finishing = false
-		return
-	current_job.state = HaulJob.State.COMPLETED
-	if logger != null: logger.info(EventLog.LOGISTICS, "%s: доставил 1 FOOD — %s" % [_resident.resident_name, _job_destination(current_job).display_name])
-	_haul_intent = null
-	recalculate() # Make the next reserved offer visible before the next decision point.
-	_finishing = false
-	_intents.clear_completed(intent) # DecisionController chooses needs or claims work.
+func drop_cargo(resource: ResourceType.Type, amount: int, resident_id: String) -> void:
+	cargo_dropped.emit(resource, amount, resident_id)
+func notify_delivery() -> void:
 	delivered.emit()
-	changed.emit()
-
-func _on_forced_interrupt(_previous: Intent) -> void:
-	if current_job == null or not current_job.is_active() or current_job.assigned_resident_id != _resident.id:
-		return
-	if current_job.state in [HaulJob.State.CARRYING, HaulJob.State.GOING_TO_DESTINATION]:
-		# Source reserve was consumed at pickup. Only destination remains promised.
-		_job_destination(current_job).resources.release_in(current_job.resource_type, current_job.amount)
-		var amount: int = _resident.inventory.amount
-		var resource = _resident.inventory.resource_type
-		current_job.state = HaulJob.State.CANCELLED
-		if logger != null: logger.info(EventLog.LOGISTICS, "HaulJob %s отменён принудительно после подбора; груз выгружен, reserved_in освобождён" % current_job.id)
-		_haul_intent = null
-		_resident.inventory.clear()
-		if amount > 0:
-			cargo_dropped.emit(resource, amount)
-		changed.emit()
-		job_cancelled.emit(current_job.assigned_resident_id)
-	else:
-		cancel_job(current_job)
-
-func has_work() -> bool:
-	return _resident != null and has_available_job(_resident.id)
-
-func _can_create_job() -> bool:
-	return _routes.any(func(route): return _route_can_create(route))
-
-func add_kitchen(kitchen: BuildingInstance) -> void:
-	_buildings[kitchen.id] = kitchen
-	_routes.append({"source": _source, "destination": kitchen, "export": false})
-func add_warehouse(warehouse: BuildingInstance) -> void:
-	_buildings[warehouse.id] = warehouse
-	_routes.append({"source": warehouse, "destination": _destination, "export": false})
-
-func _porter_workplace_valid(resident: ResidentData) -> bool:
-	var workplace: BuildingInstance = _buildings.get(resident.work_location_id)
-	return workplace != null and workplace.is_built() and workplace.type == BuildingType.Type.STORAGE

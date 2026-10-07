@@ -1,17 +1,19 @@
 extends RefCounted
-## Delivery promise only: no coordinates, inventory or movement.
+## Successfully claimed delivery, owned by one resident from creation.
 const ResourceType = preload("res://scripts/resource_type.gd")
-enum State { RESERVED, ASSIGNED, GOING_TO_SOURCE, CARRYING, GOING_TO_DESTINATION, COMPLETED, CANCELLED }
-var priority: float = 0.0 # Internal job urgency; never compared with Need priority.
+enum State { ASSIGNED, GOING_TO_SOURCE, CARRYING, GOING_TO_DESTINATION, COMPLETED, CANCELLED }
+var priority: float = 0.0 # Claim-time porter score snapshot; never refreshed or compared with needs.
 var id: StringName
 var source_location_id: StringName
 var destination_location_id: StringName
 var resource_type: ResourceType.Type
 var amount: int
-var assigned_resident_id: String = ""
-var state: State = State.RESERVED
+var assigned_resident_id: String
+var state: State = State.ASSIGNED
 
-func _init(job_id: StringName, source_id: StringName, destination_id: StringName, resource: ResourceType.Type, quantity: int, job_priority: float = 0.0) -> void:
+func _init(job_id: StringName, source_id: StringName, destination_id: StringName, resource: ResourceType.Type, quantity: int, resident_id: String, job_priority: float = 0.0) -> void:
+	assert(not resident_id.is_empty())
+	assigned_resident_id = resident_id
 	priority = job_priority
 	id = job_id
 	source_location_id = source_id

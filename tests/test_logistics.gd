@@ -28,17 +28,16 @@ func _run() -> void:
 	var controller = Logistics.new()
 	controller.setup(source, destination, resident)
 	controller.recalculate()
-	var job = controller.current_job
-	check(job is RefCounted and not job is Node and job.state == Job.State.RESERVED, "Job exists as nonvisual data, waits for porter")
-	check(job.source_location_id == source.id and job.destination_location_id == destination.id and job.resource_type == FOOD and job.amount == 1, "Job route and resource")
-	check(job.assigned_resident_id.is_empty() and source.resources.get_reserved_out(FOOD) == 1 and destination.resources.get_reserved_in(FOOD) == 1, "Both promises belong to one job")
+	controller.position_provider = func(_id): return Vector2.ZERO
+	check(controller.jobs.is_empty() and controller.current_job == null and source.resources.get_reserved_out(FOOD) == 0, "Refresh creates neither offers nor promises")
 	resident.profession = Profession.Type.PORTER
 	resident.work_location_id = &"other"
-	controller.recalculate()
-	check(job.state == Job.State.RESERVED, "Porter at another workplace not eligible")
+	check(controller.claim_best_job(resident.id) == null, "Porter at another workplace not eligible")
 	resident.work_location_id = source.id
-	check(controller.claim_best_job(resident.id) == job, "Porter explicitly claims job")
-	check(job.state == Job.State.ASSIGNED and job.assigned_resident_id == resident.id, "Warehouse porter assigned existing reservation")
+	var job = controller.claim_best_job(resident.id)
+	check(job is RefCounted and not job is Node and job.state == Job.State.ASSIGNED, "Claim creates already-owned nonvisual job")
+	check(job.source_location_id == source.id and job.destination_location_id == destination.id and job.resource_type == FOOD and job.amount == 1, "Job route and resource")
+	check(job.assigned_resident_id == resident.id and source.resources.get_reserved_out(FOOD) == 1 and destination.resources.get_reserved_in(FOOD) == 1, "Both promises belong to one assigned job")
 	for _repeat in range(10):
 		controller.recalculate()
 	check(controller.current_job == job and source.resources.get_reserved_out(FOOD) == 1 and destination.resources.get_reserved_in(FOOD) == 1, "Repeated recalculation never duplicates active route")
@@ -46,7 +45,7 @@ func _run() -> void:
 	check(controller.cancel_job(job) and job.state == Job.State.CANCELLED and source.resources.get_reserved_out(FOOD) == 0 and destination.resources.get_reserved_in(FOOD) == 0, "Cancellation frees both owned reserves")
 	check(not controller.cancel_job(job), "Repeated cancellation does not release someone else's reserves")
 	controller.recalculate()
-	check(controller.current_job.id != job.id and not controller.cancel_job(job), "New job has stable new ID; stale cancellation rejected")
+	check(controller.claim_best_job(resident.id).id != job.id and not controller.cancel_job(job), "New job has stable new ID; stale cancellation rejected")
 	controller.cancel_job(controller.current_job)
 	destination.resources.add(FOOD, 5)
 	controller.recalculate()
@@ -69,7 +68,8 @@ func _run() -> void:
 	source.resources.reserve_out(FOOD, 2)
 	var rollback = Logistics.new()
 	rollback.setup(source, destination, resident)
-	rollback.recalculate()
+	rollback.position_provider = func(_id): return Vector2.ZERO
+	rollback.claim_best_job(resident.id)
 	check(rollback.current_job == null and source.resources.get_reserved_out(FOOD) == 2 and destination.resources.get_reserved_in(FOOD) == 0, "Second reservation failure rolls back only this attempt, no job")
 	var scene = load("res://scenes/main.tscn").instantiate()
 	root.add_child(scene)
@@ -77,7 +77,7 @@ func _run() -> void:
 	scene.game_time.set_process(false)
 	scene.resident_runtimes[0].view.set_process(false)
 	check(not scene.has_node("World/WorkPoint") and scene.world_locations.get_location(&"work_stepan") == null, "Obsolete work marker removed")
-	check(scene.residents[0].work_location_id == &"warehouse_01" and scene.logistics.current_job.state == Job.State.RESERVED and scene.logistics.current_job.assigned_resident_id.is_empty(), "Stepan works at warehouse; task remains available until his decision")
+	check(scene.residents[0].work_location_id == &"warehouse_01" and scene.logistics.current_job == null and scene.logistics.jobs.is_empty(), "Stepan works at warehouse; task remains available until his decision")
 	var position: Vector2 = scene.resident_runtimes[0].view.global_position
 	var intent = scene.resident_runtimes[0].intents.current_intent
 	paused = true
@@ -88,7 +88,7 @@ func _run() -> void:
 		event.pressed = pressed
 		root.push_input(event, true)
 	check(scene.resident_runtimes[0].view.global_position == position and scene.resident_runtimes[0].intents.current_intent == intent and scene.warehouse_data.resources.get_amount(FOOD) == 10 and scene.kitchen_data.resources.get_amount(FOOD) == 0, "Shift+9 on pause makes no movement, intent or transfer")
-	check(scene.logistics_label.text.contains("зарезервировано на вывоз: 1") and scene.logistics_label.text.contains("зарезервировано под доставку: 1") and scene.logistics_label.text.contains("доступна доставка FOOD"), "UI shows actual job and both reserves")
+	check(scene.logistics_label.text.contains("зарезервировано на вывоз: 0") and scene.logistics_label.text.contains("зарезервировано под доставку: 0") and scene.logistics_label.text.contains("нет активной доставки"), "UI shows actual job and both reserves")
 	paused = false
 	scene.game_time.debug_next_phase()
 	check(scene.resident_runtimes[0].view.target_position == scene.world_locations.get_position(&"warehouse_01"), "07:00 delivery uses warehouse source")

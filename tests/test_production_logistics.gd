@@ -60,22 +60,23 @@ func _run():
 	var logistics = Logistics.new()
 	logistics.setup(warehouse, kitchen, porter)
 	logistics.add_production_source(hut)
+	logistics.position_provider = func(_id): return Vector2.ZERO
 	logistics.recalculate()
-	check(logistics.jobs.size() == 2 and warehouse.resources.get_reserved_out(FOOD) == 1 and warehouse.resources.get_reserved_in(FOOD) == 1, "Two routes independently reserve warehouse out and in")
+	check(logistics.jobs.is_empty() and logistics.collect_candidates(porter.id).size() == 2 and warehouse.resources.get_reserved_out(FOOD) == 0 and warehouse.resources.get_reserved_in(FOOD) == 0, "Two routes independently reserve warehouse out and in")
 	var imported = logistics.claim_best_job(porter.id)
-	check(imported.source_location_id == warehouse.id and is_equal_approx(imported.priority, 8800), "Porter claims more urgent empty-kitchen import")
+	check(imported.source_location_id == warehouse.id and is_equal_approx(imported.priority, 11000), "Porter claims more urgent empty-kitchen import")
 	logistics.cancel_job(imported)
 	kitchen.resources.add(FOOD, 4)
 	logistics.recalculate()
 	var exported = logistics.claim_best_job(porter.id)
-	check(exported.source_location_id == hut.id and exported.destination_location_id == warehouse.id and is_equal_approx(exported.priority, 8000), "Full hut wins over filled kitchen after live recalculation")
+	check(exported.source_location_id == hut.id and exported.destination_location_id == warehouse.id and is_equal_approx(exported.priority, 10000), "Full hut wins over filled kitchen after live recalculation")
 	logistics.cancel_job(exported)
-	check(hut.resources.get_reserved_out(FOOD) == 0 and warehouse.resources.get_reserved_in(FOOD) == 0 and warehouse.resources.get_reserved_out(FOOD) == 1 and kitchen.resources.get_reserved_in(FOOD) == 1, "Export cancellation releases its route's promises without touching import")
+	check(hut.resources.get_reserved_out(FOOD) == 0 and warehouse.resources.get_reserved_in(FOOD) == 0 and warehouse.resources.get_reserved_out(FOOD) == 0 and kitchen.resources.get_reserved_in(FOOD) == 0, "Export cancellation releases its route's promises without touching import")
 	for job in logistics.jobs.duplicate(): logistics.cancel_job(job)
 	hut.resources.try_take(FOOD, 4)
 	kitchen.resources.add(FOOD, 1)
 	logistics.recalculate()
-	check(logistics.jobs.size() == 1 and logistics.current_job.source_location_id == hut.id, "Hut 1/5 already creates export; full kitchen creates no import")
+	check(logistics.jobs.is_empty() and logistics.collect_candidates(porter.id).size() == 1 and logistics.collect_candidates(porter.id)[0].source == hut, "Hut 1/5 already creates export; full kitchen creates no import")
 	# Full real chain with existing movement, factory data, and DecisionController.
 	var scene = make_scene()
 	var gatherer = scene.resident_runtimes[2]
@@ -91,7 +92,7 @@ func _run():
 	carrier.decision._next_decision_at = scene.game_time.total_minutes + 60
 	scene.game_time.debug_skip_minutes(30)
 	check(scene.gatherer_hut_data.resources.get_amount(FOOD) == 1 and scene.warehouse_data.resources.get_amount(FOOD) == 0 and scene.kitchen_data.resources.get_amount(FOOD) == 0, "Produced FOOD exists only in hut, never globally")
-	check(scene.logistics.current_job.state == Job.State.RESERVED and scene.logistics.current_job.source_location_id == scene.gatherer_hut_data.id, "Production offers export without forcing porter movement")
+	check(scene.logistics.jobs.is_empty() and scene.gatherer_hut_data.resources.get_reserved_out(FOOD) == 0, "Production offers export without forcing porter movement")
 	carrier.decision.request_decision("test_work_point")
 	var export_job = scene.logistics.current_job
 	check(export_job.source_location_id == scene.gatherer_hut_data.id and carrier.view.target_position == scene.world_locations.get_position(scene.gatherer_hut_data.id), "Porter claims hut-to-warehouse and walks to real source")

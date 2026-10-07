@@ -355,7 +355,7 @@ func _committed_work_assignment(resident_id: String) -> Dictionary:
 func _work_available(runtime: ResidentRuntime) -> bool:
 	match runtime.data.profession:
 		Profession.Type.PORTER:
-			return logistics.executor_available() and logistics.has_available_job(runtime.data.id)
+			return logistics.has_available_job(runtime.data.id)
 		Profession.Type.BUILDER: return runtime.builder.has_work()
 		Profession.Type.GATHERER: return production.can_work(runtime.data)
 		_: return false
@@ -370,15 +370,19 @@ func _request_work(runtime: ResidentRuntime) -> bool:
 func _configure_logistics() -> void:
 	logistics.setup(warehouse_data, kitchen_data, null)
 	logistics.add_production_source(gatherer_hut_data)
-	for runtime in resident_runtimes: logistics.register_resident(runtime.data)
+	for runtime in resident_runtimes:
+		logistics.register_resident(runtime.data)
+		logistics.use_executor(runtime.data, game_time, world_locations, runtime.intents, runtime.schedule)
+	logistics.position_provider = _production_position_2d
+	logistics.availability_changed.connect(_queue_logistics_availability)
 	logistics.cargo_dropped.connect(_drop_executor_cargo)
 	logistics.job_cancelled.connect(_on_job_cancelled)
 	logistics.changed.connect(_update_logistics)
 	logistics.bind_world(game_time, world_locations)
 	logistics.recalculate()
 
-func _drop_executor_cargo(resource: ResourceType.Type, amount: int) -> void:
-	var runtime = get_resident_runtime(logistics.executor_resident())
+func _drop_executor_cargo(resource: ResourceType.Type, amount: int, resident_id: String) -> void:
+	var runtime = get_resident_runtime(find_resident(resident_id))
 	if runtime != null: _drop_cargo(resource, amount, runtime)
 
 func _on_job_cancelled(resident_id: String) -> void:
@@ -387,7 +391,6 @@ func _on_job_cancelled(resident_id: String) -> void:
 
 func _request_haul_work(runtime: ResidentRuntime) -> bool:
 	if not logistics.use_executor(runtime.data, game_time, world_locations, runtime.intents, runtime.schedule): return false
-	logistics.recalculate()
 	var job = logistics.claim_best_job(runtime.data.id)
 	if job == null: return false
 	if logistics.start_claimed_job(job, runtime.data.id): return true
@@ -500,8 +503,7 @@ func _update_logistics() -> void:
 	elif find_resident(job.assigned_resident_id) != null:
 		summary += "\nЛогистика: %s: доставить %d FOOD → %s" % [find_resident(job.assigned_resident_id).resident_name, job.amount, world_locations.get_location(job.destination_location_id).display_name]
 		summary += " • " + preload("res://scripts/haul_job.gd").State.keys()[job.state]
-	else:
-		summary += "\nЛогистика: доступна доставка FOOD (приоритет %d)" % job.priority
+
 	for active_job in logistics.jobs:
 		if not active_job.is_active(): continue
 		var source_name: String = world_locations.get_location(active_job.source_location_id).display_name
@@ -598,3 +600,15 @@ func _building_hit(screen_position: Vector2) -> BuildingInstance:
 		var view = world_locations.get_view(building.id)
 		if view != null and view.selection_hit(screen_position): return building
 	return null
+
+var _logistics_notification_pending := false
+func _queue_logistics_availability() -> void:
+	if _logistics_notification_pending: return
+	_logistics_notification_pending = true
+	_refresh_porter_availability.call_deferred()
+func _refresh_porter_availability() -> void:
+	_logistics_notification_pending = false
+	for runtime in resident_runtimes:
+		if not is_instance_valid(runtime) or not is_instance_valid(runtime.decision): continue
+		if runtime.data.profession == Profession.Type.PORTER and runtime.data.activity == preload("res://scripts/resident_activity.gd").Type.IDLE and not runtime.intents.has_current_action() and logistics.has_available_job(runtime.data.id):
+			runtime.decision.request_decision("logistics_available")

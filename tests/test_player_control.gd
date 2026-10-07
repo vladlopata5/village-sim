@@ -151,7 +151,7 @@ func _run() -> void:
 		if not picked_up: resident.view._process(20)
 		resident.view._process(20)
 		check(job.state == Job.State.COMPLETED and resident.data.inventory.amount == 0 and scene.kitchen_data.resources.get_amount(FOOD) == 1, "Old porter delivers safely after role removal")
-		check(scene.logistics.current_job.state == Job.State.RESERVED and scene.logistics.current_job.assigned_resident_id.is_empty() and not scene._work_available(resident), "No next haul from old profession")
+		check(scene.logistics.jobs.is_empty() and job.state == Job.State.COMPLETED and not scene._work_available(resident), "No next haul from old profession")
 		scene.free()
 	# Executor ownership follows an actual requester, not a startup singleton.
 	scene = Setup.make_scene(self)

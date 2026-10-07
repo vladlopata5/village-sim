@@ -379,3 +379,15 @@ UNDER_CONSTRUCTION → BUILT без замены entity; реальные дан
 completion и подключение BUILT к обычным системам. Стартовый WOOD=50 — prototype stock.
 Строительство проверяется без внешнего назначения task и без Porter HaulJob.
 Производство древесины, лесоруб, лес, новые материалы, ремонт и upgrades остаются будущими.
+
+
+### Выполнено в Phase 4: выбор доставки носильщиком (2026-10-07)
+
+PORTER сам выбирает concrete delivery на своём normal work decision point;
+потенциальные deliveries не являются persistent jobs. Current projected urgency
+и full route формируют deterministic porter_score; personal modifier пока 0.
+HaulJob создаётся только после успешного atomic claim уже assigned и дальше committed.
+Свободный pool/refresh priorities удалены. LogisticsController — сервис, не
+диспетчер работников. Добавлено независимое физическое выполнение нескольких
+носильщиков и local event-driven availability без нового scheduler. Builder
+construction transport остаётся отдельным workflow.
