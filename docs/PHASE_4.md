@@ -1094,3 +1094,34 @@ ConversationGroup, TALK_TO, UtilitySelector, ResidentModifiers и gameplay не 
 Headless startup — exit 0, пустой stderr; новых warnings/errors нет. Проверены
 directed/sparse/clamp/self/no-op/signal semantics, paused UI/reverse selection/
 roster refresh, отсутствие conversation opinion gain/decay и social AI effects.
+
+
+## Personal trait preference foundation
+
+ResidentData.liked_traits/disliked_traits — собственные постоянные Array[TraitType].
+Generation: 2 likes/1 dislike без повторов/пересечений; own traits разрешены.
+Balance constants: LIKED_TRAITS_PER_RESIDENT=2, DISLIKED_TRAITS_PER_RESIDENT=1,
+LIKED_TRAIT_PREFERENCE_VALUE=10, DISLIKED_TRAIT_PREFERENCE_VALUE=−10.
+Separate RNG сохраняет старый character stream; defaults/старые Factory callers
+получают empty lists, Factory допускает explicit preferences для тестов.
+
+TraitPreferenceResolver.score(A,B) суммирует tastes A по traits B, без сохранённого
+pair score/clamp; self/null=0. API add/remove эмитит trait_preferences_changed,
+reject duplicate/cross-list без auto-remove. Нет character-derived preferences
+или автоматических изменений tastes/opinion после разговора.
+
+Card Preferences label содержит русские имена. Relationships label сохраняет
+opinion и показывает directed derived preference. Subscription selected prefs +
+other residents' traits_changed обновляет UI без frame polling. Selection/roster
+changes перестраивают target subscriptions; clear selection отключает их.
+
+SOCIAL/options/UtilitySelector/ResidentModifiers/ConversationGroup/TALK_TO/skills
+не изменены; preference calculation не создаёт relationship records. Opinion
+пока остаётся отдельным stored state. Symmetric compatibility/matrix не вводится;
+future memories/mood/context/shared-event комбинации только задокументированы.
+
+Проверка personal trait preferences: 58/58 test suites PASS; новый набор —
+546 checks, 0 failures. Godot analyzer — 134 scripts, 0 diagnostics.
+Headless startup — exit 0, пустой stderr; новых warnings/errors нет.
+Проверены seeded uniqueness/independence, API validation, directed score,
+no cache/opinion mutation, event-driven UI и отсутствие SOCIAL/TALK_TO effects.

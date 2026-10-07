@@ -1334,3 +1334,29 @@ TALK_TO, work, traits/modifiers, needs, skills, housing, movement или sleep.
 Разговоры и completion TALK_TO не изменяют мнение; decay и semantic friendship
 thresholds нет. Будущие social events могут применять change_opinion; memories,
 compatibility, states, shared events и genealogy остаются отдельными слоями.
+
+
+### Личные предпочтения к чужим traits
+
+Traits описывают самого resident. Trait preferences описывают его вкусы к чертам
+других. Opinion — отдельное stored directed отношение к конкретному человеку.
+ResidentData хранит liked_traits/disliked_traits как TraitType IDs; новые/starting
+жители получают 2 liked и 1 disliked seeded-random. Все три уникальны, один ID
+не может быть одновременно liked/disliked; собственную черту можно любить/не любить.
+Preferences не выводятся из собственного характера и не пересчитываются из seed.
+
+TraitPreferenceResolver вычисляет directed score A→B из текущих tastes A и traits B:
++10 за каждый liked trait B, −10 за disliked, остальные 0. Нет pair cache/registry,
+матрицы trait×trait или искусственного clamp. Self/null score=0. Mutation API
+позволяет будущим событиям менять tastes; сейчас автоматических изменений нет.
+
+ResidentCard показывает «Предпочтения / Нравятся / Не нравятся» с русскими именами,
+без numeric effects. Existing relationship row дополнена derived preference score:
+«Степан: +20 • Предпочтение: −10», всегда selected→other. Preference signal выбранного
+жителя и traits_changed текущих targets обновляют UI event-driven, без polling.
+
+Preference пока не меняет opinion, initial relationships, SOCIAL, partner weighting,
+TALK_TO, ConversationGroup или duration. Отдельная symmetric compatibility сейчас
+не вводится: её роль на текущем этапе заменяют directed personal tastes. Future
+social decisions/events могут учитывать opinion + preference + memories + mood +
+context + shared events; эти сочетания сейчас не реализованы.

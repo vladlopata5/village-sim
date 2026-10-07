@@ -260,10 +260,11 @@ func _update_speed(multiplier: int) -> void:
 
 func _create_test_residents() -> void:
 	var generator = ResidentGenerator.new(42, "settlement")
+	var starting_preferences := generator.generate_preferences()
 	residents.append(ResidentFactory.create(
 		"resident_001", "Степан", 30, Profession.Type.PORTER,
 		generator.generate_traits(),
-		20, 35, 65, &"home_stepan", warehouse_data.id))
+		20, 35, 65, &"home_stepan", warehouse_data.id, starting_preferences.liked, starting_preferences.disliked))
 	var home_ids = [&"home_anna", &"home_fedor", &"home_marina"]
 	for index in range(3):
 		var data = generator.generate(["Анна", "Фёдор", "Марина"][index])

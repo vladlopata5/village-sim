@@ -68,3 +68,9 @@ const FOOLISH_UTILITY_RANDOM_EXPONENT = 1.50
 const OPINION_MIN = -100
 const OPINION_MAX = 100
 const OPINION_NEUTRAL = 0
+
+# Permanent personal tastes; derived contribution only, no social gameplay effect yet.
+const LIKED_TRAITS_PER_RESIDENT = 2
+const DISLIKED_TRAITS_PER_RESIDENT = 1
+const LIKED_TRAIT_PREFERENCE_VALUE = 10
+const DISLIKED_TRAIT_PREFERENCE_VALUE = -10

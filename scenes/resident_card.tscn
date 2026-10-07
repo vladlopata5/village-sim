@@ -84,6 +84,11 @@ layout_mode = 2
 autowrap_mode = 3
 theme_override_font_sizes/font_size = 14
 
+[node name="Preferences" type="Label" parent="Margin/Column/Scroll/Content"]
+layout_mode = 2
+autowrap_mode = 3
+theme_override_font_sizes/font_size = 14
+
 [node name="Relationships" type="Label" parent="Margin/Column/Scroll/Content"]
 layout_mode = 2
 autowrap_mode = 3

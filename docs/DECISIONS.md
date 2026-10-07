@@ -1362,3 +1362,44 @@ population; новый global bus/removal system не нужен. Отсутст
 не добавлены. Нет automatic conversation opinion, decay, social AI modifiers
 или случайных initial opinions. Существующие social execution/selector/modifiers
 не меняются. Current API/data даёт отдельное место для будущего directed metadata.
+
+
+### Directed trait preferences вместо отдельной symmetric compatibility (2026-10-07)
+
+Три понятия разделены: traits — «какой resident сам»; trait preferences — «какие
+чужие traits ему нравятся»; opinion — stored directed history-based attitude.
+Ранее обозначенный будущий compatibility concept сейчас заменён личными directed
+preferences; отдельной symmetric score/matrix системы не реализуется. Opinion
+не получает initial delta, записи и drift от preference calculation.
+
+ResidentData владеет Array[TraitType] liked_traits/disliked_traits. API has/add/remove
+валидирует IDs, дубликаты и пересечение lists; не auto-remove противоположный taste.
+Own traits допустимы в обоих списках (по отдельности). Opposite character traits,
+например SOCIABLE/INTROVERTED, могут нравиться одновременно: конфликты характера
+не являются конфликтами личных вкусов. Успешная mutation эмитит trait_preferences_changed.
+
+TraitPreferenceResolver — stateless calculation current A tastes + current B traits.
+Score = sum(+10 liked contributions, −10 disliked); no artificial clamp. Ни ID→score
+storage, ни pair cache, ни full trait×trait matrix нет. Изменение A tastes или B traits
+сразу отражается в следующем вычислении. Self/null безопасно даёт 0. Этот derived
+contribution позже может использоваться social attraction, events, opinion formation,
+но сейчас gameplay consumers его не используют.
+
+Generator имеет отдельный preference RNG (seed xor local salt), чтобы сохранить
+старую sequence собственных traits/имён/needs. Два likes и один dislike выбираются
+без replacement из TraitType catalog; новые IDs автоматически доступны этому
+алгоритму. Результаты сохраняются как обычные mutable data. Starting Степан тоже
+получает prefs из того же seeded architecture. Factory имеет optional explicit
+liked/disliked arguments и копирует их через validated API; old callers/default
+ResidentData имеют безопасные пустые lists. Save/serialization сейчас отсутствует.
+
+Card подписывается на preference changes выбранного resident и на traits_changed
+остальных current roster targets. Selection/roster change отключает старые target
+subscriptions, rebuild-ит их и пересчитывает score label. Opinion signal по-прежнему
+обновляет directed opinion presentation; preferences/opinion остаются независимыми.
+No frame polling. Labels используют catalog display names; effect values скрыты
+в preferences block, derived score допустим в prototype relationship block.
+
+Future social systems могут комбинировать stored opinion + derived preference +
+memories + mood + context + shared events. Эти слои, romance/friendship/genealogy
+и automatic preference/opinion changes сейчас не добавлены.

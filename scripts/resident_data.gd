@@ -129,3 +129,30 @@ func change_opinion(other_id: StringName, delta: int) -> bool:
 	return set_opinion(other_id, get_opinion(other_id) + delta)
 func _on_relationship_opinion_changed(other_id: StringName) -> void:
 	relationship_changed.emit(other_id)
+
+const TraitPreferences = preload("res://scripts/trait_preference_resolver.gd")
+signal trait_preferences_changed
+var liked_traits: Array[Trait.Type] = []
+var disliked_traits: Array[Trait.Type] = []
+func likes_trait(trait_type: Trait.Type) -> bool: return liked_traits.has(trait_type)
+func dislikes_trait(trait_type: Trait.Type) -> bool: return disliked_traits.has(trait_type)
+func add_liked_trait(trait_type: Trait.Type) -> bool:
+	return _add_trait_preference(liked_traits, disliked_traits, trait_type)
+func add_disliked_trait(trait_type: Trait.Type) -> bool:
+	return _add_trait_preference(disliked_traits, liked_traits, trait_type)
+func _add_trait_preference(list: Array[Trait.Type], opposite: Array[Trait.Type], trait_type: Trait.Type) -> bool:
+	if trait_type not in Trait.Type.values() or list.has(trait_type) or opposite.has(trait_type): return false
+	list.append(trait_type)
+	trait_preferences_changed.emit()
+	return true
+func remove_liked_trait(trait_type: Trait.Type) -> bool:
+	return _remove_trait_preference(liked_traits, trait_type)
+func remove_disliked_trait(trait_type: Trait.Type) -> bool:
+	return _remove_trait_preference(disliked_traits, trait_type)
+func _remove_trait_preference(list: Array[Trait.Type], trait_type: Trait.Type) -> bool:
+	if not list.has(trait_type): return false
+	list.erase(trait_type)
+	trait_preferences_changed.emit()
+	return true
+func get_trait_preference_score(other: RefCounted) -> int:
+	return TraitPreferences.score(self, other)

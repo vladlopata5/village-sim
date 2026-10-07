@@ -1,0 +1,160 @@
+extends SceneTree
+const Data = preload("res://scripts/resident_data.gd")
+const Trait = preload("res://scripts/trait_type.gd")
+const Resolver = preload("res://scripts/trait_preference_resolver.gd")
+const Generator = preload("res://scripts/resident_generator.gd")
+const Factory = preload("res://scripts/resident_factory.gd")
+const Profession = preload("res://scripts/resident_profession.gd")
+const Setup = preload("res://tests/behavior_test_setup.gd")
+const Balance = preload("res://scripts/balance_config.gd")
+const Need = preload("res://scripts/need_type.gd")
+const Assignment = preload("res://scripts/resident_assignment.gd")
+var failures := 0
+var checks := 0
+var events := 0
+func _initialize() -> void: call_deferred("_run")
+func check(ok: bool, message: String) -> void:
+	checks += 1
+	if not ok:
+		failures += 1
+		push_error(message)
+func clear_preferences(data: RefCounted) -> void:
+	for trait_type in data.liked_traits.duplicate(): data.remove_liked_trait(trait_type)
+	for trait_type in data.disliked_traits.duplicate(): data.remove_disliked_trait(trait_type)
+func _run() -> void:
+	var a = Data.new("a", "A", 25)
+	var b = Data.new("b", "B", 30)
+	a.trait_preferences_changed.connect(func(): events += 1)
+	check(a.liked_traits.is_empty() and a.disliked_traits.is_empty(), "Older/default data safely has empty lists")
+	check(a.add_liked_trait(Trait.Type.GLUTTON) and a.likes_trait(Trait.Type.GLUTTON), "Add/has liked")
+	check(not a.add_liked_trait(Trait.Type.GLUTTON) and not a.add_disliked_trait(Trait.Type.GLUTTON), "Duplicate/cross-list rejected without auto-remove")
+	check(events == 1 and a.likes_trait(Trait.Type.GLUTTON), "Rejected operations emit nothing")
+	check(a.add_disliked_trait(Trait.Type.FOOLISH) and a.dislikes_trait(Trait.Type.FOOLISH), "Add/has disliked")
+	check(not a.add_disliked_trait(Trait.Type.FOOLISH) and not a.add_liked_trait(Trait.Type.FOOLISH), "Validation symmetric")
+	a.add_trait(Trait.Type.FOOLISH)
+	check(a.dislikes_trait(Trait.Type.FOOLISH), "Own trait can be disliked")
+	check(a.remove_disliked_trait(Trait.Type.FOOLISH) and a.add_liked_trait(Trait.Type.FOOLISH), "Own trait can also be liked")
+	check(not a.remove_disliked_trait(Trait.Type.FOOLISH), "Absent dislike removal safe")
+	check(a.remove_liked_trait(Trait.Type.FOOLISH) and not a.remove_liked_trait(Trait.Type.FOOLISH), "Remove liked and absent removal")
+	check(events == 5, "One event per successful change")
+	a.add_liked_trait(Trait.Type.RESTLESS)
+	a.add_disliked_trait(Trait.Type.FOOLISH)
+	check(Resolver.score(a, b) == 0 and Resolver.score(a, a) == 0 and Resolver.score(a, null) == 0, "No target traits/self/null safe")
+	b.add_trait(Trait.Type.GLUTTON)
+	check(a.get_trait_preference_score(b) == 10, "One liked target trait +10")
+	b.add_trait(Trait.Type.RESTLESS)
+	check(a.get_trait_preference_score(b) == 20, "Two liked target traits +20")
+	b.remove_trait(Trait.Type.RESTLESS)
+	b.add_trait(Trait.Type.FOOLISH)
+	check(a.get_trait_preference_score(b) == 0, "Like/dislike contributions cancel")
+	b.remove_trait(Trait.Type.GLUTTON)
+	b.add_trait(Trait.Type.SOCIABLE)
+	check(a.get_trait_preference_score(b) == -10, "Disliked target trait -10; unrelated contributes zero")
+	a.remove_disliked_trait(Trait.Type.FOOLISH)
+	check(a.get_trait_preference_score(b) == 0, "No stale cache after dislike mutation")
+	a.add_liked_trait(Trait.Type.SOCIABLE)
+	check(a.get_trait_preference_score(b) == 10, "No stale cache after like mutation")
+	b.add_disliked_trait(Trait.Type.FOOLISH)
+	check(a.get_trait_preference_score(b) == 10 and b.get_trait_preference_score(a) == -10, "Directed score asymmetry")
+	check(a.relationships.is_empty() and b.relationships.is_empty(), "Score never creates relationship records")
+	a.set_opinion(&"b", -75)
+	check(a.get_trait_preference_score(b) == 10 and a.get_opinion(&"b") == -75, "Stored opinion and derived preference separate")
+	a.add_liked_trait(Trait.Type.FOOLISH)
+	check(a.get_trait_preference_score(b) == 20 and a.get_opinion(&"b") == -75, "Preference mutation never applies opinion delta")
+	b.add_trait(Trait.Type.GLUTTON)
+	check(a.get_trait_preference_score(b) == 30, "Additive contribution has no artificial clamp")
+	var liked: Array = [Trait.Type.GLUTTON, Trait.Type.RESTLESS]
+	var disliked: Array = [Trait.Type.FOOLISH]
+	var explicit = Factory.create("explicit", "Тест", 25, Profession.Type.NONE, [], 0, 0, 50, &"", &"", liked, disliked)
+	explicit.remove_liked_trait(Trait.Type.GLUTTON)
+	check(liked.size() == 2 and explicit.liked_traits.size() == 1 and explicit.disliked_traits == disliked, "Factory copies explicit lists into resident-owned data")
+	check(Balance.LIKED_TRAITS_PER_RESIDENT == 2 and Balance.DISLIKED_TRAITS_PER_RESIDENT == 1 and Balance.LIKED_TRAIT_PREFERENCE_VALUE == 10 and Balance.DISLIKED_TRAIT_PREFERENCE_VALUE == -10, "Centralized prototype constants")
+	var first = Generator.new(123)
+	var same = Generator.new(123)
+	var other = Generator.new(456)
+	var extra_draws = Generator.new(123)
+	var different := false
+	for _index in range(100):
+		var generated = first.generate()
+		var reproduced = same.generate()
+		var alternative = other.generate()
+		extra_draws.generate_preferences()
+		var stable = extra_draws.generate()
+		check(generated.liked_traits.size() == 2 and generated.disliked_traits.size() == 1, "Generation counts 2 likes/1 dislike")
+		var unique: Dictionary = {}
+		for trait_type in generated.liked_traits + generated.disliked_traits: unique[trait_type] = true
+		check(unique.size() == 3, "All generated preferences unique and catalog-valid")
+		check(generated.liked_traits == reproduced.liked_traits and generated.disliked_traits == reproduced.disliked_traits, "Same seed reproduces preferences")
+		different = different or generated.liked_traits != alternative.liked_traits or generated.disliked_traits != alternative.disliked_traits
+		check([generated.id, generated.traits, generated.resident_name, generated.age, generated.hunger, generated.fatigue, generated.mood] == [stable.id, stable.traits, stable.resident_name, stable.age, stable.hunger, stable.fatigue, stable.mood], "Separate preference RNG never alters pre-existing character sequence")
+		var removed: int = generated.liked_traits[0]
+		generated.remove_liked_trait(removed)
+		check(not generated.likes_trait(removed), "Generated preferences remain mutable, not reconstructed from seed")
+	check(different, "Different seed can change tastes")
+	var scene = Setup.make_scene(self)
+	for resident in scene.residents:
+		check(resident.liked_traits.size() == 2 and resident.disliked_traits.size() == 1 and resident.relationships.is_empty(), "All starting residents generated with preferences and neutral opinion")
+		clear_preferences(resident)
+	var actor = scene.resident_runtimes[1]
+	var target = scene.resident_runtimes[0]
+	actor.data.add_liked_trait(Trait.Type.GLUTTON)
+	actor.data.add_disliked_trait(Trait.Type.FOOLISH)
+	target.data.add_trait(Trait.Type.GLUTTON)
+	actor.data.add_trait(Trait.Type.FOOLISH)
+	target.data.add_disliked_trait(Trait.Type.FOOLISH)
+	var card = scene.get_node("HUD/ResidentCard")
+	card.set_process(false)
+	scene.resident_selection.select(actor.data)
+	check(card.preferences_label.text.contains("Нравятся: Обжора") and card.preferences_label.text.contains("Не нравятся: Балбес"), "Compact UI uses Russian catalog names")
+	check(not card.preferences_label.text.contains("+10") and not card.preferences_label.text.contains("-10"), "Preferences block does not expose numeric effects")
+	check(card.relationships_label.text.contains("Степан: 0 • Предпочтение: +10"), "Relationship row shows selected-to-other derived score")
+	paused = true
+	target.data.remove_trait(Trait.Type.GLUTTON)
+	check(card.relationships_label.text.contains("Степан: 0 • Предпочтение: 0"), "Target traits signal refreshes score on pause")
+	target.data.add_trait(Trait.Type.RESTLESS)
+	actor.data.add_liked_trait(Trait.Type.RESTLESS)
+	check(card.preferences_label.text.contains("Неусидчивый") and card.relationships_label.text.contains("Степан: 0 • Предпочтение: +10"), "Selected preference signal refreshes both sections")
+	actor.data.remove_liked_trait(Trait.Type.RESTLESS)
+	check(card.relationships_label.text.contains("Степан: 0 • Предпочтение: 0"), "Remove updates derived score immediately")
+	paused = false
+	scene.resident_selection.select(target.data)
+	check(card.relationships_label.text.contains("Анна: 0 • Предпочтение: -10"), "Reverse selection presents reverse score")
+	card.preferences_label.text = "preference marker"
+	card.relationships_label.text = "score marker"
+	card._refresh()
+	card._process(1)
+	check(card.preferences_label.text == "preference marker" and card.relationships_label.text == "score marker", "Neither section polls during frame refresh")
+	actor.data.add_liked_trait(Trait.Type.SOCIABLE)
+	check(card.preferences_label.text == "preference marker" and card.relationships_label.text == "score marker", "Old resident preferences unsubscribed after selection")
+	actor.data.remove_trait(Trait.Type.FOOLISH)
+	check(card.relationships_label.text.contains("Анна: 0 • Предпочтение: 0"), "New selection watches other resident traits")
+	var newcomer = Data.new("new_pref_target", "Иван", 25)
+	scene.player_control.setup([newcomer], scene.buildings)
+	newcomer.add_trait(Trait.Type.FOOLISH)
+	check(card.relationships_label.text.contains("Иван: 0 • Предпочтение: -10"), "Roster update subscribes newly added target")
+	scene.resident_selection.clear()
+	card.relationships_label.text = "closed marker"
+	newcomer.remove_trait(Trait.Type.FOOLISH)
+	check(card.relationships_label.text == "closed marker", "Clear selection removes target trait subscriptions")
+	scene.free()
+	# No preferences feed social categories, options, conversations or TALK_TO.
+	scene = Setup.make_scene(self)
+	actor = scene.resident_runtimes[1]
+	target = scene.resident_runtimes[3]
+	actor.data.get_need(Need.Type.SOCIAL).value = 100
+	target.data.get_need(Need.Type.SOCIAL).value = 100
+	var actions: Array = actor.decision.collect_actions(false)
+	var options: Array = scene.social_world.options_for(actor.data.id)
+	clear_preferences(actor.data)
+	actor.data.add_disliked_trait(Trait.Type.GLUTTON)
+	target.data.add_trait(Trait.Type.GLUTTON)
+	check(actor.data.get_trait_preference_score(target.data) == -10 and actor.decision.collect_actions(false) == actions and scene.social_world.options_for(actor.data.id) == options, "Negative preference has no social utility or option weighting effect")
+	var task = Assignment.new(&"pref_talk", actor.data.id, Assignment.TALK_TO, StringName(target.data.id))
+	check(scene.player_control.add_assignment(actor.data.id, task) and actor.assignments.start(task.id), "Negative preference never blocks TALK_TO")
+	actor.view._process(100)
+	scene.game_time.debug_skip_minutes(15)
+	check(task.state == Assignment.State.COMPLETED and actor.data.relationships.is_empty() and target.data.relationships.is_empty(), "Conversation/assignment completion creates no opinions")
+	check(actor.data.disliked_traits == [Trait.Type.GLUTTON] and actor.data.get_trait_preference_score(target.data) == -10, "Talking does not change permanent preferences")
+	scene.free()
+	print("Trait preference checks: %d, failures: %d" % [checks, failures])
+	quit(0 if failures == 0 else 1)

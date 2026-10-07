@@ -13,6 +13,8 @@ const StateText = preload("res://scripts/resident_state_text.gd")
 var _selection: ResidentSelection
 var _control: RefCounted
 var _assignment_resident: ResidentData
+var _preference_targets: Array[ResidentData] = []
+@onready var preferences_label: Label = $Margin/Column/Scroll/Content/Preferences
 @onready var relationships_label: Label = $Margin/Column/Scroll/Content/Relationships
 @onready var skills_label: Label = $Margin/Column/Scroll/Content/Skills
 @onready var assignment_list: VBoxContainer = $Margin/Column/Scroll/Content/Assignments
@@ -54,10 +56,10 @@ func _ready() -> void:
 
 func bind_control(control: RefCounted) -> void:
 	if _control != null and _control.home_changed.is_connected(_on_home_changed): _control.home_changed.disconnect(_on_home_changed)
-	if _control != null and _control.residents_changed.is_connected(_refresh_relationships): _control.residents_changed.disconnect(_refresh_relationships)
+	if _control != null and _control.residents_changed.is_connected(_on_roster_changed): _control.residents_changed.disconnect(_on_roster_changed)
 	_control = control
-	_control.residents_changed.connect(_refresh_relationships)
-	_refresh_relationships()
+	_control.residents_changed.connect(_on_roster_changed)
+	_on_roster_changed()
 	_control.home_changed.connect(_on_home_changed)
 	_refresh_home()
 	_refresh_assignments()
@@ -128,15 +130,18 @@ func _on_selection_changed() -> void:
 		_assignment_resident.skill_changed.disconnect(_on_skill_changed)
 		_assignment_resident.traits_changed.disconnect(_refresh_traits)
 		_assignment_resident.relationship_changed.disconnect(_on_relationship_changed)
+		_assignment_resident.trait_preferences_changed.disconnect(_on_preferences_changed)
 	_assignment_resident = _selection.selected_resident
 	if _assignment_resident != null:
 		_assignment_resident.assignments_changed.connect(_refresh_assignments)
 		_assignment_resident.skill_changed.connect(_on_skill_changed)
 		_assignment_resident.traits_changed.connect(_refresh_traits)
 		_assignment_resident.relationship_changed.connect(_on_relationship_changed)
+		_assignment_resident.trait_preferences_changed.connect(_on_preferences_changed)
 	_refresh_skills()
 	_refresh_traits()
-	_refresh_relationships()
+	_refresh_preferences()
+	_on_roster_changed()
 	$Margin/Column/Scroll.scroll_vertical = 0
 	_refresh_assignments()
 	_refresh_home()
@@ -222,6 +227,32 @@ func _refresh_relationships() -> void:
 			if other.id == _assignment_resident.id: continue
 			var opinion: int = _assignment_resident.get_opinion(StringName(other.id))
 			var number := "%+d" % opinion if opinion > 0 else "%d" % opinion
-			lines.append("%s: %s" % [other.resident_name, number])
+			var preference: int = _assignment_resident.get_trait_preference_score(other)
+			var preference_number := "%+d" % preference if preference > 0 else "%d" % preference
+			lines.append("%s: %s • Предпочтение: %s" % [other.resident_name, number, preference_number])
 	if lines.size() == 1: lines.append("Нет других жителей")
 	relationships_label.text = "\n".join(lines)
+
+func _on_preferences_changed() -> void:
+	_refresh_preferences()
+	_refresh_relationships()
+func _refresh_preferences() -> void:
+	var liked := "Нет"
+	var disliked := "Нет"
+	if _assignment_resident != null:
+		liked = _preference_names(_assignment_resident.liked_traits)
+		disliked = _preference_names(_assignment_resident.disliked_traits)
+	preferences_label.text = "Предпочтения\nНравятся: %s\nНе нравятся: %s" % [liked, disliked]
+func _preference_names(list: Array[Trait.Type]) -> String:
+	var names := PackedStringArray()
+	for trait_type in list: names.append(Trait.display_name(trait_type))
+	return ", ".join(names) if not names.is_empty() else "Нет"
+func _on_roster_changed() -> void:
+	for other in _preference_targets: other.traits_changed.disconnect(_refresh_relationships)
+	_preference_targets.clear()
+	if _assignment_resident != null and _control != null:
+		for other in _control.get_residents():
+			if other.id == _assignment_resident.id: continue
+			_preference_targets.append(other)
+			other.traits_changed.connect(_refresh_relationships)
+	_refresh_relationships()

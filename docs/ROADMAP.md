@@ -453,3 +453,13 @@ opinion −100..100. Отсутствующая запись neutral; initial op
 Gameplay effects, compatibility, social memories, relationship states, shared
 events, genealogy и chronicle/biography — следующие отдельные дизайнерские этапы.
 Conversation gain/decay и friendship thresholds сейчас отсутствуют.
+
+
+### Выполнено в Phase 4: личные trait preferences (2026-10-07)
+
+Persistent likes/dislikes (2/1 generated), validation/mutation API, directed
+derived +10/−10 trait score без pair storage. Separate seeded preference RNG
+сохраняет существующую trait/name/needs generation. ResidentCard показывает
+предпочтения и selected→other score с event-driven обновлением target traits.
+Отдельная symmetric compatibility заменена на текущем этапе personal tastes.
+SOCIAL/TALK_TO/opinion effects и memories/mood/context/event combinations — позже.
