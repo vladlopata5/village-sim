@@ -3,6 +3,9 @@ const Seed = preload("res://tests/utility_test_seed.gd")
 const Setup = preload("res://tests/need_test_setup.gd")
 const Activity = preload("res://scripts/resident_activity.gd")
 const Intent = preload("res://scripts/resident_intent.gd")
+const Dynamics = preload("res://scripts/need_dynamics.gd")
+const Balance = preload("res://scripts/balance_config.gd")
+const Needs = preload("res://scripts/resident_needs_controller.gd")
 const FOOD = preload("res://scripts/resource_type.gd").Type.FOOD
 var failures := 0
 func _initialize(): call_deferred("_run")
@@ -11,6 +14,7 @@ func check(value: bool, message: String):
 		failures += 1
 		push_error(message)
 func _run():
+	var critical_recovery: float = -float(Dynamics.FATIGUE_RATES[Activity.Type.SLEEPING]) / Dynamics.UNITS_PER_POINT * Balance.OUTDOOR_SLEEP_QUALITY
 	var scene = Setup.make_scene(self)
 	var r = scene.resident_runtimes[0]
 	r.data.hunger = 9
@@ -89,7 +93,7 @@ func _run():
 	check(r.data.activity == Activity.Type.SLEEPING and r.intents.forced_priority == 100 and not r.view.has_movement_target, "After higher critical action completes exhaustion sleeps in place")
 	var position: Vector2 = r.view.position
 	scene.game_time.debug_skip_minutes(60)
-	check(r.data.fatigue == 70 and r.view.position == position, "Critical sleep recovers fatigue without movement")
+	check(r.data.fatigue == 100 - int(60 * critical_recovery) and r.view.position == position, "Critical sleep recovers fatigue without movement")
 	scene.free()
 	# Fatigue alone can interrupt ordinary eating (already consumed food is not refunded).
 	scene = Setup.make_scene(self)
@@ -100,7 +104,7 @@ func _run():
 	r.data.fatigue = 100
 	check(r.data.activity == Activity.Type.SLEEPING and r.intents.current_intent.reason_id == &"critical_sleep", "Exhaustion interrupts noncritical locked eating")
 	check(scene.kitchen_data.resources.get_amount(FOOD) == 1 and scene.kitchen_data.resources.get_reserved_out(FOOD) == 0, "Already consumed food is not created again")
-	scene.game_time.debug_skip_minutes(160)
+	scene.game_time.debug_skip_minutes(ceili((100 - Needs.SLEEP_RECOVERY_TARGET) / critical_recovery) + 1)
 	check(r.data.fatigue <= 20 and r.intents.forced_priority == 0, "Recovery ends critical sleep and unlocks ordinary choices")
 	scene.free()
 	# A future higher emergency is not overridden; exhaustion is handled on completion.

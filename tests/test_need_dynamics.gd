@@ -21,6 +21,7 @@ func _run():
 				clock.set_speed(speed)
 				var data = Data.new("test", "Тест", 30)
 				data.activity = activity
+				if activity == Activity.Type.SLEEPING: data.start_sleep(preload("res://scripts/balance_config.gd").HOME_SLEEP_QUALITY)
 				data.fatigue = 40
 				data.get_need(NeedType.Type.SOCIAL).value = 50
 				data.get_need(NeedType.Type.LEISURE).value = 50

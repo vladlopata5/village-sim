@@ -45,3 +45,6 @@ const PORTER_DISTANCE_SCALE = 600.0
 const PORTER_DISTANCE_WEIGHT = 1000.0
 
 const HOUSE_RESIDENT_CAPACITY = 4 # Temporary prototype housing balance.
+
+const HOME_SLEEP_QUALITY = 1.0
+const OUTDOOR_SLEEP_QUALITY = 0.6

@@ -974,3 +974,36 @@ BuildingView вместо специального домашнего визуа
 
 Проверка миграции: 54/54 test suites; test_starting_homes — 87 checks, 0 failures.
 Godot analyzer — 126 scripts, 0 diagnostics. Headless startup — exit 0, пустой stderr.
+
+## Базовое качество сна (2026-10-07)
+
+Balance: HOME_SLEEP_QUALITY=1.0, OUTDOOR_SLEEP_QUALITY=0.6. Numeric snapshot
+ResidentData.current_sleep_quality устанавливается через start_sleep(quality)
+при начале сна. Schedule использует committed home destination, либо outdoor
+fallback; critical fatigue в Needs всегда задаёт outdoor quality и сон на месте.
+Назначение дома не пересчитывает качество уже спящего жителя. Reassign во время
+пути сохраняет context старой цели; исчезновение самой цели до arrival даёт 0.6.
+
+Формула fatigue: прежняя база −30 fractional units/min / 60 × quality.
+За час дома −30 пунктов fatigue, снаружи −18. Float accumulator сохраняет
+дробные вклады; base recovery и awake growth не меняются. Clock minute events,
+x1/x2/x4/x10/x20 и pause сохраняют прежнюю semantics. Wake conditions прежние:
+ordinary night window 23:00–06:00, critical recovery target 20.
+
+Несколько жителей одного дома имеют quality 1.0, без sleep slots/occupancy checks.
+DEBUG при старте: «Степан: начал спать дома, quality=1.00»;
+«Анна: критическая усталость — уснул на месте, quality=0.60».
+No recovery tick logs. Новых UI blocks, mood/status effects, weather/furniture/
+beds/housing tiers нет; future modifiers могут передавать числовое quality API.
+
+Новый test_sleep_quality проверяет resolution, 60-minute recovery, все скорости,
+pause, fractional carry/clamp, simultaneous residents, shared house, critical
+context и PlayerCommand, committed housing changes и invalidation during trip.
+Прежние rate/critical тесты обновлены под outdoor multiplier; base-rate suite
+явно задаёт home quality 1.0 для проверки сохранения прежней базы.
+
+Проверка quality этапа: 55/55 test suites; test_sleep_quality — 78 checks, 0 failures.
+Godot analyzer — 127 scripts, 0 diagnostics. Headless startup — exit 0, пустой stderr.
+Base FATIGUE_RATES/SLEEPING остаётся −30 fractional units/min; awake rates,
+UtilitySelector, PlayerCommand, housing API, building/construction/builder/logistics/
+production implementation не изменены.

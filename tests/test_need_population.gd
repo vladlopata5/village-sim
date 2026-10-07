@@ -2,6 +2,8 @@ extends SceneTree
 const Type = preload("res://scripts/need_type.gd").Type
 const Activity = preload("res://scripts/resident_activity.gd")
 const Intent = preload("res://scripts/resident_intent.gd")
+const Dynamics = preload("res://scripts/need_dynamics.gd")
+const Balance = preload("res://scripts/balance_config.gd")
 const FOOD = preload("res://scripts/resource_type.gd").Type.FOOD
 var failures := 0
 func _initialize(): call_deferred("_run")
@@ -10,6 +12,7 @@ func check(value: bool, message: String):
 		failures += 1
 		push_error(message)
 func _run():
+	var critical_recovery: float = -float(Dynamics.FATIGUE_RATES[Activity.Type.SLEEPING]) / Dynamics.UNITS_PER_POINT * Balance.OUTDOOR_SLEEP_QUALITY
 	var scene = load("res://scenes/main.tscn").instantiate()
 	root.add_child(scene)
 	scene.game_time.set_process(false)
@@ -43,7 +46,7 @@ func _run():
 	residents[2].view._process(20)
 	check(scene.kitchen_data.resources.get_amount(FOOD) == 1 and scene.kitchen_data.resources.get_reserved_out(FOOD) == 0, "Exactly two promised FOOD consumed on arrival")
 	scene.game_time.debug_skip_minutes(10)
-	check(residents[0].data.hunger == 60 and residents[2].data.hunger == 80 and residents[3].data.fatigue == 95, "Game time evolves each action independently")
+	check(residents[0].data.hunger == 60 and residents[2].data.hunger == 80 and residents[3].data.fatigue == 100 - int(10 * critical_recovery), "Game time evolves each action independently")
 	scene.resident_selection.select(residents[1].data)
 	scene.get_node("HUD/ResidentCard")._refresh()
 	check(scene.get_node("HUD/ResidentCard").activity_label.text == "Занятие: Отдыхает", "Card displays resident's RESTING activity")

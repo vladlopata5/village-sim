@@ -4,6 +4,8 @@ signal activity_changed
 var activity: ResidentActivity.Type = ResidentActivity.Type.IDLE:
 	set(value):
 		if activity == value: return
+		if activity == ResidentActivity.Type.SLEEPING:
+			current_sleep_quality = Balance.OUTDOOR_SLEEP_QUALITY
 		activity = value
 		activity_changed.emit()
 const TraitData = preload("res://scripts/trait_data.gd")
@@ -33,6 +35,8 @@ var traits: Array[TraitData] = []
 const NeedType = preload("res://scripts/need_type.gd")
 const Need = preload("res://scripts/need.gd")
 const Balance = preload("res://scripts/balance_config.gd")
+# Numeric snapshot of the current sleep action, not a permanent housing stat.
+var current_sleep_quality: float = Balance.OUTDOOR_SLEEP_QUALITY
 var needs: Dictionary = {
 	NeedType.Type.HUNGER: Need.new(0, Balance.HUNGER_BASE_WEIGHT),
 	NeedType.Type.FATIGUE: Need.new(0, Balance.FATIGUE_BASE_WEIGHT),
@@ -65,3 +69,8 @@ func get_need(type: NeedType.Type) -> Need:
 
 func notify_assignments_changed() -> void:
 	assignments_changed.emit()
+
+func start_sleep(quality: float) -> void:
+	# Callers resolve the concrete context once; recovery only reads this value.
+	current_sleep_quality = maxf(quality, 0.0)
+	activity = ResidentActivity.Type.SLEEPING

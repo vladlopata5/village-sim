@@ -66,7 +66,7 @@ func _run() -> void:
 		check(not actor.view.has_movement_target and actor.view.global_position == before, "%s fallback sleeps at current point" % kind)
 		actor.data.fatigue = 80
 		for minute in range(20): actor.need_dynamics._on_minute_changed(minute)
-		check(actor.data.fatigue == 70, "%s outdoor sleep preserves recovery rate" % kind)
+		check(actor.data.fatigue == 74, "%s outdoor sleep uses 0.6 quality" % kind)
 		actor.schedule.resume_current_phase()
 		check(actor.data.activity == Activity.SLEEPING, "Outdoor action remains committed")
 		scene.game_time.debug_next_phase()
@@ -164,7 +164,7 @@ func _run() -> void:
 		check(actor.intents.current_intent.reason_id == &"critical_sleep" and actor.data.activity == Activity.SLEEPING, "Critical fatigue still forces on-spot sleep")
 		check(actor.intents.forced_priority == 100 and not actor.view.has_movement_target and actor.view.global_position == before, "Critical priority and position unchanged")
 		for minute in range(20): actor.need_dynamics._on_minute_changed(minute)
-		check(actor.data.fatigue == 90, "Critical recovery unchanged by housing")
+		check(actor.data.fatigue == 94, "Critical recovery uses outdoor quality regardless of housing")
 		check(scene.player_control.move_to(actor.data.id, before + Vector2(50, 50)), "PlayerCommand interrupts critical sleep")
 		check(actor.commands.active_command != null and actor.data.activity == Activity.MOVING, "Player command retains absolute priority")
 		scene.free()

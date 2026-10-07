@@ -162,7 +162,11 @@ func try_rest(priority: int, critical_priority: int = 0) -> bool:
 		return false
 	_started_at = _clock.total_minutes
 	_minutes_left = REST_MINUTES
-	_data.activity = Activity.Type.SLEEPING if critical_priority > 0 else Activity.Type.RESTING
+	if critical_priority > 0:
+		_data.start_sleep(Balance.OUTDOOR_SLEEP_QUALITY)
+		if logger != null: logger.debug(EventLog.NEED, "%s: критическая усталость — уснул на месте, quality=%.2f" % [_data.resident_name, _data.current_sleep_quality])
+	else:
+		_data.activity = Activity.Type.RESTING
 	if logger != null: logger.sync_activity(_data)
 	return true
 

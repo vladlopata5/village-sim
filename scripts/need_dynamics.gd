@@ -35,14 +35,16 @@ func _on_minute_changed(_minute: int) -> void:
 	if activity == Activity.Type.SLEEPING: hunger_rate = HUNGER_SLEEPING
 	elif activity == Activity.Type.EATING: hunger_rate = HUNGER_EATING
 	_apply(NeedType.Type.HUNGER, hunger_rate)
-	_apply(NeedType.Type.FATIGUE, FATIGUE_RATES[activity])
+	var fatigue_rate: float = FATIGUE_RATES[activity]
+	if activity == Activity.Type.SLEEPING: fatigue_rate *= _data.current_sleep_quality
+	_apply(NeedType.Type.FATIGUE, fatigue_rate)
 	_apply_slow_growth(NeedType.Type.SOCIAL, SOCIAL_RATES[activity], Balance.SOCIAL_GROWTH_DIVISOR, Balance.SLEEP_SOCIAL_GROWTH_MULTIPLIER if activity == Activity.Type.SLEEPING else 1.0)
 	_apply_slow_growth(NeedType.Type.LEISURE, LEISURE_RATES[activity], Balance.LEISURE_GROWTH_DIVISOR, Balance.SLEEP_LEISURE_GROWTH_MULTIPLIER if activity == Activity.Type.SLEEPING else 1.0)
 func _apply_slow_growth(type: NeedType.Type, rate: int, divisor: int, growth_multiplier: float = 1.0) -> void:
 	# Fixed-point fractions retain small nonzero sleep growth without float drift.
 	var scaled_rate := rate * divisor * 1000 if rate < 0 else roundi(rate * growth_multiplier * 1000)
 	_apply(type, scaled_rate, UNITS_PER_POINT * divisor * 1000)
-func _apply(type: NeedType.Type, rate: int, units_per_point: int = UNITS_PER_POINT) -> void:
+func _apply(type: NeedType.Type, rate: float, units_per_point: int = UNITS_PER_POINT) -> void:
 	var need = _data.get_need(type)
 	if (need.value == 100 and rate > 0) or (need.value == 0 and rate < 0):
 		_fractions[type] = 0

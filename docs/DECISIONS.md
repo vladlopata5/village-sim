@@ -1234,3 +1234,25 @@ _activate_completed_building, что завершённая стройка. HOME
 Отдельная устаревшая сцена/скрипт домашнего визуала удалены вместе с home_names
 и отдельным setup path. Все normal selection/card/housing/sleep/collision queries
 используют тот же Main.buildings. Construction/AI/recovery behavior не меняются.
+
+### Sleep quality — числовой snapshot конкретного действия (2026-10-07)
+
+ResidentData.current_sleep_quality — локальное текущее execution state, не
+постоянная характеристика дома. start_sleep(quality) задаёт число перед SLEEPING;
+выход из SLEEPING очищает snapshot до outdoor default. Никакого SleepController,
+frame lookup housing или sleep-quality UI нет.
+
+Schedule вызывает start_sleep: home arrival проверяет сохранённый concrete
+_sleep_home_id, задаёт HOME_SLEEP_QUALITY=1.0. Outdoor fallback задаёт 0.6 сразу;
+исчезновение committed дома до arrival тоже даёт 0.6. Изменение home_location_id
+во время пути/сна не меняет context/quality текущего action. Critical fatigue
+в ResidentNeedsController вызывает start_sleep(OUTDOOR_SLEEP_QUALITY), даже с домом,
+сохраняя on-spot путь, forced priority и прежнее условие пробуждения FATIGUE<=20.
+
+NeedDynamics сохраняет базовый FATIGUE_RATES[SLEEPING]=-30 единиц при
+UNITS_PER_POINT=60, умножает только эту rate на numeric snapshot. Fractional
+accumulator принимает float rate, сохраняя дробное восстановление между минутами;
+не округляет multiplier до одного из двух режимов. Awake/hunger/social/leisure
+rates и формулы остаются прежними. 60 минут: home −30, outdoor/critical −18.
+В будущем caller сможет вычислить quality как housing × weather × furniture;
+сейчас этих систем нет. DEBUG quality логируется только при старте действия.

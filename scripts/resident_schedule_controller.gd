@@ -8,6 +8,7 @@ const Activity = preload("res://scripts/resident_activity.gd")
 const HOME_PRIORITY := 10000
 const WORK_PRIORITY := preload("res://scripts/balance_config.gd").WORK_PRIORITY
 const MANUAL_PRIORITY := 10
+const Balance = preload("res://scripts/balance_config.gd")
 var before_work: Callable
 var work_decision: Callable
 var _locations: RefCounted
@@ -91,10 +92,11 @@ func _on_intent_completed(intent: ResidentIntent) -> void:
 	if _phase == "День" and intent.reason_id == &"day_work":
 		data.activity = Activity.Type.WORKING
 	elif is_night and intent == _night_intent and intent.reason_id == &"night_home":
-		# A disappeared destination leaves sleep at the reached position, outdoors.
-		if not _get_home_target(_sleep_home_id) is Vector2 and logger != null:
+		# Quality uses the committed destination, never the newly assigned home.
+		var home_available := _get_home_target(_sleep_home_id) is Vector2
+		if not home_available and logger != null:
 			logger.debug(EventLog.SCHEDULE, "%s: дом стал недоступен, спит снаружи на месте" % data.resident_name)
-		data.activity = Activity.Type.SLEEPING
+		_start_sleep(Balance.HOME_SLEEP_QUALITY if home_available else Balance.OUTDOOR_SLEEP_QUALITY, "дома" if home_available else "снаружи")
 	if logger != null: logger.sync_activity(data)
 
 func request_work() -> bool:
@@ -141,7 +143,10 @@ func _on_intent_changed(intent: ResidentIntent) -> void:
 	_night_started = true
 	var data = _intents.resident_data
 	_sleep_home_id = data.home_location_id if intent.reason_id == &"night_home" else &""
-	data.activity = Activity.Type.SLEEPING if intent.type == ResidentIntent.Type.NONE else Activity.Type.MOVING
+	if intent.type == ResidentIntent.Type.NONE:
+		_start_sleep(Balance.OUTDOOR_SLEEP_QUALITY, "снаружи")
+	else:
+		data.activity = Activity.Type.MOVING
 	if logger != null:
 		if intent.reason_id == &"night_home":
 			logger.info(EventLog.SCHEDULE, "%s: идёт спать домой — %s" % [data.resident_name, data.home_location_id])
@@ -154,3 +159,8 @@ func _on_forced_interrupt(_previous: ResidentIntent) -> void:
 	_night_intent = null
 	_night_started = false
 	_sleep_home_id = &""
+
+func _start_sleep(quality: float, context: String) -> void:
+	_intents.resident_data.start_sleep(quality)
+	if logger != null:
+		logger.debug(EventLog.SCHEDULE, "%s: начал спать %s, quality=%.2f" % [_intents.resident_data.resident_name, context, quality])

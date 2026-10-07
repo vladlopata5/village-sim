@@ -408,7 +408,7 @@ ResidentCard/BuildingCard. Homeless допустим, завершённый д�
 Homeless/invalid home — сон снаружи на текущем месте. Pending использует новый home,
 committed путь/сон не reroute-ится при переселении. Несколько жителей могут спать
 в одном доме. Critical fatigue остаётся on-the-spot; PlayerCommand прерывает сон.
-Следующий отдельный этап — sleep quality; beds/slots/penalties пока отсутствуют.
+Sleep quality реализована следующим этапом ниже; beds/slots/penalties отсутствуют.
 
 ### Выполнено в Phase 4: единая архитектура стартовых HOME (2026-10-07)
 
@@ -416,3 +416,11 @@ committed путь/сон не reroute-ится при переселении. �
 capacity 4, без personal ownership. Starting setup и player-built HOME используют
 одинаковые definition/view/lookup/selection/card/housing/sleep/collision systems.
 Отдельный домашний визуал удалён; новые placement по-прежнему UNDER_CONSTRUCTION.
+
+### Выполнено в Phase 4: базовое качество сна (2026-10-07)
+
+Числовой committed multiplier: HOME_SLEEP_QUALITY=1.0,
+OUTDOOR_SLEEP_QUALITY=0.6. Critical fatigue on-the-spot использует outdoor quality.
+Восстановление fatigue зависит от base rate × quality, от игровых минут и паузы;
+awake growth/другие needs не меняются. Reassign не меняет active sleep quality.
+Weather, furniture, beds и различные housing quality tiers отложены.

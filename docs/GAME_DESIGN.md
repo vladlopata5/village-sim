@@ -1220,8 +1220,8 @@ WorldLocation, а при её отсутствии — position экземпля
 
 Empty/invalid/missing/non-HOME/UNDER_CONSTRUCTION home
 означают outdoor sleep на текущем месте. Critical fatigue по-прежнему вызывает
-сон на месте независимо от дома. Восстановление усталости одинаково дома и снаружи;
-quality, bonus и homelessness penalty отсутствуют.
+сон на месте независимо от дома и получает outdoor quality. Качество сна — числовой
+множитель восстановления fatigue: дома 1.0, снаружи 0.6. Mood/status penalties нет.
 
 Pending ночное намерение перепроверяет home при активации после committed действия.
 Начавшийся путь и сон committed: переселение/выселение не меняет цель и не будит;
@@ -1241,3 +1241,17 @@ BUILT в starting world setup: home_stepan, home_anna, home_fedor, home_marina,
 дома используют одну HOME definition, BuildingView, registry, footprint, selection,
 BuildingCard, housing query и sleep routing. Новое placement остаётся
 UNDER_CONSTRUCTION; стартовые дома не требуют ретроактивных материалов/работы.
+
+Sleep quality фиксируется на конкретном sleep action в current_sleep_quality.
+При arrival домашнего пути проверяется именно committed building ID, а не новый
+home_location_id: переселение/выселение не меняют уже начатый сон. Исчезновение
+конкретной цели до arrival переводит fallback в outdoor quality 0.6. Следующее
+действие снова разрешает актуальный sleep context. Capacity проверяется только
+при housing assignment, без bed slots и штрафа за нескольких жильцов.
+
+Fatigue recovery = существующая базовая скорость × current_sleep_quality.
+База остаётся 0.5 пункта за игровую минуту: за 60 минут дома −30 fatigue,
+снаружи и при critical sleep на месте −18. Awake growth и остальные needs,
+schedule/wake conditions/forced priority не меняются. Quality влияет только
+на fatigue recovery. Weather, furniture, tiers и другие modifiers — будущие этапы;
+числовой start_sleep(quality) позволяет добавить их без изменения recovery формулы.
