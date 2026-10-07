@@ -7,7 +7,7 @@ func setup(drop: Drop) -> void:
 	ground_resource = drop
 	global_position = drop.world_position
 	var caption := Label.new()
-	caption.text = "FOOD"
+	caption.text = preload("res://scripts/resource_type.gd").display_name(drop.resource_type)
 	caption.position = Vector2(-16, -32)
 	caption.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(caption)

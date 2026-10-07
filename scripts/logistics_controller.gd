@@ -92,7 +92,7 @@ func register_resident(resident: ResidentData) -> void:
 	_residents[resident.id] = resident
 
 func _eligible(resident: ResidentData, job: HaulJob) -> bool:
-	return resident != null and resident.profession == Profession.Type.PORTER and resident.work_location_id == _source.id and _buildings.has(job.source_location_id) and _buildings.has(job.destination_location_id) and _job_source(job).is_built() and _job_destination(job).is_built()
+	return resident != null and resident.profession == Profession.Type.PORTER and _porter_workplace_valid(resident) and _buildings.has(job.source_location_id) and _buildings.has(job.destination_location_id) and _job_source(job).is_built() and _job_destination(job).is_built()
 
 func claim_best_job(resident_id: String) -> HaulJob:
 	var resident: ResidentData = _residents.get(resident_id)
@@ -121,7 +121,7 @@ func has_available_job(resident_id: String) -> bool:
 	if resident == null: return false
 	for job in jobs:
 		if job.state == HaulJob.State.RESERVED and _eligible(resident, job): return true
-	return resident.profession == Profession.Type.PORTER and _source != null and resident.work_location_id == _source.id and _can_create_job()
+	return resident.profession == Profession.Type.PORTER and _source != null and _porter_workplace_valid(resident) and _can_create_job()
 
 func executor_available() -> bool:
 	return _haul_intent == null and not _finishing
@@ -290,3 +290,14 @@ func has_work() -> bool:
 
 func _can_create_job() -> bool:
 	return _routes.any(func(route): return _route_can_create(route))
+
+func add_kitchen(kitchen: BuildingInstance) -> void:
+	_buildings[kitchen.id] = kitchen
+	_routes.append({"source": _source, "destination": kitchen, "export": false})
+func add_warehouse(warehouse: BuildingInstance) -> void:
+	_buildings[warehouse.id] = warehouse
+	_routes.append({"source": warehouse, "destination": _destination, "export": false})
+
+func _porter_workplace_valid(resident: ResidentData) -> bool:
+	var workplace: BuildingInstance = _buildings.get(resident.work_location_id)
+	return workplace != null and workplace.is_built() and workplace.type == BuildingType.Type.STORAGE

@@ -1105,3 +1105,40 @@ definition, локальный output container и production_progress сохр�
 production/logistics/eating/workplace/interaction checks; WOOD не создаёт HaulJob.
 Автоматическое подключение новых завершённых зданий к рабочим системам остаётся
 за рамками этого этапа данных; существующие стартовые системы не переписываются.
+
+## 2026-10-07 — resident-owned строительный workflow
+
+ResidentBuilderController — отдельный controller каждого runtime, не глобальный scheduler.
+Он получает реестр зданий, позицию через Callable, часы и IntentController. Фазы:
+GOING_TO_SOURCE, CARRYING_TO_SITE, GOING_TO_SITE, BUILDING. Все стадии одного task
+сохраняют слот; завершение рейса после смены профессии, обычная граница рабочего цикла,
+нет материалов, удаление цели и forced cleanup освобождают его. Site score не сравнивается
+с needs: сначала выбирается WORK=7000 существующим UtilitySelector.
+
+Строительные reserve_in живут в BuildingInstance отдельно от functional ResourceContainer.
+reserve/deliver/release контролируют непокрытый дефицит. Прямое add_delivered_material
+также не может занять место, обещанное резервом. Доставки не являются HaulJob; исходящий
+резерв источника остаётся существующим ResourceContainer.reserve_out/take_reserved.
+Inventory теперь допускает одну FOOD или WOOD, но не >1 unit. GroundResource visual/target
+показывает фактический тип, pickup на земле не реализован.
+
+В BUILDING учитываются реально проведённые у стройки work-minutes при WORKING. Вклад
+записывается в BuildingInstance на границе 60 минут либо при прерывании (частичный вклад).
+Этот подход сохраняет worker cycle как committed action и уже выполненную работу при
+critical/PlayerCommand. После полного цикла ровно одна normal decision point.
+
+Источники/стройки уведомляют controller локальными availability_changed/construction_changed;
+недоступный источник не ищется заново на каждой idle decision point. При всём дефиците
+в пути выбран простой вариант: выйти из task, освободить slot, без waiting loop.
+Изменение availability не прерывает обычное личное действие. Исчезновение registry target
+проверяется также у активного executor на игровых минутах/arrival, это проверка валидности
+исполнения, не polling поиска новой работы. Синхронные interrupts во время reserve/pickup/
+delivery завершают cleanup после атомарного обновления физического владения, без потери WOOD.
+
+Main подключает новый BUILT instance к прежним системам один раз по state signal: kitchen
+к FOOD availability и логистике; storage к ресурсам/workplace; hut к production/логистике.
+GathererProduction обслуживает дополнительные хижины в том же minute observer перед AI,
+с прежней формулой. Logistics принимает дополнительные FOOD routes, оставаясь единственным
+porter executor. PlayerControl.register_building регистрирует workplace, сохраняя прежний
+default workplace; контекстное employment назначает конкретное завершённое здание.
+Дома получают обычное взаимодействие «Идти к», housing mechanics не добавлены.

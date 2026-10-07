@@ -50,14 +50,19 @@ func _refresh() -> void:
 		return
 	var amount: int = _building.resources.get_amount(FOOD) if _building.resources != null else 0
 	var capacity: int = _building.resources.get_capacity(FOOD) if _building.resources != null else 0
-	var snapshot: Array = [_building.display_name, _building.id, _building.state, _building.type, amount, capacity, _building.production_progress, _building.construction_delivered, _building.construction_progress, _building.active_builder_ids, _building.definition.construction_requirements.duplicate(), _building.definition.construction_work_required, _building.definition.max_builders]
+	var resource_lines := PackedStringArray()
+	if _building.resources != null:
+		for resource in ResourceType.Type.values():
+			var limit: int = _building.resources.get_capacity(resource)
+			if limit > 0: resource_lines.append("%s: %d / %d" % [ResourceType.display_name(resource), _building.resources.get_amount(resource), limit])
+	var snapshot: Array = [_building.display_name, _building.id, _building.state, _building.type, amount, capacity, _building.production_progress, _building.construction_delivered, _building.construction_progress, _building.active_builder_ids, _building.definition.construction_requirements.duplicate(), _building.definition.construction_work_required, _building.definition.max_builders, resource_lines]
 	if snapshot == _last_snapshot: return
 	_last_snapshot = snapshot
 	name_label.text = _building.display_name
 	id_label.text = "ID: %s" % _building.id
 	state_label.text = "Состояние: " + ("Построено" if _building.is_built() else "Строится")
 	type_label.text = "Тип: " + _type_text(_building.type)
-	resources_label.text = "FOOD: %d / %d" % [amount, capacity] if capacity > 0 else "Ресурсов нет"
+	resources_label.text = "\n".join(resource_lines) if not resource_lines.is_empty() else "Ресурсов нет"
 	production_section.visible = _building.is_built() and _building.type == Types.Type.GATHERER_HUT
 	production_label.text = "FOOD • прогресс: %d / %d рабочих минут" % [_building.production_progress, Balance.GATHERER_WORK_MINUTES_PER_FOOD]
 	construction_section.visible = not _building.is_built()

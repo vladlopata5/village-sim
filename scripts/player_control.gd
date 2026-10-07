@@ -30,15 +30,17 @@ func describe_assignment(resident_id: String, assignment_id: StringName) -> Stri
 
 func setup(population: Array, buildings: Array) -> void:
 	for resident in population: _residents[resident.id] = resident
-	for building in buildings:
-		if not building.is_built(): continue
-		match building.type:
-			BuildingType.Type.STORAGE:
-				_workplaces[Profession.Type.PORTER] = building.id
-				_workplace_professions[building.id] = Profession.Type.PORTER
-			BuildingType.Type.GATHERER_HUT:
-				_workplaces[Profession.Type.GATHERER] = building.id
-				_workplace_professions[building.id] = Profession.Type.GATHERER
+	for building in buildings: register_building(building)
+
+func register_building(building: RefCounted) -> void:
+	if not building.is_built(): return
+	match building.type:
+		BuildingType.Type.STORAGE:
+			if not _workplaces.has(Profession.Type.PORTER): _workplaces[Profession.Type.PORTER] = building.id
+			_workplace_professions[building.id] = Profession.Type.PORTER
+		BuildingType.Type.GATHERER_HUT:
+			if not _workplaces.has(Profession.Type.GATHERER): _workplaces[Profession.Type.GATHERER] = building.id
+			_workplace_professions[building.id] = Profession.Type.GATHERER
 
 func register_commands(resident_id: String, controller: Node) -> void:
 	_commands[resident_id] = controller
@@ -63,7 +65,7 @@ func current_intent(resident_id: String):
 func assign_profession(resident_id: String, profession: Profession.Type) -> bool:
 	var resident: RefCounted = _residents.get(resident_id)
 	if resident == null or profession not in Profession.Type.values(): return false
-	if profession != Profession.Type.NONE and not _workplaces.has(profession): return false
+	if profession not in [Profession.Type.NONE, Profession.Type.BUILDER] and not _workplaces.has(profession): return false
 	return _assign(resident_id, profession, _workplaces.get(profession, &""))
 
 func _assign(resident_id: String, profession: Profession.Type, location_id: StringName) -> bool:

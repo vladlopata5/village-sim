@@ -14,6 +14,7 @@ var state: State:
 	set(value):
 		# Direct writes cannot bypass completion or move a built instance backwards.
 		if value == State.BUILT: complete_construction()
+var _construction_reserved_in: Dictionary = {}
 var _construction_delivered: Dictionary = {}
 var construction_delivered: Dictionary:
 	get: return _construction_delivered.duplicate()
@@ -54,7 +55,7 @@ func get_missing_amount(resource: int) -> int:
 	return maxi(get_required_amount(resource) - get_delivered_amount(resource), 0)
 func add_delivered_material(resource: int, amount: int) -> bool:
 	# Caller records actual arrival only. No reservation/warehouse lookup or transfer here.
-	if is_built() or amount <= 0 or amount > get_missing_amount(resource): return false
+	if is_built() or amount <= 0 or amount > get_uncovered_construction_amount(resource): return false
 	_construction_delivered[resource] = get_delivered_amount(resource) + amount
 	construction_changed.emit()
 	return true
@@ -89,3 +90,31 @@ func complete_construction() -> bool:
 	_active_builder_ids.clear()
 	construction_changed.emit()
 	return true
+
+func get_construction_reserved_in(resource: int) -> int:
+	return _construction_reserved_in.get(resource, 0)
+func get_uncovered_construction_amount(resource: int) -> int:
+	return maxi(get_missing_amount(resource) - get_construction_reserved_in(resource), 0)
+func reserve_construction_material(resource: int, amount: int) -> bool:
+	if is_built() or amount <= 0 or amount > get_uncovered_construction_amount(resource): return false
+	_construction_reserved_in[resource] = get_construction_reserved_in(resource) + amount
+	construction_changed.emit()
+	return true
+func release_construction_material(resource: int, amount: int) -> bool:
+	if amount <= 0 or amount > get_construction_reserved_in(resource): return false
+	_construction_reserved_in[resource] -= amount
+	construction_changed.emit()
+	return true
+func deliver_reserved_construction_material(resource: int, amount: int) -> bool:
+	if is_built() or amount <= 0 or amount > get_construction_reserved_in(resource) or amount > get_missing_amount(resource): return false
+	_construction_reserved_in[resource] -= amount
+	_construction_delivered[resource] = get_delivered_amount(resource) + amount
+	construction_changed.emit()
+	return true
+func get_construction_material_ratio() -> float:
+	var required := 0
+	var delivered := 0
+	for resource in definition.construction_requirements:
+		required += get_required_amount(resource)
+		delivered += mini(get_delivered_amount(resource), get_required_amount(resource))
+	return float(delivered) / required if required > 0 else 1.0

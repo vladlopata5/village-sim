@@ -91,6 +91,8 @@ func _ready() -> void:
 	social_world.position_provider = _resident_position_2d
 	for runtime in resident_runtimes:
 		social_world.register(runtime)
+		runtime.builder.position_provider = _production_position_2d
+		runtime.builder.cargo_dropped.connect(_drop_cargo.bind(runtime))
 		runtime.social.world = social_world
 		runtime.assignments.bind_social_world()
 		runtime.wander.target_provider = _wander_target_2d.bind(runtime.data.id)
@@ -292,6 +294,7 @@ func _create_test_residents() -> void:
 		interactions.register_target(home.id, home.display_name, home, world_locations.get_position.bind(home.id))
 		interaction_targets.register(home.id, home_view)
 		var view = ResidentView2D.instantiate()
+		view.z_index = 1 # Residents remain visible at buildings placed later in the world tree.
 		view.name = "ResidentView_" + data.id
 		view.setup(data)
 		view.position = start_positions[index]
@@ -353,12 +356,14 @@ func _work_available(runtime: ResidentRuntime) -> bool:
 	match runtime.data.profession:
 		Profession.Type.PORTER:
 			return logistics.executor_available() and logistics.has_available_job(runtime.data.id)
+		Profession.Type.BUILDER: return runtime.builder.has_work()
 		Profession.Type.GATHERER: return production.can_work(runtime.data)
 		_: return false
 
 func _request_work(runtime: ResidentRuntime) -> bool:
 	match runtime.data.profession:
 		Profession.Type.PORTER: return _request_haul_work(runtime)
+		Profession.Type.BUILDER: return runtime.builder.request_work()
 		Profession.Type.GATHERER: return runtime.schedule.request_work()
 		_: return false
 
@@ -441,6 +446,8 @@ func _create_test_warehouse() -> void:
 	warehouse_data = BuildingData.new(&"warehouse_01", "Склад", BuildingType.Type.STORAGE)
 	warehouse_data.resources.set_capacity(ResourceType.Type.FOOD, 20)
 	warehouse_data.resources.add(ResourceType.Type.FOOD, 10)
+	warehouse_data.resources.set_capacity(ResourceType.Type.WOOD, 50)
+	warehouse_data.resources.add(ResourceType.Type.WOOD, 50)
 	buildings.append(warehouse_data)
 	var location = WorldLocation.new(warehouse_data.id, warehouse_data.display_name)
 	var view = BuildingView2D.instantiate()
@@ -513,7 +520,7 @@ func _show_ground_resource(drop) -> void:
 	var id := StringName("ground_%d" % _next_ground_id)
 	_next_ground_id += 1
 	_ground_ids[drop] = id
-	interactions.register_target(id, "FOOD на земле", drop, _ground_position.bind(drop), [&"ground_resource"])
+	interactions.register_target(id, ResourceType.display_name(drop.resource_type) + " на земле", drop, _ground_position.bind(drop), [&"ground_resource"])
 	interaction_targets.register(id, view)
 
 func _ground_position(drop: RefCounted) -> Vector2: return drop.world_position
@@ -555,7 +562,33 @@ func _show_placed_building(building: BuildingInstance) -> void:
 	$World.add_child(view)
 	view.setup(building)
 	world_locations.register(WorldLocation.new(building.id, building.display_name), view)
-	# Under-construction instances have no food/employment/haul capabilities.
+	# The same registry/view gains functionality after the one-way state transition.
+	building.construction_changed.connect(_activate_completed_building.bind(building))
+	for runtime in resident_runtimes: runtime.builder.register_building(building)
+
+func _activate_completed_building(building: BuildingInstance) -> void:
+	if not building.is_built(): return
+	building.construction_changed.disconnect(_activate_completed_building.bind(building))
+	match building.type:
+		BuildingType.Type.STORAGE:
+			building.resources.set_capacity(ResourceType.Type.FOOD, 20)
+			building.resources.set_capacity(ResourceType.Type.WOOD, 50)
+			logistics.add_warehouse(building)
+		BuildingType.Type.FOOD:
+			building.resources.set_capacity(ResourceType.Type.FOOD, 20)
+			logistics.add_kitchen(building)
+		BuildingType.Type.GATHERER_HUT:
+			building.resources.set_allowed_resource_types([ResourceType.Type.FOOD])
+			building.resources.set_capacity(ResourceType.Type.FOOD, 5)
+			production.additional_buildings.append(building)
+			logistics.add_production_source(building)
+	building.resources.changed.connect(_on_hut_resources_changed)
+	player_control.register_building(building)
+	interactions.register_building(building, world_locations.get_position.bind(building.id))
+	interaction_targets.register(building.id, world_locations.get_view(building.id))
+	for runtime in resident_runtimes: runtime.needs.register_food_building(building)
+	logistics.recalculate()
+
 
 func _building_hit(screen_position: Vector2) -> BuildingInstance:
 	# Exact resident hits have already consumed their click before Main.

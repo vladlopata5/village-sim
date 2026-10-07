@@ -44,9 +44,7 @@ func setup(clock: Node, data: Data, buildings: Array, locations: RefCounted, int
 	clock.minute_changed.connect(_on_minute_changed)
 	intents.intent_changed.connect(_on_intent_changed)
 	intents.intent_arrived.connect(_on_arrival)
-	for building in buildings:
-		if building.is_built() and building.type == BuildingType.Type.FOOD:
-			building.resources.availability_changed.connect(_on_food_availability_changed)
+	for building in buildings: register_food_building(building)
 	_available_food_amount = _count_available_food()
 
 func try_eat(priority: int, critical_priority: int = 0) -> bool:
@@ -281,3 +279,8 @@ func _food_target_valid() -> bool:
 
 func has_location(location_id: StringName) -> bool:
 	return _locations.get_position(location_id) is Vector2
+
+func register_food_building(building: RefCounted) -> void:
+	if building.is_built() and building.type == BuildingType.Type.FOOD and not building.resources.availability_changed.is_connected(_on_food_availability_changed):
+		building.resources.availability_changed.connect(_on_food_availability_changed)
+		_on_food_availability_changed(ResourceType.Type.FOOD, building.resources.get_available_amount(FOOD))

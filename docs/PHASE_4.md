@@ -813,3 +813,41 @@ Builder AI, перенос WOOD, строительные HaulJob и автом�
 Godot analyzer — 119 scripts, 0 diagnostics; headless startup 120 frames — exit 0,
 stderr пуст. Реальный render карточки 4/10 WOOD, 90/180 минут (50%), 1/2 слота
 проверен; debug controls и hotkeys не добавлены.
+
+## 2026-10-07 — BUILDER и физическое строительство
+
+Добавлена профессия Строитель в прежний UI/API. Стартовый склад: FOOD без изменений,
+WOOD 50/50 для прототипа. Строитель без фиксированного workplace выбирает стройку только
+после WORK=7000. Score: delivered fraction ×2000 + work fraction ×2000 + builders ×1000
+− (distance/300)²×1000. Пример калибровки 80% материалов, 50% работы, 1 builder:
+0px=3600; 150px=3350; 300px=2600; 600px=−400; 900px=−5400.
+Полные материалы + один builder на 600px дают −1000 и проигрывают близким 80% без builder
+(score 1600). Distance ощутим, но материал/работа/концентрация тоже дают вклад.
+
+ResidentBuilderController выбирает стройку/ближайший BUILT source и держит слот между
+рейсами. По 1 WOOD физически проходит source reservation → inventory → delivered.
+Site reservation учитывается только в uncovered deficit, не в material score. Максимум
+два builder; overdelivery, третье место и двойное reserve одной единицы запрещены.
+Без доступного материала либо когда весь остаток уже в пути, task завершается и slot
+освобождается; новая доступность приходит событиями, без retry polling/cooldown.
+
+Рабочий цикл — 60 фактических игровых минут в WORKING у стройки. В конце вклад добавляется
+зданию, затем completion проверка и normal decision. Два builder дают +120. Forced cleanup
+сохраняет частичный вклад; после pickup drops WOOD вместо возврата на склад. Profession
+change завершает текущий безопасный рейс/цикл, но не запускает следующую операцию.
+
+BUILT сохраняет ID/instance/view и сразу подключается к обычным context/workplace/storage/
+eating/production/FOOD routes по типу. BuildingCard обновляется локальными signals; склад
+показывает теперь и WOOD. Builder AI не использует HaulJob и не подбирает GroundResource.
+Лес/wood production, demolition/repair/upgrades/priority UI не добавлены.
+
+Новый test_builder_workflow проверяет calibration, normal selector, транспорт нескольких
+строителей, no over-reserve, no-source availability events, критические needs/PlayerCommand,
+потерю цели, смену профессии, pause/x1/x10/x20, частичные циклы, два вклада, полный цикл
+10 рейсов + 3 work cycles и функциональность каждого завершённого типа здания.
+
+Проверки: 50 test suites PASS; test_builder_workflow — 83 checks, 0 failures.
+Analyzer: 121 scripts, 0 diagnostics. Headless startup: 120 frames, exit 0, stderr пуст.
+Проверен реальный render 10/10 WOOD, 120/180 work-minutes, 2/2 builders. Жители
+рисуются поверх зданий, поставленных позднее, чтобы работающий builder оставался видимым.
+UtilitySelector, need balance и PlayerCommand implementation не изменены.
