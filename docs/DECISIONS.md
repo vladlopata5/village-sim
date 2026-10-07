@@ -1195,3 +1195,24 @@ default workplace; контекстное employment назначает конк
   координаты без подмены housing management на sleep-location behavior.
 - Default/invalid home безопасен. Demolition, auto-fill, beds, quality, penalties,
   семьи и housing AI отсутствуют; эти механики будут отдельными этапами.
+
+### Ordinary night sleep использует актуальное жильё (2026-10-07)
+
+Временная совместимость housing foundation с bootstrap night marker отменена.
+Schedule получает существующий общий buildings Array; валидирует конкретный ID,
+BUILT, HOME и housing_capacity > 0. Позиция — WorldLocation дома, либо position
+экземпляра без visual mapping (центр footprint); отдельного HousingController нет.
+
+Home читается при активации обычного ночного намерения, включая pending после еды
+или перевозки. После начала пути сохраняются concrete target и ID только текущего
+execution; reassign/clear не reroute-ят и не будят. Если цель исчезла к прибытию,
+житель спит снаружи на достигнутом месте, без зависшего маршрута.
+
+Без валидного дома — stationary night_outdoor intent и SLEEPING на текущем месте.
+Утром очищаются как маршрут, так и stationary intent. Resume той же ночной фазы
+не пересоздаёт committed sleep. Локальный intent_changed обрабатывает pending
+активацию до visual executor; forced_interrupt очищает ownership для нового решения.
+
+Critical fatigue и PlayerCommand сохраняют существующие forced правила. Расписание
+23:00–06:00 и recovery не меняются. Capacity не является sleep slot; несколько
+жителей спят в одном доме. Beds, quality и outdoor penalties остаются будущими.

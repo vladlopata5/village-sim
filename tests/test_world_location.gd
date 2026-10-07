@@ -58,10 +58,10 @@ func _run() -> void:
 	view._process(20.0)
 	check(data.activity == Activity.Type.IDLE, "Manual arrival remains IDLE")
 	data.home_location_id = &"missing"
-	home.free() # Missing legacy night destination remains safe independently of housing.
+	home.free() # Missing assigned home falls back safely to local outdoor sleep.
 	while clock.get_phase() != "Ночь":
 		clock.debug_next_phase()
-	check(not view.has_movement_target and data.activity == Activity.Type.IDLE, "Missing home does not issue bogus movement or sleep")
+	check(not view.has_movement_target and data.activity == Activity.Type.SLEEPING, "Missing home sleeps outdoors without bogus movement")
 	clock.debug_next_phase()
 	check(not scene.resident_runtimes[0].schedule.is_night, "Missing home still releases night lock in morning")
 	check(data.fatigue >= 0 and data.fatigue <= 100 and data.mood == 65, "Place lookup leaves mood unchanged and fatigue bounded")

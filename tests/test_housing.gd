@@ -111,7 +111,6 @@ func _run() -> void:
 	building_card.set_process(false)
 	var old_house = scene.player_control.get_home(actor.data.id)
 	var new_house = scene.player_control.get_home(scene.residents[1].id)
-	var original_position: Vector2 = scene.world_locations.get_position(old_house.id)
 	for resident in scene.residents: scene.player_control.clear_home(resident.id)
 	scene.resident_selection.select(actor.data)
 	check(resident_card.home_label.text == "Дом: Нет дома", "Resident card shows homeless")
@@ -172,15 +171,15 @@ func _run() -> void:
 	current = actor.intents.current_intent
 	scene.player_control.clear_home(actor.data.id)
 	check(actor.commands.active_command == command and actor.intents.current_intent == current, "Clear home leaves PlayerCommand untouched")
-	# Existing nightly route remains the original prototype location after reassign/clear.
+	# Housing now determines the next night action; changing an active sleep still does not wake.
 	actor.view._process(20) # Complete the existing MOVE_TO normally.
 	for runtime in scene.resident_runtimes: runtime.intents.cancel_current(runtime.intents.current_intent)
 	scene.player_control.assign_home(actor.data.id, placed.id)
 	scene.player_control.clear_home(actor.data.id)
 	while scene.game_time.get_phase() != "Ночь": scene.game_time.debug_next_phase()
-	check(actor.intents.current_intent.reason_id == &"night_home" and actor.view.target_position == original_position, "Housing assignment/clear does not change existing nightly destination")
+	check(actor.intents.current_intent.reason_id == &"night_outdoor" and not actor.view.has_movement_target, "Cleared housing starts outdoor sleep")
 	actor.view._process(20)
-	check(actor.data.activity == Activity.SLEEPING and actor.data.home_location_id.is_empty(), "Legacy sleep unchanged even with no assigned housing")
+	check(actor.data.activity == Activity.SLEEPING and actor.data.home_location_id.is_empty(), "Outdoor sleep works with no assigned housing")
 	var sleeping = actor.intents.current_intent
 	scene.player_control.assign_home(actor.data.id, placed.id)
 	check(actor.data.activity == Activity.SLEEPING and actor.intents.current_intent == sleeping, "Assigning home never wakes/moves sleeping resident")

@@ -908,3 +908,36 @@ RMB menu, непосредственные signal UI updates при выключ
 Итоговая проверка: 52/52 test suites; housing — 64 checks, 0 failures;
 Godot analyzer — 125 scripts, 0 diagnostics; headless startup — exit 0, пустой stderr.
 Проверен реальный render ResidentCard с home name/ID и BuildingCard с 2/4 жильцов.
+
+## Ordinary night sleep-location (2026-10-07)
+
+Заменяет временную bootstrap marker compatibility предыдущего housing foundation.
+ResidentScheduleController выбирает current home при фактической активации ночного
+намерения. Только существующий BUILT HOME с capacity > 0 допустим;
+arrival запускает обычный сон. Target point — существующая WorldLocation дома,
+либо position экземпляра без visual mapping; у placed домов центр footprint.
+Shared house не требует bed slots.
+
+Без home/с невалидным ID, типом, state или capacity житель спит на месте
+через stationary night_outdoor. Recovery совпадает с домашним сном. При исчезновении
+дома во время пути сон на достигнутом месте считается outdoor fallback.
+
+Если ночь ждёт committed еды/доставки, home повторно читается при активации pending.
+После старта concrete route committed: reassign/clear не меняет путь/сон; новый дом
+применяется в следующем action. Утро заканчивает и домашний, и outdoor сон.
+PlayerCommand прерывает любой сон; после completion AI может выбрать актуальный home.
+Critical fatigue по-прежнему засыпает на месте с прежним recovery/interrupt priority.
+
+INFO при старте: «Степан: идёт спать домой — home_stepan» либо «Степан: спит снаружи —
+дома нет или он недоступен». Invalid home даёт дополнительный DEBUG; движения не логируются.
+Никаких quality, beds, homelessness penalties, новых UI blocks или HousingController.
+
+Новый test_home_sleep проверяет shared/current/invalid home, физический путь и arrival,
+outdoor recovery, pending home updates, committed reassign, critical fatigue,
+PlayerCommand и исчезновение target. Предыдущие housing/marker тесты обновлены
+для новой обычной sleep semantics, остальные игровые системы неизменны.
+
+Проверка этапа: 53/53 test suites; test_home_sleep — 83 checks, 0 failures.
+Godot analyzer — 126 scripts, 0 diagnostics. Headless startup — exit 0, пустой stderr.
+UtilitySelector, needs/recovery, PlayerCommand, housing management, builder,
+construction, production и logistics implementation не изменены.

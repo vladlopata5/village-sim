@@ -33,10 +33,11 @@ func setup(resident: RefCounted, presentation: Node2D, clock: Node, locations: R
 		controller.logger = logger
 	intents.setup(data)
 	intents.intent_changed.connect(decision.capture_work_assignment.bind(data))
-	intents.intent_changed.connect(view.apply_intent)
 	view.intent_completed.connect(intents.report_arrival)
 	commands.setup(data, intents)
-	schedule.setup(clock, locations, intents)
+	schedule.setup(clock, locations, intents, buildings)
+	intents.intent_changed.connect(view.apply_intent)
+	view.apply_intent(intents.current_intent)
 	need_dynamics.setup(clock, data)
 	needs.setup(clock, data, buildings, locations, intents, schedule)
 	assignments.setup(data, needs, intents, social, clock)

@@ -400,3 +400,12 @@ Optional ResidentData.home_location_id, prototype HOME capacity=4, query жил�
 ResidentCard/BuildingCard. Homeless допустим, завершённый дом не auto-fills.
 Следующие отдельные этапы: sleep-location behavior и housing quality; в этом шаге
 новое назначение дома не меняет сон и не создаёт PlayerCommand/ResidentAssignment.
+
+### Выполнено в Phase 4: ordinary sleep-location (2026-10-07)
+
+Текущий home_location_id выбирает обычный ночной маршрут к валидному BUILT HOME
+при старте действия; старый bootstrap night marker больше не source of truth.
+Homeless/invalid home — сон снаружи на текущем месте. Pending использует новый home,
+committed путь/сон не reroute-ится при переселении. Несколько жителей могут спать
+в одном доме. Critical fatigue остаётся on-the-spot; PlayerCommand прерывает сон.
+Следующий отдельный этап — sleep quality; beds/slots/penalties пока отсутствуют.
