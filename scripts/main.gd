@@ -36,7 +36,6 @@ var world_locations = WorldLocations2D.new()
 const ResidentFactory = preload("res://scripts/resident_factory.gd")
 const ResidentGenerator = preload("res://scripts/resident_generator.gd")
 const ResidentRuntime = preload("res://scripts/resident_runtime.gd")
-const LocationView = preload("res://scenes/world_location_view_2d.tscn")
 const WanderTarget = preload("res://scripts/wander_target.gd")
 const SocialWorld = preload("res://scripts/social_world.gd")
 var social_world = SocialWorld.new()
@@ -275,25 +274,15 @@ func _create_test_residents() -> void:
 			data.profession = Profession.Type.GATHERER
 			data.work_location_id = gatherer_hut_data.id
 		residents.append(data)
-	var home_names = ["Дом Степана", "Дом Анны", "Дом Фёдора", "Дом Марины"]
 	var home_positions = [Vector2(-300, -120), Vector2(-100, -200), Vector2(100, -200), Vector2(300, -120)]
 	var start_positions = [Vector2(120, 80), Vector2(220, 100), Vector2(-100, 100), Vector2(0, 180)]
 	for index in range(residents.size()):
 		var data = residents[index]
 		assert(find_resident(data.id) == data, "Resident IDs must be unique")
-		var home_building = BuildingData.new(data.home_location_id, home_names[index], BuildingType.Type.HOME)
-		home_building.position = home_positions[index]
-		buildings.append(home_building)
-		var home = WorldLocation.new(data.home_location_id, home_names[index])
-		var home_view = LocationView.instantiate()
-		home_view.name = String(home.id)
-		$World.add_child(home_view)
-		home_view.position = home_positions[index]
-		home_view.building_data = home_building
-		home_view.setup(home)
-		world_locations.register(home, home_view)
-		interactions.register_building(home_building, world_locations.get_position.bind(home.id))
-		interaction_targets.register(home.id, home_view)
+		# Prebuilt homes use the same definition, view and registration as placed homes.
+		var home = BuildingInstance.new(data.home_location_id, BuildingDefinition.for_type(BuildingType.Type.HOME), home_positions[index], BuildingInstance.State.BUILT)
+		buildings.append(home)
+		_show_building(home)
 		var view = ResidentView2D.instantiate()
 		view.z_index = 1 # Residents remain visible at buildings placed later in the world tree.
 		view.name = "ResidentView_" + data.id
@@ -541,7 +530,7 @@ func _remove_ground_resource(drop) -> void:
 func _setup_construction() -> void:
 	placement.setup(buildings)
 	placement.logger = game_logger
-	placement.placed.connect(_show_placed_building)
+	placement.placed.connect(_show_building)
 	construction_panel = preload("res://scripts/construction_panel.gd").new()
 	$HUD.add_child(construction_panel)
 	var definitions: Array = []
@@ -558,7 +547,7 @@ func _select_building_definition(definition: BuildingDefinition) -> void:
 	interaction_menu.hide()
 	placement.select(definition)
 
-func _show_placed_building(building: BuildingInstance) -> void:
+func _show_building(building: BuildingInstance) -> void:
 	var view = BuildingView2D.instantiate()
 	view.name = String(building.id)
 	view.position = building.position
@@ -568,6 +557,7 @@ func _show_placed_building(building: BuildingInstance) -> void:
 	# The same registry/view gains functionality after the one-way state transition.
 	building.construction_changed.connect(_activate_completed_building.bind(building))
 	for runtime in resident_runtimes: runtime.builder.register_building(building)
+	if building.is_built(): _activate_completed_building(building)
 
 func _activate_completed_building(building: BuildingInstance) -> void:
 	if not building.is_built(): return

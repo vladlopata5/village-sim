@@ -404,8 +404,15 @@ ResidentCard/BuildingCard. Homeless допустим, завершённый д�
 ### Выполнено в Phase 4: ordinary sleep-location (2026-10-07)
 
 Текущий home_location_id выбирает обычный ночной маршрут к валидному BUILT HOME
-при старте действия; старый bootstrap night marker больше не source of truth.
+при старте действия; единственный source of truth — housing связь resident.
 Homeless/invalid home — сон снаружи на текущем месте. Pending использует новый home,
 committed путь/сон не reroute-ится при переселении. Несколько жителей могут спать
 в одном доме. Critical fatigue остаётся on-the-spot; PlayerCommand прерывает сон.
 Следующий отдельный этап — sleep quality; beds/slots/penalties пока отсутствуют.
+
+### Выполнено в Phase 4: единая архитектура стартовых HOME (2026-10-07)
+
+Четыре prebuilt starting houses — обычные BuildingInstance HOME в Main.buildings,
+capacity 4, без personal ownership. Starting setup и player-built HOME используют
+одинаковые definition/view/lookup/selection/card/housing/sleep/collision systems.
+Отдельный домашний визуал удалён; новые placement по-прежнему UNDER_CONSTRUCTION.

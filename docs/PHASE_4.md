@@ -143,11 +143,11 @@ ResidentFactory.create принимает явно ID, имя, возраст, �
 
 ResidentGenerator использует собственный RandomNumberGenerator и заданный seed. Он выбирает имя из маленького списка, возраст 18–65, 2–3 разные врождённые черты, hunger 10–30, fatigue 5–35, mood 45–80; ID включает namespace, seed и последовательный номер. Один генератор обслуживает своё пространство ID; повторение seed/namespace намеренно воспроизводит тот же набор в тестах. Поселение отвечает за уникальность ID коллекции, назначает профессию/дом/работу; имена трёх стартовых жителей явно переопределены. Пол не добавлен.
 
-Дома home_stepan/home_anna/home_fedor/home_marina — четыре временных WorldLocation-маркера. ID места не задаёт исключительного владельца: несколько жителей могут ссылаться на один ID. Позиции находятся в WorldLocations2D. Все ночью идут к своим домам и утром просыпаются; жители без работы днём остаются IDLE. Общая кухня использует один локальный конечный контейнер, но решение и таймер еды принадлежат конкретному жителю. Forced interrupt и Shift+7 затрагивают выбранного жителя. LogisticsController по-прежнему выполняет одну доставку через конкретного назначенного носильщика; механизма выбора между несколькими носильщиками нет.
+Дома home_stepan/home_anna/home_fedor/home_marina — четыре обычных BUILT BuildingInstance HOME в Main.buildings. Несколько жителей могут ссылаться на один building ID; исключительного владельца нет. Позиции отображаются обычным BuildingView2D и доступны через WorldLocations2D. Все ночью идут к своим домам и утром просыпаются; жители без работы днём остаются IDLE. Общая кухня использует один локальный конечный контейнер, но решение и таймер еды принадлежат конкретному жителю. Forced interrupt и Shift+7 затрагивают выбранного жителя. LogisticsController по-прежнему выполняет одну доставку через конкретного назначенного носильщика; механизма выбора между несколькими носильщиками нет.
 
 Проверки: test_resident_factory.gd — явные параметры, отдельные изменяемые данные, общие ID домов, воспроизводимость seed, уникальность последовательности и границы генерации. test_population.gd — четыре комплекта, реальные клики/карточки, ручная команда выбранному, независимый голод, только один носильщик, пополнение до 3 FOOD, выбранный Shift+7 на паузе, питание всех четырёх из конечного общего запаса, Shift+3-цикл домов/пробуждения и x1/x2/x4/пауза. Старые проверки подсистем используют общий isolate_first для изоляции конкретного сценария; проверка коллекции запускается без изоляции. Запускаются все tests/test_*.gd.
 
-Ручная проверка: открыть project.godot в Godot 4 и F5. Видны четыре подписанных жителя и четыре домашних маркера. ЛКМ по каждому меняет карточку; ПКМ утром/вечером управляет выбранным. Shift+3 до дня запускает только доставку Степана. Shift+6/Shift+7 меняют голод выбранного; Shift+8 пополняет общую кухню. Shift+3 до 23:00 отправляет каждого домой (критический голод сохраняет прежний приоритет); Shift+3 до 06:00 пробуждает. Для чистой проверки расписания дождаться еды при высоком голоде. Shift+1/Shift+2/Shift+3/Shift+4/Shift+6/Shift+8/Shift+9 остаются временными инструментами разработки.
+Ручная проверка: открыть project.godot в Godot 4 и F5. Видны четыре подписанных жителя и четыре обычных дома. ЛКМ по каждому меняет карточку; ПКМ утром/вечером управляет выбранным. Shift+3 до дня запускает только доставку Степана. Shift+6/Shift+7 меняют голод выбранного; Shift+8 пополняет общую кухню. Shift+3 до 23:00 отправляет каждого домой (критический голод сохраняет прежний приоритет); Shift+3 до 06:00 пробуждает. Для чистой проверки расписания дождаться еды при высоком голоде. Shift+1/Shift+2/Shift+3/Shift+4/Shift+6/Shift+8/Shift+9 остаются временными инструментами разработки.
 
 
 ## Общий Need — текущий шаг Phase 4
@@ -523,7 +523,7 @@ Kind: PLAYER_COMMAND / RESIDENT_ASSIGNMENT / MANAGEMENT_ACTION.
 InteractionService регистрирует игровые данные, capability и position provider;
 get_interactions(resident_ids, target_id) возвращает список; execute перепроверяет
 доступность и вызывает PlayerControl. UI только отображает кнопки и делегирует.
-Общий «Идти к» разрешён для зданий, жителей, домашних маркеров и GroundResource.
+Общий «Идти к» разрешён для зданий, жителей и GroundResource.
 Здания используют существующую WorldLocation/work point, житель — точку рядом.
 Employment есть только у рабочего capability: склад PORTER, хижина GATHERER;
 исполняется через assign_workplace API с проверкой места. «Уже работает здесь»
@@ -894,16 +894,16 @@ ResidentCard показывает имя и конкретный ID / «Нет �
 для нового дома без auto-fill. Home events сразу обновляют resident/old/new house
 карточки без нового polling. Under-construction и non-HOME housing block скрыт.
 
-Legacy ночной marker ID сохранён в Schedule на setup отдельно от housing ID,
-чтобы это управление не меняло существующий сон. Sleep/fatigue formulas, forced
-survival, intents, PlayerCommand, ResidentAssignment, builder и logistics semantics
-не меняются. Sleep-location behavior и качество жилья будут отдельными задачами.
+На housing foundation этапе управление ещё не меняло место сна. Последующий
+ordinary sleep-location этап ниже использует актуальную housing связь.
+Sleep/fatigue formulas и forced survival не меняются; качество жилья остаётся
+отдельной будущей задачей.
 
 Новый test_housing.gd покрывает defaults/capacity/types/states, assign/clear/full
 и безопасный reassign, query source of truth, stale context validation, реальный
 RMB menu, непосредственные signal UI updates при выключенном card process,
 оба дома после переселения, completion нового дома, invalid reference,
-непрерывание committed action/command/assignment и прежний ночной маршрут.
+непрерывание committed action/command/assignment и сохранение уже начатого ночного действия.
 
 Итоговая проверка: 52/52 test suites; housing — 64 checks, 0 failures;
 Godot analyzer — 125 scripts, 0 diagnostics; headless startup — exit 0, пустой stderr.
@@ -911,7 +911,7 @@ Godot analyzer — 125 scripts, 0 diagnostics; headless startup — exit 0, пу
 
 ## Ordinary night sleep-location (2026-10-07)
 
-Заменяет временную bootstrap marker compatibility предыдущего housing foundation.
+Использует актуальную housing связь предыдущего foundation этапа.
 ResidentScheduleController выбирает current home при фактической активации ночного
 намерения. Только существующий BUILT HOME с capacity > 0 допустим;
 arrival запускает обычный сон. Target point — существующая WorldLocation дома,
@@ -941,3 +941,36 @@ PlayerCommand и исчезновение target. Предыдущие housing/m
 Godot analyzer — 126 scripts, 0 diagnostics. Headless startup — exit 0, пустой stderr.
 UtilitySelector, needs/recovery, PlayerCommand, housing management, builder,
 construction, production и logistics implementation не изменены.
+
+## Единые стартовые HOME (2026-10-07)
+
+Стартовый мир создаёт четыре plain BuildingInstance HOME, уже BUILT:
+- home_stepan — (-300, -120), начальный житель Степан;
+- home_anna — (-100, -200), Анна;
+- home_fedor — (100, -200), Фёдор;
+- home_marina — (300, -120), Марина.
+
+Все показываются как «Дом», имеют стандартный footprint 64×48 и capacity 4.
+Это обычные Main.buildings с BuildingView2D и WorldLocation под тем же building ID.
+У них нет owner_resident_id: initial home_location_id лишь обычное назначение жилья.
+Создание/регистрация используют общий _show_building с placed buildings; готовый
+дом подключается тем же completion registration path, без starter/player branches.
+Отдельная сцена и скрипт домашнего визуала, LocationView preload, home_names и
+специальный home-view setup удалены. WorldLocations2D остаётся общим позиционным
+mapping для зданий, не отдельным home registry.
+
+Стартовые дома выбираются обычным LMB/footprint hit-test; точный resident overlap
+по-прежнему имеет приоритет. Синяя рамка и BuildingCard стандартные: Дом, ID,
+Построено, Жильцы 1/4, имя. Footprint блокирует новое placement поверх дома.
+Reassign Степан → home_anna даёт старому дому 0/4, новому 2/4; следующий ночной сон
+идёт в home_anna. Clear home сохраняет здание и использует outdoor fallback.
+Player-built HOME после completion функционально тот же дом; placement остаётся
+UNDER_CONSTRUCTION. Новых sleep quality, beds, ownership или naming systems нет.
+
+Новый test_starting_homes покрывает data/IDs/initial assignment, реальные clicks,
+BuildingCard/highlight, placement collision, общий WorldLocation/sleep flow,
+reassign/clear и equivalent player-built HOME. Прежние тесты обновлены под обычные
+BuildingView вместо специального домашнего визуала.
+
+Проверка миграции: 54/54 test suites; test_starting_homes — 87 checks, 0 failures.
+Godot analyzer — 126 scripts, 0 diagnostics. Headless startup — exit 0, пустой stderr.

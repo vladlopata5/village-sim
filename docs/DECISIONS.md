@@ -317,7 +317,8 @@ AGENTS.md содержит правила работы для Codex.
 
 ### Phase 2 — one fixed night-home reaction
 
-- HomePoint — временный Marker2D в (-300, -120), с ромбом и подписью. Это только домашняя координата прототипа, без здания или данных жителя.
+- Актуальный домашний объект — обычный BUILT BuildingInstance HOME home_stepan
+  в (-300, -120), с общим BuildingView2D и housing связью.
 - NightHomeController — отдельный Node, подписанный на GameTime.phase_changed. Он выдаёт movement_requested(home_position) при наступлении ночи и при настройке в уже ночной фазе.
 - Main соединяет командный сигнал с ResidentView2D.move_to. Ручные правые клики также проходят через NightHomeController.request_manual_move: ночью они отклоняются, вне ночи разрешены.
 - Приоритет дома сохраняется до 06:00, включая полночь, паузу и время после прибытия. Утром новой автоматической команды нет; ручное управление снова доступно.
@@ -353,7 +354,11 @@ NightHomeController переводит жителя в SLEEPING после по�
 
 ## Phase 3 — WorldLocation и домашнее место
 
-WorldLocation — RefCounted с id и display_name, без пространственных данных. ResidentData хранит home_location_id. Единственное место прототипа — home_stepan / «Дом Степана». WorldLocationView2D отображает данные на прежнем маркере; WorldLocations2D отдельно сопоставляет ID с данными/визуальным узлом и возвращает актуальную позицию или null. NightHomeController получает этот механизм, разрешает ID дома при наступлении ночи и больше не хранит координату дома. Отсутствующий дом не превращается в цель (0, 0).
+WorldLocation — RefCounted с id и display_name, без пространственных данных.
+Актуальная реализация: ResidentData.home_location_id ссылается на обычный
+BuildingInstance HOME. WorldLocations2D сопоставляет этот building ID с данными
+места/BuildingView2D и возвращает актуальную позицию или null. Schedule использует
+этот mapping, либо position экземпляра; отдельного домашнего объекта нет.
 
 Для 3D сохраняется ID и WorldLocation; заменяются механизм положения и пространственная часть намерения/исполнителя. Уже выданный MOVE_TO содержит снимок позиции на момент команды. Строительство, универсальная система сущностей и новые занятия не добавляются.
 
@@ -362,7 +367,10 @@ WorldLocation — RefCounted с id и display_name, без пространст�
 
 NightHomeController заменён ResidentScheduleController и удалён: один источник расписания слушает фазы и завершение намерений. 07:00 создаёт day_work (50) к work_location_id, прибытие означает WORKING; 17:00 отменяет незавершённый рабочий путь/заканчивает работу до IDLE. 23:00 создаёт night_home (100), прибытие означает SLEEPING; 06:00 отменяет путь/заканчивает сон до IDLE. Manual_move (10) допускается только утром и вечером, включая паузу. Днём и ночью запрет сохраняется после прибытия.
 
-WorkPoint представляет WorldLocation work_stepan / «Рабочее место Степана» через существующие WorldLocations2D и WorldLocationView2D. В ResidentData добавлен только work_location_id. WORKING — только текущее занятие без производства, ресурсов или изменения потребностей. Прежние разделы DECISIONS и PHASE_2 фиксируют историю реализации; актуальное расписание описано в PHASE_3.
+На Phase 3 WorldLocation/work_location_id представляли рабочее место без производства.
+Теперь work_location_id ссылается на обычное рабочее здание; представление —
+BuildingView2D, позиционный mapping — WorldLocations2D. Прежние разделы фиксируют
+историю реализации; актуальные production/logistics/work правила описаны в Phase 4.
 
 
 ## Phase 4 — только голод
@@ -817,7 +825,7 @@ Kind: PLAYER_COMMAND / RESIDENT_ASSIGNMENT / MANAGEMENT_ACTION.
 InteractionService регистрирует игровые данные, capability и position provider;
 get_interactions(resident_ids, target_id) возвращает список; execute перепроверяет
 доступность и вызывает PlayerControl. UI только отображает кнопки и делегирует.
-Общий «Идти к» разрешён для зданий, жителей, домашних маркеров и GroundResource.
+Общий «Идти к» разрешён для зданий, жителей и GroundResource.
 Здания используют существующую WorldLocation/work point, житель — точку рядом.
 Employment есть только у рабочего capability: склад PORTER, хижина GATHERER;
 исполняется через assign_workplace API с проверкой места. «Уже работает здесь»
@@ -1187,18 +1195,14 @@ default workplace; контекстное employment назначает конк
   ResidentData.home_changed. ResidentCard обновляет строку на selection/home events;
   BuildingCard обновляет query/строки для old/new homes, а state signal открывает
   housing section при completion. Нового polling/bus/controller нет.
-- Конфликт со старым NightHome flow решён минимальной развязкой: Schedule фиксирует
-  bootstrap night marker ID при setup, вместо чтения изменяемой housing связи на
-  каждой фазе. Маршрут/позиционное разрешение и sleep/fatigue правила сохранены.
-  Назначение нового дома и homelessness пока не выбирают место сна. Старый тест
-  missing location теперь удаляет night marker, сохраняя проверку отсутствующей
-  координаты без подмены housing management на sleep-location behavior.
+- На foundation этапе изменение жилья ещё не выбирало sleep destination.
+  Последующий ordinary night sleep этап ниже связывает маршрут с current home ID.
 - Default/invalid home безопасен. Demolition, auto-fill, beds, quality, penalties,
   семьи и housing AI отсутствуют; эти механики будут отдельными этапами.
 
 ### Ordinary night sleep использует актуальное жильё (2026-10-07)
 
-Временная совместимость housing foundation с bootstrap night marker отменена.
+Обычный ночной сон использует текущую housing связь.
 Schedule получает существующий общий buildings Array; валидирует конкретный ID,
 BUILT, HOME и housing_capacity > 0. Позиция — WorldLocation дома, либо position
 экземпляра без visual mapping (центр footprint); отдельного HousingController нет.
@@ -1216,3 +1220,17 @@ execution; reassign/clear не reroute-ят и не будят. Если цел�
 Critical fatigue и PlayerCommand сохраняют существующие forced правила. Расписание
 23:00–06:00 и recovery не меняются. Capacity не является sleep slot; несколько
 жителей спят в одном доме. Beds, quality и outdoor penalties остаются будущими.
+
+### Стартовые HOME используют обычный building lifecycle (2026-10-07)
+
+Main создаёт четыре plain BuildingInstance с общей HOME definition и state BUILT.
+IDs home_stepan/home_anna/home_fedor/home_marina стабильны; home_location_id —
+единственная связь resident ↔ home, без ownership и второго реестра.
+
+Общий _show_building создаёт BuildingView2D/WorldLocation как для starting setup,
+так и для player placement. BUILT экземпляр подключается через ту же
+_activate_completed_building, что завершённая стройка. HOME subtype/StarterHome
+не добавлены; обычный display_name «Дом» берётся из существующей definition.
+Отдельная устаревшая сцена/скрипт домашнего визуала удалены вместе с home_names
+и отдельным setup path. Все normal selection/card/housing/sleep/collision queries
+используют тот же Main.buildings. Construction/AI/recovery behavior не меняются.

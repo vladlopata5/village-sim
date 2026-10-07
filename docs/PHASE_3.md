@@ -6,7 +6,7 @@
 
 ResidentData.activity хранит одно занятие ResidentActivity.Type: IDLE, MOVING, SLEEPING, WORKING. Карточка только читает его и показывает «Бездельничает», «Идёт», «Спит», «Работает». ResidentIntent остаётся целью с приоритетом; Activity — текущим занятием.
 
-WorldLocation содержит стабильный ID и название, без координат. ResidentData хранит только home_location_id=home_stepan и work_location_id=work_stepan. Main создаёт «Дом Степана» и «Рабочее место Степана», передаёт данные WorldLocationView2D на голубом HomePoint и оранжевом WorkPoint. Это маркеры, без зданий или производства.
+WorldLocation содержит стабильный ID и название, без координат. ResidentData хранит home_location_id и work_location_id. Актуальная реализация: дома — обычные BuildingInstance типа HOME; WorldLocations2D связывает building ID с BuildingView2D. Отдельного домашнего мирового объекта нет.
 
 WorldLocations2D сопоставляет ID с данными и текущим визуальным узлом. get_position() возвращает актуальную global_position либо null, если место/представление отсутствует. ResidentScheduleController запрашивает позицию в момент выдачи команды, не хранит координаты мест. Уже принятый MOVE_TO содержит снимок цели. В 3D сохраняются ID и WorldLocation; заменяются сопоставление с представлением и пространственная часть намерения/исполнителя.
 

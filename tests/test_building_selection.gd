@@ -75,7 +75,7 @@ func _run() -> void:
 	var home = scene.buildings[4]
 	var home_view = scene.world_locations.get_view(home.id)
 	click(screen(scene, home.position + Vector2(28, 18)))
-	check(selection.selected_building == home and home_view.selected, "Starting home selectable throughout its footprint, beyond marker circle")
+	check(selection.selected_building == home and home_view.selected, "Starting HOME selectable throughout its ordinary footprint")
 	check(card.type_label.text == "Тип: Дом" and card.resources_label.text == "Ресурсов нет" and not card.production_section.visible and not card.construction_section.visible, "Home shows basic info without invented housing stats")
 	click(screen(scene, actor.view.global_position))
 	check(selection.selected_resident == actor.data and selection.selected_building == null and not card.visible and resident_card.visible and not home_view.selected, "Resident click replaces building selection and restores ResidentCard")

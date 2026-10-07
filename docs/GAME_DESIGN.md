@@ -849,7 +849,7 @@ Kind: PLAYER_COMMAND / RESIDENT_ASSIGNMENT / MANAGEMENT_ACTION.
 InteractionService регистрирует игровые данные, capability и position provider;
 get_interactions(resident_ids, target_id) возвращает список; execute перепроверяет
 доступность и вызывает PlayerControl. UI только отображает кнопки и делегирует.
-Общий «Идти к» разрешён для зданий, жителей, домашних маркеров и GroundResource.
+Общий «Идти к» разрешён для зданий, жителей и GroundResource.
 Здания используют существующую WorldLocation/work point, житель — точку рядом.
 Employment есть только у рабочего capability: склад PORTER, хижина GATHERER;
 исполняется через assign_workplace API с проверкой места. «Уже работает здесь»
@@ -1228,7 +1228,16 @@ Pending ночное намерение перепроверяет home при �
 новый home применяется к следующему обычному sleep action. PlayerCommand прерывает
 сон/путь обычным forced pipeline; после команды AI выбирает цель заново.
 
-Bootstrap night marker ID больше не хранится в Schedule. WorldLocation служит
+WorldLocation служит
 только позиционным представлением конкретного назначенного BuildingInstance.
 Начальные четыре home связи сохранены; новые/сгенерированные жители без заданного
 ID остаются homeless. Автоматического расселения построенных домов нет.
+
+Все дома — обычные BuildingInstance HOME. Четыре стартовых дома создаются как
+BUILT в starting world setup: home_stepan, home_anna, home_fedor, home_marina,
+на прежних позициях. Название каждого — «Дом», вместимость — 4. В начале в каждом
+назначен один житель, но special ownership/locked house нет. Выселение не удаляет
+дом, переселение меняет только home_location_id. Стартовые и построенные игроком
+дома используют одну HOME definition, BuildingView, registry, footprint, selection,
+BuildingCard, housing query и sleep routing. Новое placement остаётся
+UNDER_CONSTRUCTION; стартовые дома не требуют ретроактивных материалов/работы.

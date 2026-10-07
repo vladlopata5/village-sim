@@ -37,10 +37,10 @@ func _run() -> void:
 	data_without_ui.home_location_id = &"home_stepan"
 	intents_without_ui.setup(data_without_ui)
 	var locations = load("res://scripts/world_locations_2d.gd").new()
-	var marker := Marker2D.new()
+	var marker := Node2D.new()
 	root.add_child(marker)
 	marker.position = Vector2(100, 200)
-	locations.register(load("res://scripts/world_location.gd").new(&"home_stepan", "Дом Степана"), marker)
+	locations.register(load("res://scripts/world_location.gd").new(&"home_stepan", "Дом"), marker)
 	var house = load("res://scripts/building_instance.gd").new(&"home_stepan", load("res://scripts/building_definition.gd").for_type(load("res://scripts/building_type.gd").Type.HOME))
 	controller_without_ui.setup(clock_without_ui, locations, intents_without_ui, [house])
 	check(commands == [Vector2(100, 200)], "Night setup issues home command without UI")
@@ -66,13 +66,13 @@ func _run() -> void:
 	var controller = scene.resident_runtimes[0].schedule
 	var intents = scene.resident_runtimes[0].intents
 	var view = scene.resident_runtimes[0].view
-	var home: Marker2D = scene.get_node("World/home_stepan")
+	var home: Node2D = scene.get_node("World/home_stepan")
 	var field: Node2D = scene.get_node("World/Field")
 	var selection = scene.get_node("ResidentSelection")
 	clock.set_process(false)
 	view.set_process(false)
 	var start: Vector2 = view.global_position
-	check(scene.world_locations.get_position(scene.residents[0].home_location_id) == home.global_position, "Controller uses marker coordinates")
+	check(scene.world_locations.get_position(scene.residents[0].home_location_id) == home.global_position, "Controller uses ordinary house view coordinates")
 	for multiplier in [1, 2, 4]:
 		# Re-enter a non-night phase through real clock transitions.
 		if controller.is_night:
