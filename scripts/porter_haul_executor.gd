@@ -3,6 +3,7 @@ extends RefCounted
 const Job = preload("res://scripts/haul_job.gd")
 const Intent = preload("res://scripts/resident_intent.gd")
 const Activity = preload("res://scripts/resident_activity.gd")
+const Skill = preload("res://scripts/skill_type.gd")
 const EventLog = preload("res://scripts/game_logger.gd")
 const HAUL_PRIORITY := 8000
 var _owner: WeakRef
@@ -140,6 +141,7 @@ func _deliver(intent: Intent) -> void:
 	_haul_intent = null
 	_interrupt_pending = false
 	service.finish_job(completed)
+	resident.add_skill_xp(Skill.Type.LOGISTICS, 1)
 	intents.clear_completed(intent)
 	service.notify_delivery()
 	service.changed.emit()

@@ -1,5 +1,6 @@
 extends PanelContainer
 ## The card reads the selection's data; it keeps no copy of resident fields.
+const Skill = preload("res://scripts/skill_type.gd")
 const Assignment = preload("res://scripts/resident_assignment.gd")
 const ResidentData = preload("res://scripts/resident_data.gd")
 const ResidentSelection = preload("res://scripts/resident_selection.gd")
@@ -11,6 +12,7 @@ const StateText = preload("res://scripts/resident_state_text.gd")
 var _selection: ResidentSelection
 var _control: RefCounted
 var _assignment_resident: ResidentData
+@onready var skills_label: Label = $Margin/Column/Scroll/Content/Skills
 @onready var assignment_list: VBoxContainer = $Margin/Column/Scroll/Content/Assignments
 var profession_choice: OptionButton
 var intent_label: Label
@@ -121,9 +123,12 @@ func _activity_text(activity: Activity.Type) -> String:
 func _on_selection_changed() -> void:
 	if _assignment_resident != null:
 		_assignment_resident.assignments_changed.disconnect(_refresh_assignments)
+		_assignment_resident.skill_changed.disconnect(_on_skill_changed)
 	_assignment_resident = _selection.selected_resident
 	if _assignment_resident != null:
 		_assignment_resident.assignments_changed.connect(_refresh_assignments)
+		_assignment_resident.skill_changed.connect(_on_skill_changed)
+	_refresh_skills()
 	$Margin/Column/Scroll.scroll_vertical = 0
 	_refresh_assignments()
 	_refresh_home()
@@ -182,3 +187,14 @@ func _on_home_changed(resident_id: String, _previous: StringName, _current: Stri
 func _refresh_home() -> void:
 	var home: RefCounted = _control.get_home(_selection.selected_resident.id) if _control != null and _selection != null and _selection.selected_resident != null else null
 	home_label.text = "Дом: %s (%s)" % [home.display_name, home.id] if home != null else "Дом: Нет дома"
+
+func _on_skill_changed(_skill: int, _amount: int, _previous_level: int) -> void:
+	_refresh_skills()
+func _refresh_skills() -> void:
+	if _assignment_resident == null:
+		skills_label.text = ""
+		return
+	var lines := PackedStringArray(["Навыки"])
+	for skill in Skill.Type.values():
+		lines.append("%s: ур. %d (%d XP)" % [Skill.display_name(skill), _assignment_resident.get_skill_level(skill), _assignment_resident.get_skill_xp(skill)])
+	skills_label.text = "\n".join(lines)

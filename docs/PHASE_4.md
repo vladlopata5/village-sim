@@ -1007,3 +1007,29 @@ Godot analyzer — 127 scripts, 0 diagnostics. Headless startup — exit 0, пу
 Base FATIGUE_RATES/SLEEPING остаётся −30 fractional units/min; awake rates,
 UtilitySelector, PlayerCommand, housing API, building/construction/builder/logistics/
 production implementation не изменены.
+
+
+### Foundation профессиональных навыков
+
+SkillType: GATHERING «Собирательство», CONSTRUCTION «Строительство», LOGISTICS
+«Логистика». ResidentData хранит integer XP, default 0, независимо от profession.
+get_skill_level вычисляет clamp(floor(XP/10),0,10); XP >100 сохраняется. Constants
+SKILL_XP_PER_LEVEL/MAX_SKILL_LEVEL живут в balance_config.
+
+XP начисляется ровно по одному за успешно завершённый профессиональный цикл:
+60 минут gatherer work, 60 минут builder construction work, одна Porter delivery.
+Builder partial progress сохраняется как раньше, но прерванный цикл XP не даёт.
+Builder WOOD transport не даёт CONSTRUCTION/LOGISTICS XP; FOOD output и completion
+здания не дают дополнительных начислений. Profession меняется без reset.
+
+Компактный Skills label находится в scroll content ResidentCard. Selection change
+и ResidentData.skill_changed обновляют его event-driven; обычный frame refresh
+навыки не опрашивает. Runtime логирует XP в DEBUG, повышение уровня в INFO.
+Skills пока не влияют на production, construction, logistics scores, UtilitySelector,
+needs, PlayerCommand/assignments, housing и sleep quality. Общий data API пригоден
+для будущих work/tasks/AI/everyday activities без добавления этих эффектов сейчас.
+
+Проверка foundation навыков: 56/56 test suites; test_resident_skills — 153 checks,
+0 failures. Godot analyzer — 129 scripts, 0 diagnostics; headless startup —
+exit 0, пустой stderr. Уровень 10 не меняет output gatherer или scores builder/porter;
+прежние gameplay/regression suites проходят.

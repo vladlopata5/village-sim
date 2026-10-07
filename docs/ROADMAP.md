@@ -424,3 +424,13 @@ OUTDOOR_SLEEP_QUALITY=0.6. Critical fatigue on-the-spot использует out
 Восстановление fatigue зависит от base rate × quality, от игровых минут и паузы;
 awake growth/другие needs не меняются. Reassign не меняет active sleep quality.
 Weather, furniture, beds и различные housing quality tiers отложены.
+
+
+### Выполнено в Phase 4: foundation профессиональных навыков (2026-10-07)
+
+Три постоянных навыка: GATHERING, CONSTRUCTION, LOGISTICS. ResidentData XP —
+source of truth, derived level 0..10 при prototype progression 10 XP/level.
+Один завершённый gatherer/construction cycle или Porter delivery даёт +1 XP
+соответствующего навыка; interruption/WOOD transport не дают XP. Profession switch
+сохраняет все навыки. ResidentCard показывает level/XP с signal update.
+Gameplay effects, task requirements, AI preferences и training — отдельные этапы.

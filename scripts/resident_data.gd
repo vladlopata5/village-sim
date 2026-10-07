@@ -74,3 +74,18 @@ func start_sleep(quality: float) -> void:
 	# Callers resolve the concrete context once; recovery only reads this value.
 	current_sleep_quality = maxf(quality, 0.0)
 	activity = ResidentActivity.Type.SLEEPING
+
+const Skill = preload("res://scripts/skill_type.gd")
+signal skill_changed(skill: Skill.Type, amount: int, previous_level: int)
+# XP is the only persistent skill state. Levels are never stored separately.
+var _skill_xp: Dictionary = {Skill.Type.GATHERING: 0, Skill.Type.CONSTRUCTION: 0, Skill.Type.LOGISTICS: 0}
+func get_skill_xp(skill: Skill.Type) -> int:
+	return _skill_xp.get(skill, 0)
+func get_skill_level(skill: Skill.Type) -> int:
+	return clampi(floori(float(get_skill_xp(skill)) / Balance.SKILL_XP_PER_LEVEL), 0, Balance.MAX_SKILL_LEVEL)
+func add_skill_xp(skill: Skill.Type, amount: int) -> bool:
+	if amount <= 0 or not _skill_xp.has(skill): return false
+	var previous_level := get_skill_level(skill)
+	_skill_xp[skill] += amount
+	skill_changed.emit(skill, amount, previous_level)
+	return true

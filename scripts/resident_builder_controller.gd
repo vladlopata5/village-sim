@@ -6,6 +6,7 @@ const Balance = preload("res://scripts/balance_config.gd")
 const Intent = preload("res://scripts/resident_intent.gd")
 const Activity = preload("res://scripts/resident_activity.gd")
 const ResourceType = preload("res://scripts/resource_type.gd")
+const Skill = preload("res://scripts/skill_type.gd")
 const EventLog = preload("res://scripts/game_logger.gd")
 enum Phase { NONE, GOING_TO_SOURCE, CARRYING_TO_SITE, GOING_TO_SITE, BUILDING }
 signal cargo_dropped(resource: ResourceType.Type, amount: int)
@@ -233,7 +234,7 @@ func _on_minute(now: int) -> void:
 		return
 	_accrue_work(now)
 	if phase == Phase.BUILDING and work_minutes >= Balance.BUILDER_WORK_CYCLE_MINUTES:
-		_finish_task("завершил строительный цикл")
+		_finish_task("завершил строительный цикл", true)
 
 func _flush_work() -> void:
 	_accrue_work(_clock.total_minutes)
@@ -272,8 +273,9 @@ func _cleanup(reason: String) -> Intent:
 	if logger != null: logger.debug(EventLog.BUILDING, "%s: строительство cleanup — %s" % [_data.resident_name, reason])
 	return old
 
-func _finish_task(reason: String) -> void:
+func _finish_task(reason: String, completed_work_cycle: bool = false) -> void:
 	var old := _cleanup(reason)
+	if completed_work_cycle: _data.add_skill_xp(Skill.Type.CONSTRUCTION, 1)
 	if old != null and _intents.current_intent == old: _intents.clear_completed(old)
 
 func abort(reason: String, request_decision: bool = true) -> void:

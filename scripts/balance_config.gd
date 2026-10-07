@@ -48,3 +48,7 @@ const HOUSE_RESIDENT_CAPACITY = 4 # Temporary prototype housing balance.
 
 const HOME_SLEEP_QUALITY = 1.0
 const OUTDOOR_SLEEP_QUALITY = 0.6
+
+# Temporary progression; accumulated XP is retained if the curve changes later.
+const SKILL_XP_PER_LEVEL = 10
+const MAX_SKILL_LEVEL = 10

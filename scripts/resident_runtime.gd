@@ -26,6 +26,7 @@ var needs = Needs.new()
 
 func setup(resident: RefCounted, presentation: Node2D, clock: Node, locations: RefCounted, buildings: Array) -> void:
 	data = resident
+	data.skill_changed.connect(_on_skill_changed)
 	view = presentation
 	for controller in [intents, commands, schedule, need_dynamics, needs, assignments, decision, social, wander, builder]:
 		add_child(controller)
@@ -55,3 +56,11 @@ func setup(resident: RefCounted, presentation: Node2D, clock: Node, locations: R
 
 func _process(_delta: float) -> void:
 	if logger != null and data != null: logger.sync_activity(data)
+
+func _on_skill_changed(skill: int, amount: int, previous_level: int) -> void:
+	if logger == null: return
+	var label: String = preload("res://scripts/skill_type.gd").display_name(skill)
+	var level: int = data.get_skill_level(skill)
+	logger.debug(EventLog.AI, "%s: %s +%d XP (%d XP, ур. %d)" % [data.resident_name, label, amount, data.get_skill_xp(skill), level])
+	if level > previous_level:
+		logger.info(EventLog.AI, "%s: навык «%s» повышен до уровня %d" % [data.resident_name, label, level])

@@ -7,6 +7,8 @@ const Activity = preload("res://scripts/resident_activity.gd")
 const Intent = preload("res://scripts/resident_intent.gd")
 const Utility = preload("res://scripts/action_utility.gd")
 const Selector = preload("res://scripts/utility_selector.gd")
+const Skill = preload("res://scripts/skill_type.gd")
+const Profession = preload("res://scripts/resident_profession.gd")
 const Balance = preload("res://scripts/balance_config.gd")
 const NEED_ACTION_THRESHOLD := Balance.NEED_ACTION_THRESHOLD
 const WORK_PRIORITY := Balance.WORK_PRIORITY
@@ -233,8 +235,10 @@ func _on_minute(minute: int) -> void:
 		if _data.activity != Activity.Type.WORKING:
 			_end_work_cycle("перерыв или смена расписания")
 		elif minute >= _work_cycle_ends_at:
+			var gathering_cycle: bool = _work_assignment.get("profession", Profession.Type.NONE) == Profession.Type.GATHERER
 			_end_work_cycle("%d минут фактической работы" % Balance.WORK_CYCLE_MINUTES)
 			_data.activity = Activity.Type.IDLE
+			if gathering_cycle: _data.add_skill_xp(Skill.Type.GATHERING, 1)
 			request_decision("work_cycle_completed")
 		return
 	if minute >= _next_decision_at and not _intents.has_current_action() and _data.activity == Activity.Type.IDLE:

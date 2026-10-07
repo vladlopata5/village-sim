@@ -1256,3 +1256,28 @@ accumulator принимает float rate, сохраняя дробное во�
 rates и формулы остаются прежними. 60 минут: home −30, outdoor/critical −18.
 В будущем caller сможет вычислить quality как housing × weather × furniture;
 сейчас этих систем нет. DEBUG quality логируется только при старте действия.
+
+
+### Навыки: ResidentData XP и derived level (2026-10-07)
+
+ResidentData владеет private-convention dictionary SkillType → integer XP.
+get_skill_xp/get_skill_level/add_skill_xp — общий API без эффектов профессий.
+Отдельный mutable level не хранится. Level считается из balance constants
+SKILL_XP_PER_LEVEL=10, MAX_SKILL_LEVEL=10; XP не ограничен уровнем 10.
+Нулевые/отрицательные additions отвергаются без события.
+
+Начисление стоит только на successful completion: DecisionController завершает
+gatherer cycle и использует profession snapshot начатой работы; BuilderController
+выдаёт XP после полного цикла/cleanup, но не при partial flush; PorterHaulExecutor
+выдаёт XP после delivery и завершения committed HaulJob. Никаких начислений
+в production output, builder transport или building completion нет.
+
+skill_changed(skill, amount, previous_level) сообщает изменение XP. ResidentRuntime
+пишет DEBUG XP и INFO только при level increase; ResidentCard подписывается на
+выбранного жителя, отключает старую подписку и обновляет skills label по сигналу
+или selection change. Skills не обновляются через frame refresh. Signal payload
+previous_level — временное значение для logging, не второе mutable level state.
+
+Минимальная data-модель допускает будущую замену progression и использование
+уровня любыми системами без profession coupling. Сейчас никакие gameplay
+потребители навыков и placeholder modifiers не добавлены.

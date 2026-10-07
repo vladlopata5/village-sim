@@ -1255,3 +1255,28 @@ Fatigue recovery = существующая базовая скорость × c
 schedule/wake conditions/forced priority не меняются. Quality влияет только
 на fatigue recovery. Weather, furniture, tiers и другие modifiers — будущие этапы;
 числовой start_sleep(quality) позволяет добавить их без изменения recovery формулы.
+
+
+### Навыки жителей — foundation
+
+Навык отделён от профессии: профессия определяет текущую работу, навык хранит
+накопленный опыт деятельности. ResidentData хранит integer XP для GATHERING
+(Собирательство), CONSTRUCTION (Строительство), LOGISTICS (Логистика). Все новые
+и стартовые жители начинают с 0 XP; смена профессии опыт не сбрасывает.
+
+XP — единственный source of truth. Временная prototype progression:
+level = clamp(floor(XP / SKILL_XP_PER_LEVEL), 0, MAX_SKILL_LEVEL), constants 10 и 10.
+XP сверх 100 сохраняется, отображаемый уровень остаётся 10. Mutable level нет;
+будущая нелинейная progression сможет использовать тот же накопленный XP.
+
+Один успешно завершённый профессиональный цикл даёт ровно +1 XP: gatherer
+60-minute cycle → GATHERING; builder 60-minute construction cycle → CONSTRUCTION;
+успешная Porter delivery → LOGISTICS. Прерванные циклы, включая сохранённый partial
+construction progress, дают 0 XP. FOOD output, WOOD pickup/delivery, завершение
+здания и GroundResource не дают дополнительного опыта.
+
+ResidentCard показывает три навыка компактно: «Собирательство: ур. 2 (27 XP)».
+Навыки пока не влияют на gameplay: скорость, output, progress, porter score, AI,
+needs, housing, sleep quality и доступность задач прежние. Общий API XP/level
+позже может использоваться работой, AI, бытовыми действиями, событиями и диалогами;
+эффекты, training, perks, decay и modifiers сейчас не реализованы.
