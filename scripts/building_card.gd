@@ -17,6 +17,9 @@ var _last_snapshot: Array = []
 @onready var production_section: VBoxContainer = $Margin/Column/Scroll/Content/Production
 @onready var production_label: Label = $Margin/Column/Scroll/Content/Production/Progress
 @onready var construction_section: VBoxContainer = $Margin/Column/Scroll/Content/Construction
+@onready var construction_materials: Label = $Margin/Column/Scroll/Content/Construction/Materials
+@onready var construction_work: Label = $Margin/Column/Scroll/Content/Construction/Work
+@onready var construction_builders: Label = $Margin/Column/Scroll/Content/Construction/Builders
 @onready var close_button: Button = $Margin/Column/Close
 func _ready() -> void:
 	hide()
@@ -26,10 +29,13 @@ func bind_selection(selection: Selection) -> void:
 	_selection.selection_changed.connect(_on_selection_changed)
 	_on_selection_changed()
 func _on_selection_changed() -> void:
+	if _building != null:
+		_building.construction_changed.disconnect(_refresh)
 	if _building != null and _building.resources != null:
 		_building.resources.changed.disconnect(_on_resources_changed)
 	_building = _selection.selected_building
 	_last_snapshot = []
+	if _building != null: _building.construction_changed.connect(_refresh)
 	if _building != null and _building.resources != null:
 		_building.resources.changed.connect(_on_resources_changed)
 	$Margin/Column/Scroll.scroll_vertical = 0
@@ -44,7 +50,7 @@ func _refresh() -> void:
 		return
 	var amount: int = _building.resources.get_amount(FOOD) if _building.resources != null else 0
 	var capacity: int = _building.resources.get_capacity(FOOD) if _building.resources != null else 0
-	var snapshot: Array = [_building.display_name, _building.id, _building.state, _building.type, amount, capacity, _building.production_progress]
+	var snapshot: Array = [_building.display_name, _building.id, _building.state, _building.type, amount, capacity, _building.production_progress, _building.construction_delivered, _building.construction_progress, _building.active_builder_ids, _building.definition.construction_requirements.duplicate(), _building.definition.construction_work_required, _building.definition.max_builders]
 	if snapshot == _last_snapshot: return
 	_last_snapshot = snapshot
 	name_label.text = _building.display_name
@@ -55,6 +61,12 @@ func _refresh() -> void:
 	production_section.visible = _building.is_built() and _building.type == Types.Type.GATHERER_HUT
 	production_label.text = "FOOD • прогресс: %d / %d рабочих минут" % [_building.production_progress, Balance.GATHERER_WORK_MINUTES_PER_FOOD]
 	construction_section.visible = not _building.is_built()
+	var materials := PackedStringArray()
+	for resource in _building.definition.construction_requirements:
+		materials.append("%s: %d / %d" % [ResourceType.display_name(resource), _building.get_delivered_amount(resource), _building.get_required_amount(resource)])
+	construction_materials.text = "Материалы:\n" + ("\n".join(materials) if not materials.is_empty() else "Не требуются")
+	construction_work.text = "Прогресс: %d / %d мин\n%.0f%%" % [_building.construction_progress, _building.definition.construction_work_required, _building.get_construction_progress_ratio() * 100.0]
+	construction_builders.text = "Строители: %d / %d" % [_building.active_builder_ids.size(), _building.definition.max_builders]
 	show()
 func _type_text(category: int) -> String:
 	match category:

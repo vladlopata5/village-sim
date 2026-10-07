@@ -86,13 +86,12 @@ func _run() -> void:
 	var construction_view = scene.world_locations.get_view(construction.id)
 	click(screen(scene, construction.position))
 	check(selection.selected_building == construction and construction_view.selected and card.visible, "Under-construction building selects and highlights")
-	check(card.state_label.text == "Состояние: Строится" and card.construction_section.visible and not card.production_section.visible, "Construction card shows state and real placeholder section")
-	check(card.construction_section.get_node("Placeholder").text == "Данные строительства будут добавлены следующим этапом." and construction.production_progress == 0 and construction.resources.get_capacity(FOOD) == 0, "Construction UI creates no fake requirements/progress/capacity")
-	construction.state = Instance.State.BUILT
-	await process_frame
-	check(card.state_label.text == "Состояние: Построено" and not card.construction_section.visible and card.production_section.visible, "Existing live-data pattern updates state without new bus")
-	construction.state = Instance.State.UNDER_CONSTRUCTION
-	await process_frame
+	check(card.state_label.text == "Состояние: Строится" and card.construction_section.visible and not card.production_section.visible, "Construction card shows state and construction section")
+	check("Древесина: 0 / 10" in card.construction_materials.text and construction.production_progress == 0 and construction.resources.get_capacity(FOOD) == 0, "Construction card uses real requirements without changing output storage")
+	construction.add_delivered_material(preload("res://scripts/resource_type.gd").Type.WOOD, 10)
+	construction.add_construction_work(180)
+	construction.complete_construction()
+	check(card.state_label.text == "Состояние: Построено" and not card.construction_section.visible and card.production_section.visible, "Construction signal updates completed state")
 	var original_position: Vector2 = actor.view.global_position
 	actor.view.global_position = construction.position
 	click(screen(scene, construction.position))

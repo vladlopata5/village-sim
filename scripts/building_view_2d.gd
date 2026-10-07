@@ -5,7 +5,12 @@ var selected := false
 var building_data: BuildingInstance
 
 func setup(data: BuildingInstance) -> void:
+	if building_data != null: building_data.construction_changed.disconnect(_refresh_state)
 	building_data = data
+	building_data.construction_changed.connect(_refresh_state)
+	_refresh_state()
+
+func _refresh_state() -> void:
 	$Caption.text = building_data.display_name + ("" if building_data.is_built() else " — строится")
 	queue_redraw()
 

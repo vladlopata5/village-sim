@@ -62,10 +62,13 @@ layout_mode = 2
 [node name="Heading" type="Label" parent="Margin/Column/Scroll/Content/Construction"]
 layout_mode = 2
 text = "Строительство"
-[node name="Placeholder" type="Label" parent="Margin/Column/Scroll/Content/Construction"]
+[node name="Materials" type="Label" parent="Margin/Column/Scroll/Content/Construction"]
 layout_mode = 2
 autowrap_mode = 3
-text = "Данные строительства будут добавлены следующим этапом."
+[node name="Work" type="Label" parent="Margin/Column/Scroll/Content/Construction"]
+layout_mode = 2
+[node name="Builders" type="Label" parent="Margin/Column/Scroll/Content/Construction"]
+layout_mode = 2
 [node name="Management" type="Label" parent="Margin/Column"]
 layout_mode = 2
 text = "Управление"

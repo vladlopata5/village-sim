@@ -1080,3 +1080,28 @@ BuildingCard имеет постоянные nodes/ScrollContainer для общ
 пересоздаются каждый frame. Пока дополнительных simulation signals/event bus
 не требуется. Context interactions, UtilitySelector и механика строительства
 не изменены. Четыре стартовых домашних marker views тоже выделяют footprint.
+
+## 2026-10-07 — construction data внутри BuildingInstance
+
+Требования и prototype balance живут в BuildingDefinition; фактическая доставка,
+ограниченный диапазоном 0..required progress и владельцы слотов — в BuildingInstance.
+Строительные материалы отделены от ResourceContainer функционального здания. Метод
+add_delivered_material фиксирует фактическое прибытие, не читает и не списывает склад,
+не учитывает reservations; неизвестные ресурсы, неположительное количество и превышение
+оставшейся потребности отклоняются. ResourceContainer уже поддерживает WOOD с явно
+заданной capacity, но ни один стартовый контейнер автоматически её не получает.
+
+claim_builder_slot допускает одного владельца один раз и не превышает max_builders;
+BUILT не принимает слоты. complete_construction проверяет материалы и work-minutes,
+меняет только lifecycle state того же instance и освобождает владельцев слотов. ID,
+definition, локальный output container и production_progress сохраняются. Обратный
+переход и прямой обход проверки через state запрещены. Начальный BUILT допустим
+через constructor для существующих готовых зданий.
+
+Локальный construction_changed уведомляет BuildingCard и визуал о материалах, работе,
+слотах и завершении. UI использует существующие узлы; нового event bus нет. Для ручной
+проверки доступны методы данных и тестовая сцена, без новых hotkeys/gameplay controls.
+Ни один AI не вызывает строительные методы. UNDER_CONSTRUCTION фильтруется прежними
+production/logistics/eating/workplace/interaction checks; WOOD не создаёт HaulJob.
+Автоматическое подключение новых завершённых зданий к рабочим системам остаётся
+за рамками этого этапа данных; существующие стартовые системы не переписываются.

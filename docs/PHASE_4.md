@@ -784,3 +784,32 @@ BuildingCard; пустое поле/«Закрыть» убирает все hig
 Автоматический test_building_selection.gd покрывает оба state, exclusivity,
 outline, все поля, live updates, placeholder, close, GUI-blocking, placement,
 resident overlap с поздней стройкой, камеру/паузу и прежнее контекстное меню.
+
+## 2026-10-07 — фундамент construction data
+
+Добавлены WOOD и строительные параметры четырёх BuildingDefinition: дом/хижина
+10 WOOD, 180 work-minutes; склад/кухня 15 WOOD, 240 work-minutes; по 2 builder slots.
+Новый placement получает нулевые delivered/progress и пустых владельцев слотов.
+BuildingCard вместо placeholder показывает реальные материалы, минуты/процент,
+слоты и немедленно обновляется через локальный construction_changed.
+
+BuildingInstance предоставляет required/delivered/missing, materials_complete, ratio,
+claim/release slot, add_delivered_material/add_construction_work и can_complete/complete.
+Доставка фактическая: warehouse/reserved/in-transit не считаются автоматически.
+Прогресс ограничен required. Полный material set и progress разрешают явное завершение
+того же instance, без нового объекта/ID и без обратного перехода. Стартовые BUILT
+сохранены без материалов и progress, ретроактивная стройка не требуется.
+
+Ручная проверка без hotkeys: tests/test_construction_data.gd вызывает методы выбранной
+стройки (4/10 WOOD, 90/180 мин, 1/2 слота) и проверяет синхронные изменения карточки.
+Тест покрывает все определения, физический учёт, отдельные instances, clamp, лимиты
+слотов, сигналы, сохранение identity, завершение и placement. Старые fixture-переходы
+state заменены созданием UNDER_CONSTRUCTION и завершением через проверенный API.
+
+Builder AI, перенос WOOD, строительные HaulJob и автоматическое завершение не добавлены.
+Старые production/logistics/eating/workplace фильтры остаются обязательными проверками.
+
+Проверки этапа: 49 test suites PASS, test_construction_data — 58 checks;
+Godot analyzer — 119 scripts, 0 diagnostics; headless startup 120 frames — exit 0,
+stderr пуст. Реальный render карточки 4/10 WOOD, 90/180 минут (50%), 1/2 слота
+проверен; debug controls и hotkeys не добавлены.

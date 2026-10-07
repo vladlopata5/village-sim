@@ -363,3 +363,11 @@ footprint overlap и создание UNDER_CONSTRUCTION в общем реес�
 сохраняется весь lifecycle UNDER_CONSTRUCTION → BUILT; Definition описывает тип.
 Стартовые здания/дома BUILT. Доставка материалов, строительный progress и builder
 profession ещё не реализованы; этот шаг не объявляет строительную систему завершённой.
+
+## 2026-10-07 — construction data foundation
+
+Выполнен фундамент: WOOD; требования/work-minutes/max_builders в Definition;
+фактически delivered/progress/slot owners в едином BuildingInstance; проверяемый
+UNDER_CONSTRUCTION → BUILT без замены entity; реальные данные в BuildingCard.
+Следующие этапы по-прежнему отдельные: строительная доставка, Builder profession/AI,
+фактическая работа и автоматическое завершение/подключение новых зданий к системам.

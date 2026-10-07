@@ -129,8 +129,9 @@ func _run() -> void:
 	var control = ControlAPI.new()
 	control.setup(scene.residents, [second])
 	check(not control.assign_workplace(actor.data.id, second.id) and not control.assign_profession(actor.data.id, Profession.Type.PORTER), "Construction storage cannot accept employment")
-	var hut = scene.gatherer_hut_data
-	hut.state = Instance.State.UNDER_CONSTRUCTION
+	var hut := Instance.new(scene.gatherer_hut_data.id, scene.gatherer_hut_data.definition, scene.gatherer_hut_data.position, Instance.State.UNDER_CONSTRUCTION)
+	hut.resources.set_capacity(FOOD, 5)
+	scene.production.building = hut
 	var gatherer = scene.resident_runtimes[2]
 	gatherer.data.profession = Profession.Type.GATHERER
 	gatherer.data.work_location_id = hut.id
@@ -139,7 +140,9 @@ func _run() -> void:
 	hut.production_progress = 12
 	scene.production._on_minute(400)
 	check(not scene.production.can_work(gatherer.data) and hut.production_progress == 12 and hut.resources.get_amount(FOOD) == 0, "Construction hut neither offers work nor produces even with WORKING resident")
-	hut.state = Instance.State.BUILT
+	hut.add_delivered_material(preload("res://scripts/resource_type.gd").Type.WOOD, hut.get_required_amount(preload("res://scripts/resource_type.gd").Type.WOOD))
+	hut.add_construction_work(hut.definition.construction_work_required)
+	hut.complete_construction()
 	scene.production._on_minute(401)
 	check(hut.production_progress == 13, "Same instance resumes ordinary production when BUILT")
 	check(lines.any(func(line): return "[BUILDING] выбран тип здания" in line) and lines.any(func(line): return "state=UNDER_CONSTRUCTION" in line) and lines.any(func(line): return "placement отменён" in line), "Building INFO covers selection, confirmation and cancellation")
