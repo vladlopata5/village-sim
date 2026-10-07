@@ -11,6 +11,7 @@ static func unbind_work(scene: Node) -> void:
 	# Isolated schedule/need tests inject a simple work action instead of real hauling.
 	scene.logistics.unbind_execution()
 	for runtime in scene.resident_runtimes:
+		for trait_type in runtime.data.traits.duplicate(): runtime.data.remove_trait(trait_type)
 		runtime.decision.work_request = Callable()
 		runtime.decision.work_available = Callable()
 		runtime.schedule.work_decision = Callable()

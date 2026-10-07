@@ -1281,3 +1281,42 @@ previous_level — временное значение для logging, не вт
 Минимальная data-модель допускает будущую замену progression и использование
 уровня любыми системами без profession coupling. Сейчас никакие gameplay
 потребители навыков и placeholder modifiers не добавлены.
+
+
+### Behavior base values plus modifiers; traits как первый источник (2026-10-07)
+
+ResidentModifiers — небольшой stateless resolver с явно типизированным Action
+(WORK/EAT/SOCIAL) и узкими API для threshold, movement speed, selector ratio/exponent.
+Consumer спрашивает effective value, не знает конкретных trait IDs. Definitions
+(семь IDs/имена/conflicts) живут в TraitType, numeric contributions — только в
+balance_config. Resource-only prototype definitions и неподдерживаемый stubborn
+удалены; отдельной trait effect scripting/registry/graph системы нет.
+
+ResidentData.traits — список enum IDs; add_trait отвергает duplicate/conflict без
+auto-remove, remove_trait безопасен для отсутствующего ID. Обе успешные операции
+эмитят traits_changed. Generator выбирает первую черту seeded RNG, исключает
+её/конфликт, выбирает вторую и сохраняет результат. Степан также получает пару
+через этот generator; Factory допускает явно заданные списки для tests.
+
+Multipliers: effective = base × product(contributions); threshold = base + sum,
+с semantic clamp. Resolver может позже включить mood, skills/experience, health,
+weather, settlement events, policies, temporary states без переписывания callers.
+Пустых providers сейчас нет. Traits преимущественно модифицируют существующие
+системы: SOCIAL/WORK attractiveness, EAT attractiveness/minimum, physical movement,
+normal weighted selection. Need state/base weight, production/work timing и XP
+не меняются. EAT curve принимает optional minimum, default сохраняет прежнюю
+формулу; обычный GLUTTON использует effective threshold 20 и utility ×1.2.
+
+UtilitySelector остаётся generic: evaluate принимает optional ratio/exponent с
+fallback base constants. DecisionController применяет effective utility до max/
+cutoff/weights и передаёт effective selector параметры. DEBUG включает оба значения.
+Critical/forced/mandatory night sleep/PlayerCommand bypass не меняется. Assignment
+utility/bonus и targeted EAT threshold остаются прежними: utility multipliers
+применяются к ordinary action candidates, не к явным поручениям. TALK_TO availability
+не зависит от INTROVERTED. Work score на уровне site/delivery не модифицируется.
+
+ResidentView использует один effective movement speed для любых источников intent.
+ResidentCard подписывается traits_changed только выбранного жителя, без polling.
+Регрессионные harnesses явно убирают traits через API, чтобы проверять базовое
+поведение независимо от starting generation. Новые trait tests проверяют effects
+с явно заданными чертами и настоящие маршруты/critical contexts.

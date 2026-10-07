@@ -55,7 +55,7 @@ func _run() -> void:
 	card._refresh()
 	check(card.hunger_label.text == "Голод: 45 — Немного голоден", "Compact needs retain values and descriptions")
 	check(not card.profession_label.visible and not card.activity_label.visible and "Без профессии" in card.summary_label.text, "One profession/activity summary")
-	check(card.traits_label.text.begins_with("Черты\n") and card.age_label.visible and card.id_label.visible, "Traits shorter, age and ID retained")
+	check(card.traits_label.text.begins_with("Черты") and card.age_label.visible and card.id_label.visible, "Traits shorter, age and ID retained")
 	var task := Assignment.new(&"ui", actor.data.id, Assignment.EAT_AT_TARGET, scene.kitchen_data.id)
 	scene.player_control.add_assignment(actor.data.id, task)
 	check(card.assignment_list.get_child(0).get_meta("assignment_id") == task.id, "Assignment list still event-driven")

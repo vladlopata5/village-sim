@@ -5,7 +5,7 @@ var logger: EventLog
 const NeedType = preload("res://scripts/need_type.gd")
 const Activity = preload("res://scripts/resident_activity.gd")
 const Intent = preload("res://scripts/resident_intent.gd")
-const Utility = preload("res://scripts/action_utility.gd")
+const Modifiers = preload("res://scripts/resident_modifiers.gd")
 const Selector = preload("res://scripts/utility_selector.gd")
 const Skill = preload("res://scripts/skill_type.gd")
 const Profession = preload("res://scripts/resident_profession.gd")
@@ -99,7 +99,7 @@ func prepare_for_work() -> bool:
 func collect_actions(has_available_work: bool) -> Array:
 	# Read-only availability. No resource reservations or job claims here.
 	var actions: Array = []
-	if has_available_work: actions.append({"id": "WORK", "priority": WORK_PRIORITY})
+	if has_available_work: actions.append({"id": "WORK", "priority": Modifiers.action_utility(_data, Modifiers.Action.WORK, WORK_PRIORITY)})
 	for type in [NeedType.Type.HUNGER, NeedType.Type.FATIGUE, NeedType.Type.SOCIAL, NeedType.Type.LEISURE]:
 		var priority: int = _data.get_need(type).get_priority()
 		if priority < NEED_ACTION_THRESHOLD: continue
@@ -114,7 +114,9 @@ func collect_actions(has_available_work: bool) -> Array:
 			NeedType.Type.LEISURE:
 				if is_instance_valid(social): id = "LEISURE"
 		if not id.is_empty():
-			actions.append({"id": id, "priority": Utility.eat(_data.hunger) if id == "EAT" else float(priority)})
+			var effective: float = Modifiers.eat_utility(_data) if id == "EAT" else float(priority)
+			if id == "SOCIAL": effective = Modifiers.action_utility(_data, Modifiers.Action.SOCIAL, effective)
+			actions.append({"id": id, "priority": effective})
 	if is_instance_valid(wander) and wander.has_action(): actions.append({"id": "WANDER", "priority": Balance.WANDER_PRIORITY})
 	if is_instance_valid(assignments): actions.append_array(assignments.collect_actions())
 	return actions
@@ -130,7 +132,7 @@ func _choose_need(has_available_work: bool) -> bool:
 	var actions := collect_actions(has_available_work)
 	var started := false
 	while not actions.is_empty():
-		last_selection = Selector.evaluate(actions)
+		last_selection = Selector.evaluate(actions, Modifiers.selector_candidate_ratio(_data), Modifiers.selector_random_exponent(_data))
 		var selected: Dictionary = Selector.pick(last_selection, rng)
 		var unavailable: Array = []
 		for id in ["WORK", "EAT", "REST", "SOCIAL", "LEISURE", "WANDER"]:
@@ -140,7 +142,7 @@ func _choose_need(has_available_work: bool) -> bool:
 		match selected.id:
 			"WORK":
 				_work_selected = true
-				if logger != null: logger.info(EventLog.AI, "%s: выбрал работу (priority=%d)" % [_data.resident_name, WORK_PRIORITY])
+				if logger != null: logger.info(EventLog.AI, "%s: выбрал работу (priority=%d)" % [_data.resident_name, priority])
 				break
 			"EAT": started = _needs.try_eat(priority)
 			"REST": started = _needs.try_rest(priority)
@@ -154,7 +156,7 @@ func _choose_need(has_available_work: bool) -> bool:
 		# A synchronous world change can invalidate an action between check and start.
 		actions = actions.filter(func(row): return row.id != selected.id)
 	if actions.is_empty():
-		last_selection = Selector.evaluate([])
+		last_selection = Selector.evaluate([], Modifiers.selector_candidate_ratio(_data), Modifiers.selector_random_exponent(_data))
 		if logger != null and logger.debug_enabled: logger.debug(EventLog.AI, _decision_debug_text("IDLE", ["WORK", "EAT", "REST", "SOCIAL", "LEISURE", "WANDER"]))
 	_deciding = false
 	_critical_pending = false
@@ -259,9 +261,9 @@ func _on_food_available() -> void:
 func has_more_important_action(current_priority: int) -> bool:
 	# Read-only availability comparison; it never starts an action or claims a job.
 	if _intents.pending_intent.reason_id != &"" and _intents.pending_intent.priority > current_priority: return true
-	if _clock.get_phase() == "День" and _has_work() and WORK_PRIORITY > current_priority: return true
+	if _clock.get_phase() == "День" and _has_work() and Modifiers.action_utility(_data, Modifiers.Action.WORK, WORK_PRIORITY) > current_priority: return true
 	for type in [NeedType.Type.HUNGER, NeedType.Type.FATIGUE, NeedType.Type.LEISURE]:
-		var priority: float = Utility.eat(_data.hunger) if type == NeedType.Type.HUNGER else _data.get_need(type).get_priority()
+		var priority: float = Modifiers.eat_utility(_data) if type == NeedType.Type.HUNGER else _data.get_need(type).get_priority()
 		if priority <= current_priority: continue
 		if type != NeedType.Type.HUNGER and priority < NEED_ACTION_THRESHOLD: continue
 		if type != NeedType.Type.HUNGER or _needs.has_food_action(): return true

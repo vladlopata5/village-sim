@@ -434,3 +434,12 @@ source of truth, derived level 0..10 при prototype progression 10 XP/level.
 соответствующего навыка; interruption/WOOD transport не дают XP. Profession switch
 сохраняет все навыки. ResidentCard показывает level/XP с signal update.
 Gameplay effects, task requirements, AI preferences и training — отдельные этапы.
+
+
+### Выполнено в Phase 4: traits + behavior modifier foundation (2026-10-07)
+
+Семь traits, ровно две seeded-compatible черты при generation; persistent data
+и add/remove/conflict API. Narrow resolver вычисляет effective ordinary utility,
+EAT threshold, movement speed и selector parameters. UI traits event-driven.
+UtilitySelector generic, forced/critical/night/management bypass сохранён.
+Mood/weather/health/events/policies и skill gameplay modifiers — будущие этапы.

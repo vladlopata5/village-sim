@@ -262,9 +262,7 @@ func _create_test_residents() -> void:
 	var generator = ResidentGenerator.new(42, "settlement")
 	residents.append(ResidentFactory.create(
 		"resident_001", "Степан", 30, Profession.Type.PORTER,
-		[preload("res://assets/traits/hardworking.tres"),
-		preload("res://assets/traits/sociable.tres"),
-		preload("res://assets/traits/stubborn.tres")],
+		generator.generate_traits(),
 		20, 35, 65, &"home_stepan", warehouse_data.id))
 	var home_ids = [&"home_anna", &"home_fedor", &"home_marina"]
 	for index in range(3):

@@ -1033,3 +1033,36 @@ needs, PlayerCommand/assignments, housing и sleep quality. Общий data API 
 0 failures. Godot analyzer — 129 scripts, 0 diagnostics; headless startup —
 exit 0, пустой stderr. Уровень 10 не меняет output gatherer или scores builder/porter;
 прежние gameplay/regression suites проходят.
+
+
+## Traits и первый behavior modifier layer
+
+ResidentData хранит enum TraitType IDs. Два generated traits выбираются seeded
+один раз, без duplicate/conflicts; затем это обычные mutable resident data с API
+has/add/remove и traits_changed. Factory может задавать конкретные traits для тестов.
+Четыре starting residents используют seeded generation, без hardcoded trait pair.
+Старые Resource labels hardworking/sociable/stubborn и TraitData удалены.
+
+ResidentModifiers оставляет base values отдельно: multiplicative contributions
+перемножаются, additive threshold contributions складываются. Config: SOCIAL
+1.25/0.75, WORK 1.10/0.90, GLUTTON EAT 1.20/threshold −10, RESTLESS speed 1.10,
+FOOLISH ratio 0.55/exponent 1.50. Base WORK=7000, ratio=0.75/exponent=2.0 прежние.
+Ordinary eat nonlinear curve использует effective minimum 20/30; explicit
+assignment base/availability не модифицируются. Assignment bonus остаётся 3000.
+
+UtilitySelector получает optional effective ratio/exponent; trait dependency нет.
+DecisionController передаёт effective categories до selector и DEBUG показывает
+параметры. Physical movement всех routes запрашивает resolver. Forced/critical,
+PlayerCommand и mandatory sleep обходят selector как раньше. XP, work timing,
+production, construction progress, delivery score, need growth/recovery прежние.
+
+Card показывает русские имена без effect numbers по traits_changed/selection.
+В будущем resolver сможет добавить mood, skills, health, weather, settlement
+events, policies и temporary states; сейчас реализованы только traits. Никаких
+пустых providers, dynamic stat registry, reflection или универсального engine нет.
+
+Проверка trait/modifier этапа: 56/56 suites PASS, test_resident_traits — 402 checks,
+0 failures. Godot analyzer — 130 scripts, 0 diagnostics. Headless startup —
+exit 0, пустой stderr; новых warnings/errors нет. Regression harnesses проверяют
+base behavior без traits, новые сценарии — seeded data, conflicts, effective
+utility/selector, все movement routes, forced bypass и signal UI на паузе.

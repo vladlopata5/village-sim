@@ -132,7 +132,7 @@ func _run() -> void:
 	schedule_move(field.get_global_transform_with_canvas() * Vector2(-100, 180))
 	check(not controller.is_night and view.target_position.is_equal_approx(Vector2(-100, 180)), "Morning restores manual commands")
 	var data = scene.residents[0]
-	check(data.fatigue >= 0 and data.fatigue <= 100 and data.mood == 65 and data.traits.size() == 3, "Night reaction keeps fatigue bounded and preserves mood/traits")
+	check(data.fatigue >= 0 and data.fatigue <= 100 and data.mood == 65 and data.traits.is_empty(), "Night reaction keeps fatigue bounded and preserves mood/traits")
 	scene.queue_free()
 	print("Night home checks: ", "PASS" if failures == 0 else "FAIL (%d)" % failures)
 	quit(0 if failures == 0 else 1)

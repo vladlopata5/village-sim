@@ -2,7 +2,7 @@ extends Node
 const EventLog = preload("res://scripts/game_logger.gd")
 var logger: EventLog
 ## Concrete ways to satisfy needs. Selection/comparison lives in DecisionController.
-const Utility = preload("res://scripts/action_utility.gd")
+const Modifiers = preload("res://scripts/resident_modifiers.gd")
 const Balance = preload("res://scripts/balance_config.gd")
 const Data = preload("res://scripts/resident_data.gd")
 const Intent = preload("res://scripts/resident_intent.gd")
@@ -49,7 +49,7 @@ func setup(clock: Node, data: Data, buildings: Array, locations: RefCounted, int
 
 func try_eat(priority: int, critical_priority: int = 0) -> bool:
 	if _intents.player_controlled: return false
-	if critical_priority == 0 and _data.hunger < Balance.EAT_MIN_HUNGER: return false
+	if critical_priority == 0 and _data.hunger < Modifiers.eat_threshold(_data): return false
 	if _intents.forced_priority > critical_priority:
 		return false
 	if critical_priority > 0: return _try_critical_eat(priority, critical_priority)
@@ -190,7 +190,7 @@ func _on_arrival(intent: Intent) -> void:
 	_data.activity = Activity.Type.EATING
 	if logger != null:
 		logger.sync_activity(_data)
-		logger.info(EventLog.NEED, "%s: начал есть (HUNGER=%d, utility=%.0f)" % [_data.resident_name, _data.hunger, Utility.eat(_data.hunger)])
+		logger.info(EventLog.NEED, "%s: начал есть (HUNGER=%d, utility=%.0f)" % [_data.resident_name, _data.hunger, float(intent.priority)])
 
 func _on_minute_changed(minute: int) -> void:
 	if _active_intent == null:
@@ -251,7 +251,7 @@ func _count_available_food() -> int:
 	return total
 
 func can_try_eat() -> bool:
-	return _data.hunger >= Balance.EAT_MIN_HUNGER and not _food_unavailable
+	return _data.hunger >= Modifiers.eat_threshold(_data) and not _food_unavailable
 
 func has_food_action() -> bool:
 	return can_try_eat() and _count_available_food() > 0

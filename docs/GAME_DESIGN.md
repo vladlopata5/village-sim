@@ -1280,3 +1280,34 @@ ResidentCard показывает три навыка компактно: «Со
 needs, housing, sleep quality и доступность задач прежние. Общий API XP/level
 позже может использоваться работой, AI, бытовыми действиями, событиями и диалогами;
 эффекты, training, perks, decay и modifiers сейчас не реализованы.
+
+
+### Постоянные черты и behavior modifiers
+
+Каждый generated/start resident получает ровно две уникальные seeded-random
+черты из семи: Общительный, Нелюдимый, Трудолюбивый, Ленивый, Обжора,
+Неусидчивый, Балбес. Список хранится в ResidentData и не пересчитывается из seed.
+SOCIABLE/INTROVERTED и INDUSTRIOUS/LAZY взаимоисключающие. API add/remove
+может менять данные в будущем; сейчас автоматических изменений характера нет.
+
+Параметры поведения имеют base value и effective value после modifiers.
+Multiplier contributions перемножаются, additive threshold contributions складываются.
+Сейчас единственный источник — traits; skills по-прежнему не имеют эффектов.
+SOCIABLE ordinary SOCIAL ×1.25, INTROVERTED ×0.75, INDUSTRIOUS WORK ×1.10,
+LAZY WORK ×0.90. Base WORK_PRIORITY=7000 остаётся прежним (effective 7700/6300).
+GLUTTON ordinary EAT ×1.20 и minimum hunger threshold 30→20: прежняя нелинейная
+кривая нормализуется по effective minimum, чтобы hunger=25 имел положительную utility.
+Meal duration, recovery, consumption и critical hunger не меняются.
+RESTLESS physical movement ×1.10 для всех маршрутов, включая player MOVE_TO,
+porter и builder hauling; work/production/game time не ускоряются.
+FOOLISH normal selector ratio=0.55/exponent=1.50 вместо base 0.75/2.0.
+Unavailable actions не попадают в selector; forced/critical/night/management
+по-прежнему обходят его. Assignment bonus, availability TALK_TO и длительности
+разговоров прежние. Utility modifiers относятся к ordinary categories; явные
+assignment candidates сохраняют прежний base + bonus и concrete execution.
+
+ResidentCard показывает только русские имена черт, без numeric effects.
+traits_changed обновляет блок event-driven, в том числе на паузе.
+Weather/mood/events/health/policies/temporary states — будущие sources, сейчас
+не реализованы. Traits изменяют существующие параметры, а не создают отдельные
+случайные special behavior branches.

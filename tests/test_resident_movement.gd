@@ -127,7 +127,7 @@ func _run() -> void:
 	view._process(0.125)
 	check(view.has_movement_target and not card.visible, "Issued command continues independently of selection")
 	var data = scene.residents[0]
-	check(data.hunger == 20 and data.fatigue == 35 and data.mood == 65 and data.traits.size() == 3, "Movement never changes states or traits")
+	check(data.hunger == 20 and data.fatigue == 35 and data.mood == 65 and data.traits.is_empty(), "Movement never changes states or traits")
 	scene.queue_free()
 	print("Movement checks: ", "PASS" if failures == 0 else "FAIL (%d)" % failures)
 	quit(0 if failures == 0 else 1)

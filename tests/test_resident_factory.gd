@@ -12,17 +12,17 @@ func check(value: bool, message: String):
 		push_error(message)
 func signature(data) -> Array:
 	var ids: Array = []
-	for definition in data.traits: ids.append(definition.id)
+	for trait_type in data.traits: ids.append(trait_type)
 	return [data.id, data.resident_name, data.age, ids, data.hunger, data.fatigue, data.mood]
 func _run():
-	var traits = [preload("res://assets/traits/stubborn.tres")]
+	var traits = [preload("res://scripts/trait_type.gd").Type.RESTLESS]
 	var a = Factory.create("a", "A", 25, Profession.Type.PORTER, traits, 20, 30, 60, &"shared_home", &"warehouse_01")
 	var b = Factory.create("b", "B", 35, Profession.Type.NONE, traits, 10, 15, 70, &"shared_home", &"")
 	check(a.inventory != b.inventory and a.activity == Activity.Type.IDLE and a.inventory.amount == 0, "Factory owns fresh inventory and initial activity")
 	a.inventory.put(FOOD, 1)
-	a.traits.clear()
+	a.remove_trait(traits[0])
 	a.hunger = 90
-	check(b.inventory.amount == 0 and b.hunger == 10 and b.traits.size() == 1 and traits.size() == 1, "Mutable data and trait lists never leak between residents")
+	check(b.inventory.amount == 0 and b.hunger == 10 and b.traits.size() == 1 and traits.size() == 1, "Mutable data and trait_type lists never leak between residents")
 	check(a.home_location_id == b.home_location_id, "Several residents may share a place ID")
 	var first = Generator.new(123)
 	var second = Generator.new(123)
@@ -33,7 +33,7 @@ func _run():
 		check(signature(generated) == signature(second.generate()), "Seed reproduces full sequence")
 		check(not seen.has(generated.id), "Unique IDs within generator namespace")
 		seen.append(generated.id)
-		check(generated.traits.size() in [2, 3] and generated.age >= 18 and generated.age <= 65, "Simple age and trait generation")
+		check(generated.traits.size() == 2 and generated.age >= 18 and generated.age <= 65, "Simple age and trait_type generation")
 		check(generated.hunger >= 10 and generated.hunger <= 30 and generated.fatigue >= 5 and generated.fatigue <= 35 and generated.mood >= 45 and generated.mood <= 80, "Reasonable initial needs")
 		check(generated.profession == Profession.Type.NONE and generated.home_location_id.is_empty() and generated.work_location_id.is_empty(), "Settlement assigns profession and places")
 	check(signature(Generator.new(123).generate()) != signature(other.generate()), "Different seed changes generated data")

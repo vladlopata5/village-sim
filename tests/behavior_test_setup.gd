@@ -8,6 +8,7 @@ static func make_scene(tree: SceneTree) -> Node:
 	scene.logistics.unbind_execution()
 	for job in scene.logistics.jobs.duplicate(): scene.logistics.cancel_job(job)
 	for runtime in scene.resident_runtimes:
+		for trait_type in runtime.data.traits.duplicate(): runtime.data.remove_trait(trait_type)
 		runtime.view.set_process(false)
 		runtime.wander.target_provider = Callable()
 		scene.game_time.minute_changed.disconnect(runtime.need_dynamics._on_minute_changed)

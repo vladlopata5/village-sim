@@ -8,7 +8,7 @@ var activity: ResidentActivity.Type = ResidentActivity.Type.IDLE:
 			current_sleep_quality = Balance.OUTDOOR_SLEEP_QUALITY
 		activity = value
 		activity_changed.emit()
-const TraitData = preload("res://scripts/trait_data.gd")
+const Trait = preload("res://scripts/trait_type.gd")
 ## The resident exists as data, independently of any scene or renderer.
 ## The creator assigns an ID unique within the settlement.
 var work_location_id: StringName = &""
@@ -30,7 +30,19 @@ const Assignment = preload("res://scripts/resident_assignment.gd")
 signal assignments_changed
 var assignments: Array[Assignment] = []
 var inventory = Inventory.new()
-var traits: Array[TraitData] = []
+signal traits_changed
+var traits: Array[Trait.Type] = []
+func has_trait(trait_type: Trait.Type) -> bool: return traits.has(trait_type)
+func add_trait(trait_type: Trait.Type) -> bool:
+	if trait_type not in Trait.Type.values() or has_trait(trait_type) or traits.has(Trait.conflict(trait_type)): return false
+	traits.append(trait_type)
+	traits_changed.emit()
+	return true
+func remove_trait(trait_type: Trait.Type) -> bool:
+	if not has_trait(trait_type): return false
+	traits.erase(trait_type)
+	traits_changed.emit()
+	return true
 ## Higher hunger/fatigue means more hungry/tired; higher mood means happier.
 const NeedType = preload("res://scripts/need_type.gd")
 const Need = preload("res://scripts/need.gd")

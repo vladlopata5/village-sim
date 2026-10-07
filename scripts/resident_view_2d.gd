@@ -1,4 +1,5 @@
 extends Node2D
+const Modifiers = preload("res://scripts/resident_modifiers.gd")
 ## Temporary representation. This reference points to data owned outside the view.
 const Clock = preload("res://scripts/game_time.gd")
 const ResidentData = preload("res://scripts/resident_data.gd")
@@ -74,7 +75,7 @@ func _process(delta: float) -> void:
 	# This view processes input on pause, but never advances paused movement.
 	if get_tree().paused or not has_movement_target or delta <= 0.0:
 		return
-	global_position = global_position.move_toward(target_position, movement_speed * _time_speed * delta)
+	global_position = global_position.move_toward(target_position, Modifiers.movement_speed(resident_data, movement_speed) * _time_speed * delta)
 	if global_position.is_equal_approx(target_position):
 		global_position = target_position
 		has_movement_target = false

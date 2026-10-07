@@ -1,5 +1,6 @@
 extends PanelContainer
 ## The card reads the selection's data; it keeps no copy of resident fields.
+const Trait = preload("res://scripts/trait_type.gd")
 const Skill = preload("res://scripts/skill_type.gd")
 const Assignment = preload("res://scripts/resident_assignment.gd")
 const ResidentData = preload("res://scripts/resident_data.gd")
@@ -93,10 +94,7 @@ func _refresh() -> void:
 	social_label.text = _state_line("Общение", data.get_need(NeedType.Type.SOCIAL).value, "Хочет общения" if data.get_need(NeedType.Type.SOCIAL).value >= 25 else "Достаточно общения")
 	leisure_label.text = _state_line("Досуг", data.get_need(NeedType.Type.LEISURE).value, "Хочет развлечься" if data.get_need(NeedType.Type.LEISURE).value >= 25 else "Достаточно досуга")
 	mood_label.text = "Настроение: %d/100 — %s" % [data.mood, StateText.mood_description(data.mood)] if show_state_numbers else "Настроение: " + StateText.mood_description(data.mood)
-	var trait_names := PackedStringArray()
-	for trait_definition in data.traits:
-		trait_names.append("• " + trait_definition.display_name)
-	traits_label.text = "Черты\n" + "\n".join(trait_names) if not trait_names.is_empty() else "Черты: нет"
+
 	show()
 
 func _close() -> void:
@@ -124,11 +122,14 @@ func _on_selection_changed() -> void:
 	if _assignment_resident != null:
 		_assignment_resident.assignments_changed.disconnect(_refresh_assignments)
 		_assignment_resident.skill_changed.disconnect(_on_skill_changed)
+		_assignment_resident.traits_changed.disconnect(_refresh_traits)
 	_assignment_resident = _selection.selected_resident
 	if _assignment_resident != null:
 		_assignment_resident.assignments_changed.connect(_refresh_assignments)
 		_assignment_resident.skill_changed.connect(_on_skill_changed)
+		_assignment_resident.traits_changed.connect(_refresh_traits)
 	_refresh_skills()
+	_refresh_traits()
 	$Margin/Column/Scroll.scroll_vertical = 0
 	_refresh_assignments()
 	_refresh_home()
@@ -198,3 +199,9 @@ func _refresh_skills() -> void:
 	for skill in Skill.Type.values():
 		lines.append("%s: ур. %d (%d XP)" % [Skill.display_name(skill), _assignment_resident.get_skill_level(skill), _assignment_resident.get_skill_xp(skill)])
 	skills_label.text = "\n".join(lines)
+
+func _refresh_traits() -> void:
+	var names := PackedStringArray()
+	if _assignment_resident != null:
+		for trait_type in _assignment_resident.traits: names.append("• " + Trait.display_name(trait_type))
+	traits_label.text = "Черты\n" + "\n".join(names) if not names.is_empty() else "Черты: нет"
