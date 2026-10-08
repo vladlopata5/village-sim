@@ -1208,8 +1208,8 @@ startup — exit 0, пустой stderr. Новых warnings/errors нет. Пр
 не заменяя текущую 2D-симуляцию. ResidentData, BuildingInstance, PlayerCommand
 и unified selection переиспользованы; камера, picking и движение изолированы.
 Ground/Resident/Building представлены примитивами, HUD показывает selection,
-world position и movement target. Direct movement выполняется по свободному
-маршруту; pathfinding/avoidance и перенос остальных systems отложены.
+world position и movement target. Теперь Navigation3D обходит статичное здание;
+runtime navigation updates, crowd avoidance и перенос остальных systems отложены.
 
 Для ручной проверки открыть сцену и нажать F6: выбрать жителя ЛКМ, дать ПКМ
 точку на земле, проверить arrival; выбрать здание и убедиться, что подсветка
@@ -1222,3 +1222,20 @@ Godot analyzer (включая вложенные prototype scripts) — 149 scr
 Новых warnings/errors нет. Проверены реальные raycasts, GUI input blocking,
 взаимное исключение selection, MOVE_TO/arrival/stop и coordinate conversion;
 отрисовка камеры и обеих подсветок дополнительно просмотрена вручную.
+
+
+Уточнение navigation slice: NavigationRegion3D + pre-baked плоский NavigationMesh,
+NavigationAgent3D на Resident, отдельный yellow path mesh. MOVE_TO interface
+сохранён. Статичное Building исключено через projected obstruction при bake;
+invalid/off-navmesh и disconnected target отменяются, arrival tolerance=0.08.
+Runtime building placement updates и crowd avoidance ещё не реализованы.
+
+Проверка: 62/62 suites PASS; navigation integration — 20 checks, 0 failures;
+prototype input/selection/movement — 48 checks, 0 failures. Analyzer —
+153 scripts, 0 diagnostics. В отрисованной сцене через viewport input проверены
+Resident/Building selection, keyboard pan, wheel zoom, ground/grid MOVE_TO,
+реальный обход с запасом под capsule и completion. Direct-movement ожидания
+старого prototype test обновлены на navigation-aware шаги и tolerance.
+
+Main и prototype headless startup — exit 0, stderr пуст. Полный suite также
+без stderr; новых warnings/errors нет. Основной 2D запуск не изменён.

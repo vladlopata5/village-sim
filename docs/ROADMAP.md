@@ -487,3 +487,12 @@ world scale, препятствия и pathfinding этим prototype не ре�
 Запуск: открыть `scenes/prototypes/2_5d_prototype.tscn` в Godot и нажать F6
 (Run Current Scene). F5 по-прежнему запускает 2D игру. Также можно запустить
 Godot с `--path <project-directory> res://scenes/prototypes/2_5d_prototype.tscn`.
+
+
+### Выполнено: static Navigation3D prototype (2026-10-08)
+
+В изолированном 2.5D slice MOVE_TO следует реальному NavigationAgent3D path,
+обходит тестовое Building и завершает команду по navigation-aware arrival.
+NavigationRegion3D использует pre-baked mesh; есть visual debug path и безопасная
+отмена invalid/unreachable targets. Runtime navigation updates для construction
+и crowd avoidance отложены. Основная 2D main scene и gameplay systems сохранены.

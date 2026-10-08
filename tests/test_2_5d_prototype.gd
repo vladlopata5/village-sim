@@ -91,20 +91,29 @@ func _run() -> void:
 	input_controller.handle_hit(MOUSE_BUTTON_LEFT, building_hit)
 	check(scene.movement.is_moving(), "Changing selection does not cancel a committed MOVE_TO")
 	scene.selection.select(scene.resident)
-	scene.control.move_to(Vector2(3, 0))
+	await physics_frame
+	scene.control.move_to(Vector2(-3, 6))
 	check(command.state == Command.State.CANCELLED and scene.control.current_command != command, "New command replaces previous movement request")
-	check(scene.movement.target_position() == Vector3(3, 0, 0), "Request crosses the coordinate adapter into movement target")
+	check(scene.movement.target_position().is_equal_approx(Vector3(-3, 0, 6)), "Request crosses the coordinate adapter into movement target")
 	scene.movement.arrived.connect(func(): arrivals += 1)
-	scene.movement.advance(1.0)
-	check(scene.resident_view.global_position.is_equal_approx(Vector3(0, 0, 0)), "Movement advances at configured speed along X/Z")
+	var before_step: Vector3 = scene.resident_view.global_position
+	await physics_frame
+	scene.movement.advance(0.1)
+	check(scene.resident_view.global_position.distance_to(before_step) <= scene.movement.speed * 0.1 + 0.001, "Navigation step never exceeds movement speed")
 	check(scene.movement.is_moving() and arrivals == 0, "Unfinished movement remains active")
-	scene.movement.advance(10.0)
-	check(scene.resident_view.global_position == Vector3(3, 0, 0) and not scene.movement.is_moving(), "Arrival snaps to destination without overshoot")
+	for frame in range(300):
+		await physics_frame
+		scene.movement.advance(0.05)
+		if not scene.movement.is_moving(): break
+	check(scene.resident_view.global_position.distance_to(Vector3(-3, 0, 6)) <= scene.movement.agent.target_desired_distance and not scene.movement.is_moving(), "Navigation arrives within tolerance without overshoot")
 	check(arrivals == 1 and scene.control.current_command.state == Command.State.COMPLETED and scene.resident.activity == Activity.Type.IDLE, "Arrival completes command and restores idle exactly once")
 	scene.movement.advance(100.0)
 	check(arrivals == 1, "Idle movement emits no repeated arrival")
-	scene.control.move_to(Vector2(3, 0))
-	check(not scene.movement.is_moving() and scene.control.current_command.state == Command.State.COMPLETED, "Already at target completes immediately")
+	await physics_frame
+	scene.control.move_to(Vector2(-3, 6))
+	await physics_frame
+	scene.movement.advance(0.0)
+	check(not scene.movement.is_moving() and scene.control.current_command.state == Command.State.COMPLETED, "Already at target completes without a new trip")
 	scene.control.move_to(Vector2(-8, 4))
 	scene.control.cancel_move()
 	var stopped: Vector3 = scene.resident_view.global_position

@@ -19,11 +19,15 @@ func _ready() -> void:
 	building_view.bind(building)
 	building_view.position = Coordinates.to_world(building.position)
 	movement.body = resident_view
+	movement.agent = $Resident/NavigationAgent3D
+	movement.agent.path_changed.connect(movement.refresh_debug_path)
+	movement.path_changed.connect($DebugPath.show_path)
 	control.resident = resident
 	control.selection = selection
 	control.movement_requested.connect(_move_requested)
 	control.stop_requested.connect(movement.stop)
 	movement.arrived.connect(control.arrived)
+	movement.failed.connect(control.cancel_move)
 	input_controller.camera = $Camera3D
 	input_controller.ground = $Ground
 	input_controller.selection = selection

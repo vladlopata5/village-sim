@@ -1471,7 +1471,8 @@ PlaneCoordinates преобразует Vector2(x, y) ↔ Vector3(x, 0, y). Со
 Pickable view хранит явную ссылку на entity/type; mesh names не определяют
 сущность. Input получает попадание physics ray, selection хранит только data.
 ResidentMovement3D выполняет set_target/stop/is_moving и сигнализирует arrival;
-сейчас это direct movement, без pathfinding, NavigationAgent3D или avoidance.
+На следующем техническом этапе direct movement заменён NavigationAgent3D;
+crowd avoidance остаётся выключенным.
 Замена movement implementation не требует переписывать selection/input.
 Камера изолирована от gameplay. Node3D views не становятся ResidentData.
 
@@ -1481,3 +1482,34 @@ ResidentMovement3D выполняет set_target/stop/is_moving и сигнал�
 координаты X/Z не поворачиваются. Отдельный MeshInstance3D рисует временную
 сетку 30×30 клеток, cell size=1 world unit. Это только визуальная проверка
 масштаба: нет physics/raycast, occupancy, snapping или building placement.
+
+
+### Navigation3D в изолированном 2.5D prototype (2026-10-08)
+
+NavigationRegion3D загружает заранее запечённый NavigationMesh плоской земли.
+Bake использует collider земли и явный projected obstruction по footprint
+статичного Building: оболочка Box сама по себе могла оставить проходимую
+область внутри. Обструкция исключает весь объём; bake agent_radius=0.5 даёт
+запас для capsule radius=0.4. Крыша не включается. Поверхность нормализуется
+к Y=0 после voxel bake; gameplay plane остаётся X/Z.
+
+Это простой статический asset для одного prototype Building. Его можно заново
+запечь отдельным `tests/bake_prototype_navigation.gd`, но runtime rebake pipeline
+не добавлен. При будущем динамическом строительстве потребуется отдельный выбор
+между обновлением navmesh и динамическими exclusion/obstacle механизмами;
+статический bake этого вопроса не решает. Полная 3D миграция не выполнена.
+
+ResidentMovement3D владеет NavigationAgent3D integration. Внешние set_target,
+stop, is_moving и arrived сохранены; failed отменяет текущий PlayerCommand
+через существующий CANCELLED. Input/selection не получают path APIs.
+Запросы агента выполняются на physics ticks после синхронизации карты;
+отсутствующая карта не удерживает команду бесконечно (ожидание до 30 ticks).
+Target проецируется на поверхность только в пределах 0.25 world unit; дальше
+от navmesh, включая interior Building, команда отменяется. При disconnected
+path отмена происходит на последней достижимой точке. Успех требует завершения
+navigation, достижимости target и расстояния до navigation final position ≤0.08.
+Команда завершается один раз, без повторных path updates после остановки.
+
+Отдельный prototype-only MeshInstance3D рисует жёлтую линию текущего пути;
+stop/completion/cancel очищает её. Grid не входит в bake, physics или picking.
+Crowd avoidance выключен; camera, selection и текущая 2D simulation сохранены.

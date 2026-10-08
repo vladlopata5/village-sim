@@ -1,4 +1,4 @@
-[gd_scene load_steps=22 format=3]
+[gd_scene load_steps=24 format=3]
 
 [ext_resource type="Script" path="res://scripts/prototypes/prototype_2_5d.gd" id="1"]
 [ext_resource type="Script" path="res://scripts/prototypes/pickable_view_3d.gd" id="2"]
@@ -9,6 +9,9 @@
 [ext_resource type="Script" path="res://scripts/resident_selection.gd" id="7"]
 
 [ext_resource type="Script" path="res://scripts/prototypes/prototype_grid_3d.gd" id="8"]
+
+[ext_resource type="NavigationMesh" path="res://scenes/prototypes/prototype_navigation.tres" id="9"]
+[ext_resource type="Script" path="res://scripts/prototypes/prototype_path_3d.gd" id="10"]
 
 [sub_resource type="StandardMaterial3D" id="GroundMaterial"]
 albedo_color = Color(0.28, 0.43, 0.27, 1)
@@ -53,13 +56,17 @@ ambient_light_energy = 0.45
 
 [node name="Prototype2_5D" type="Node3D"]
 script = ExtResource("1")
+[node name="NavigationRegion3D" type="NavigationRegion3D" parent="."]
+navigation_mesh = ExtResource("9")
+[node name="DebugPath" type="MeshInstance3D" parent="."]
+script = ExtResource("10")
 [node name="WorldEnvironment" type="WorldEnvironment" parent="."]
 environment = SubResource("Environment")
 [node name="Light" type="DirectionalLight3D" parent="."]
 rotation_degrees = Vector3(-65, -30, 0)
 light_energy = 1.2
 shadow_enabled = true
-[node name="Ground" type="StaticBody3D" parent="."]
+[node name="Ground" type="StaticBody3D" parent="." groups=["prototype_navigation_geometry"]]
 collision_layer = 1
 collision_mask = 0
 [node name="Mesh" type="MeshInstance3D" parent="Ground"]
@@ -75,6 +82,11 @@ position = Vector3(-3, 0, 0)
 collision_layer = 2
 collision_mask = 0
 script = ExtResource("2")
+[node name="NavigationAgent3D" type="NavigationAgent3D" parent="Resident"]
+path_desired_distance = 0.05
+target_desired_distance = 0.08
+radius = 0.4
+avoidance_enabled = false
 [node name="Mesh" type="MeshInstance3D" parent="Resident"]
 position = Vector3(0, 0.9, 0)
 mesh = SubResource("ResidentMesh")
