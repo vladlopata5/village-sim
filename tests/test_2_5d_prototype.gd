@@ -39,6 +39,10 @@ func _run() -> void:
 	check(scene.resident_view.entity == scene.resident and scene.building_view.entity == scene.building, "Views reference existing domain data")
 	check(scene.selection.selected_entity == null, "Prototype starts without selection")
 	check(not scene.resident_view.get_node("SelectionIndicator").visible and not scene.building_view.get_node("SelectionIndicator").visible, "Indicators start hidden")
+	var grid = scene.get_node("VisualGrid")
+	check(grid is MeshInstance3D and grid.get_child_count() == 0, "Grid is a mesh without physics bodies or colliders")
+	check(grid.CELL_SIZE == 1.0 and grid.CELL_COUNT == 30, "Visual scale reference covers 30 by 30 unit cells")
+	check(grid.basis == Basis.IDENTITY and is_equal_approx(grid.mesh.get_aabb().size.x, 30.0) and is_equal_approx(grid.mesh.get_aabb().size.z, 30.0), "Grid stays axis-aligned on X/Z with expected extent")
 	# Real 3D collision queries; node names are not used to identify entities.
 	var input_controller = scene.input_controller
 	var resident_point := camera.unproject_position(scene.resident_view.global_position + Vector3(0, 0.9, 0))
@@ -49,7 +53,7 @@ func _run() -> void:
 	var ground_hit: Dictionary = input_controller.pick(ground_point)
 	check(resident_hit.get("collider") == scene.resident_view, "Raycast hits resident capsule")
 	check(building_hit.get("collider") == scene.building_view, "Raycast hits building box")
-	check(ground_hit.get("collider") == scene.get_node("Ground"), "Raycast hits ground separately")
+	check(ground_hit.get("collider") == scene.get_node("Ground"), "Raycast through visual grid lines still hits ground")
 	scene.resident_view.name = "ArbitraryPickableName"
 	input_controller.handle_hit(MOUSE_BUTTON_LEFT, resident_hit)
 	check(scene.selection.selected_resident == scene.resident and scene.selection.selected_building == null, "Resident picking stores data, exclusively")
@@ -114,6 +118,7 @@ func _run() -> void:
 	check(scene.selection.selected_entity == null, "Esc clears selection")
 	check(not scene.control.move_to(Vector2(1, 1)), "No selection cannot issue MOVE_TO")
 	check(camera.projection == Camera3D.PROJECTION_ORTHOGONAL and is_equal_approx(camera.rotation_degrees.x, -50.0), "Prototype uses orthographic projection at 50 degrees")
+	check(is_equal_approx(camera.rotation_degrees.y, 45.0), "Camera yaw is diagonal relative to unchanged world axes")
 	camera.zoom(100)
 	check(camera.size == camera.min_zoom, "Zoom-in is bounded")
 	camera.zoom(-100)

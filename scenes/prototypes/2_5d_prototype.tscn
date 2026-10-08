@@ -1,4 +1,4 @@
-[gd_scene load_steps=21 format=3]
+[gd_scene load_steps=22 format=3]
 
 [ext_resource type="Script" path="res://scripts/prototypes/prototype_2_5d.gd" id="1"]
 [ext_resource type="Script" path="res://scripts/prototypes/pickable_view_3d.gd" id="2"]
@@ -7,6 +7,8 @@
 [ext_resource type="Script" path="res://scripts/prototypes/prototype_input_3d.gd" id="5"]
 [ext_resource type="Script" path="res://scripts/prototypes/prototype_camera_3d.gd" id="6"]
 [ext_resource type="Script" path="res://scripts/resident_selection.gd" id="7"]
+
+[ext_resource type="Script" path="res://scripts/prototypes/prototype_grid_3d.gd" id="8"]
 
 [sub_resource type="StandardMaterial3D" id="GroundMaterial"]
 albedo_color = Color(0.28, 0.43, 0.27, 1)
@@ -65,6 +67,9 @@ mesh = SubResource("GroundMesh")
 [node name="Collision" type="CollisionShape3D" parent="Ground"]
 position = Vector3(0, -0.05, 0)
 shape = SubResource("GroundShape")
+[node name="VisualGrid" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.015, 0)
+script = ExtResource("8")
 [node name="Resident" type="StaticBody3D" parent="."]
 position = Vector3(-3, 0, 0)
 collision_layer = 2
@@ -96,8 +101,8 @@ visible = false
 position = Vector3(0, 0.01, 0)
 mesh = SubResource("BuildingIndicator")
 [node name="Camera3D" type="Camera3D" parent="."]
-position = Vector3(0, 18, 15.104)
-rotation_degrees = Vector3(-50, 0, 0)
+position = Vector3(10.680, 18, 10.680)
+rotation_degrees = Vector3(-50, 45, 0)
 projection = 1
 size = 24.0
 current = true

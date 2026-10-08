@@ -1474,3 +1474,10 @@ ResidentMovement3D выполняет set_target/stop/is_moving и сигнал�
 сейчас это direct movement, без pathfinding, NavigationAgent3D или avoidance.
 Замена movement implementation не требует переписывать selection/input.
 Камера изолирована от gameplay. Node3D views не становятся ResidentData.
+
+
+Уточнение visual prototype: ортографическая камера имеет yaw=45°, pitch=−50°
+и смотрит по диагонали относительно будущей axis-aligned build grid. Мировые
+координаты X/Z не поворачиваются. Отдельный MeshInstance3D рисует временную
+сетку 30×30 клеток, cell size=1 world unit. Это только визуальная проверка
+масштаба: нет physics/raycast, occupancy, snapping или building placement.
