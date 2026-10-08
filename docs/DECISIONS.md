@@ -1452,3 +1452,25 @@ Fallback не меняет mechanics, entry selection или Diary. Diary ост
 с прежним chance/lifetime. Одна DEBUG запись успешного event содержит reactions,
 entry и фактические counts feed/diary; failed chance rolls не логируются.
 Conversation double-roll при создании группы, pool, formulas и RNG не изменены.
+
+
+### Изолированный 3D technical vertical slice (2026-10-08)
+
+Исследуем true 3D presentation и 2.5D gameplay постепенно, сохраняя текущую
+2D-симуляцию и `scenes/main.tscn` как основной запуск. Этот этап проверяет
+control loop, а не переносит игру целиком и не вводит universal abstraction.
+X/Z используются для gameplay plane, Y — для vertical representation.
+
+Slice переиспользует ResidentData, BuildingInstance/BuildingDefinition,
+PlayerCommand и существующий unified ResidentSelection. PrototypeControl
+хранит команду и меняет activity без зависимости от Node3D. Явный локальный
+PlaneCoordinates преобразует Vector2(x, y) ↔ Vector3(x, 0, y). Соответствие
+1:1 и небольшая тестовая definition — только единицы этой сцены, не решение
+о масштабе будущей миграции основного мира.
+
+Pickable view хранит явную ссылку на entity/type; mesh names не определяют
+сущность. Input получает попадание physics ray, selection хранит только data.
+ResidentMovement3D выполняет set_target/stop/is_moving и сигнализирует arrival;
+сейчас это direct movement, без pathfinding, NavigationAgent3D или avoidance.
+Замена movement implementation не требует переписывать selection/input.
+Камера изолирована от gameplay. Node3D views не становятся ResidentData.

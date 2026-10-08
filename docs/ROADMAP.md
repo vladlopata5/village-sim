@@ -474,3 +474,16 @@ equal-weight selection после mechanics. Отдельные Feed и optional
 TEMPORARY до следующего утра, KEY permanent. Porter WORK social hook отложен до
 подходящего semantic work lifecycle. Psychological memory и social AI feedback
 остаются будущими этапами.
+
+
+### Выполнено: первый изолированный 2.5D technical prototype (2026-10-08)
+
+Отдельная 3D-сцена: ground, orthographic camera (50°), primitive Resident/Building,
+ray picking, unified selection и direct MOVE_TO по X/Z. Минимальный debug HUD.
+Существующий 2D main остаётся default; gameplay systems не мигрированы.
+Дальнейший переход presentation/navigation выполняется отдельными этапами;
+world scale, препятствия и pathfinding этим prototype не решаются.
+
+Запуск: открыть `scenes/prototypes/2_5d_prototype.tscn` в Godot и нажать F6
+(Run Current Scene). F5 по-прежнему запускает 2D игру. Также можно запустить
+Godot с `--path <project-directory> res://scenes/prototypes/2_5d_prototype.tscn`.

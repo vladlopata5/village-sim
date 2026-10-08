@@ -1199,3 +1199,26 @@ entry ID или none. Existing DEBUG detail сохранён. Failed chance и �
 startup — exit 0, пустой stderr. Новых warnings/errors нет. Проверены game time,
 все contexts/reactions/deltas, entry/none, работа без DEBUG toggle и отсутствие
 логов для failed chance / пустого pool. Mechanics/RNG regression проходит.
+
+
+### Техническое исследование: 2.5D / 3D presentation (2026-10-08)
+
+Добавлен отдельный vertical slice `scenes/prototypes/2_5d_prototype.tscn`.
+Он исследует true 3D presentation при плоском gameplay (X/Z, Y — высота),
+не заменяя текущую 2D-симуляцию. ResidentData, BuildingInstance, PlayerCommand
+и unified selection переиспользованы; камера, picking и движение изолированы.
+Ground/Resident/Building представлены примитивами, HUD показывает selection,
+world position и movement target. Direct movement выполняется по свободному
+маршруту; pathfinding/avoidance и перенос остальных systems отложены.
+
+Для ручной проверки открыть сцену и нажать F6: выбрать жителя ЛКМ, дать ПКМ
+точку на земле, проверить arrival; выбрать здание и убедиться, что подсветка
+жителя исчезла; очистить выбор ЛКМ по земле/Esc; проверить WASD и zoom.
+F5 сохраняет старый 2D запуск. Это technical prototype, не завершённая миграция.
+
+Проверка slice: 61/61 suites PASS, новый набор — 44 checks / 0 failures.
+Godot analyzer (включая вложенные prototype scripts) — 149 scripts,
+0 diagnostics. Main и prototype headless startup — exit 0, stderr пуст.
+Новых warnings/errors нет. Проверены реальные raycasts, GUI input blocking,
+взаимное исключение selection, MOVE_TO/arrival/stop и coordinate conversion;
+отрисовка камеры и обеих подсветок дополнительно просмотрена вручную.
