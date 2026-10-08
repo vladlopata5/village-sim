@@ -4,13 +4,11 @@ const Coordinates = preload("res://scripts/world_3d/world_coordinates.gd")
 const Types = preload("res://scripts/building_type.gd").Type
 const RESIDENT_RADIUS: float = 0.4
 const RESIDENT_HEIGHT: float = 1.44
-const BUILDING_SIZES = {
-	Types.HOME: Vector2(2.56, 1.92),
-	Types.FOOD: Vector2(5.76, 3.84),
-	Types.STORAGE: Vector2(5.76, 3.84),
-	Types.GATHERER_HUT: Vector2(5.76, 3.84),
-}
-static func building_size(building: RefCounted) -> Vector2: return BUILDING_SIZES[building.type]
+const Grid = preload("res://scripts/build_grid.gd")
+static func building_size(building: RefCounted) -> Vector2:
+	var cells: Vector2i = building.definition.footprint_cells
+	if building.quarter_turns % 2 == 1: cells = Vector2i(cells.y, cells.x)
+	return Vector2(cells) * Grid.CELL_SIZE
 static func footprint(building: RefCounted) -> Rect2:
 	var size := building_size(building)
 	return Rect2(Coordinates.world_plane(Coordinates.to_world(building.position)) - size / 2.0, size)

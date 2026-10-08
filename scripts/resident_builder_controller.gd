@@ -55,6 +55,13 @@ func register_building(building: Instance) -> void:
 	if not building.resources.availability_changed.is_connected(_on_resource_changed): building.resources.availability_changed.connect(_on_resource_changed)
 	_on_world_changed()
 
+func unregister_building(building: Instance) -> void:
+	# World registry removes the entity before notifying its workers.
+	if site == building: abort("стройка отменена")
+	if building.construction_changed.is_connected(_on_world_changed): building.construction_changed.disconnect(_on_world_changed)
+	if building.resources.availability_changed.is_connected(_on_resource_changed): building.resources.availability_changed.disconnect(_on_resource_changed)
+	_on_world_changed()
+
 func site_priority(candidate: Instance, from_position: Vector2) -> float:
 	var distance := from_position.distance_to(candidate.position) / Balance.BUILDER_DISTANCE_SCALE
 	return candidate.get_construction_material_ratio() * Balance.BUILDER_MATERIAL_PROGRESS_MAX + candidate.get_construction_progress_ratio() * Balance.BUILDER_CONSTRUCTION_PROGRESS_MAX + candidate.active_builder_ids.size() * Balance.BUILDER_ACTIVE_WORKER_BONUS - distance * distance * Balance.BUILDER_DISTANCE_WEIGHT

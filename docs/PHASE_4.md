@@ -1314,3 +1314,33 @@ Debug overlay показывает red clearance cells, yellow raw и cyan smoot
 реальный складской путь: 30 raw → 4 smooth points, min physical gap≈0.73 world
 unit при radius=0.4. Отдельно проверены x1/x20 и исходные simulation distances.
 Новых runtime warnings/errors нет; default 2D запуск сохранён.
+
+
+### Runtime placement/construction в main_3d через BuildGrid (2026-10-08)
+
+Прежнее ограничение «construction placement недоступен в main_3d» снято.
+Добавлены independent BuildGrid (0.5, bounds 128×80/origin -64,-40), сеточный
+3D ghost, quarter-turn rotation, world input и прежняя ConstructionPanel.
+Footprints: HOME=6×4 cells, STORAGE/FOOD/GATHERER_HUT=12×8. Instance center
+остаётся simulation-space; quarter_turns фиксируется при placement.
+
+Starter/runtime registration общая: BuildingView3D + BuildGrid owner occupancy +
+NavigationGrid physical footprint/clearance. UNDER_CONSTRUCTION уже блокирует
+движение; placement/removal меняют paths без rebake. Общий access-point resolver
+учитывает footprint/orientation; builder не идёт в obstructed center.
+
+Existing WOOD reservation/inventory/transport, builder slots/work cycles/XP/progress,
+completion и BuildingCard переиспользованы. Removal API для unfinished construction
+делает worker cleanup и release обеих сеток; новый demolition UI не добавлен.
+
+F5 по-прежнему 2D; main_3d — F6. Отложены cargo/drop 3D visuals, construction
+animations, interaction points, terrain/roads/trees и crowd. Placement не проверяет
+resident occupancy и не добавляет automatic displacement.
+
+Проверки: полный suite 66/66 PASS, BuildGrid 46 checks, construction 3D 92,
+main_3d migration 97, NavigationGrid 107; 0 failures/stderr. Godot analyzer:
+172 scripts, 0 diagnostics. Old main, main_3d и historical navmesh prototype
+headless startup: exit 0, stderr пуст. Rendered viewport QA: реальные кнопки,
+green/red ghost/snap/rotation, invalid/valid confirm, selection/cards, Esc cancel,
+camera pan/zoom и normal builder AI при x20: 10 WOOD, 180 work-minutes, BUILT.
+Card live показывает 3/10 WOOD и 1/2 builders, затем обычную built housing section.

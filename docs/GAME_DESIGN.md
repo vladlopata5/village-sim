@@ -1474,10 +1474,11 @@ executor владеет WORLD position, providers возвращают simulatio
 visuals уменьшены пропорционально, game-time movement speed не меняется.
 
 NavigationGrid покрывает X/Z [-64,64) × [-40,40): 128×80 world units, 256×160 клеток
-по 0.5. Это скрытая navigation system. Будущий BuildGrid также планируется 0.5,
-но это отдельная система, ещё не реализованная. WorldGeometry задаёт физические
-footprints: HOME 2.56×1.92, остальные текущие здания 5.76×3.84 world units. Они
-явно выбраны для сохранения пропорций starter map и не выводятся из 2D visual size.
+по 0.5. Это скрытая navigation system. BuildGrid также использует 0.5,
+но является отдельной системой размещения (описана ниже). WorldGeometry получает
+физические footprints из BuildingDefinition.footprint_cells: HOME 3×2, остальные
+текущие здания 6×4 world units, с quarter-turn rotation. Они заданы вручную и не
+выводятся из 2D visual size.
 Meshes, colliders и blockers используют одни размеры. Radius=0.4 — отдельный
 navigation clearance, не часть physical footprint. Rasterization консервативная.
 
@@ -1495,6 +1496,35 @@ proximity. Это всё ещё migration bridge, без полноценных 
 
 Опциональный Navigation debug снизу показывает blocked cells (красные), raw A*
 (жёлтый) и smoothed path выбранного resident (голубой). Выключен по умолчанию,
-не участвует в physics/picking. Placement остаётся недоступным в main_3d.
+не участвует в physics/picking. Runtime placement подключён через отдельный BuildGrid.
 Terrain пока плоский. Далее X/Z cells могут получить height/cost/slope restrictions,
 а world movement — высоту terrain; stacked floors/bridges/caves вне текущего scope.
+
+
+### Runtime placement/construction в main_3d через BuildGrid (2026-10-08)
+
+В main_3d доступна прежняя сворачиваемая панель строительства: выбор типа,
+сетка ghost, R — поворот 90°, ЛКМ — поставить один объект, Esc/ПКМ — отменить.
+Invalid ghost красный; invalid click ничего не создаёт. UI не пропускает world clicks,
+placement имеет приоритет над selection и context commands.
+
+BuildGrid=0.5 world unit, origin=(-64,-40), bounds=128×80 (256×160 cells).
+Это отдельная от NavigationGrid система placement/occupancy. BuildingDefinition
+задаёт физический footprint в build cells: HOME=6×4 (3×2 world units), остальные
+текущие типы STORAGE/FOOD/GATHERER_HUT=12×8 (6×4). Clearance=0.4 принадлежит
+только navigation. Rotation хранится как quarter_turns=0..3 в BuildingInstance;
+90/270° меняют width/depth. Ghost выравнивает края footprint по grid.
+
+Confirm создаёт обычный BuildingInstance в Main.buildings, UNDER_CONSTRUCTION,
+с simulation-space center через bridge 1:25. Occupancy и navigation blocker появляются
+сразу без rebake. Existing builder сам носит WOOD и выполняет прежние 60-minute
+cycles; completion сохраняет ID/view/occupancy. Card показывает реальные данные.
+Starter buildings проходят тот же registration; исходные centers сохранены,
+не выровненные footprints занимают все пересечённые клетки.
+
+Default access point учитывает rotated footprint/orientation и navigation availability;
+builder и другие действия используют общий resolver, не центр здания. Это временный
+migration bridge. cancel_construction(id) освобождает незавершённую стройку и обе
+сетки через существующий worker cleanup, без demolition UI/refund. BUILT не удаляется.
+F5/2D остаётся прежним. Cargo/drop visuals, terrain, roads/trees, crowd и полноценные
+interaction points пока не перенесены/не реализованы.

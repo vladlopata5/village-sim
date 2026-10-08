@@ -33,7 +33,7 @@ func confirm() -> Instance:
 		_next_id += 1
 		id = StringName("building_%04d" % _next_id)
 	_next_id += 1
-	var building := Instance.new(id, selected_definition, position, Instance.State.UNDER_CONSTRUCTION)
+	var building := _create_instance(id)
 	buildings.append(building)
 	if logger != null: logger.info(EventLog.BUILDING, "размещено здание %s — %s, state=UNDER_CONSTRUCTION" % [id, building.display_name])
 	selected_definition = null
@@ -45,3 +45,6 @@ func cancel() -> void:
 	selected_definition = null
 	if logger != null: logger.info(EventLog.BUILDING, "placement отменён")
 	changed.emit()
+
+func _create_instance(id: StringName) -> Instance:
+	return Instance.new(id, selected_definition, position, Instance.State.UNDER_CONSTRUCTION)

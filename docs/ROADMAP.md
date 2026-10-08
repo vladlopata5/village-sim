@@ -526,3 +526,18 @@ NavigationRegion3D использует pre-baked mesh; есть visual debug pa
   demolition/trees/roads и terrain height/cost/slope; эти gameplay systems не добавлены.
 - Старый navmesh prototype сохранён. Main_3d navmesh bake/runtime rebake больше не
   требуются для global connectivity. Полная presentation migration ещё не завершена.
+
+
+### Runtime placement/construction в main_3d через BuildGrid (2026-10-08)
+
+- Выполнены отдельный BuildGrid 0.5 и authoritative owner occupancy; NavigationGrid
+  остаётся отдельной системой 0.5 с clearance/refcounts.
+- Выполнены 3D ghost/snap, rotation 90° increments, validation, прежняя ConstructionPanel
+  и runtime UNDER_CONSTRUCTION placement с немедленным navigation blocker update.
+- Existing builder WOOD workflow, 60-minute cycles, completion и live cards работают
+  с runtime buildings; starter/runtime registration единая. Unfinished cancellation API
+  освобождает occupancy/navigation без rebake; demolition gameplay остаётся позже.
+- Footprints в definition build cells: HOME 6×4; остальные current types 12×8.
+  Default access point остаётся временным rotation-aware migration bridge.
+- Дальше: cargo/ground-resource visuals, полноценные interaction points, terrain,
+  roads/trees и crowd movement. F5 остаётся 2D fallback; полная migration не завершена.

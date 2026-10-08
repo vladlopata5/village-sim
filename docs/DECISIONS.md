@@ -1597,3 +1597,37 @@ world follower работает с Vector3 и не принудительно о
 cost/slope rules должны жить за navigation API; cost-aware smoothing требует
 отдельного продолжения, сейчас costs отсутствуют. Нет multiple walkable heights
 на одном X/Z, crowd avoidance, trees/roads/placement или строительства в этой задаче.
+
+
+### Runtime placement/construction в main_3d через BuildGrid (2026-10-08)
+
+Размещение и pathfinding разделены: независимые BuildGrid и NavigationGrid,
+обе по 0.5 world unit, bounds=(-64,-40,128,80). BuildGrid хранит cell→building ID
+и building→cells; конфликт отвергается до записи, release удаляет только свои cells.
+NavigationGrid по-прежнему добавляет отдельный resident clearance/refcounts.
+
+BuildingDefinition.footprint_cells задаётся вручную: HOME=6×4, остальные типы=12×8.
+Это реальная физическая площадь без clearance, не конвертация legacy 2D size.
+WorldGeometry выводит из неё mesh/collider/blocker size. Instance.quarter_turns=0..3
+фиксируется при placement; 90/270° swap dimensions. Не добавлена runtime rotation.
+Snap выравнивает footprint edges; нечётный footprint допускает half-cell center.
+Starter centers не меняются; пересечённые ими build cells занимаются консервативно.
+
+BuildingPlacement3D переиспользует общий building_placement.gd ID/creation/registry
+flow через небольшой factory hook. Main._show_building и existing construction
+controllers сохраняют resources/reservations/cycles/completion. Node3D ghost не entity.
+UNDER_CONSTRUCTION сразу блокирует footprint; BUILT сохраняет тот же blocker/view.
+Добавление/удаление blocker мгновенно меняет следующий path, без rebake.
+
+BuildingLocations3D поворачивает deterministic side order вместе с quarter_turns,
+проверяет rotated physical footprint и walkability; cache привязан к navigation revision.
+Это одна default access point для shared action/proximity resolver, не entrances/slots.
+
+cancel_construction(id) удаляет только UNDER_CONSTRUCTION из shared registry,
+отключает activation callback, вызывает existing builder abort/unregister cleanup,
+удаляет view/location, освобождает BuildGrid и NavigationGrid. Picked-up WOOD
+становится GroundResource; уже delivered materials не refund. Demolition gameplay нет.
+Placement поверх resident не запрещён: blocked active position вызывает прежний
+safe path cancellation; автоматический displacement не добавлен. Placement validation
+проверяет finite coordinates, bounds и occupancy, не доступность входа/terrain.
+Scale 1:25 и весь simulation balance сохранены. Migration остаётся постепенной.

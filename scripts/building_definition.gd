@@ -10,6 +10,14 @@ const CONSTRUCTION_BALANCE = {
 	BuildingType.Type.GATHERER_HUT: {"wood": 10, "minutes": 180, "builders": 2},
 	BuildingType.Type.HOME: {"wood": 10, "minutes": 180, "builders": 2},
 }
+# Explicit 3D physical area in build cells; legacy size remains the 2D visual footprint.
+const FOOTPRINT_CELLS = {
+	BuildingType.Type.HOME: Vector2i(6, 4),
+	BuildingType.Type.STORAGE: Vector2i(12, 8),
+	BuildingType.Type.FOOD: Vector2i(12, 8),
+	BuildingType.Type.GATHERER_HUT: Vector2i(12, 8),
+}
+var footprint_cells: Vector2i
 var id: StringName
 var type: BuildingType.Type
 var display_name: String
@@ -21,6 +29,7 @@ var housing_capacity: int
 func _init(type_id: StringName, category: BuildingType.Type, label: String, footprint_size: Vector2, requirements: Dictionary = {}, work_minutes: int = 0, builder_limit: int = 0, resident_capacity: int = 0) -> void:
 	id = type_id
 	type = category
+	footprint_cells = FOOTPRINT_CELLS[category]
 	display_name = label
 	size = footprint_size
 	construction_requirements = requirements.duplicate()

@@ -7,6 +7,9 @@ enum State { UNDER_CONSTRUCTION, BUILT }
 var id: StringName
 var definition: Definition
 var position: Vector2
+# Orientation is fixed on placement; only quarter turns are supported.
+var quarter_turns: int = 0:
+	set(value): quarter_turns = posmod(value, 4)
 signal construction_changed
 var _state: State = State.BUILT
 var state: State:

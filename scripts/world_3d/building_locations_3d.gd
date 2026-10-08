@@ -27,7 +27,8 @@ func resolve_action_position(building: RefCounted) -> Variant:
 	var origins := [Vector2(center.x,bounds.end.y),Vector2(bounds.end.x,center.y),Vector2(center.x,bounds.position.y),Vector2(bounds.position.x,center.y)]
 	var directions := [Vector2.DOWN,Vector2.RIGHT,Vector2.UP,Vector2.LEFT]
 	# One point: fixed +Z,+X,-Z,-X order, up to two extra cells outward per side.
-	for side in range(origins.size()):
+	for index in range(origins.size()):
+		var side: int = posmod(index + building.quarter_turns, 4)
 		for offset in range(3):
 			var candidate: Vector2 = origins[side]+directions[side]*(distance+offset*navigation.CELL_SIZE)
 			var cell: Vector2i = navigation.world_to_cell(Coordinates.from_plane(candidate))
@@ -38,3 +39,8 @@ func resolve_action_position(building: RefCounted) -> Variant:
 				return sim
 	_access[building.id] = {"revision":navigation.revision,"point":null}
 	return null
+
+func unregister(id: StringName) -> void:
+	_locations.erase(id)
+	_views.erase(id)
+	_access.erase(id)
