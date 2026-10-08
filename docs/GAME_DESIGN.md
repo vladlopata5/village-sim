@@ -1406,3 +1406,10 @@ Conversation double-roll при создании группы, pool, formulas и
 MEAL 100% относится только к началу еды и требует eligible другого resident
 в прежней semantic location. Пустой pool не создаёт событие. Conversation 30%
 и double-roll сохранены; WORK 50% проверяется каждый рабочий цикл.
+
+
+Для playtest/diagnostics каждый successful SocialEvent пишет одну обычную INFO
+строку [SOCIAL_EVENT] через общий GameLogger, как AI/NEED/SOCIAL/LOGISTICS,
+без DEBUG toggle: game time/context/names/attitudes/rolls/reactions/signed deltas/
+entry ID или none. Existing DEBUG detail сохранён. Failed chance и пустой pool
+не логируются. Feed/Diary/mechanics/RNG и баланс 30%/100%/50% не меняются.

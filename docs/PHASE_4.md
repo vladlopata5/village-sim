@@ -1186,3 +1186,16 @@ MEAL при eligible participant проходит даже при randf()=1.0; c
 0 failures. Godot analyzer — 141 scripts, 0 diagnostics; headless startup —
 exit 0, пустой stderr. Новых warnings/errors нет. Проверены inclusive endpoint,
 пустой pool, сохранение chance RNG draw и uniform partner selection.
+
+
+Для playtest/diagnostics каждый successful SocialEvent пишет одну обычную INFO
+строку [SOCIAL_EVENT] через общий GameLogger, как AI/NEED/SOCIAL/LOGISTICS,
+без DEBUG toggle: game time/context/names/attitudes/rolls/reactions/signed deltas/
+entry ID или none. Existing DEBUG detail сохранён. Failed chance и пустой pool
+не логируются. Feed/Diary/mechanics/RNG и баланс 30%/100%/50% не меняются.
+
+Проверка обычного SOCIAL_EVENT log: 60/60 suites PASS; Feed/log tests —
+258 checks, 0 failures. Godot analyzer — 141 scripts, 0 diagnostics; headless
+startup — exit 0, пустой stderr. Новых warnings/errors нет. Проверены game time,
+все contexts/reactions/deltas, entry/none, работа без DEBUG toggle и отсутствие
+логов для failed chance / пустого pool. Mechanics/RNG regression проходит.

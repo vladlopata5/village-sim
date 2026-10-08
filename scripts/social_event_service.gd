@@ -108,6 +108,7 @@ func resolve(a: RefCounted, b: RefCounted, context: Event.Context, tags_a: Array
 	b.change_opinion(a.id, result.opinion_delta_2)
 	var output := present(result, a, b, tags_a, tags_b)
 	if logger != null:
+		logger.info(EventLog.SOCIAL_EVENT, "context=%s A=%s B=%s | %s attitude=%d roll=%d reaction=%s delta=%+d | %s attitude=%d roll=%d reaction=%s delta=%+d | entry=%s" % [Event.Context.keys()[context], a.resident_name, b.resident_name, a.resident_name, result.attitude_1_to_2, result.roll_1, Event.Reaction.keys()[result.reaction_1], result.opinion_delta_1, b.resident_name, result.attitude_2_to_1, result.roll_2, Event.Reaction.keys()[result.reaction_2], result.opinion_delta_2, result.selected_entry_id if not result.selected_entry_id.is_empty() else "none"])
 		logger.debug(EventLog.SOCIAL, "context=%s A=%s B=%s; A attitude=%d roll=%d score=%d reaction=%s delta=%d; B attitude=%d roll=%d score=%d reaction=%s delta=%d; entry=%s feed=%d diary=%d" % [Event.Context.keys()[context], a.resident_name, b.resident_name, result.attitude_1_to_2, result.roll_1, result.attitude_1_to_2 + result.roll_1, Event.Reaction.keys()[result.reaction_1], result.opinion_delta_1, result.attitude_2_to_1, result.roll_2, result.attitude_2_to_1 + result.roll_2, Event.Reaction.keys()[result.reaction_2], result.opinion_delta_2, result.selected_entry_id if not result.selected_entry_id.is_empty() else "none", output.feed, output.diary])
 	event_resolved.emit(result)
 	return result

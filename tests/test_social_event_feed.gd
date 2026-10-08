@@ -19,6 +19,7 @@ var checks := 0
 var failures := 0
 var feed: Array = []
 var logs: Array = []
+var info_logs: Array = []
 func _initialize() -> void: call_deferred("_run")
 func check(ok: bool, message: String) -> void:
 	checks += 1
@@ -31,7 +32,14 @@ func _run() -> void:
 	service.logger=EventLog.new()
 	service.logger.debug_enabled=true
 	service.logger.console_enabled=false
-	service.logger.line_logged.connect(func(line,_level): logs.append(line))
+	service.logger.line_logged.connect(func(line,level):
+		if level==EventLog.Level.DEBUG: logs.append(line)
+		elif line.contains("[SOCIAL_EVENT]"): info_logs.append(line))
+	var game_clock=preload("res://scripts/game_time.gd").new()
+	root.add_child(game_clock)
+	game_clock.set_process(false)
+	game_clock.total_minutes=635
+	service.logger.setup(game_clock)
 	service.feed_message.connect(func(text): feed.append(text))
 	var random := FixedRng.new()
 	service.rng=random
@@ -44,63 +52,70 @@ func _run() -> void:
 				# Reset opinion so all nine reaction combinations are explicit.
 				a.set_opinion(b.id,0); b.set_opinion(a.id,0)
 				random.values=[first_roll,second_roll]; random.cursor=0
-				feed.clear(); logs.clear()
+				feed.clear(); logs.clear(); info_logs.clear()
 				var outcome:=service.resolve(a,b,context)
 				check(outcome!=null and feed.size()==2,"Every successful no-match event emits Feed, all contexts/outcomes")
 				check(logs.size()==1 and logs[0].contains("entry=none feed=2 diary=0"),"Exactly one DEBUG for event with output counts")
+				check(info_logs.size()==1 and info_logs[0].begins_with("[10:35][SOCIAL_EVENT]"),"One ordinary log per event with game time")
+				check(info_logs[0].contains("context="+Event.Context.keys()[context]) and info_logs[0].contains("A=Анна B=Степан"),"Ordinary log contains context and both names")
+				check(info_logs[0].contains("reaction=%s delta=%+d" % [Event.Reaction.keys()[outcome.reaction_1],outcome.opinion_delta_1]) and info_logs[0].contains("reaction=%s delta=%+d" % [Event.Reaction.keys()[outcome.reaction_2],outcome.opinion_delta_2]),"Ordinary log contains both reactions and signed deltas")
+				check(info_logs[0].ends_with("entry=none"),"No narrative match still logged")
 				check(a.diary_entries.is_empty() and b.diary_entries.is_empty(),"Fallback alone never creates Diary")
 				check(a.get_opinion(b.id)==Service.delta(outcome.reaction_1) and b.get_opinion(a.id)==Service.delta(outcome.reaction_2),"Fallback preserves mechanical opinion updates")
 				var word: String = "Приятно" if first_roll>50 else "раздражает" if first_roll< -50 else "ничего особенного"
 				check(feed[0].contains("Анна") and feed[0].contains("Степан") and feed[0].contains(word),"Reaction-aware fallback with correct names")
-	print(logs[0])
+	print(info_logs[0])
 	var narrative := Entry.new({"id":"specific","feed_text_a":"%A% встретил %B%","diary_text_a":"diary %A%","diary_importance":Diary.Importance.TEMPORARY})
 	service.entries=[narrative]
 	random.values=[100,-100]
 	service.diary_chance=0
-	feed.clear(); logs.clear()
+	feed.clear(); logs.clear(); info_logs.clear()
+	service.logger.debug_enabled=false
 	var result:=service.resolve(a,b,Event.Context.MEAL)
 	check(feed.size()==1 and feed[0].contains("встретил"),"One narrative line sufficient, no fallback duplication")
-	check(logs[0].contains("feed=1 diary=0"),"Narrative counters correct")
+	check(logs.is_empty() and info_logs.size()==1 and info_logs[0].ends_with("entry=specific"),"Ordinary selected-entry log works without DEBUG toggle")
 	check(a.diary_entries.is_empty() and b.diary_entries.is_empty(),"Diary chance zero remains independent")
 	# Use forced orientation for stable assertions, leave filtering itself untouched.
 	narrative.conditions={"reaction_a":"POSITIVE"}
 	narrative.feed_text_a=""
 	service.diary_chance=1
-	feed.clear(); logs.clear()
+	feed.clear(); logs.clear(); info_logs.clear()
 	result=service.resolve(a,b,Event.Context.MEAL)
 	check(feed.size()==2 and result.selected_entry_id=="specific","Selected entry without Feed uses fallback, selection preserved")
 	check(a.diary_entries.size()==1 and b.diary_entries.is_empty(),"Selected narrative still controls independent Diary")
-	check(logs[0].contains("feed=2 diary=1"),"Diary success counted in DEBUG")
+	check(info_logs.size()==1 and info_logs[0].ends_with("entry=specific"),"Fallback does not change logged selected entry")
 	var before: int = a.get_opinion(b.id)
 	feed.clear()
 	var output:=service.present(result,a,b,[],[])
 	check(a.get_opinion(b.id)==before and output.feed==2,"Repeated presentation/fallback never changes opinion")
 	narrative.diary_importance=Diary.Importance.NONE
 	narrative.feed_text_a=" "; narrative.feed_text_b="\t"
-	feed.clear(); logs.clear()
+	feed.clear(); logs.clear(); info_logs.clear()
 	result=service.resolve(a,b,Event.Context.WORK)
-	check(feed.size()==2 and logs[0].contains("diary=0"),"Whitespace output also falls back; NONE never creates Diary")
+	check(feed.size()==2 and info_logs.size()==1,"Whitespace output also falls back; NONE never creates Diary")
 	narrative.feed_text_b="%B%: normal"
 	feed.clear()
 	service.resolve(a,b,Event.Context.WORK)
 	check(feed.size()==1 and feed[0].ends_with("normal"),"B-only narrative output suppresses fallback")
 	check(service.resolve(a,a,Event.Context.WORK)==null,"Rejected self event has no output")
 	service.free()
+	game_clock.free()
 	var scene=Setup.make_scene(self)
 	service=scene.social_events
 	service.enabled=true
 	service.logger.debug_enabled=true
-	logs.clear()
+	logs.clear(); info_logs.clear()
 	service.logger.line_logged.connect(func(line,level):
-		if level==EventLog.Level.DEBUG and line.contains("context="): logs.append(line))
+		if level==EventLog.Level.DEBUG and line.contains("context="): logs.append(line)
+		elif level==EventLog.Level.INFO and line.contains("[SOCIAL_EVENT]"): info_logs.append(line))
 	random=FixedRng.new(); random.probability=1
 	service.rng=random
 	var actor=scene.resident_runtimes[1]
 	for context in [Event.Context.CONVERSATION,Event.Context.WORK]: check(service.trigger(actor,context,scene.kitchen_data.id)==null,"Failed partial chance creates no event")
 	check(service.trigger(actor,Event.Context.MEAL,scene.kitchen_data.id)==null,"100% MEAL without eligible participants creates no event")
-	check(logs.is_empty(),"Failed chance rolls never write SocialEvent DEBUG")
+	check(logs.is_empty() and info_logs.is_empty(),"Failed chance rolls never write SocialEvent DEBUG or ordinary logs")
 	random.probability=0
-	check(service.trigger(actor,Event.Context.CONVERSATION)==null and logs.is_empty(),"No eligible participants also creates no event/log")
+	check(service.trigger(actor,Event.Context.CONVERSATION)==null and logs.is_empty() and info_logs.is_empty(),"No eligible participants also creates no event/log")
 	scene.free()
 	print("Social Feed guarantee checks: %d, failures: %d" % [checks,failures])
 	quit(0 if failures==0 else 1)

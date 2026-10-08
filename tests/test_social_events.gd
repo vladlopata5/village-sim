@@ -58,7 +58,8 @@ func _run() -> void:
 	service.logger=preload("res://scripts/game_logger.gd").new()
 	service.logger.debug_enabled=true
 	service.logger.console_enabled=false
-	service.logger.line_logged.connect(func(line,_level): debug_lines.append(line))
+	service.logger.line_logged.connect(func(line,level):
+		if level==service.logger.Level.DEBUG: debug_lines.append(line))
 	var people := pair()
 	var a: RefCounted = people[0]
 	var b: RefCounted = people[1]

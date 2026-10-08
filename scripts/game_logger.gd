@@ -11,6 +11,7 @@ const LOGISTICS := &"LOGISTICS"
 const PRODUCTION := &"PRODUCTION"
 const LEISURE := &"LEISURE"
 const SOCIAL := &"SOCIAL"
+const SOCIAL_EVENT := &"SOCIAL_EVENT"
 const SCHEDULE := &"SCHEDULE"
 const RESOURCE := &"RESOURCE"
 enum Level { INFO, DEBUG }
