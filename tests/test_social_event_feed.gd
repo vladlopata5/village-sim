@@ -96,7 +96,8 @@ func _run() -> void:
 	random=FixedRng.new(); random.probability=1
 	service.rng=random
 	var actor=scene.resident_runtimes[1]
-	for context in Event.Context.values(): check(service.trigger(actor,context,scene.kitchen_data.id)==null,"Failed chance creates no event")
+	for context in [Event.Context.CONVERSATION,Event.Context.WORK]: check(service.trigger(actor,context,scene.kitchen_data.id)==null,"Failed partial chance creates no event")
+	check(service.trigger(actor,Event.Context.MEAL,scene.kitchen_data.id)==null,"100% MEAL without eligible participants creates no event")
 	check(logs.is_empty(),"Failed chance rolls never write SocialEvent DEBUG")
 	random.probability=0
 	check(service.trigger(actor,Event.Context.CONVERSATION)==null and logs.is_empty(),"No eligible participants also creates no event/log")

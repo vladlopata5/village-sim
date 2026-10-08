@@ -82,7 +82,9 @@ func participant_pool(runtime: Node, context: Event.Context, location_id: String
 	return pool
 func trigger(runtime: Node, context: Event.Context, location_id: StringName = &"") -> Event:
 	if not enabled: return null
-	if rng.randf() >= chance_for(context): return null
+	var chance := chance_for(context)
+	var roll: float = rng.randf() # Keep the existing draw even at 100%.
+	if chance < 1.0 and roll >= chance: return null
 	var pool := participant_pool(runtime, context, location_id)
 	if pool.is_empty(): return null
 	var other: Node = pool[rng.randi_range(0, pool.size() - 1)]

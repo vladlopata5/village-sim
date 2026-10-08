@@ -1177,3 +1177,12 @@ Conversation double-roll при создании группы, pool, formulas и
 0 failures. Godot analyzer — 141 scripts, 0 diagnostics. Headless startup —
 exit 0, пустой stderr; новых warnings/errors нет. Double-roll regression
 и существующие Diary lifecycle/RNG separation tests проходят.
+
+Баланс после playtest: CONVERSATION=0.30, MEAL=1.00, WORK=0.50.
+MEAL при eligible participant проходит даже при randf()=1.0; chance draw
+сохраняется. При пустом pool событие отсутствует. Остальные правила не меняются.
+
+Проверка balance 30%/100%/50%: 60/60 suites PASS; SocialEvent checks — 128,
+0 failures. Godot analyzer — 141 scripts, 0 diagnostics; headless startup —
+exit 0, пустой stderr. Новых warnings/errors нет. Проверены inclusive endpoint,
+пустой pool, сохранение chance RNG draw и uniform partner selection.

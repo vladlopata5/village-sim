@@ -1366,8 +1366,8 @@ context + shared events; эти сочетания сейчас не реали�
 
 Одно transient SocialEvent имеет двух участников; WORK, MEAL, CONVERSATION —
 контекстные теги, а не отдельные типы историй. Roll запускается из lifecycle:
-начало/присоединение к разговору 30%, фактическое начало еды 15%, начало каждого
-рабочего цикла 5%. WORK roll повторяется на каждом цикле, не только раз за смену.
+начало/присоединение к разговору 30%, фактическое начало еды 100%, начало каждого
+рабочего цикла 50%. WORK roll повторяется на каждом цикле, не только раз за смену.
 PORTER пока не имеет такого неподвижного цикла и не вызывает WORK social roll.
 
 Pool — другие участники ConversationGroup или смыслово присутствующие в одном
@@ -1402,3 +1402,7 @@ Fallback не меняет mechanics, entry selection или Diary. Diary ост
 с прежним chance/lifetime. Одна DEBUG запись успешного event содержит reactions,
 entry и фактические counts feed/diary; failed chance rolls не логируются.
 Conversation double-roll при создании группы, pool, formulas и RNG не изменены.
+
+MEAL 100% относится только к началу еды и требует eligible другого resident
+в прежней semantic location. Пустой pool не создаёт событие. Conversation 30%
+и double-roll сохранены; WORK 50% проверяется каждый рабочий цикл.

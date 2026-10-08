@@ -181,7 +181,7 @@ func _runtime_tests() -> void:
 	var target=scene.resident_runtimes[3]
 	var passer=scene.resident_runtimes[2]
 	var random:=fixed(service,[0,0])
-	check(service.chance_for(Event.Context.CONVERSATION)==0.30 and service.chance_for(Event.Context.MEAL)==0.15 and service.chance_for(Event.Context.WORK)==0.05,"Configured chances")
+	check(service.chance_for(Event.Context.CONVERSATION)==0.30 and service.chance_for(Event.Context.MEAL)==1.00 and service.chance_for(Event.Context.WORK)==0.50,"Configured chances")
 	check(service.trigger(actor,Event.Context.CONVERSATION)==null,"No group means no eligible others")
 	var starting_draws:=random.draws
 	actor.data.get_need(Need.Type.SOCIAL).value=100
@@ -222,12 +222,27 @@ func _runtime_tests() -> void:
 	target.decision._work_assignment={"location_id":scene.kitchen_data.id,"profession":Profession.Type.GATHERER}
 	check(target in service.participant_pool(actor,Event.Context.MEAL,scene.kitchen_data.id),"Eater plus worker eligible")
 	check(service.presence(target).tags==["WORKING","WORKER"],"Worker state tags")
-	# Exact chance threshold does not pass.
+	# Partial chances reject equality; a full chance accepts even randf endpoint 1.0.
 	for context in Event.Context.values():
 		random.probability=service.chance_for(context)
-		check(service.trigger(actor,context,scene.kitchen_data.id)==null,"Roll equal chance rejected")
+		var boundary_event=service.trigger(actor,context,scene.kitchen_data.id)
+		check((boundary_event!=null) if context==Event.Context.MEAL else (boundary_event==null),"100% succeeds at inclusive endpoint; partial chance rejects equality")
 		random.probability=service.chance_for(context)-0.001
 		if context!=Event.Context.CONVERSATION: check(service.trigger(actor,context,scene.kitchen_data.id)!=null,"Roll just below chance accepted")
+	for value in [0.0,0.30,0.50,0.999999,1.0]:
+		random.probability=value
+		var draws_before:=random.draws
+		check(service.trigger(actor,Event.Context.MEAL,scene.kitchen_data.id)!=null,"MEAL always succeeds with eligible participant")
+		check(random.draws==draws_before+1,"100% MEAL preserves exactly one chance RNG draw")
+	target.decision._work_cycle_active=false
+	target.data.activity=Activity.Type.IDLE
+	check(service.trigger(actor,Event.Context.MEAL,scene.kitchen_data.id)==null,"100% MEAL without eligible participant still creates no event")
+	target.data.activity=Activity.Type.WORKING
+	target.decision._work_cycle_active=true
+	random.probability=0.50
+	check(service.trigger(actor,Event.Context.WORK,scene.kitchen_data.id)==null,"WORK threshold is exactly 0.50")
+	random.probability=0.499999
+	check(service.trigger(actor,Event.Context.WORK,scene.kitchen_data.id)!=null,"WORK roll below 0.50 succeeds")
 	# Uniform target selection over three current semantic workers.
 	for rt in scene.resident_runtimes:
 		if rt==actor: continue
@@ -241,7 +256,8 @@ func _runtime_tests() -> void:
 		var outcome=service.trigger(actor,Event.Context.MEAL,scene.kitchen_data.id)
 		if outcome!=null: counts[outcome.resident_2_id]=counts.get(outcome.resident_2_id,0)+1
 	check(counts.size()==3,"All eligible residents can be chosen")
-	for amount in counts.values(): check(amount>110 and amount<190,"Uniform random partner frequencies")
+	check(counts.values().reduce(func(total,value): return total+value,0)==3000,"All 3000 eligible MEAL triggers succeed")
+	for amount in counts.values(): check(amount>900 and amount<1100,"Uniform random partner frequencies at 100% MEAL")
 	# Feed bounded and expiry does not affect history or opinion.
 	for i in range(8): scene.social_feed.add_message("message %d" % i)
 	check(scene.social_feed.messages.size()==Balance.SOCIAL_FEED_MAX_MESSAGES,"Feed bounded")
