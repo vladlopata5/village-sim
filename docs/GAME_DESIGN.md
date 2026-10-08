@@ -1459,3 +1459,42 @@ navigation update ещё не перенесены; отдельный UI соо
 controller подключён, но в этом starter layout нет строек и их placement недоступен.
 Физические cargo/ground resource data сохранены, их 3D visuals отложены. Сон пока
 отображается у access point, без входа внутрь/кроватей. Crowd avoidance отсутствует.
+
+
+### Dynamic NavigationGrid в основной 3D-сцене (актуально, 2026-10-08)
+
+Предыдущий static navmesh migration этап заменён NavigationGrid + A*: основной
+main_3d больше не использует NavigationRegion3D/NavigationAgent3D. Изолированный
+navmesh prototype сохраняется. Основной запуск F5 по-прежнему 2D, main_3d — F6.
+
+World/presentation scale согласован 1:25: 25 simulation units = 1 world unit.
+ResidentData, BuildingInstance.position, targets, distance scoring и баланс остаются
+в simulation units. WorldCoordinates централизованно преобразует позиции и скорость;
+executor владеет WORLD position, providers возвращают simulation Vector2. Camera и
+visuals уменьшены пропорционально, game-time movement speed не меняется.
+
+NavigationGrid покрывает X/Z [-64,64) × [-40,40): 128×80 world units, 256×160 клеток
+по 0.5. Это скрытая navigation system. Будущий BuildGrid также планируется 0.5,
+но это отдельная система, ещё не реализованная. WorldGeometry задаёт физические
+footprints: HOME 2.56×1.92, остальные текущие здания 5.76×3.84 world units. Они
+явно выбраны для сохранения пропорций starter map и не выводятся из 2D visual size.
+Meshes, colliders и blockers используют одни размеры. Radius=0.4 — отдельный
+navigation clearance, не часть physical footprint. Rasterization консервативная.
+
+Независимые blocker IDs добавляются/удаляются без rebake; overlapping owners не
+освобождают клетку до удаления последнего. A* допускает диагональ лишь при двух
+свободных ортогональных соседях. Smoothing проверяет supercover traversal по сетке,
+скрывая клеточную лесенку. Blocked/out-of-bounds/unreachable targets недоступны,
+без nearest-point подмены. Committed target перепланируется при grid revision;
+если путь исчез, работает прежний cancellation/cleanup.
+
+BuildingLocations3D выбирает одну доступную cell-center default access point
+снаружи footprint, фиксированно по сторонам +Z,+X,−Z,−X. Grid revision обновляет
+кеш. Bridge возвращает simulation coordinates для EAT/WORK/SLEEP/delivery и
+proximity. Это всё ещё migration bridge, без полноценных interaction points.
+
+Опциональный Navigation debug снизу показывает blocked cells (красные), raw A*
+(жёлтый) и smoothed path выбранного resident (голубой). Выключен по умолчанию,
+не участвует в physics/picking. Placement остаётся недоступным в main_3d.
+Terrain пока плоский. Далее X/Z cells могут получить height/cost/slope restrictions,
+а world movement — высоту terrain; stacked floors/bridges/caves вне текущего scope.

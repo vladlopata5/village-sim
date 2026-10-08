@@ -1547,3 +1547,53 @@ proximity для еды, production, builder work и сна используют
 Динамические здания пока не обновляют navigation: placement в main_3d явно недоступен.
 Не добавлены crowd avoidance, resource drop/carrying visuals, indoor sleep placement
 или новая interaction-point система. Это первый migration commit, не полный переход.
+
+
+### NavigationGrid/A* и presentation scale 1:25 (2026-10-08)
+
+Это решение заменяет backend и масштаб 1:1 предыдущего main_3d migration этапа.
+Simulation coordinates и balance constants не мигрируются. Один WorldCoordinates
+хранит SIM_UNITS_PER_WORLD_UNIT=25 и conversions position/length. Physical executor
+position — world, providers/targets — simulation. Camera pan остаётся в world units;
+изолированный prototype и его local 1:1 plane helper не меняются.
+
+NavigationGrid — production service поверх приватного AStarGrid2D. WORLD_BOUNDS=
+Rect2(-64,-40,128,80), CELL_SIZE=0.5; 40 960 cells. В отличие от прежней карты 1:1,
+это не требует десятков миллионов A* points. Backend работает с octile heuristic,
+DIAGONAL_MODE_ONLY_IF_NO_OBSTACLES, jumping disabled; weights пока единичные.
+BuildGrid не создан: совпадающий будущий cell size не объединяет две системы.
+
+Physical world dimensions заданы отдельно в WorldGeometry; один footprint helper
+используется для mesh/collider/navigation. Resident radius=0.4. Blocker добавляет
+footprint.grow(radius), затем блокирует пересекающиеся cells. Это консервативный
+clearance, отдельно от геометрии объекта; map boundary тоже учитывает radius.
+Stable blocker ID хранит свои cells, cell refcount считает независимых owners.
+Replacement ID освобождает прежнюю область; removal сохраняет другие blockers и
+boundary clearance. Только initialization вызывает AStarGrid2D.update; runtime
+edit меняет touched cells и локальную revision/changed signal, без dirty chunks/rebake.
+
+Smoothing — greedy farthest-visible waypoint removal. LOS использует continuous
+supercover DDA, проверяет оба соседних cells на corner crossing и граничные edges.
+Physics mesh raycast не определяет navigation connectivity. Сохраняются точные
+world endpoints. GridMovement3D расходует полный speed×delta budget по нескольким
+waypoints; движение не замедляется из-за waypoint boundaries, x1/x20 согласованы.
+Revision change перепланирует от текущей позиции к прежнему committed target.
+Если позиция/target blocked, out of bounds или disconnected — failure/cancellation,
+без silent nearest-cell solver. PlayerCommand и forced cleanup не переписаны.
+
+BuildingLocations3D выбирает один cell center: fixed +Z,+X,−Z,−X sides, midpoint
++ radius + половина cell; допускаются ещё две cells наружу на каждой стороне.
+Результат/недоступность кешируются только для текущей grid revision. Building center
+остаётся в simulation coordinates, resolved access тоже возвращается в simulation
+units. Logistics availability cache пересчитывается через прежние local events.
+
+Main_3d не содержит NavigationRegion3D и executor не создаёт NavigationAgent3D.
+Старые scenes/main_3d_navigation.tres и tests/bake_main_3d_navigation.gd оставлены
+как исторические неиспользуемые артефакты, не альтернативный backend. Prototype
+NavigationAgent/NavigationRegion остаются отдельным technical slice.
+
+Terrain пока плоский: height resolution локализована в grid cell/world conversion,
+world follower работает с Vector3 и не принудительно обнуляет Y. Будущие height,
+cost/slope rules должны жить за navigation API; cost-aware smoothing требует
+отдельного продолжения, сейчас costs отсутствуют. Нет multiple walkable heights
+на одном X/Z, crowd avoidance, trees/roads/placement или строительства в этой задаче.

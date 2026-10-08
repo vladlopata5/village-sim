@@ -511,3 +511,18 @@ NavigationRegion3D использует pre-baked mesh; есть visual debug pa
   interaction points, cargo/ground-resource visuals и crowd movement.
 - 2D main пока остаётся F5 default; main_3d запускается F6 или отдельной командой.
   Primitive graphics и static bake — временные. Полная migration не завершена.
+
+
+### Выполнено: dynamic NavigationGrid foundation для main_3d
+
+- Main_3d global pathfinding заменён на NavigationGrid/AStarGrid2D; скрытая сетка
+  0.5 world unit, bounds 128×80, 256×160 cells. Presentation scale 1:25 согласован,
+  simulation units/баланс сохранены.
+- Physical footprint и resident clearance разделены. Stable dynamic blocker IDs /
+  refcounts, runtime add/remove, corner-safe диагонали и LOS smoothing реализованы.
+- Executor position authority, PlayerCommand, access-point bridge и domain workflows
+  сохранены; debug blocked/raw/smooth доступен по отдельному UI toggle.
+- Следующие этапы: отдельный BuildGrid 0.5, actual placement integration с blockers,
+  demolition/trees/roads и terrain height/cost/slope; эти gameplay systems не добавлены.
+- Старый navmesh prototype сохранён. Main_3d navmesh bake/runtime rebake больше не
+  требуются для global connectivity. Полная presentation migration ещё не завершена.

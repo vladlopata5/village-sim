@@ -1276,3 +1276,41 @@ crowd avoidance и runtime navigation update отложены. F5 остаётс
 обе cards, GUI click blocking, WASD pan, wheel zoom, real ground RMB PlayerCommand
 и navigation completion. Минимальный измеренный зазор до warehouse footprint
 10.52 units при capsule radius=10. Existing 2D default/F5 сохранён.
+
+
+### Dynamic NavigationGrid + A* в main_3d (2026-10-08)
+
+Основная сцена отказалась от static navmesh backend. Новый production service
+scripts/navigation_grid.gd скрывает AStarGrid2D, conversions/cell validity/blockers,
+raw world path и LOS smoothing. Bounds=128×80 world units, origin=(-64,-40),
+cell=0.5, size=256×160. Dynamic edits меняют touched cells/refcounts/revision без
+rebake. Основной executor использует GridMovement3D, не NavigationAgent3D.
+
+Согласованный world scale 1:25 реализован одним WorldCoordinates. Domain positions,
+movement modifiers/speed, logistics/site scoring и proximity продолжают работать
+в исходных simulation units; визуальный мир/камера и navigation — в world units.
+Physical building geometry отдельно от старого 2D size: HOME 2.56×1.92, остальные
+5.76×3.84; radius=0.4. Footprint не включает clearance. Bridge access points
+детерминированны, revision-aware и возвращают simulation Vector2 для всех действий.
+
+GridMovement сохраняет точные endpoints и расходует весь frame distance budget;
+blocked/outside/unreachable не проецируются молча, а вызывают прежний cleanup.
+При runtime blocker change active path перепланируется к тому же committed target.
+Navigation debug toggle снизу выключен по умолчанию: red blocked / yellow raw /
+cyan smoothed. Debug meshes не участвуют в picking/physics.
+
+Old main_3d_navigation.tres и его bake helper остались историческими файлами,
+основная сцена их не загружает. Изолированный navmesh prototype не удалён. Actual
+construction placement/BuildGrid/trees/roads не реализованы; terrain пока flat,
+будущие height/cost/slope находятся за navigation API, multiple floors вне scope.
+
+Проверки grid migration: 64/64 suites PASS; NavigationGrid — 107 checks,
+main_3d integration — 97 checks, 0 failures. Analyzer — 167 scripts,
+0 diagnostics. Old 2D main, main_3d и navmesh prototype headless startup:
+exit 0, stderr пуст; полный suite без stderr. Rendered viewport QA проверил
+selection/cards, GUI blocking, camera pan/zoom, реальный MOVE_TO/обход склада,
+EAT, porter delivery, gatherer WORK/production и home sleep quality=1.0.
+Debug overlay показывает red clearance cells, yellow raw и cyan smoothed path;
+реальный складской путь: 30 raw → 4 smooth points, min physical gap≈0.73 world
+unit при radius=0.4. Отдельно проверены x1/x20 и исходные simulation distances.
+Новых runtime warnings/errors нет; default 2D запуск сохранён.

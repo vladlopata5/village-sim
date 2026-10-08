@@ -1,6 +1,6 @@
 extends StaticBody3D
 ## One visual for the existing BuildingInstance lifecycle; no resources/production logic.
-const Types = preload("res://scripts/building_type.gd")
+const Geometry = preload("res://scripts/world_3d/world_geometry.gd")
 var building_data: RefCounted
 var indicator: MeshInstance3D
 var material: StandardMaterial3D
@@ -9,9 +9,10 @@ func setup(data: RefCounted) -> void:
 	building_data = data
 	collision_layer = 4
 	collision_mask = 0
-	var height: float = 40.0 if data.type == Types.Type.HOME else 65.0
+	var height: float = Geometry.building_height(data)
 	var box := BoxMesh.new()
-	box.size = Vector3(data.definition.size.x, height, data.definition.size.y)
+	var size := Geometry.building_size(data)
+	box.size = Vector3(size.x, height, size.y)
 	material = StandardMaterial3D.new()
 	box.material = material
 	var visual := MeshInstance3D.new()
@@ -26,18 +27,18 @@ func setup(data: RefCounted) -> void:
 	add_child(collider)
 	indicator = MeshInstance3D.new()
 	var outline := BoxMesh.new()
-	outline.size = box.size + Vector3(5, -height + 1, 5)
+	outline.size = box.size + Vector3(0.2, -height + 0.04, 0.2)
 	var selected := StandardMaterial3D.new()
 	selected.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	selected.albedo_color = Color("69e5ff")
 	outline.material = selected
 	indicator.mesh = outline
-	indicator.position.y = 0.5
+	indicator.position.y = 0.02
 	indicator.visible = false
 	add_child(indicator)
 	caption = Label3D.new()
-	caption.pixel_size = 0.45
-	caption.position.y = height + 9.0
+	caption.pixel_size = 0.018
+	caption.position.y = height + 0.36
 	caption.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	add_child(caption)
 	data.construction_changed.connect(_refresh)

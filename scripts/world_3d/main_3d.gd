@@ -1,26 +1,35 @@
 extends "res://scripts/main.gd"
 ## Shares Main's starter setup and simulation wiring; replaces presentation factories.
-const Coordinates = preload("res://scripts/prototypes/plane_coordinates.gd")
+const Coordinates = preload("res://scripts/world_3d/world_coordinates.gd")
 const Executor = preload("res://scripts/world_3d/resident_executor_3d.gd")
 const BuildingView = preload("res://scripts/world_3d/building_view_3d.gd")
 const ResidentView = preload("res://scripts/world_3d/resident_view_3d.gd")
+const Geometry = preload("res://scripts/world_3d/world_geometry.gd")
+var navigation = preload("res://scripts/navigation_grid.gd").new()
+var navigation_debug = preload("res://scripts/world_3d/navigation_grid_debug.gd").new()
 var ready_for_play := false
 var _clicks: Array[InputEventMouseButton] = []
 func _ready() -> void:
-	var map: RID = $World.get_world_3d().navigation_map
-	# Do not start schedules until the static navigation asset is synchronized.
-	for frame in range(120):
-		await get_tree().physics_frame
-		if NavigationServer3D.map_get_iteration_id(map) > 0 and NavigationServer3D.map_get_closest_point_owner(map, Vector3.ZERO).is_valid(): break
 	world_locations = preload("res://scripts/world_3d/building_locations_3d.gd").new()
-	world_locations.navigation_map = map
+	world_locations.navigation = navigation
 	super._ready()
+	$World.add_child(navigation_debug)
+	navigation_debug.setup(navigation)
+	navigation.changed.connect(_on_navigation_changed)
+	var toggle := CheckButton.new()
+	toggle.name = "NavigationDebugToggle"
+	toggle.text = "Navigation debug: blocked / raw / smooth"
+	toggle.position = Vector2(16,650)
+	toggle.toggled.connect(navigation_debug.set_enabled)
+	$HUD.add_child(toggle)
+	resident_selection.selection_changed.connect(_update_navigation_debug)
 	ready_for_play = true
 func _create_resident_presentation(data: ResidentData, start: Vector2) -> Node:
 	var executor = Executor.new()
 	executor.name = "ResidentExecutor_" + data.id
 	$World/ResidentViews.add_child(executor)
 	executor.position = Coordinates.to_world(start)
+	executor.navigation = navigation
 	executor.setup(data)
 	executor.set_time_speed(game_time.speed_multiplier)
 	game_time.speed_changed.connect(executor.set_time_speed)
@@ -32,12 +41,13 @@ func _create_building_presentation(building: BuildingInstance) -> Node:
 	$World/BuildingViews.add_child(view)
 	view.position = Coordinates.to_world(building.position)
 	view.setup(building)
+	navigation.add_blocker(building.id, Geometry.footprint(building))
 	return view
 func _register_interaction_view(_id: StringName, _view: Node) -> void:
 	pass # Ray picking uses explicit entity references, not the 2D screen registry.
 func _setup_construction() -> void:
 	var status := Label.new()
-	status.text = "3D migration: строительство/placement и runtime navigation updates пока недоступны"
+	status.text = "3D режим: размещение новых зданий пока недоступно"
 	status.position = Vector2(16, 690)
 	status.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	$HUD.add_child(status)
@@ -85,3 +95,12 @@ func handle_world_click(button: int, hit: Dictionary, screen: Vector2 = Vector2.
 		elif collider == $World/Ground and hit.has("position"):
 			interaction_menu.hide()
 			player_control.move_to(data.id, Coordinates.to_sim(hit.position))
+
+func _update_navigation_debug() -> void:
+	var data = resident_selection.selected_resident
+	var runtime = get_resident_runtime(data) if data != null else null
+	navigation_debug.bind_movement(runtime.view.movement if runtime != null else null)
+
+func _on_navigation_changed(_revision: int) -> void:
+	# Reuse local availability events; cached logistics offers must see new locations.
+	logistics.recalculate()

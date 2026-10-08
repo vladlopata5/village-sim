@@ -1,4 +1,4 @@
-[gd_scene load_steps=12 format=3]
+[gd_scene load_steps=11 format=3]
 
 [ext_resource type="Script" path="res://scripts/world_3d/main_3d.gd" id="1"]
 [ext_resource type="Script" path="res://scripts/game_time.gd" id="2"]
@@ -10,11 +10,10 @@
 
 [ext_resource type="PackedScene" path="res://scenes/building_card.tscn" id="7"]
 
-[ext_resource type="NavigationMesh" path="res://scenes/main_3d_navigation.tres" id="8"]
 [sub_resource type="PlaneMesh" id="GroundMesh"]
-size = Vector2(3200, 2000)
+size = Vector2(128, 80)
 [sub_resource type="BoxShape3D" id="GroundShape"]
-size = Vector3(3200, 1, 2000)
+size = Vector3(128, 1, 80)
 [sub_resource type="StandardMaterial3D" id="GroundMaterial"]
 albedo_color = Color(0.28, 0.43, 0.27, 1)
 
@@ -34,15 +33,15 @@ script = ExtResource("3")
 [node name="Camera3D" type="Camera3D" parent="World"]
 process_mode = 3
 script = ExtResource("4")
-position = Vector3(750, 1264, 750)
+position = Vector3(30, 50.56, 30)
 rotation_degrees = Vector3(-50, 45, 0)
 projection = 1
-size = 1100.0
+size = 44.0
 current = true
-movement_speed = 500.0
-min_zoom = 300.0
-max_zoom = 4000.0
-zoom_step = 80.0
+movement_speed = 20.0
+min_zoom = 12.0
+max_zoom = 160.0
+zoom_step = 3.2
 
 [node name="Light" type="DirectionalLight3D" parent="World"]
 rotation_degrees = Vector3(-65, -30, 0)
@@ -57,8 +56,6 @@ material_override = SubResource("GroundMaterial")
 [node name="Collision" type="CollisionShape3D" parent="World/Ground"]
 position = Vector3(0, -0.5, 0)
 shape = SubResource("GroundShape")
-[node name="NavigationRegion3D" type="NavigationRegion3D" parent="World"]
-navigation_mesh = ExtResource("8")
 [node name="ResidentViews" type="Node3D" parent="World"]
 [node name="BuildingViews" type="Node3D" parent="World"]
 

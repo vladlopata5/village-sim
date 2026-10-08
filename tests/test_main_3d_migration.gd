@@ -1,5 +1,5 @@
 extends SceneTree
-const Coordinates = preload("res://scripts/prototypes/plane_coordinates.gd")
+const Coordinates = preload("res://scripts/world_3d/world_coordinates.gd")
 const Building = preload("res://scripts/building_instance.gd")
 const Definition = preload("res://scripts/building_definition.gd")
 const Types = preload("res://scripts/building_type.gd").Type
@@ -63,7 +63,7 @@ func _run() -> void:
 	var actor = scene.resident_runtimes[0]
 	var camera: Camera3D = scene.get_node("World/Camera3D")
 	await physics_frame
-	var resident_hit: Dictionary = scene.pick(camera.unproject_position(actor.view.global_position + Vector3(0,18,0)))
+	var resident_hit: Dictionary = scene.pick(camera.unproject_position(actor.view.global_position + Vector3(0,0.72,0)))
 	check(resident_hit.get("collider") == actor.view.view, "Real raycast picks explicit ResidentView3D")
 	scene.handle_world_click(MOUSE_BUTTON_LEFT, resident_hit)
 	check(scene.resident_selection.selected_resident == actor.data and scene.resident_selection.selected_building == null, "Resident selection stores domain data exclusively")
@@ -80,7 +80,7 @@ func _run() -> void:
 	check(actor.commands.active_command == null and scene.resident_selection.selected_resident == actor.data, "Actual GUI click is consumed before 3D world input")
 	var house = scene.player_control.get_building(actor.data.home_location_id)
 	var house_view = scene.world_locations.get_view(house.id)
-	var building_hit: Dictionary = scene.pick(camera.unproject_position(house_view.global_position + Vector3(0,25,0)))
+	var building_hit: Dictionary = scene.pick(camera.unproject_position(house_view.global_position + Vector3(0,1,0)))
 	check(building_hit.get("collider") == house_view, "Real raycast picks BuildingView3D")
 	scene.handle_world_click(MOUSE_BUTTON_LEFT, building_hit)
 	check(scene.resident_selection.selected_building == house and scene.resident_selection.selected_resident == null, "Building selection replaces resident")
@@ -90,18 +90,32 @@ func _run() -> void:
 	scene.get_node("HUD/BuildingCard").close_button.pressed.emit()
 	check(scene.resident_selection.selected_entity == null and not house_view.indicator.visible, "Existing close button clears 3D highlight")
 	scene.resident_selection.select(actor.data)
+	# Physical speed scales once; domain distance/time and modifiers stay unchanged.
+	var sim_speed: float = preload("res://scripts/resident_modifiers.gd").movement_speed(actor.data,120.0)
+	actor.view.global_position = Coordinates.to_world(Vector2.ZERO)
+	scene.player_control.move_to(actor.data.id,Vector2(250,0))
+	actor.view._physics_process(0.1)
+	var x1_position: Vector2 = actor.view.get_sim_position()
+	check(is_equal_approx(x1_position.length(),sim_speed*0.1), "Real executor preserves balanced simulation speed at x1")
+	actor.view.global_position = Coordinates.to_world(Vector2.ZERO)
+	scene.game_time.set_speed(20)
+	scene.player_control.move_to(actor.data.id,Vector2(250,0))
+	actor.view._physics_process(0.005)
+	check(actor.view.get_sim_position().is_equal_approx(x1_position), "Real executor x20 covers same simulation distance for equal game time")
+	check(scene.social_world.position_of(actor.data.id).is_equal_approx(x1_position), "Social gameplay provider still returns simulation units")
+	scene.game_time.set_speed(1)
 	actor.view.global_position = Coordinates.to_world(Vector2(120,240))
 	var target := Vector2(450,240)
 	scene.handle_world_click(MOUSE_BUTTON_RIGHT, {"collider":scene.get_node("World/Ground"), "position":Coordinates.to_world(target)})
 	var command = actor.commands.active_command
-	check(command != null and command.target == target, "3D ground input creates existing PlayerCommand MOVE_TO")
+	check(command != null and command.target.is_equal_approx(target), "3D ground input creates existing PlayerCommand MOVE_TO")
 	check(actor.view.movement.target_position() == Coordinates.to_world(target), "Intent bridge passes X/Z target to executor")
 	check(await walk(actor, scene.warehouse_data.footprint()), "Navigation keeps resident capsule outside static warehouse")
 	check(command.state == Command.State.COMPLETED and actor.view.get_sim_position().distance_to(target) < 1, "Real navigation arrival completes original PlayerCommand")
 	scene.player_control.move_to(actor.data.id, scene.warehouse_data.position)
 	command = actor.commands.active_command
 	await walk(actor)
-	check(command.state == Command.State.CANCELLED and actor.commands.active_command == null, "Building center/off-navmesh command cancels without stuck ownership")
+	check(command.state == Command.State.CANCELLED and actor.commands.active_command == null, "Building center/blocked command cancels without stuck ownership")
 	check(actor.data.inventory.amount == 0, "Failed move does not invent cargo")
 	# Existing EAT and porter workflows use the bridge without 3D-specific gameplay.
 	actor.intents.abort_current(actor.intents.current_intent)
@@ -118,6 +132,15 @@ func _run() -> void:
 	scene.game_time.total_minutes = 420
 	actor.schedule._phase = "День"
 	actor.intents.abort_current(actor.intents.current_intent)
+	var candidates: Array = scene.logistics.collect_candidates(actor.data.id)
+	check(not candidates.is_empty(), "Porter candidates remain available after world scaling")
+	for candidate in candidates:
+		var source_point: Vector2 = scene.world_locations.get_position(candidate.source.id)
+		var destination_point: Vector2 = scene.world_locations.get_position(candidate.destination.id)
+		var expected_distance: float = actor.view.get_sim_position().distance_to(source_point)+source_point.distance_to(destination_point)
+		var world_distance: float = actor.view.global_position.distance_to(Coordinates.to_world(source_point))+Coordinates.to_world(source_point).distance_to(Coordinates.to_world(destination_point))
+		check(is_equal_approx(candidate.route_distance,expected_distance), "Logistics scoring measures original simulation distances")
+		check(is_equal_approx(Coordinates.length_to_world(candidate.route_distance),world_distance), "Route distance is not accidentally scored in smaller world units")
 	check(scene._request_haul_work(actor), "Existing porter claims physical delivery in 3D")
 	var job = scene.logistics.current_job
 	var delivered_before: int = scene.kitchen_data.resources.get_amount(Resources.FOOD)
@@ -136,6 +159,28 @@ func _run() -> void:
 	var progress: int = scene.gatherer_hut_data.production_progress
 	scene.production._on_minute(scene.game_time.total_minutes)
 	check(scene.gatherer_hut_data.production_progress == progress+1, "Production proximity reads the same resolved action point")
+	# Dynamic blockers and location cache updates use the same real main-world service.
+	var nav_start := Coordinates.to_world(Vector2(-600,600))
+	var nav_target := Coordinates.to_world(Vector2(-300,600))
+	var direct: PackedVector3Array = scene.navigation.find_path(nav_start,nav_target)
+	check(direct.size()==2, "Main grid initially has direct route in clear playable area")
+	scene.navigation.add_blocker(&"temporary_integration",Rect2(-19,22,2,4))
+	var detour: PackedVector3Array = scene.navigation.find_path(nav_start,nav_target)
+	check(detour.size()>2, "Runtime blocker immediately changes main-world path")
+	scene.navigation.remove_blocker(&"temporary_integration")
+	check(scene.navigation.find_path(nav_start,nav_target)==direct, "Removal immediately restores deterministic main-world path")
+	var previous_access: Vector2 = scene.world_locations.get_position(house.id)
+	var access_world := Coordinates.to_world(previous_access)
+	scene.navigation.add_blocker(&"door_test",Rect2(Coordinates.world_plane(access_world)-Vector2.ONE*2.0,Vector2.ONE*4.0))
+	var next_access: Variant = scene.world_locations.get_position(house.id)
+	check(next_access==null or not next_access.is_equal_approx(previous_access), "Grid revision invalidates cached building access point")
+	scene.navigation.remove_blocker(&"door_test")
+	check(scene.world_locations.get_position(house.id)==previous_access, "Access point returns deterministically after blocker removal")
+	check(scene.navigation_debug.visible==false, "Navigation debug is hidden by default")
+	scene.navigation_debug.set_enabled(true)
+	scene.navigation_debug.bind_movement(actor.view.movement)
+	check(scene.navigation_debug.visible, "Navigation debug can be enabled without gameplay changes")
+	scene.navigation_debug.set_enabled(false)
 	# Sleep target and proximity use the exact same building access resolver.
 	scene.game_time.total_minutes = 1379
 	scene.game_time.advance(1)
