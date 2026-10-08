@@ -1163,3 +1163,17 @@ stderr; новых warnings/errors нет. Визуальная проверка
 Feed между HUD и ConstructionPanel, отдельно от правой карточки. Проверены
 таймеры вытесненных messages после удаления Label и stale runtime при утренней
 очистке дневника. Diff check прошёл.
+
+
+Уточнение prototype/debug Social Events: каждый успешно созданный event даёт
+Feed output. Narrative strings используются первыми; только если нет ни одной
+непустой строки, fallback выдаёт две короткие реплики по уже рассчитанным реакциям.
+Fallback не меняет mechanics, entry selection или Diary. Diary остаётся optional
+с прежним chance/lifetime. Одна DEBUG запись успешного event содержит reactions,
+entry и фактические counts feed/diary; failed chance rolls не логируются.
+Conversation double-roll при создании группы, pool, formulas и RNG не изменены.
+
+Проверка обязательного Feed: 60/60 suites PASS; новый набор — 150 checks,
+0 failures. Godot analyzer — 141 scripts, 0 diagnostics. Headless startup —
+exit 0, пустой stderr; новых warnings/errors нет. Double-roll regression
+и существующие Diary lifecycle/RNG separation tests проходят.

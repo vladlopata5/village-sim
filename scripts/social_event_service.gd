@@ -104,9 +104,9 @@ func resolve(a: RefCounted, b: RefCounted, context: Event.Context, tags_a: Array
 	result.opinion_delta_2 = delta(result.reaction_2)
 	a.change_opinion(b.id, result.opinion_delta_1)
 	b.change_opinion(a.id, result.opinion_delta_2)
-	present(result, a, b, tags_a, tags_b)
+	var output := present(result, a, b, tags_a, tags_b)
 	if logger != null:
-		logger.debug(EventLog.SOCIAL, "context=%s A=%s B=%s; A attitude=%d roll=%d score=%d reaction=%s delta=%d; B attitude=%d roll=%d score=%d reaction=%s delta=%d; entry=%s" % [Event.Context.keys()[context], a.resident_name, b.resident_name, result.attitude_1_to_2, result.roll_1, result.attitude_1_to_2 + result.roll_1, Event.Reaction.keys()[result.reaction_1], result.opinion_delta_1, result.attitude_2_to_1, result.roll_2, result.attitude_2_to_1 + result.roll_2, Event.Reaction.keys()[result.reaction_2], result.opinion_delta_2, result.selected_entry_id])
+		logger.debug(EventLog.SOCIAL, "context=%s A=%s B=%s; A attitude=%d roll=%d score=%d reaction=%s delta=%d; B attitude=%d roll=%d score=%d reaction=%s delta=%d; entry=%s feed=%d diary=%d" % [Event.Context.keys()[context], a.resident_name, b.resident_name, result.attitude_1_to_2, result.roll_1, result.attitude_1_to_2 + result.roll_1, Event.Reaction.keys()[result.reaction_1], result.opinion_delta_1, result.attitude_2_to_1, result.roll_2, result.attitude_2_to_1 + result.roll_2, Event.Reaction.keys()[result.reaction_2], result.opinion_delta_2, result.selected_entry_id if not result.selected_entry_id.is_empty() else "none", output.feed, output.diary])
 	event_resolved.emit(result)
 	return result
 func matching_entries(result: Event, a: RefCounted, b: RefCounted, tags_a: Array, tags_b: Array) -> Array:
@@ -118,11 +118,12 @@ func matching_entries(result: Event, a: RefCounted, b: RefCounted, tags_a: Array
 		# One ticket per entry, even if both orientations match.
 		if not orientations.is_empty(): matches.append({"entry": entry, "orientations": orientations})
 	return matches
-func present(result: Event, a: RefCounted, b: RefCounted, tags_a: Array, tags_b: Array) -> void:
+func present(result: Event, a: RefCounted, b: RefCounted, tags_a: Array, tags_b: Array) -> Dictionary:
+	var output := {"feed": 0, "diary": 0}
 	var matches := matching_entries(result, a, b, tags_a, tags_b)
 	if matches.is_empty():
-		feed_message.emit("%s и %s провели время вместе." % [a.resident_name, b.resident_name])
-		return
+		output.feed = _fallback_feed(result, a, b)
+		return output
 	var selected: Dictionary = matches[narrative_rng.randi_range(0, matches.size() - 1)]
 	var entry: RefCounted = selected.entry
 	var reverse: bool = selected.orientations[narrative_rng.randi_range(0, selected.orientations.size() - 1)]
@@ -131,12 +132,27 @@ func present(result: Event, a: RefCounted, b: RefCounted, tags_a: Array, tags_b:
 	var first: RefCounted = b if reverse else a
 	var second: RefCounted = a if reverse else b
 	for template in [entry.feed_text_a, entry.feed_text_b]:
-		if not template.is_empty(): feed_message.emit(entry.render(template, first, second))
-	if entry.diary_importance == Diary.Importance.NONE: return
+		var text: String = entry.render(template, first, second)
+		if not text.strip_edges().is_empty():
+			feed_message.emit(text)
+			output.feed += 1
+	if output.feed == 0: output.feed = _fallback_feed(result, a, b)
+	if entry.diary_importance == Diary.Importance.NONE: return output
 	var minute: int = clock.total_minutes if is_instance_valid(clock) else 0
-	for output in [[first, entry.diary_text_a], [second, entry.diary_text_b]]:
-		if not output[1].is_empty() and narrative_rng.randf() < diary_chance:
-			output[0].add_diary_entry(Diary.new(entry.render(output[1], first, second), entry.diary_importance, minute))
+	for diary_output in [[first, entry.diary_text_a], [second, entry.diary_text_b]]:
+		if not diary_output[1].is_empty() and narrative_rng.randf() < diary_chance:
+			diary_output[0].add_diary_entry(Diary.new(entry.render(diary_output[1], first, second), entry.diary_importance, minute))
+			output.diary += 1
+	return output
+func _fallback_feed(result: Event, a: RefCounted, b: RefCounted) -> int:
+	feed_message.emit(_fallback_text(a, b, result.reaction_1))
+	feed_message.emit(_fallback_text(b, a, result.reaction_2))
+	return 2
+func _fallback_text(resident: RefCounted, other: RefCounted, response: Event.Reaction) -> String:
+	match response:
+		Event.Reaction.POSITIVE: return "%s: «Приятно провёл время с %s»." % [resident.resident_name, other.resident_name]
+		Event.Reaction.NEGATIVE: return "%s: «Общение с %s меня раздражает»." % [resident.resident_name, other.resident_name]
+		_: return "%s: «Провёл время с %s — ничего особенного»." % [resident.resident_name, other.resident_name]
 func _on_conversation_joined(id: String) -> void:
 	var runtime = world.get_runtime(id)
 	if runtime != null: trigger(runtime, Event.Context.CONVERSATION)

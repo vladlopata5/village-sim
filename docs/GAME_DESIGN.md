@@ -1393,3 +1393,12 @@ text, только если entry importance TEMPORARY/KEY; NONE исключё�
 удаляется следующим утром, KEY permanent. Diary не является psychological memory.
 Событие само по себе не сохраняется. Результаты не меняют SOCIAL utility/target,
 conversation duration/need, работу, mood, skills, assignments или event chance.
+
+
+Уточнение prototype/debug Social Events: каждый успешно созданный event даёт
+Feed output. Narrative strings используются первыми; только если нет ни одной
+непустой строки, fallback выдаёт две короткие реплики по уже рассчитанным реакциям.
+Fallback не меняет mechanics, entry selection или Diary. Diary остаётся optional
+с прежним chance/lifetime. Одна DEBUG запись успешного event содержит reactions,
+entry и фактические counts feed/diary; failed chance rolls не логируются.
+Conversation double-roll при создании группы, pool, formulas и RNG не изменены.

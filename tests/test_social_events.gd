@@ -144,7 +144,7 @@ func _run() -> void:
 	check(a.diary_entries.size()==1 and a.diary_entries[0].importance==Diary.Importance.KEY,"Morning removes temporary and retains key")
 	reverse.diary_text_a=""; reverse.diary_text_b=""; reverse.feed_text_a=""; reverse.feed_text_b=""; feed.clear()
 	service.present(event,a,b,[],[])
-	check(feed.is_empty() and a.diary_entries.size()==1,"Missing output text safe")
+	check(feed.size()==2 and a.diary_entries.size()==1,"Missing output text uses feed fallback without extra diary")
 	# Equal-weight sampling and narrative independence from mechanics.
 	service.entries=[wildcard,specific]; service.rng=RandomNumberGenerator.new(); service.set_seed(5)
 	var counts := {"general":0,"specific":0}
