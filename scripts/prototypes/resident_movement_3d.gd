@@ -3,7 +3,7 @@ extends Node
 signal arrived
 signal failed
 signal path_changed(points: PackedVector3Array)
-const SURFACE_TOLERANCE: float = 0.25
+@export var surface_tolerance: float = 0.25
 const MAP_WAIT_FRAMES: int = 30
 @export var speed: float = 3.0
 var body: Node3D
@@ -41,7 +41,7 @@ func advance(delta: float) -> void:
 			_fail()
 			return
 		var projected := NavigationServer3D.map_get_closest_point(map, _target)
-		if projected.distance_to(_target) > SURFACE_TOLERANCE:
+		if projected.distance_to(_target) > surface_tolerance:
 			_fail()
 			return
 		_target = projected

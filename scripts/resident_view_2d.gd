@@ -99,3 +99,5 @@ func _complete_intent() -> void:
 
 func _update_cargo() -> void:
 	cargo_indicator.visible = resident_data.inventory.amount > 0
+
+func get_sim_position() -> Vector2: return global_position

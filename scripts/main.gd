@@ -291,15 +291,7 @@ func _create_test_residents() -> void:
 		var home = BuildingInstance.new(data.home_location_id, BuildingDefinition.for_type(BuildingType.Type.HOME), home_positions[index], BuildingInstance.State.BUILT)
 		buildings.append(home)
 		_show_building(home)
-		var view = ResidentView2D.instantiate()
-		view.z_index = 1 # Residents remain visible at buildings placed later in the world tree.
-		view.name = "ResidentView_" + data.id
-		view.setup(data)
-		view.position = start_positions[index]
-		view.selection_requested.connect(resident_selection.select)
-		view.set_time_speed(game_time.speed_multiplier)
-		game_time.speed_changed.connect(view.set_time_speed)
-		$World.add_child(view)
+		var view = _create_resident_presentation(data, start_positions[index])
 		var runtime = ResidentRuntime.new()
 		runtime.name = data.id
 		$Residents.add_child(runtime)
@@ -307,7 +299,7 @@ func _create_test_residents() -> void:
 		runtime.logger = game_logger
 		runtime.setup(data, view, game_time, world_locations, buildings)
 		interactions.register_target(StringName(data.id), data.resident_name, data, _resident_interaction_position.bind(data.id), [&"resident"])
-		interaction_targets.register(StringName(data.id), view)
+		_register_interaction_view(StringName(data.id), view)
 
 func _resident_interaction_position(resident_id: String) -> Vector2:
 	return _resident_position_2d(resident_id) + Vector2(36, 0)
@@ -320,11 +312,11 @@ func _wander_target_2d(rng: RandomNumberGenerator, resident_id: String):
 
 func _resident_position_2d(resident_id: String) -> Vector2:
 	var runtime = social_world.get_runtime(resident_id)
-	return runtime.view.global_position if runtime != null else Vector2.ZERO
+	return runtime.view.get_sim_position() if runtime != null else Vector2.ZERO
 
 func _production_position_2d(resident_id: String) -> Variant:
 	var runtime = social_world.get_runtime(resident_id)
-	return runtime.view.global_position if runtime != null else null
+	return runtime.view.get_sim_position() if runtime != null else null
 
 func find_resident(resident_id: String) -> ResidentData:
 	for data in residents:
@@ -427,16 +419,10 @@ func _create_test_kitchen() -> void:
 	kitchen_data.resources.set_capacity(ResourceType.Type.FOOD, Balance.KITCHEN_FOOD_CAPACITY)
 	buildings.append(kitchen_data)
 	# Same ID links two distinct data objects: building meaning and world place.
-	var location = WorldLocation.new(kitchen_data.id, kitchen_data.display_name)
-	var view = BuildingView2D.instantiate()
+	kitchen_data.position = Vector2(-280, 240)
+	var view = _create_building_presentation(kitchen_data)
 	view.name = "CommunalKitchen"
-	view.setup(kitchen_data)
-	view.position = Vector2(-280, 240)
-	kitchen_data.position = view.position
-	$World.add_child(view)
-	world_locations.register(location, view)
-	interactions.register_building(kitchen_data, world_locations.get_position.bind(location.id))
-	interaction_targets.register(location.id, view)
+	_register_building_location(kitchen_data, view)
 
 func _update_warehouse_food(resource: ResourceType.Type, amount: int) -> void:
 	if resource == ResourceType.Type.FOOD:
@@ -450,32 +436,20 @@ func _create_test_warehouse() -> void:
 	warehouse_data.resources.set_capacity(ResourceType.Type.WOOD, 50)
 	warehouse_data.resources.add(ResourceType.Type.WOOD, 50)
 	buildings.append(warehouse_data)
-	var location = WorldLocation.new(warehouse_data.id, warehouse_data.display_name)
-	var view = BuildingView2D.instantiate()
+	warehouse_data.position = Vector2(300, 240)
+	var view = _create_building_presentation(warehouse_data)
 	view.name = "Warehouse"
-	view.setup(warehouse_data)
-	view.position = Vector2(300, 240)
-	warehouse_data.position = view.position
-	$World.add_child(view)
-	world_locations.register(location, view)
-	interactions.register_building(warehouse_data, world_locations.get_position.bind(location.id))
-	interaction_targets.register(location.id, view)
+	_register_building_location(warehouse_data, view)
 
 func _create_test_gatherer_hut() -> void:
 	gatherer_hut_data = BuildingData.new(&"gatherer_hut_01", "Хижина собирателя", BuildingType.Type.GATHERER_HUT)
 	gatherer_hut_data.resources.set_allowed_resource_types([ResourceType.Type.FOOD])
 	gatherer_hut_data.resources.set_capacity(ResourceType.Type.FOOD, 5)
 	buildings.append(gatherer_hut_data)
-	var location = WorldLocation.new(gatherer_hut_data.id, gatherer_hut_data.display_name)
-	var view = BuildingView2D.instantiate()
+	gatherer_hut_data.position = Vector2(380, -240)
+	var view = _create_building_presentation(gatherer_hut_data)
 	view.name = "GathererHut"
-	view.setup(gatherer_hut_data)
-	view.position = Vector2(380, -240)
-	gatherer_hut_data.position = view.position
-	$World.add_child(view)
-	world_locations.register(location, view)
-	interactions.register_building(gatherer_hut_data, world_locations.get_position.bind(location.id))
-	interaction_targets.register(location.id, view)
+	_register_building_location(gatherer_hut_data, view)
 
 func _on_hut_resources_changed(_resource: ResourceType.Type, _amount: int) -> void:
 	logistics.recalculate()
@@ -510,7 +484,7 @@ func _update_logistics() -> void:
 	logistics_label.text = summary
 
 func _drop_cargo(resource: ResourceType.Type, amount: int, runtime: ResidentRuntime) -> void:
-	ground_resources.create_drop(resource, amount, runtime.view.global_position)
+	ground_resources.create_drop(resource, amount, runtime.view.get_sim_position())
 
 func _show_ground_resource(drop) -> void:
 	var view = GroundView.new()
@@ -556,11 +530,7 @@ func _select_building_definition(definition: BuildingDefinition) -> void:
 	placement.select(definition)
 
 func _show_building(building: BuildingInstance) -> void:
-	var view = BuildingView2D.instantiate()
-	view.name = String(building.id)
-	view.position = building.position
-	$World.add_child(view)
-	view.setup(building)
+	var view = _create_building_presentation(building)
 	world_locations.register(WorldLocation.new(building.id, building.display_name), view)
 	# The same registry/view gains functionality after the one-way state transition.
 	building.construction_changed.connect(_activate_completed_building.bind(building))
@@ -586,7 +556,7 @@ func _activate_completed_building(building: BuildingInstance) -> void:
 	building.resources.changed.connect(_on_hut_resources_changed)
 	player_control.register_building(building)
 	interactions.register_building(building, world_locations.get_position.bind(building.id))
-	interaction_targets.register(building.id, world_locations.get_view(building.id))
+	_register_interaction_view(building.id, world_locations.get_view(building.id))
 	for runtime in resident_runtimes: runtime.needs.register_food_building(building)
 	logistics.recalculate()
 
@@ -611,3 +581,29 @@ func _refresh_porter_availability() -> void:
 		if not is_instance_valid(runtime) or not is_instance_valid(runtime.decision): continue
 		if runtime.data.profession == Profession.Type.PORTER and runtime.data.activity == preload("res://scripts/resident_activity.gd").Type.IDLE and not runtime.intents.has_current_action() and logistics.has_available_job(runtime.data.id):
 			runtime.decision.request_decision("logistics_available")
+
+# Presentation factories preserve the same starter data and controller wiring.
+func _create_resident_presentation(data: ResidentData, start: Vector2) -> Node:
+	var view = ResidentView2D.instantiate()
+	view.z_index = 1
+	view.name = "ResidentView_" + data.id
+	view.setup(data)
+	view.position = start
+	view.selection_requested.connect(resident_selection.select)
+	view.set_time_speed(game_time.speed_multiplier)
+	game_time.speed_changed.connect(view.set_time_speed)
+	$World.add_child(view)
+	return view
+func _create_building_presentation(building: BuildingInstance) -> Node:
+	var view = BuildingView2D.instantiate()
+	view.name = String(building.id)
+	view.position = building.position
+	$World.add_child(view)
+	view.setup(building)
+	return view
+func _register_building_location(building: BuildingInstance, view: Node) -> void:
+	world_locations.register(WorldLocation.new(building.id, building.display_name), view)
+	interactions.register_building(building, world_locations.get_position.bind(building.id))
+	_register_interaction_view(building.id, view)
+func _register_interaction_view(id: StringName, view: Node) -> void:
+	interaction_targets.register(id, view)

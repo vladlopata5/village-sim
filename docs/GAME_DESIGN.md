@@ -1430,3 +1430,32 @@ entry ID или none. Existing DEBUG detail сохранён. Failed chance и �
 Движение использует Navigation3D по плоской земле и обходит статичное здание.
 Runtime navigation updates и crowd avoidance пока не реализованы.
 Системы ресурсов, работы, потребностей и отношений в slice не запускаются.
+
+
+### Начало миграции основной игры в 2.5D / 3D (2026-10-08)
+
+`scenes/main_3d.tscn` запускает тот же starter setup и simulation, что 2D Main:
+четыре resident и семь prebuilt buildings, прежние профессии, ресурсы и дома.
+Это первый migration slice, не завершённый перенос. F5 оставлен за 2D main;
+для сравнения открыть main_3d и нажать F6. Primitive visuals временные.
+Камера orthographic, yaw=45°, pitch=−50°; WASD/стрелки — pan, колесо — zoom.
+ЛКМ выбирает resident/building, по земле очищает выбор; Esc очищает выбор.
+ПКМ по земле выдаёт существующий MOVE_TO, по сущности открывает прежние interactions.
+ResidentCard, BuildingCard, HUD и Social Feed используют исходные domain data.
+
+Simulation coordinates остаются Vector2: (x,y) → world (x,0,y), без изменения
+масштаба/баланса. Movement executor владеет физической позицией, simulation
+читает её через coordinate bridge. View не хранит gameplay state и не движется
+самостоятельно. Static navmesh исключает все стартовые footprints.
+Действия EAT/WORK/SLEEP приходят к одной default access point рядом со зданием;
+логический BuildingInstance.position по-прежнему центр. Это временный migration
+bridge, не полноценные входы/interaction points. Нет доступной точки — действие
+недоступно; ordinary sleep использует прежний outdoor fallback.
+
+Clock/needs/schedule/skills/traits/relationships/social events и player management
+подключены без нового gameplay. Проверены реальные EAT, porter delivery, gatherer
+production и home sleep через Navigation3D. Construction placement/ghost и runtime
+navigation update ещё не перенесены; отдельный UI сообщает об этом. Builder domain
+controller подключён, но в этом starter layout нет строек и их placement недоступен.
+Физические cargo/ground resource data сохранены, их 3D visuals отложены. Сон пока
+отображается у access point, без входа внутрь/кроватей. Crowd avoidance отсутствует.

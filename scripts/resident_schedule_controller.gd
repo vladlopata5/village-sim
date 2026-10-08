@@ -117,6 +117,7 @@ func resume_current_phase() -> void:
 func _get_home_target(home_id: StringName) -> Variant:
 	for building in _buildings:
 		if building is Building and building.id == home_id and building.is_built() and building.type == BuildingType.Type.HOME and building.definition.housing_capacity > 0:
+			if _locations.has_method("resolve_action_position"): return _locations.resolve_action_position(building)
 			var target: Variant = _locations.get_position(home_id)
 			return target if target is Vector2 else building.position
 	return null

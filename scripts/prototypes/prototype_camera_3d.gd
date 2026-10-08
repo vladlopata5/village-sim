@@ -1,6 +1,7 @@
 extends Camera3D
 const Coordinates = preload("res://scripts/prototypes/plane_coordinates.gd")
 @export var movement_speed: float = 12.0
+@export var zoom_step: float = 2.0
 @export var min_zoom: float = 8.0
 @export var max_zoom: float = 40.0
 func _process(delta: float) -> void:
@@ -14,7 +15,7 @@ func pan(direction: Vector2, delta: float) -> void:
 	var point := Coordinates.to_sim(position) + direction.limit_length() * movement_speed * maxf(delta, 0.0)
 	position = Coordinates.to_world(point, position.y)
 func zoom(steps: float) -> void:
-	size = clampf(size - steps * 2.0, min_zoom, max_zoom)
+	size = clampf(size - steps * zoom_step, min_zoom, max_zoom)
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.pressed:
 		if event.button_index == MOUSE_BUTTON_WHEEL_UP:

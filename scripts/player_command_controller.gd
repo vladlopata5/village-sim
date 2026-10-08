@@ -35,3 +35,12 @@ func _on_completed(intent: Intent) -> void:
 	active_command = null
 	_intent = null
 	if logger != null: logger.info(EventLog.PLAYER, "%s: приказ MOVE_TO выполнен" % _data.resident_name)
+
+func cancel_current() -> void:
+	if active_command == null: return
+	var previous = _intent
+	active_command.state = Command.State.CANCELLED
+	active_command = null
+	_intent = null
+	_intents.abort_current(previous)
+	if logger != null: logger.info(EventLog.PLAYER, "%s: MOVE_TO отменён — цель недоступна" % _data.resident_name)

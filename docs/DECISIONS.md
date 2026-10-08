@@ -1513,3 +1513,37 @@ navigation, достижимости target и расстояния до navigat
 Отдельный prototype-only MeshInstance3D рисует жёлтую линию текущего пути;
 stop/completion/cancel очищает её. Grid не входит в bake, physics или picking.
 Crowd avoidance выключен; camera, selection и текущая 2D simulation сохранены.
+
+
+### Первый migration world: общий Main и executor-owned position (2026-10-08)
+
+Согласован вариант B: ResidentExecutor3D / navigation implementation владеет
+текущей физической позицией. ResidentRuntime.view в 3D является executor adapter;
+его дочерний ResidentView3D только отображает ResidentData и selection. Второй
+mutable position в ResidentData не добавляется. Existing controllers получают
+Vector2 через get_sim_position и общий PlaneCoordinates. Масштаб исходного мира
+сохранён 1:1; X/Z — gameplay plane, Y — vertical presentation.
+
+Main3D наследует Main, заменяет маленькие presentation/location/input hooks и
+переиспользует ровно один starter setup и controller wiring. Отдельной prototype
+simulation нет. 2D Main остаётся default для сравнения/fallback, prototype сохранён.
+ResidentSelection хранит один domain object; raycast слой явно связывает views
+с resident/building data. Точное попадание по resident имеет приоритет над зданием.
+UI остаётся прежним Canvas UI. MOVE_TO проходит прежний PlayerControl/PlayerCommand;
+navigation failure отменяет текущий execution через forced cleanup, не completion.
+
+BuildingLocations3D централизованно разрешает одну default access point.
+Building.position остаётся логическим центром. Для текущих axis-aligned footprints
+проверяется фиксированный порядок сторон +Z, +X, −Z, −X: midpoint стороны +18 units,
+потом допустимая проекция на navmesh ≤3 units. Результат детерминированно кешируется
+для статичного layout. Нет точки — null, без движения в центр. Destination и
+proximity для еды, production, builder work и сна используют тот же provider.
+Это migration bridge к будущим interaction points, без slots/entrance reservations
+или отдельных pickup/dropoff points. Runtime invalidation/rebake кеша — будущий этап.
+
+Стартовый navmesh bake берёт buildings непосредственно из существующего 2D setup,
+исключает footprints projected obstructions, agent_radius=12 (resident capsule=10),
+нормализует поверхность Y=0. Asset пересобирается tests/bake_main_3d_navigation.gd.
+Динамические здания пока не обновляют navigation: placement в main_3d явно недоступен.
+Не добавлены crowd avoidance, resource drop/carrying visuals, indoor sleep placement
+или новая interaction-point система. Это первый migration commit, не полный переход.

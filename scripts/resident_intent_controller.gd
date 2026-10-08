@@ -142,3 +142,9 @@ func cancel_current(intent: ResidentIntent) -> bool:
 	pending_intent = ResidentIntent.new()
 	_activate(next)
 	return true
+
+## Executor failure is cancellation, never arrival/completion. Reuses forced cleanup.
+func abort_current(expected: ResidentIntent) -> bool:
+	if expected != current_intent: return false
+	player_controlled = false
+	return _replace_forced(ResidentIntent.new(), 0)

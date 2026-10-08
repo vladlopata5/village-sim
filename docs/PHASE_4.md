@@ -1239,3 +1239,40 @@ Resident/Building selection, keyboard pan, wheel zoom, ground/grid MOVE_TO,
 
 Main и prototype headless startup — exit 0, stderr пуст. Полный suite также
 без stderr; новых warnings/errors нет. Основной 2D запуск не изменён.
+
+
+### Первый основной 3D migration world (2026-10-08)
+
+Добавлена `scenes/main_3d.tscn`: World Node3D с ground/static NavigationRegion3D,
+orthographic Camera3D yaw=45° / pitch=−50°, светом и двумя roots представлений.
+Main3D наследует существующий Main и меняет только presentation factories,
+location provider и input bridge. Starter residents/buildings/resources/housing
+и все simulation controller bundles создаются существующим setup.
+
+Position authority — ResidentExecutor3D; дочерний view локально неподвижен.
+Simulation читает physical position как Vector2 через PlaneCoordinates (без rescale).
+BuildingLocations3D даёт один детерминированный access point снаружи footprint;
+EAT/WORK/SLEEP и proximity используют его, BuildingInstance.position остаётся центром.
+Нет walkable access point — null/unavailable, для night sleep outdoor fallback.
+Это migration bridge, не полноценная interaction-point система.
+
+Переиспользованы ResidentSelection, cards, management interactions, clock/HUD/Feed
+и существующие intents/commands. Picking: exact resident hit выше building; UI
+потребляет clicks раньше world input. Invalid navigation command отменяется через
+cleanup. Navmesh asset из реального starter layout (130 polygons), радиус bake=12,
+capsule=10; можно пересобрать tests/bake_main_3d_navigation.gd. Dynamic rebake не готов.
+
+Ограничения: construction panel/ghost/placement в main_3d явно недоступны,
+строек при старте нет; builder controller подключён, но runtime construction
+migration не заявляется завершённой. Cargo/ground resources остаются физическими
+simulation data без 3D visuals. Indoor sleep visuals, полноценные interaction points,
+crowd avoidance и runtime navigation update отложены. F5 остаётся старым 2D Main.
+Запуск main_3d: открыть сцену и F6 или Godot --path <project> res://scenes/main_3d.tscn.
+
+Проверка migration: полный suite 63/63 PASS, main_3d integration — 84 checks,
+0 failures; Godot analyzer — 161 scripts, 0 diagnostics. Old main, main_3d и
+изолированный prototype headless startup: exit 0, stderr пуст; полный suite
+также без stderr. Rendered viewport QA: выбор/подсветка resident и building,
+обе cards, GUI click blocking, WASD pan, wheel zoom, real ground RMB PlayerCommand
+и navigation completion. Минимальный измеренный зазор до warehouse footprint
+10.52 units при capsule radius=10. Existing 2D default/F5 сохранён.

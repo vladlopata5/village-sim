@@ -17,14 +17,14 @@ var commands = Commands.new()
 var social = Social.new()
 var wander = Wander.new()
 var data: RefCounted
-var view: Node2D
+var view: Node
 var intents = Intents.new()
 var schedule = Schedule.new()
 var need_dynamics = Dynamics.new()
 var decision = Decision.new()
 var needs = Needs.new()
 
-func setup(resident: RefCounted, presentation: Node2D, clock: Node, locations: RefCounted, buildings: Array) -> void:
+func setup(resident: RefCounted, presentation: Node, clock: Node, locations: RefCounted, buildings: Array) -> void:
 	data = resident
 	data.skill_changed.connect(_on_skill_changed)
 	view = presentation

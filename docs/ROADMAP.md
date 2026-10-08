@@ -496,3 +496,18 @@ Godot с `--path <project-directory> res://scenes/prototypes/2_5d_prototype.tscn
 NavigationRegion3D использует pre-baked mesh; есть visual debug path и безопасная
 отмена invalid/unreachable targets. Runtime navigation updates для construction
 и crowd avoidance отложены. Основная 2D main scene и gameplay systems сохранены.
+
+
+### Начата отдельная migration phase: основная simulation → 3D presentation
+
+- Выполнен первый `scenes/main_3d.tscn`: общий starter setup/Main wiring, все 4
+  residents и 7 buildings, существующие cards/HUD/Feed, unified ray selection,
+  настоящие PlayerCommand MOVE_TO и static Navigation3D.
+- Согласован executor-owned physical position; simulation Vector2 ↔ world X/Z.
+- Добавлен единый временный building default access point bridge.
+- Реальные EAT, porter delivery, gatherer production и ordinary home sleep
+  проверены через 3D navigation; остальные domain systems остаются подключены.
+- Следующие migration этапы: runtime placement/navmesh updates, полноценные
+  interaction points, cargo/ground-resource visuals и crowd movement.
+- 2D main пока остаётся F5 default; main_3d запускается F6 или отдельной командой.
+  Primitive graphics и static bake — временные. Полная migration не завершена.

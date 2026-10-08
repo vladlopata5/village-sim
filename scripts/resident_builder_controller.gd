@@ -222,7 +222,8 @@ func _on_arrival(intent: Intent) -> void:
 func _accrue_work(now: int) -> void:
 	if phase != Phase.BUILDING: return
 	var point: Variant = _position()
-	if point is Vector2 and site != null and point.distance_to(site.position) <= 8.0 and _data.activity == Activity.Type.WORKING:
+	var action_point: Variant = _locations.get_position(site.id) if site != null else null
+	if point is Vector2 and action_point is Vector2 and point.distance_to(action_point) <= 8.0 and _data.activity == Activity.Type.WORKING:
 		work_minutes += maxi(now - _last_work_minute, 0)
 	_last_work_minute = now
 

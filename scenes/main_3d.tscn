@@ -1,0 +1,74 @@
+[gd_scene load_steps=12 format=3]
+
+[ext_resource type="Script" path="res://scripts/world_3d/main_3d.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/game_time.gd" id="2"]
+[ext_resource type="Script" path="res://scripts/world_3d/field_3d.gd" id="3"]
+[ext_resource type="Script" path="res://scripts/prototypes/prototype_camera_3d.gd" id="4"]
+
+[ext_resource type="Script" path="res://scripts/resident_selection.gd" id="5"]
+[ext_resource type="PackedScene" path="res://scenes/resident_card.tscn" id="6"]
+
+[ext_resource type="PackedScene" path="res://scenes/building_card.tscn" id="7"]
+
+[ext_resource type="NavigationMesh" path="res://scenes/main_3d_navigation.tres" id="8"]
+[sub_resource type="PlaneMesh" id="GroundMesh"]
+size = Vector2(3200, 2000)
+[sub_resource type="BoxShape3D" id="GroundShape"]
+size = Vector3(3200, 1, 2000)
+[sub_resource type="StandardMaterial3D" id="GroundMaterial"]
+albedo_color = Color(0.28, 0.43, 0.27, 1)
+
+[node name="Main" type="Node"]
+process_mode = 3
+script = ExtResource("1")
+
+[node name="GameTime" type="Node" parent="."]
+script = ExtResource("2")
+
+[node name="World" type="Node3D" parent="."]
+process_mode = 1
+
+[node name="Field" type="Node" parent="World"]
+script = ExtResource("3")
+
+[node name="Camera3D" type="Camera3D" parent="World"]
+process_mode = 3
+script = ExtResource("4")
+position = Vector3(750, 1264, 750)
+rotation_degrees = Vector3(-50, 45, 0)
+projection = 1
+size = 1100.0
+current = true
+movement_speed = 500.0
+min_zoom = 300.0
+max_zoom = 4000.0
+zoom_step = 80.0
+
+[node name="Light" type="DirectionalLight3D" parent="World"]
+rotation_degrees = Vector3(-65, -30, 0)
+light_energy = 1.2
+shadow_enabled = true
+[node name="Ground" type="StaticBody3D" parent="World"]
+collision_layer = 1
+collision_mask = 0
+[node name="Mesh" type="MeshInstance3D" parent="World/Ground"]
+mesh = SubResource("GroundMesh")
+material_override = SubResource("GroundMaterial")
+[node name="Collision" type="CollisionShape3D" parent="World/Ground"]
+position = Vector3(0, -0.5, 0)
+shape = SubResource("GroundShape")
+[node name="NavigationRegion3D" type="NavigationRegion3D" parent="World"]
+navigation_mesh = ExtResource("8")
+[node name="ResidentViews" type="Node3D" parent="World"]
+[node name="BuildingViews" type="Node3D" parent="World"]
+
+[node name="HUD" type="CanvasLayer" parent="."]
+
+[node name="ResidentSelection" type="Node" parent="."]
+script = ExtResource("5")
+
+[node name="ResidentCard" parent="HUD" instance=ExtResource("6")]
+
+[node name="Residents" type="Node" parent="."]
+
+[node name="BuildingCard" parent="HUD" instance=ExtResource("7")]
