@@ -39,6 +39,8 @@ const ResidentRuntime = preload("res://scripts/resident_runtime.gd")
 const WanderTarget = preload("res://scripts/wander_target.gd")
 const SocialWorld = preload("res://scripts/social_world.gd")
 var social_world = SocialWorld.new()
+var social_events = preload("res://scripts/social_event_service.gd").new()
+var social_feed: PanelContainer
 const PlayerControl = preload("res://scripts/player_control.gd")
 var player_control = PlayerControl.new()
 const InteractionService = preload("res://scripts/interaction_service.gd")
@@ -97,6 +99,13 @@ func _ready() -> void:
 		runtime.assignments.bind_social_world()
 		runtime.wander.target_provider = _wander_target_2d.bind(runtime.data.id)
 		runtime.wander.target_available = _wander_available_2d.bind(runtime.data.id)
+	add_child(social_events)
+	social_events.logger = game_logger
+	social_events.setup(social_world, game_time, buildings)
+	social_feed = preload("res://scripts/social_feed.gd").new()
+	social_feed.name = "SocialFeed"
+	$HUD.add_child(social_feed)
+	social_events.feed_message.connect(social_feed.add_message)
 	_build_hud()
 	interaction_menu = InteractionMenu.new()
 	interaction_menu.service = interactions

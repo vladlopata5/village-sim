@@ -463,3 +463,14 @@ derived +10/−10 trait score без pair storage. Separate seeded preference RN
 предпочтения и selected→other score с event-driven обновлением target traits.
 Отдельная symmetric compatibility заменена на текущем этапе personal tastes.
 SOCIAL/TALK_TO/opinion effects и memories/mood/context/event combinations — позже.
+
+
+### Выполнено в Phase 4: Social Events (2026-10-08)
+
+Одна context-based система, event-driven start hooks Conversation/Meal/work cycle.
+Semantic location pool, uniform target, derived directed attitude и independent
+reactions → existing opinion API. Twelve data-driven texts, A/B orientation,
+equal-weight selection после mechanics. Отдельные Feed и optional resident diary;
+TEMPORARY до следующего утра, KEY permanent. Porter WORK social hook отложен до
+подходящего semantic work lifecycle. Psychological memory и social AI feedback
+остаются будущими этапами.

@@ -1403,3 +1403,43 @@ No frame polling. Labels используют catalog display names; effect valu
 Future social systems могут комбинировать stored opinion + derived preference +
 memories + mood + context + shared events. Эти слои, romance/friendship/genealogy
 и automatic preference/opinion changes сейчас не добавлены.
+
+
+## Social Events: mechanics до narrative (2026-10-08)
+
+SocialEventService — один локальный сервис, подписанный на existing lifecycle
+signals. Контексты WORK/MEAL/CONVERSATION не создают subclasses. Маленькие start
+notifications не меняют существующие action execution/interrupt semantics.
+Рабочий roll происходит каждый цикл Gatherer/Builder. Porter не получает
+искусственную social location: его transport не является stationary work cycle.
+
+Нет symmetric compatibility. Derived directed social attitude = clamp(stored
+opinion + derived trait preference, −100,100). Независимые реакции каждого
+участника рассчитываются из snapshot обоих attitudes; existing change_opinion
+применяет −1/0/+1 и сохраняет sparse/clamp semantics. Это намеренное развитие
+предыдущего opinion foundation: теперь разговор МОЖЕТ менять opinion именно
+через SocialEvent, не через timer/обычный TALK_TO completion.
+
+Semantic pool queries existing state: active meal building, committed work
+location, builder BUILDING site, stationary conversation group. Building visitor
+— участник активного разговора, центр которого внутри footprint; distance/radius
+не используется. Просто движение или proximity не создаёт semantic membership.
+Uniform partner selection не учитывает opinion/tastes, избегая social bubble.
+
+Narrative entries — JSON data с optional filters и раздельными Feed/Diary strings;
+код не знает story enums JOKE/ARGUMENT. Выбирается запись после реакции и opinion.
+Пробуются обе orientation; одна запись = один equal-weight ticket, даже когда
+подходят обе. Затем orientation выбирается равновероятно среди matching.
+Нет specificity priority, base_effect, rarity или weights. No match безопасен.
+
+Mechanics и presentation используют отдельные RNG streams: смена библиотеки
+текстов/diary chance не влияет на следующие chance/target/reaction draws. В игре
+оба RNG randomize; seed/injected RNG обеспечивают deterministic tests. Не вводится
+общая global RNG architecture.
+
+SocialEvent не обязан persist. Feed ephemeral, Diary optional per-participant
+history, chance 20%; TEMPORARY истекает следующим утром по phase_changed,
+KEY сохраняется. Feed Timer имеет real-time UI lifetime 12 секунд и limit 4,
+не участвует в simulation. Diary changed обновляет карточку event-driven.
+Diary ещё не future psychological memory: нет memory modifiers или opinion decay.
+Gameplay feedback кроме directed opinion и presentation/history не вводится.

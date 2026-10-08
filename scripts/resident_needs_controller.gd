@@ -13,6 +13,7 @@ const FOOD = ResourceType.Type.FOOD
 const MEAL_MINUTES := 30
 const REST_MINUTES := 10
 const SLEEP_RECOVERY_TARGET := 20
+signal meal_begun(building_id: StringName)
 signal eat_started(intent: Intent)
 signal eat_outcome(intent: Intent, outcome: StringName, target_id: StringName)
 signal action_unavailable
@@ -188,6 +189,7 @@ func _on_arrival(intent: Intent) -> void:
 	_started_at = _clock.total_minutes
 	_minutes_left = MEAL_MINUTES
 	_data.activity = Activity.Type.EATING
+	meal_begun.emit(_food_building.id)
 	if logger != null:
 		logger.sync_activity(_data)
 		logger.info(EventLog.NEED, "%s: начал есть (HUNGER=%d, utility=%.0f)" % [_data.resident_name, _data.hunger, float(intent.priority)])
@@ -288,3 +290,6 @@ func register_food_building(building: RefCounted) -> void:
 	if building.is_built() and building.type == BuildingType.Type.FOOD and not building.resources.availability_changed.is_connected(_on_food_availability_changed):
 		building.resources.availability_changed.connect(_on_food_availability_changed)
 		_on_food_availability_changed(ResourceType.Type.FOOD, building.resources.get_available_amount(FOOD))
+
+func meal_location_id() -> StringName:
+	return _food_building.id if _meal_active and _food_building != null else &""

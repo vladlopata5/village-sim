@@ -3,6 +3,7 @@ extends RefCounted
 static func make_scene(tree: SceneTree) -> Node:
 	var scene = load("res://scenes/main.tscn").instantiate()
 	tree.root.add_child(scene)
+	scene.social_events.enabled = false
 	scene.game_time.set_process(false)
 	scene.game_logger.console_enabled = false
 	scene.logistics.unbind_execution()

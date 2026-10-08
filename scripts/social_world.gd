@@ -6,6 +6,7 @@ const Group = preload("res://scripts/conversation_group.gd")
 const Activity = preload("res://scripts/resident_activity.gd")
 const BASE_OPTION_WEIGHT := 500.0
 const DISTANCE_PENALTY := 0.5
+signal conversation_joined(resident_id: String)
 signal membership_changing
 signal membership_changed
 signal availability_changed
@@ -96,6 +97,9 @@ func arrive(id: String, option: Dictionary) -> bool:
 	get_runtime(id).social.begin_talking()
 	get_runtime(id).social.position_in_conversation(participant_position)
 	membership_changed.emit()
+	# Both members exist before start notifications; joining only notifies the newcomer.
+	if option.group_id == 0: conversation_joined.emit(option.target_id)
+	conversation_joined.emit(id)
 	return true
 func leave(id: String) -> void:
 	var group = group_of(id)

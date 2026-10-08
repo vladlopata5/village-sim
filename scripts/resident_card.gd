@@ -1,4 +1,5 @@
 extends PanelContainer
+const Diary = preload("res://scripts/diary_entry.gd")
 ## The card reads the selection's data; it keeps no copy of resident fields.
 const Trait = preload("res://scripts/trait_type.gd")
 const Skill = preload("res://scripts/skill_type.gd")
@@ -130,6 +131,7 @@ func _on_selection_changed() -> void:
 		_assignment_resident.skill_changed.disconnect(_on_skill_changed)
 		_assignment_resident.traits_changed.disconnect(_refresh_traits)
 		_assignment_resident.relationship_changed.disconnect(_on_relationship_changed)
+		_assignment_resident.diary_changed.disconnect(_refresh_diary)
 		_assignment_resident.trait_preferences_changed.disconnect(_on_preferences_changed)
 	_assignment_resident = _selection.selected_resident
 	if _assignment_resident != null:
@@ -137,10 +139,12 @@ func _on_selection_changed() -> void:
 		_assignment_resident.skill_changed.connect(_on_skill_changed)
 		_assignment_resident.traits_changed.connect(_refresh_traits)
 		_assignment_resident.relationship_changed.connect(_on_relationship_changed)
+		_assignment_resident.diary_changed.connect(_refresh_diary)
 		_assignment_resident.trait_preferences_changed.connect(_on_preferences_changed)
 	_refresh_skills()
 	_refresh_traits()
 	_refresh_preferences()
+	_refresh_diary()
 	_on_roster_changed()
 	$Margin/Column/Scroll.scroll_vertical = 0
 	_refresh_assignments()
@@ -256,3 +260,12 @@ func _on_roster_changed() -> void:
 			_preference_targets.append(other)
 			other.traits_changed.connect(_refresh_relationships)
 	_refresh_relationships()
+
+
+func _refresh_diary() -> void:
+	var lines := PackedStringArray(["Дневник"])
+	if _assignment_resident != null:
+		for entry in _assignment_resident.diary_entries:
+			lines.append("• %s%s" % [entry.text, " (ключевая)" if entry.importance == Diary.Importance.KEY else " (временная)"])
+	if lines.size() == 1: lines.append("Записей нет")
+	$Margin/Column/Scroll/Content/Diary.text = "\n".join(lines)

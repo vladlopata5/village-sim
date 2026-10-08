@@ -1,4 +1,5 @@
 extends Node
+signal work_cycle_started(building_id: StringName)
 const EventLog = preload("res://scripts/game_logger.gd")
 var logger: EventLog
 ## Event-driven decision points, never a per-frame AI loop.
@@ -210,6 +211,7 @@ func _on_completed(intent: Intent) -> void:
 			return
 		_work_cycle_active = true
 		_work_cycle_ends_at = _clock.total_minutes + Balance.WORK_CYCLE_MINUTES
+		work_cycle_started.emit(_work_assignment.get("location_id", _data.work_location_id))
 		if logger != null: logger.info(EventLog.AI, "%s: начал рабочий цикл (%d мин)" % [_data.resident_name, Balance.WORK_CYCLE_MINUTES])
 		return
 	if _data.activity == Activity.Type.SLEEPING: return

@@ -9,6 +9,7 @@ const ResourceType = preload("res://scripts/resource_type.gd")
 const Skill = preload("res://scripts/skill_type.gd")
 const EventLog = preload("res://scripts/game_logger.gd")
 enum Phase { NONE, GOING_TO_SOURCE, CARRYING_TO_SITE, GOING_TO_SITE, BUILDING }
+signal work_cycle_started(building_id: StringName)
 signal cargo_dropped(resource: ResourceType.Type, amount: int)
 var logger: EventLog
 var position_provider: Callable
@@ -215,6 +216,7 @@ func _on_arrival(intent: Intent) -> void:
 		work_minutes = 0
 		_last_work_minute = _clock.total_minutes
 		_data.activity = Activity.Type.WORKING
+		work_cycle_started.emit(site.id)
 		if logger != null: logger.info(EventLog.BUILDING, "%s: начал строительный цикл (%d мин)" % [_data.resident_name, Balance.BUILDER_WORK_CYCLE_MINUTES])
 
 func _accrue_work(now: int) -> void:

@@ -1,0 +1,182 @@
+[
+  {
+    "id": "general_positive",
+    "conditions": {
+      "reaction_a": "POSITIVE"
+    },
+    "feed_text_a": "%A%: «Приятно провести время с %B%».",
+    "feed_text_b": "",
+    "diary_text_a": "%A% было приятно провести время с %B%.",
+    "diary_text_b": "",
+    "diary_importance": 1
+  },
+  {
+    "id": "general_neutral",
+    "conditions": {
+      "reaction_a": "NEUTRAL"
+    },
+    "feed_text_a": "%A%: «Побыли вместе с %B%».",
+    "feed_text_b": "",
+    "diary_text_a": "%A% и %B% некоторое время провели вместе.",
+    "diary_text_b": "",
+    "diary_importance": 1
+  },
+  {
+    "id": "general_negative",
+    "conditions": {
+      "reaction_a": "NEGATIVE"
+    },
+    "feed_text_a": "%A%: «Разговор с %B% не задался».",
+    "feed_text_b": "",
+    "diary_text_a": "Общение с %B% оставило у %A% неприятное впечатление.",
+    "diary_text_b": "",
+    "diary_importance": 1
+  },
+  {
+    "id": "conversation_positive",
+    "conditions": {
+      "allowed_contexts": [
+        "CONVERSATION"
+      ],
+      "reaction_a": "POSITIVE"
+    },
+    "feed_text_a": "%A%: «Хорошо поговорили с %B%».",
+    "feed_text_b": "",
+    "diary_text_a": "%A% запомнил приятный разговор с %B%.",
+    "diary_text_b": "",
+    "diary_importance": 2
+  },
+  {
+    "id": "conversation_negative",
+    "conditions": {
+      "allowed_contexts": [
+        "CONVERSATION"
+      ],
+      "reaction_a": "NEGATIVE"
+    },
+    "feed_text_a": "%A%: «Не поняли друг друга с %B%».",
+    "feed_text_b": "",
+    "diary_text_a": "%A% не понравился разговор с %B%.",
+    "diary_text_b": "",
+    "diary_importance": 1
+  },
+  {
+    "id": "meal_company",
+    "conditions": {
+      "allowed_contexts": [
+        "MEAL"
+      ],
+      "participant_state_tags_a": [
+        "EATING"
+      ]
+    },
+    "feed_text_a": "%A%: «За едой встретился с %B%».",
+    "feed_text_b": "",
+    "diary_text_a": "%A% провёл время за едой рядом с %B%.",
+    "diary_text_b": "",
+    "diary_importance": 1
+  },
+  {
+    "id": "meal_workers",
+    "conditions": {
+      "allowed_contexts": [
+        "MEAL"
+      ],
+      "participant_state_tags_a": [
+        "EATING"
+      ],
+      "participant_state_tags_b": [
+        "WORKING"
+      ]
+    },
+    "feed_text_a": "%A%: «%B% работает, пока я ем».",
+    "feed_text_b": "",
+    "diary_text_a": "Во время еды %A% наблюдал за работой %B%.",
+    "diary_text_b": "",
+    "diary_importance": 1
+  },
+  {
+    "id": "work_company",
+    "conditions": {
+      "allowed_contexts": [
+        "WORK"
+      ],
+      "participant_state_tags_a": [
+        "WORKER"
+      ]
+    },
+    "feed_text_a": "%A%: «На работе встретил %B%».",
+    "feed_text_b": "",
+    "diary_text_a": "%A% работал рядом с %B%.",
+    "diary_text_b": "",
+    "diary_importance": 1
+  },
+  {
+    "id": "work_visitor",
+    "conditions": {
+      "allowed_contexts": [
+        "WORK"
+      ],
+      "participant_state_tags_a": [
+        "WORKER"
+      ],
+      "participant_state_tags_b": [
+        "VISITOR"
+      ]
+    },
+    "feed_text_a": "%A%: «%B% заглянул во время работы».",
+    "feed_text_b": "",
+    "diary_text_a": "%A% встретил посетителя %B% во время работы.",
+    "diary_text_b": "",
+    "diary_importance": 1
+  },
+  {
+    "id": "foolish_story",
+    "conditions": {
+      "allowed_contexts": [
+        "CONVERSATION"
+      ],
+      "reaction_a": "POSITIVE",
+      "required_traits_b": [
+        6
+      ]
+    },
+    "feed_text_a": "%A%: «С %B% хотя бы не скучно».",
+    "feed_text_b": "",
+    "diary_text_a": "%A% развеселили нелепые истории %B%.",
+    "diary_text_b": "",
+    "diary_importance": 1
+  },
+  {
+    "id": "lazy_company",
+    "conditions": {
+      "allowed_contexts": [
+        "WORK"
+      ],
+      "reaction_a": "NEGATIVE",
+      "required_traits_b": [
+        3
+      ]
+    },
+    "feed_text_a": "%A%: «%B% сегодня не торопится».",
+    "feed_text_b": "",
+    "diary_text_a": "%A% остался недоволен общением с %B% во время работы.",
+    "diary_text_b": "",
+    "diary_importance": 1
+  },
+  {
+    "id": "mixed_conversation",
+    "conditions": {
+      "allowed_contexts": [
+        "CONVERSATION"
+      ],
+      "reaction_a": "NEGATIVE",
+      "reaction_b": "POSITIVE"
+    },
+    "feed_text_a": "%A%: «Мы с %B% не сошлись во мнениях».",
+    "feed_text_b": "%B%: «Мне понравился разговор с %A%».",
+    "diary_text_a": "%A% остался недоволен разговором с %B%.",
+    "diary_text_b": "%B% остался доволен разговором с %A%.",
+    "diary_importance": 1
+  }
+]

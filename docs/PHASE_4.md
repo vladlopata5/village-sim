@@ -1125,3 +1125,41 @@ future memories/mood/context/shared-event комбинации только за
 Headless startup — exit 0, пустой stderr; новых warnings/errors нет.
 Проверены seeded uniqueness/independence, API validation, directed score,
 no cache/opinion mutation, event-driven UI и отсутствие SOCIAL/TALK_TO effects.
+
+
+## Social Events
+
+SocialEventService создаётся Main после регистрации runtimes в SocialWorld.
+Lifecycle signals: SocialWorld.conversation_joined (после полной membership),
+Needs.meal_begun (после take_reserved и EATING), Decision.work_cycle_started и
+Builder.work_cycle_started (после начала фактической работы). Start только, без
+minute polling. Pool query делает различие worker/visitor/eater/talking; проходящие
+маршруты исключены. Builder transport/Porter haul не считаются рабочим циклом.
+
+Transient SocialEvent хранит IDs/context, directed attitude snapshots, rolls,
+reactions, deltas, selected_entry_id и narrative orientation. Service не хранит
+history/pool events. Entry filtering принимает оба порядка участников; одна запись
+получает один ticket. Text/Diary/Feed после opinion API, no match безопасен.
+
+12 JSON records в assets/social_events/entries.json, optional context/reaction/
+traits/state-tag filters, раздельные feed/diary strings и diary importance.
+Отдельный narrative RNG изолирует mechanics от текстовых решений. Seed и injected
+RNG поддерживают тесты; обычная игра использует randomized streams.
+
+HUD/SocialFeed — до 4 кратких сообщений снизу слева, expire Timer 12 секунд.
+ResidentCard Diary label в существующем ScrollContainer обновляется diary_changed.
+Data history хранит только optional DiaryEntry: TEMPORARY удаляется следующим
+утром, KEY остаётся. Нет psychological memory или gameplay bonuses.
+
+Regression behavior_test_setup явно отключает вероятностный SocialEventService,
+чтобы старые тесты opinion foundation проверяли прежние изолированные системы.
+Новые tests/test_social_events.gd включают сервис и проверяют intended opinion
+updates через реальные action start hooks. UtilitySelector и другие AI формулы
+не изменяются.
+
+Проверки Social Events: 59/59 suites PASS; новый набор — 114 checks, 0 failures.
+Godot analyzer: 140 scripts, 0 diagnostics. Headless startup: exit 0, пустой
+stderr; новых warnings/errors нет. Визуальная проверка подтвердила размещение
+Feed между HUD и ConstructionPanel, отдельно от правой карточки. Проверены
+таймеры вытесненных messages после удаления Label и stale runtime при утренней
+очистке дневника. Diff check прошёл.

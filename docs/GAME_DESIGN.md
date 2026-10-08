@@ -1360,3 +1360,36 @@ TALK_TO, ConversationGroup или duration. Отдельная symmetric compati
 не вводится: её роль на текущем этапе заменяют directed personal tastes. Future
 social decisions/events могут учитывать opinion + preference + memories + mood +
 context + shared events; эти сочетания сейчас не реализованы.
+
+
+## Social Events (первая версия)
+
+Одно transient SocialEvent имеет двух участников; WORK, MEAL, CONVERSATION —
+контекстные теги, а не отдельные типы историй. Roll запускается из lifecycle:
+начало/присоединение к разговору 30%, фактическое начало еды 15%, начало каждого
+рабочего цикла 5%. WORK roll повторяется на каждом цикле, не только раз за смену.
+PORTER пока не имеет такого неподвижного цикла и не вызывает WORK social roll.
+
+Pool — другие участники ConversationGroup или смыслово присутствующие в одном
+BuildingInstance: едящие, committed workers, посетители с активным разговором
+в footprint здания. Проходящий мимо resident не eligible. Действия участников
+могут различаться. Target выбирается равновероятно, без opinion/preference weight.
+
+Для каждого направления attitude = clamp(opinion + trait preference, −100,100).
+Attitude не хранится. Независимые integer rolls −100..100 добавляются к attitude;
+score <−50 negative, >50 positive, иначе neutral. Через existing opinion API
+применяется −1/0/+1. Оба attitude определяются до изменения opinion.
+
+После mechanics выбирается data-driven narrative entry с optional context,
+reaction, trait и participant-tag filters. Возможны обе A/B orientation. Все
+подходящие записи равноправны; matching обеих ориентаций не удваивает вес записи.
+Текст никогда не меняет reaction/opinion/chance. No match не отменяет mechanics.
+Библиотека prototype содержит 12 записей, включая общие fallback и FOOLISH/LAZY.
+
+Feed — отдельный краткий UI stream: до 4 сообщений, новые снизу, expire через
+12 реальных секунд (также на pause), без permanent history. Дневник ResidentCard
+— отдельные optional records в ResidentData. Chance 20% на каждый непустой diary
+text, только если entry importance TEMPORARY/KEY; NONE исключён. Temporary
+удаляется следующим утром, KEY permanent. Diary не является psychological memory.
+Событие само по себе не сохраняется. Результаты не меняют SOCIAL utility/target,
+conversation duration/need, работу, mood, skills, assignments или event chance.
