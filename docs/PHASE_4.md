@@ -1444,3 +1444,25 @@ main_3d и legacy 2D headless: exit 0 без warnings/errors. Rendered QA: assig
 Это controlled rendered QA, не human playtest. Regression выявил прежний
 недетерминированный sort StringName в runtime blocker registry: заменён явным
 лексикографическим String comparison; геометрия/contract не менялись.
+
+
+### Forestry normal-AI integration bugfix (2026-10-09)
+
+Root cause: DecisionController._has_work обходил fixed-workplace checks только для
+BUILDER. LUMBERJACK с пустым work_location_id возвращал false до вызова подключённого
+Main3D forestry provider; WORK отсутствовал в selector pool. Это не navigation bug.
+World-work gate теперь включает BUILDER и LUMBERJACK, с прежним work_available
+provider и WORK_PRIORITY. GATHERER/PORTER workplace validation не изменена.
+Предыдущие forestry integration/rendered checks вызывали provider/controller напрямую
+и не покрывали этот gate. Новый regression test проходит через назначение Марины
+в 06:08, реальный phase boundary 07:00 и normal selector: WORK → tree claim → movement
+→ chopping → 3 LOG. Без available tree WORK отсутствует и normal wander доступен.
+Никаких forced actions, новых timers, utility constants или fallback chopping.
+
+Bugfix verification: до fix normal-AI regression воспроизводит 4 failures (provider
+available, но gate false / no WORK / no tree task); после fix 20 checks, 0 failures.
+Full suite 70/70 PASS, все stderr пустые; forestry 139 checks. Analyzer 182 scripts,
+0 diagnostics. Canonical project headless exit 0, stderr пуст. Controlled rendered QA:
+Марина assigned LUMBERJACK через UI в 06:08, normal WORK selection в 07:00,
+claim tree_13, physical arrival/chopping, 3 LOG в 08:00. Needs в fixture низкие;
+utility constants и selector не менялись. Human manual playtest не заявляется.

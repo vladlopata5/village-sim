@@ -272,7 +272,8 @@ func has_more_important_action(current_priority: int) -> bool:
 	return false
 
 func _has_work() -> bool:
-	if _data.profession == preload("res://scripts/resident_profession.gd").Type.BUILDER:
+	# World-work professions have no fixed building workplace. Their provider owns availability.
+	if _data.profession in [Profession.Type.BUILDER, Profession.Type.LUMBERJACK]:
 		return work_available.is_valid() and work_available.call()
 	if _data.work_location_id.is_empty() or not _needs.has_location(_data.work_location_id): return false
 	if work_available.is_valid(): return work_available.call()

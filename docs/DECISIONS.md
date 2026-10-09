@@ -1716,3 +1716,17 @@ Porter container-to-container logistics не изменены. Ground LOG пок
 Следующий этап: ground resource pickup/logistics; Sawmill/PLANK позже. Без procedural
 forest, regeneration, tools, chopping animation, tree UI или save/load overhaul.
 Legacy 2D запускается, но forestry world-work реализован только в main_3d.
+
+
+### Forestry normal-AI integration bugfix (2026-10-09)
+
+Root cause: DecisionController._has_work обходил fixed-workplace checks только для
+BUILDER. LUMBERJACK с пустым work_location_id возвращал false до вызова подключённого
+Main3D forestry provider; WORK отсутствовал в selector pool. Это не navigation bug.
+World-work gate теперь включает BUILDER и LUMBERJACK, с прежним work_available
+provider и WORK_PRIORITY. GATHERER/PORTER workplace validation не изменена.
+Предыдущие forestry integration/rendered checks вызывали provider/controller напрямую
+и не покрывали этот gate. Новый regression test проходит через назначение Марины
+в 06:08, реальный phase boundary 07:00 и normal selector: WORK → tree claim → movement
+→ chopping → 3 LOG. Без available tree WORK отсутствует и normal wander доступен.
+Никаких forced actions, новых timers, utility constants или fallback chopping.
