@@ -1567,3 +1567,39 @@ Starter building centers явно выровнены в shared setup по том
 BuildGrid snap, что runtime placement (0.5 world unit, scale 1:25). Registration
 проверяет alignment, но не округляет domain positions. Footprint edges совпадают
 с cell boundaries; IDs, housing, resources и BUILT state сохранены. F5 остаётся 2D.
+
+
+### First physical forestry chain: Tree → LOG (2026-10-09)
+
+Canonical main_3d имеет 16 deterministic individual Trees в западной области
+X=-34.25..-25.25, Z=-13.25..-4.25 world units; они не snapped и не занимают BuildGrid.
+TreeData: stable ID/kind TREE, simulation position, physical radius 0.35, STANDING /
+DEPLETED, separate reservation owner, persistent work_done/work_required и yield.
+Standing tree блокирует NavigationGrid через physical bounding rectangle + standard
+resident clearance 0.4 и generic runtime circle placement contract; никаких Tree
+branches в validator. Depletion снимает оба blockers без rebake и убирает view.
+
+LUMBERJACK / Лесоруб доступен в прежнем profession UI без workplace building.
+На обычном daytime WORK decision выбирается ближайшее standing unreserved tree
+с reachable access point, deterministic ID tie-break. Perimeter resolver проверяет
+8 фиксированных directions / 3 outward rings через NavigationGrid и выбирает
+ближайшую доступную точку к worker. Runtime executor по-прежнему владеет WORLD
+position; domain positions и target используют scale bridge 1:25.
+
+После реального arrival начинается chopping: 60 actual game work-minutes/tree.
+Progress принадлежит Tree, сохраняется при schedule/critical/PlayerCommand/impossible
+или resident-removal interruption; reservation освобождается. Новая profession
+применяется после committed action, progress не сбрасывается. Полностью срубленное
+дерево даёт +1 Gathering XP, без skill effects, и normal decision point.
+
+Default data-driven yield — 3 LOG: отдельные GroundResource amount=1 с deterministic
+радиальными offsets 0.35 world unit, простой horizontal cylinder View3D. Существующие
+GroundResource drops также используют маленький generic 3D view. Lifetime остаётся
+4320 игровых минут. LOG и прежний construction WOOD сосуществуют; recipes, FOOD,
+Porter container-to-container logistics не изменены. Ground LOG пока не pickup/source
+и не placement/nav blocker; строительство поверх loose resources остаётся известным
+ограничением до отдельного решения. Depleted data сохраняется в tree registry.
+
+Следующий этап: ground resource pickup/logistics; Sawmill/PLANK позже. Без procedural
+forest, regeneration, tools, chopping animation, tree UI или save/load overhaul.
+Legacy 2D запускается, но forestry world-work реализован только в main_3d.

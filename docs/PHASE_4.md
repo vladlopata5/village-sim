@@ -1399,3 +1399,48 @@ resources, home IDs, professions и construction lifecycle сохранены. F
 Rendered viewport QA с временным overlay 0.5: starter/runtime edges aligned;
 после placement трёх HOME 80/80 прогулок завершились, 0 unavailable wander routes.
 Это автоматизированный rendered QA, не human manual playtest.
+
+
+### First physical forestry chain: Tree → LOG (2026-10-09)
+
+Canonical main_3d имеет 16 deterministic individual Trees в западной области
+X=-34.25..-25.25, Z=-13.25..-4.25 world units; они не snapped и не занимают BuildGrid.
+TreeData: stable ID/kind TREE, simulation position, physical radius 0.35, STANDING /
+DEPLETED, separate reservation owner, persistent work_done/work_required и yield.
+Standing tree блокирует NavigationGrid через physical bounding rectangle + standard
+resident clearance 0.4 и generic runtime circle placement contract; никаких Tree
+branches в validator. Depletion снимает оба blockers без rebake и убирает view.
+
+LUMBERJACK / Лесоруб доступен в прежнем profession UI без workplace building.
+На обычном daytime WORK decision выбирается ближайшее standing unreserved tree
+с reachable access point, deterministic ID tie-break. Perimeter resolver проверяет
+8 фиксированных directions / 3 outward rings через NavigationGrid и выбирает
+ближайшую доступную точку к worker. Runtime executor по-прежнему владеет WORLD
+position; domain positions и target используют scale bridge 1:25.
+
+После реального arrival начинается chopping: 60 actual game work-minutes/tree.
+Progress принадлежит Tree, сохраняется при schedule/critical/PlayerCommand/impossible
+или resident-removal interruption; reservation освобождается. Новая profession
+применяется после committed action, progress не сбрасывается. Полностью срубленное
+дерево даёт +1 Gathering XP, без skill effects, и normal decision point.
+
+Default data-driven yield — 3 LOG: отдельные GroundResource amount=1 с deterministic
+радиальными offsets 0.35 world unit, простой horizontal cylinder View3D. Существующие
+GroundResource drops также используют маленький generic 3D view. Lifetime остаётся
+4320 игровых минут. LOG и прежний construction WOOD сосуществуют; recipes, FOOD,
+Porter container-to-container logistics не изменены. Ground LOG пока не pickup/source
+и не placement/nav blocker; строительство поверх loose resources остаётся известным
+ограничением до отдельного решения. Depleted data сохраняется в tree registry.
+
+Следующий этап: ground resource pickup/logistics; Sawmill/PLANK позже. Без procedural
+forest, regeneration, tools, chopping animation, tree UI или save/load overhaul.
+Legacy 2D запускается, но forestry world-work реализован только в main_3d.
+
+Forestry проверки: полный suite 69/69 PASS, все stderr пустые; forestry — 139 checks,
+0 failures. Analyzer: 181 scripts, 0 diagnostics. Canonical F5-equivalent, direct
+main_3d и legacy 2D headless: exit 0 без warnings/errors. Rendered QA: assignment
+через profession UI, forest/individual trees, red ghost, physical perimeter arrival,
+60 actual minutes, removal, 3 видимых LOG, путь и green placement после depletion.
+Это controlled rendered QA, не human playtest. Regression выявил прежний
+недетерминированный sort StringName в runtime blocker registry: заменён явным
+лексикографическим String comparison; геометрия/contract не менялись.

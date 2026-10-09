@@ -10,6 +10,9 @@ var navigation_debug = preload("res://scripts/world_3d/navigation_grid_debug.gd"
 var build_grid = preload("res://scripts/build_grid.gd").new()
 var runtime_placement_blockers = preload("res://scripts/runtime_placement_blockers.gd").new()
 var building_ghost: Node3D
+var trees: Array = []
+var tree_views: Dictionary = {}
+var tree_locations = preload("res://scripts/world_3d/tree_locations_3d.gd").new()
 var ready_for_play := false
 var _clicks: Array[InputEventMouseButton] = []
 var _pointer_position := Vector2.ZERO
@@ -28,6 +31,7 @@ func _ready() -> void:
 	$HUD.add_child(toggle)
 	resident_selection.selection_changed.connect(_update_navigation_debug)
 	_pointer_position = get_viewport().get_mouse_position()
+	_setup_forest()
 	ready_for_play = true
 func _create_resident_presentation(data: ResidentData, start: Vector2) -> Node:
 	var executor = Executor.new()
@@ -105,8 +109,6 @@ func cancel_construction(id: StringName) -> bool:
 	navigation.remove_blocker(id)
 	game_logger.info(GameLogger.BUILDING, "стройка отменена — %s" % id)
 	return true
-func _show_ground_resource(_drop) -> void:
-	pass # Physical resource data/lifetime remain; 3D drop visuals are deferred.
 func _drop_cargo(resource: ResourceType.Type, amount: int, runtime: ResidentRuntime) -> void:
 	ground_resources.create_drop(resource, amount, runtime.view.get_sim_position())
 func _on_movement_failed(intent: RefCounted, data: ResidentData) -> void:
@@ -183,3 +185,57 @@ func _wander_target_2d(rng: RandomNumberGenerator, resident_id: String):
 	return WanderTarget.nearby(origin, rng, field.FIELD, _reachable_wander_target)
 func _reachable_wander_target(origin: Vector2, target: Vector2) -> bool:
 	return not navigation.find_path(Coordinates.to_world(origin), Coordinates.to_world(target)).is_empty()
+
+func _setup_forest() -> void:
+	tree_locations.navigation = navigation
+	# Explicit natural world positions, away from starter residents/building access points.
+	for row in range(4):
+		for column in range(4):
+			var point := Vector3(-25.25-column*3.0,0,-13.25+row*3.0)
+			var tree = preload("res://scripts/tree_data.gd").new(StringName("tree_%02d" % (row*4+column+1)),Coordinates.to_sim(point))
+			trees.append(tree)
+			var view = preload("res://scripts/world_3d/tree_view_3d.gd").new()
+			$World.add_child(view)
+			view.setup(tree)
+			tree_views[tree.id] = view
+			navigation.add_blocker(tree.id,tree_footprint(tree))
+			runtime_placement_blockers.register_circle(tree.id,_tree_world_position.bind(tree),tree.physical_radius)
+	for runtime in resident_runtimes:
+		var controller = preload("res://scripts/resident_lumberjack_controller.gd").new()
+		controller.name = "Lumberjack"
+		runtime.add_child(controller)
+		controller.setup(runtime,game_time,trees,tree_locations,_deplete_tree)
+		runtime.view.tree_exiting.connect(controller.abort.bind(false))
+func _tree_world_position(tree: RefCounted) -> Vector3: return Coordinates.to_world(tree.position)
+func tree_footprint(tree: RefCounted) -> Rect2:
+	var point := Coordinates.world_plane(_tree_world_position(tree))
+	return Rect2(point-Vector2.ONE*tree.physical_radius,Vector2.ONE*tree.physical_radius*2.0)
+func _deplete_tree(tree: RefCounted) -> void:
+	if not tree_views.has(tree.id): return # Exactly-once world removal/yield.
+	navigation.remove_blocker(tree.id)
+	runtime_placement_blockers.unregister(tree.id)
+	var view: Node = tree_views[tree.id]
+	view.queue_free()
+	tree_views.erase(tree.id)
+	for index in range(tree.yield_amount):
+		var offset := Vector2.from_angle(index*TAU/maxi(tree.yield_amount,1))*0.35
+		ground_resources.create_drop(tree.yield_resource_type,1,tree.position+offset*Coordinates.SIM_UNITS_PER_WORLD_UNIT)
+func _work_available(runtime: ResidentRuntime) -> bool:
+	if runtime.data.profession == Profession.Type.LUMBERJACK:
+		var controller = runtime.get_node_or_null("Lumberjack")
+		return controller != null and controller.has_work()
+	return super._work_available(runtime)
+func _request_work(runtime: ResidentRuntime) -> bool:
+	if runtime.data.profession == Profession.Type.LUMBERJACK:
+		var controller = runtime.get_node_or_null("Lumberjack")
+		return controller != null and controller.request_work()
+	return super._request_work(runtime)
+func _show_ground_resource(drop) -> void:
+	var view = preload("res://scripts/world_3d/ground_resource_view_3d.gd").new()
+	$World.add_child(view)
+	view.setup(drop)
+	_ground_views[drop] = view
+	var id := StringName("ground_%d" % _next_ground_id)
+	_next_ground_id += 1
+	_ground_ids[drop] = id
+	interactions.register_target(id,ResourceType.display_name(drop.resource_type)+" на земле",drop,_ground_position.bind(drop),[&"ground_resource"])

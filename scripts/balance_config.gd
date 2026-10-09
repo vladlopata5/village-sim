@@ -88,3 +88,8 @@ const SOCIAL_EVENT_POSITIVE_DELTA = 1
 const SOCIAL_EVENT_DIARY_CHANCE = 0.20
 const SOCIAL_FEED_MAX_MESSAGES = 4
 const SOCIAL_FEED_LIFETIME_SECONDS = 12.0
+
+# Temporary first physical forestry chain. No skill efficiency modifiers.
+const TREE_PHYSICAL_RADIUS := 0.35
+const TREE_WORK_MINUTES := 60
+const TREE_LOG_YIELD := 3

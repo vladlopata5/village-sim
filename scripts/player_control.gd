@@ -78,7 +78,7 @@ func current_intent(resident_id: String):
 func assign_profession(resident_id: String, profession: Profession.Type) -> bool:
 	var resident: RefCounted = _residents.get(resident_id)
 	if resident == null or profession not in Profession.Type.values(): return false
-	if profession not in [Profession.Type.NONE, Profession.Type.BUILDER] and not _workplaces.has(profession): return false
+	if profession not in [Profession.Type.NONE, Profession.Type.BUILDER, Profession.Type.LUMBERJACK] and not _workplaces.has(profession): return false
 	return _assign(resident_id, profession, _workplaces.get(profession, &""))
 
 func _assign(resident_id: String, profession: Profession.Type, location_id: StringName) -> bool:

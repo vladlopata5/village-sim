@@ -12,7 +12,7 @@ func has_blocker(id: StringName) -> bool: return _circles.has(id)
 func first_overlap(footprint: Rect2) -> StringName:
 	if not footprint.has_area(): return &""
 	var ids: Array = _circles.keys()
-	ids.sort() # Stable result if multiple entities intersect.
+	ids.sort_custom(func(a, b): return String(a) < String(b)) # Explicit lexical order for StringName IDs.
 	for id in ids:
 		var circle: Dictionary = _circles[id]
 		var provider: Callable = circle.position
