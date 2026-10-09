@@ -59,13 +59,18 @@ func _refresh() -> void:
 		for resource in ResourceType.Type.values():
 			var limit: int = _building.resources.get_capacity(resource)
 			if limit > 0: resource_lines.append("%s: %d / %d" % [ResourceType.display_name(resource), _building.resources.get_amount(resource), limit])
-	var snapshot: Array = [_building.display_name, _building.id, _building.state, _building.type, amount, capacity, _building.production_progress, _building.construction_delivered, _building.construction_progress, _building.active_builder_ids, _building.definition.construction_requirements.duplicate(), _building.definition.construction_work_required, _building.definition.max_builders, resource_lines]
+	var workers_snapshot: Array = _control.get_workplace_workers(_building.id).map(func(worker): return worker.id) if _control != null else []
+	var snapshot: Array = [workers_snapshot,_building.display_name, _building.id, _building.state, _building.type, amount, capacity, _building.production_progress, _building.construction_delivered, _building.construction_progress, _building.active_builder_ids, _building.definition.construction_requirements.duplicate(), _building.definition.construction_work_required, _building.definition.max_builders, resource_lines]
 	if snapshot == _last_snapshot: return
 	_last_snapshot = snapshot
 	name_label.text = _building.display_name
 	id_label.text = "ID: %s" % _building.id
 	state_label.text = "Состояние: " + ("Построено" if _building.is_built() else "Строится")
 	type_label.text = "Тип: " + _type_text(_building.type)
+	if _control != null and _building.is_built() and _building.type == Types.Type.LUMBERJACK_HUT:
+		var workers: Array = _control.get_workplace_workers(_building.id)
+		resource_lines.append("Работники: %d / %d" % [workers.size(),_building.definition.worker_capacity])
+		for worker in workers: resource_lines.append(worker.resident_name + " — Лесоруб")
 	resources_label.text = "\n".join(resource_lines) if not resource_lines.is_empty() else "Ресурсов нет"
 	production_section.visible = _building.is_built() and _building.type == Types.Type.GATHERER_HUT
 	production_label.text = "FOOD • прогресс: %d / %d рабочих минут" % [_building.production_progress, Balance.GATHERER_WORK_MINUTES_PER_FOOD]
@@ -83,6 +88,7 @@ func _type_text(category: int) -> String:
 		Types.Type.FOOD: return "Кухня"
 		Types.Type.STORAGE: return "Склад"
 		Types.Type.GATHERER_HUT: return "Хижина собирателя"
+		Types.Type.LUMBERJACK_HUT: return "Хижина лесоруба"
 		Types.Type.HOME: return "Дом"
 		_: return "Здание"
 func _close() -> void:

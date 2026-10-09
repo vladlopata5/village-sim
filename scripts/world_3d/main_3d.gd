@@ -10,6 +10,9 @@ var navigation_debug = preload("res://scripts/world_3d/navigation_grid_debug.gd"
 var build_grid = preload("res://scripts/build_grid.gd").new()
 var runtime_placement_blockers = preload("res://scripts/runtime_placement_blockers.gd").new()
 var building_ghost: Node3D
+var forestry_area = preload("res://scripts/world_3d/forestry_area_3d.gd").new()
+var _next_tree_id := 17
+var _last_growth_minute := 0
 var trees: Array = []
 var tree_views: Dictionary = {}
 var tree_locations = preload("res://scripts/world_3d/tree_locations_3d.gd").new()
@@ -28,6 +31,7 @@ func _ready() -> void:
 	toggle.text = "Navigation debug: blocked / raw / smooth"
 	toggle.position = Vector2(16,590)
 	toggle.toggled.connect(navigation_debug.set_enabled)
+	toggle.toggled.connect(_set_work_area_debug)
 	$HUD.add_child(toggle)
 	resident_selection.selection_changed.connect(_update_navigation_debug)
 	_pointer_position = get_viewport().get_mouse_position()
@@ -54,6 +58,7 @@ func _create_building_presentation(building: BuildingInstance) -> Node:
 	view.position = Coordinates.to_world(building.position)
 	assert(view.position.is_equal_approx(build_grid.snap(view.position, building.definition.footprint_cells, building.quarter_turns)), "Building source center must already be footprint-aligned")
 	view.setup(building)
+	view.set_work_area_debug(navigation_debug.visible)
 	var cells: Array = build_grid.footprint_cells(view.position, building.definition.footprint_cells, building.quarter_turns)
 	var registered: bool = build_grid.occupy(building.id, cells)
 	assert(registered, "Building registration must own a free footprint")
@@ -71,7 +76,7 @@ func _setup_construction() -> void:
 	construction_panel = preload("res://scripts/construction_panel.gd").new()
 	$HUD.add_child(construction_panel)
 	var definitions: Array = []
-	for category in [BuildingType.Type.HOME, BuildingType.Type.STORAGE, BuildingType.Type.FOOD, BuildingType.Type.GATHERER_HUT]:
+	for category in [BuildingType.Type.HOME, BuildingType.Type.STORAGE, BuildingType.Type.FOOD, BuildingType.Type.GATHERER_HUT, BuildingType.Type.LUMBERJACK_HUT]:
 		definitions.append(BuildingDefinition.for_type(category))
 	construction_panel.setup(definitions)
 	construction_panel.definition_selected.connect(_select_building_definition)
@@ -188,23 +193,21 @@ func _reachable_wander_target(origin: Vector2, target: Vector2) -> bool:
 
 func _setup_forest() -> void:
 	tree_locations.navigation = navigation
+	forestry_area.setup(self)
+	_last_growth_minute = game_time.total_minutes
+	game_time.minute_changed.connect(_grow_trees)
 	# Explicit natural world positions, away from starter residents/building access points.
 	for row in range(4):
 		for column in range(4):
 			var point := Vector3(-25.25-column*3.0,0,-13.25+row*3.0)
 			var tree = preload("res://scripts/tree_data.gd").new(StringName("tree_%02d" % (row*4+column+1)),Coordinates.to_sim(point))
-			trees.append(tree)
-			var view = preload("res://scripts/world_3d/tree_view_3d.gd").new()
-			$World.add_child(view)
-			view.setup(tree)
-			tree_views[tree.id] = view
-			navigation.add_blocker(tree.id,tree_footprint(tree))
-			runtime_placement_blockers.register_circle(tree.id,_tree_world_position.bind(tree),tree.physical_radius)
+			_register_tree(tree)
 	for runtime in resident_runtimes:
 		var controller = preload("res://scripts/resident_lumberjack_controller.gd").new()
 		controller.name = "Lumberjack"
 		runtime.add_child(controller)
 		controller.setup(runtime,game_time,trees,tree_locations,_deplete_tree)
+		controller.world = self
 		runtime.view.tree_exiting.connect(controller.abort.bind(false))
 func _tree_world_position(tree: RefCounted) -> Vector3: return Coordinates.to_world(tree.position)
 func tree_footprint(tree: RefCounted) -> Rect2:
@@ -235,7 +238,35 @@ func _show_ground_resource(drop) -> void:
 	$World.add_child(view)
 	view.setup(drop)
 	_ground_views[drop] = view
-	var id := StringName("ground_%d" % _next_ground_id)
-	_next_ground_id += 1
+	var id: StringName = drop.id
 	_ground_ids[drop] = id
 	interactions.register_target(id,ResourceType.display_name(drop.resource_type)+" на земле",drop,_ground_position.bind(drop),[&"ground_resource"])
+
+func _register_tree(tree: RefCounted) -> void:
+	trees.append(tree)
+	var view = preload("res://scripts/world_3d/tree_view_3d.gd").new()
+	$World.add_child(view)
+	view.setup(tree)
+	tree_views[tree.id] = view
+	_refresh_tree_blocker(tree)
+func _refresh_tree_blocker(tree: RefCounted) -> void:
+	navigation.add_blocker(tree.id,tree_footprint(tree))
+	runtime_placement_blockers.unregister(tree.id)
+	runtime_placement_blockers.register_circle(tree.id,_tree_world_position.bind(tree),tree.physical_radius)
+func spawn_sapling(position: Vector2) -> RefCounted:
+	var tree = preload("res://scripts/tree_data.gd").new(StringName("tree_%02d" % _next_tree_id),position)
+	_next_tree_id += 1
+	tree.make_sapling()
+	_register_tree(tree)
+	game_logger.info(GameLogger.PRODUCTION,"Посажен саженец — %s" % tree.id)
+	return tree
+func _grow_trees(now: int) -> void:
+	var minutes := maxi(now-_last_growth_minute,0)
+	_last_growth_minute = now
+	for tree in trees:
+		if tree.grow(minutes):
+			_refresh_tree_blocker(tree)
+			game_logger.info(GameLogger.PRODUCTION,"Саженец вырос — %s" % tree.id)
+
+func _set_work_area_debug(enabled: bool) -> void:
+	for view in $World/BuildingViews.get_children(): view.set_work_area_debug(enabled)

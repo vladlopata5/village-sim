@@ -14,6 +14,7 @@ class ControlSpy extends RefCounted:
 	var calls: Array = []
 	var data: RefCounted
 	func get_resident(_id: String): return data
+	func can_assign_workplace(_id: String, _location: StringName) -> bool: return true
 	func assign_workplace(id: String, location: StringName) -> bool:
 		calls.append([id, location])
 		return true

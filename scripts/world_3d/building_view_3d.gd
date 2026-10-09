@@ -4,6 +4,7 @@ const Geometry = preload("res://scripts/world_3d/world_geometry.gd")
 var building_data: RefCounted
 var indicator: MeshInstance3D
 var material: StandardMaterial3D
+var work_area: MeshInstance3D
 var caption: Label3D
 func setup(data: RefCounted) -> void:
 	building_data = data
@@ -41,10 +42,29 @@ func setup(data: RefCounted) -> void:
 	caption.position.y = height + 0.36
 	caption.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	add_child(caption)
+	if data.definition.work_radius > 0:
+		_create_work_area(data.definition.work_radius)
 	data.construction_changed.connect(_refresh)
 	_refresh()
 func _refresh() -> void:
-	var colors := [Color("bd976b"), Color("829ba7"), Color("9aaa70"), Color("c2aa91")]
+	var colors := [Color("bd976b"), Color("829ba7"), Color("9aaa70"), Color("c2aa91"),Color("88735d")]
 	material.albedo_color = colors[building_data.type] if building_data.is_built() else Color("8b7357")
 	caption.text = building_data.display_name + ("" if building_data.is_built() else " — строится")
 func set_selected(value: bool) -> void: indicator.visible = value
+
+func _create_work_area(radius: float) -> void:
+	work_area = MeshInstance3D.new()
+	var mesh := ImmediateMesh.new()
+	var color := StandardMaterial3D.new()
+	color.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	color.albedo_color = Color("80c994")
+	mesh.surface_begin(Mesh.PRIMITIVE_LINES,color)
+	for index in range(64):
+		for angle in [index*TAU/64.0,(index+1)*TAU/64.0]:
+			mesh.surface_add_vertex(Vector3(cos(angle)*radius,0.04,sin(angle)*radius))
+	mesh.surface_end()
+	work_area.mesh = mesh
+	work_area.visible = false
+	add_child(work_area)
+func set_work_area_debug(enabled: bool) -> void:
+	if work_area != null: work_area.visible = enabled

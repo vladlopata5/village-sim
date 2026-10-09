@@ -50,6 +50,9 @@ func register_building(building: RefCounted) -> void:
 		BuildingType.Type.STORAGE:
 			if not _workplaces.has(Profession.Type.PORTER): _workplaces[Profession.Type.PORTER] = building.id
 			_workplace_professions[building.id] = Profession.Type.PORTER
+		BuildingType.Type.LUMBERJACK_HUT:
+			if not _workplaces.has(Profession.Type.LUMBERJACK): _workplaces[Profession.Type.LUMBERJACK] = building.id
+			_workplace_professions[building.id] = Profession.Type.LUMBERJACK
 		BuildingType.Type.GATHERER_HUT:
 			if not _workplaces.has(Profession.Type.GATHERER): _workplaces[Profession.Type.GATHERER] = building.id
 			_workplace_professions[building.id] = Profession.Type.GATHERER
@@ -65,7 +68,7 @@ func move_to(resident_id: String, destination: Vector2) -> bool:
 	return is_instance_valid(controller) and controller.move_to(destination)
 
 func assign_workplace(resident_id: String, location_id: StringName) -> bool:
-	if not _workplace_professions.has(location_id): return false
+	if not can_assign_workplace(resident_id,location_id): return false
 	return _assign(resident_id, _workplace_professions[location_id], location_id)
 
 func register_intents(resident_id: String, controller: Node) -> void:
@@ -78,8 +81,15 @@ func current_intent(resident_id: String):
 func assign_profession(resident_id: String, profession: Profession.Type) -> bool:
 	var resident: RefCounted = _residents.get(resident_id)
 	if resident == null or profession not in Profession.Type.values(): return false
-	if profession not in [Profession.Type.NONE, Profession.Type.BUILDER, Profession.Type.LUMBERJACK] and not _workplaces.has(profession): return false
-	return _assign(resident_id, profession, _workplaces.get(profession, &""))
+	if profession in [Profession.Type.NONE,Profession.Type.BUILDER]: return _assign(resident_id,profession,&"")
+	if resident.profession == profession and can_assign_workplace(resident_id,resident.work_location_id): return true
+	var preferred: StringName = _workplaces.get(profession,&"")
+	if can_assign_workplace(resident_id,preferred): return _assign(resident_id,profession,preferred)
+	var ids: Array = _workplace_professions.keys()
+	ids.sort_custom(func(a,b): return String(a)<String(b))
+	for location in ids:
+		if _workplace_professions[location] == profession and can_assign_workplace(resident_id,location): return _assign(resident_id,profession,location)
+	return false
 
 func _assign(resident_id: String, profession: Profession.Type, location_id: StringName) -> bool:
 	var resident: RefCounted = _residents.get(resident_id)
@@ -133,3 +143,12 @@ func clear_home(resident_id: String) -> bool:
 
 func _on_resident_home_changed(previous: StringName, current: StringName, resident_id: String) -> void:
 	home_changed.emit(resident_id, previous, current)
+
+func get_workplace_workers(location_id: StringName) -> Array:
+	return _residents.values().filter(func(resident): return resident.work_location_id == location_id and resident.profession == _workplace_professions.get(location_id,-1))
+func can_assign_workplace(resident_id: String, location_id: StringName) -> bool:
+	var resident = _residents.get(resident_id)
+	var building = get_building(location_id)
+	if resident == null or building == null or not building.is_built() or not _workplace_professions.has(location_id): return false
+	if resident.work_location_id == location_id and resident.profession == _workplace_professions[location_id]: return true
+	return building.definition.worker_capacity == 0 or get_workplace_workers(location_id).size() < building.definition.worker_capacity

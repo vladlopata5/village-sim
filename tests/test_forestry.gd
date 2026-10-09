@@ -57,6 +57,7 @@ func run() -> void:
 		var point: Variant = scene.tree_locations.resolve(tree,scene.resident_runtimes[1].view.get_sim_position())
 		check(point is Vector2 and point.distance_to(tree.position) > tree.physical_radius*25 and scene.navigation.is_world_walkable(Coordinates.to_world(point)),"Access is outside footprint and navigable/reachable")
 		check(point == scene.tree_locations.resolve(tree,scene.resident_runtimes[1].view.get_sim_position()),"Access resolver deterministic")
+	preload("res://tests/forestry_fixture.gd").hut(scene)
 	var actor = scene.resident_runtimes[1]
 	var worker = actor.get_node("Lumberjack")
 	check(scene.player_control.assign_profession(actor.data.id,Profession.Type.LUMBERJACK) and Profession.display_name(actor.data.profession)=="Лесоруб","Existing management API allows world-work profession")
@@ -66,6 +67,7 @@ func run() -> void:
 	var target_tree = worker.tree
 	check(target_tree.reservation_owner_id == StringName(actor.data.id) and not worker.chopping,"Reserved before travel; no work before arrival")
 	var second = scene.resident_runtimes[2]
+	preload("res://tests/forestry_fixture.gd").hut(scene,&"test_hut_2",Vector3(-20,0,-2))
 	scene.player_control.assign_profession(second.data.id,Profession.Type.LUMBERJACK)
 	check(second.get_node("Lumberjack").best_target().tree != target_tree,"Second worker skips reserved tree")
 	var definition = preload("res://scripts/building_definition.gd").for_type(preload("res://scripts/building_type.gd").Type.HOME)
@@ -87,6 +89,7 @@ func run() -> void:
 	actor.view.global_position = Vector3(0,0,20)
 	check(scene.placement.can_place(),"Former tree space buildable after resident leaves; loose LOG not blockers")
 	scene.placement.cancel()
+	preload("res://tests/forestry_fixture.gd").clear_drops(scene)
 	check(worker.request_work(),"Next decision can select another tree")
 	arrive(actor)
 	var partial = worker.tree
@@ -101,7 +104,8 @@ func run() -> void:
 	check(worker.request_work() and worker.tree==partial,"Another ordinary task resumes partial tree")
 	arrive(actor)
 	scene.game_time.debug_skip_minutes(30)
-	check(partial.state==TreeData.State.DEPLETED and scene.ground_resources.drops.size()==6,"Resume 30 minutes completes remaining work and one additional yield")
+	check(partial.state==TreeData.State.DEPLETED and scene.ground_resources.drops.size()==3,"Resume 30 minutes completes remaining work and one additional yield")
+	preload("res://tests/forestry_fixture.gd").clear_drops(scene)
 	for tree in scene.trees: tree.release(&"fixture")
 	check(worker.request_work(),"Critical interruption fixture starts")
 	arrive(actor)

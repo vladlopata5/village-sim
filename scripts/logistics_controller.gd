@@ -66,10 +66,10 @@ func add_production_source(hut: BuildingInstance) -> void: register_building(hut
 func add_kitchen(kitchen: BuildingInstance) -> void: register_building(kitchen)
 func add_warehouse(warehouse: BuildingInstance) -> void: register_building(warehouse)
 func register_resident(resident: ResidentData) -> void: _residents[resident.id] = resident
-func _on_amount_changed(resource: ResourceType.Type, _amount: int) -> void:
-	if resource == FOOD: recalculate()
-func _on_reservations_changed(resource: ResourceType.Type) -> void:
-	if resource == FOOD: recalculate()
+func _on_amount_changed(_resource: ResourceType.Type, _amount: int) -> void:
+	recalculate()
+func _on_reservations_changed(_resource: ResourceType.Type) -> void:
+	recalculate()
 func recalculate() -> void:
 	# Explicit debug refresh / local events only. No clock polling or job creation.
 	_availability_dirty = true
@@ -85,19 +85,25 @@ func _pairs() -> Array:
 				pairs.append({"source": source, "destination": destination, "export": false})
 			elif source.type == BuildingType.Type.GATHERER_HUT and destination.type == BuildingType.Type.STORAGE:
 				pairs.append({"source": source, "destination": destination, "export": true})
+			elif source.type == BuildingType.Type.LUMBERJACK_HUT and destination.type == BuildingType.Type.STORAGE:
+				pairs.append({"source":source,"destination":destination,"export":true,"resource":ResourceType.Type.LOG})
 	return pairs
 func _valid_pair(pair: Dictionary) -> bool:
 	var source: BuildingInstance = pair.source
 	var destination: BuildingInstance = pair.destination
-	return _buildings.get(source.id) == source and _buildings.get(destination.id) == destination and source != destination and source.is_built() and destination.is_built() and source.resources.get_available_amount(FOOD) > 0 and destination.resources.allows_resource(FOOD) and destination.resources.get_available_free_capacity(FOOD) > 0 and _point(source) is Vector2 and _point(destination) is Vector2
+	var resource: ResourceType.Type = pair.get("resource",FOOD)
+	return _buildings.get(source.id) == source and _buildings.get(destination.id) == destination and source != destination and source.is_built() and destination.is_built() and source.resources.get_available_amount(resource) > 0 and destination.resources.allows_resource(resource) and destination.resources.get_available_free_capacity(resource) > 0 and _point(source) is Vector2 and _point(destination) is Vector2
 func _point(building: BuildingInstance) -> Variant:
 	return _locations.get_position(building.id) if _locations != null else building.position
 func _eligible(resident: ResidentData) -> bool:
 	if resident == null or resident.profession != Profession.Type.PORTER or resident.inventory.amount != 0: return false
 	var workplace: BuildingInstance = _buildings.get(resident.work_location_id)
 	return workplace != null and workplace.is_built() and workplace.type == BuildingType.Type.STORAGE
-func _can_claim(resident: ResidentData) -> bool:
-	if not _eligible(resident) or jobs.any(func(job): return job.assigned_resident_id == resident.id): return false
+func _can_claim(resident: ResidentData, own_export: BuildingInstance = null) -> bool:
+	var eligible := _eligible(resident)
+	if own_export != null:
+		eligible = resident != null and resident.profession == Profession.Type.LUMBERJACK and resident.work_location_id == own_export.id and own_export.type == BuildingType.Type.LUMBERJACK_HUT and own_export.is_built() and resident.inventory.amount == 0
+	if not eligible or jobs.any(func(job): return job.assigned_resident_id == resident.id): return false
 	var executor = _executors.get(resident.id)
 	return executor == null or executor.can_start()
 func has_available_job(resident_id: String) -> bool:
@@ -119,8 +125,8 @@ func collect_candidates(resident_id: String) -> Array:
 		var candidate := Candidate.new()
 		candidate.source = pair.source
 		candidate.destination = pair.destination
-		candidate.resource_type = FOOD
-		candidate.world_urgency = Priority.export_priority(pair.source.resources, FOOD, pair.source.logistics_weight) if pair.export else Priority.import_priority(pair.destination.resources, FOOD, pair.destination.logistics_weight)
+		candidate.resource_type = pair.get("resource",FOOD)
+		candidate.world_urgency = Priority.export_priority(pair.source.resources, candidate.resource_type, pair.source.logistics_weight) if pair.export else Priority.import_priority(pair.destination.resources, candidate.resource_type, pair.destination.logistics_weight)
 		candidate.route_distance = position.distance_to(_point(pair.source)) + _point(pair.source).distance_to(_point(pair.destination))
 		candidate.distance_penalty = distance_penalty(candidate.route_distance)
 		candidate.personal_modifier = _get_personal_delivery_modifier(resident, candidate)
@@ -154,12 +160,16 @@ func claim_best_job(resident_id: String) -> HaulJob:
 		candidates = collect_candidates(resident_id) # Bounded fresh evaluation, no stale execution.
 	return null
 func _claim_candidate(resident: ResidentData, candidate: Candidate) -> HaulJob:
-	if not _can_claim(resident) or not _valid_pair({"source": candidate.source, "destination": candidate.destination}): return null
+	return _claim_delivery(resident,candidate,false)
+func _claim_delivery(resident: ResidentData, candidate: Candidate, own_export: bool) -> HaulJob:
+	var own_source: BuildingInstance = candidate.source if own_export else null
+	if own_export and candidate.resource_type != ResourceType.Type.LOG: return null
+	if not _can_claim(resident,own_source) or not _valid_pair({"source": candidate.source, "destination": candidate.destination,"resource":candidate.resource_type}): return null
 	_claiming = true # Reserve callbacks cannot recursively claim a half-owned delivery.
 	var out: bool = candidate.source.resources.reserve_out(candidate.resource_type, 1)
 	var incoming: bool = out and candidate.destination.resources.reserve_in(candidate.resource_type, 1)
 	# Forced/player/world changes inside synchronous resource signals are rechecked too.
-	var valid: bool = incoming and _can_claim(resident) and _buildings.get(candidate.source.id) == candidate.source and _buildings.get(candidate.destination.id) == candidate.destination and candidate.source.is_built() and candidate.destination.is_built()
+	var valid: bool = incoming and _can_claim(resident,own_source) and _buildings.get(candidate.source.id) == candidate.source and _buildings.get(candidate.destination.id) == candidate.destination and candidate.source.is_built() and candidate.destination.is_built()
 	valid = valid and _point(candidate.source) is Vector2 and _point(candidate.destination) is Vector2
 	valid = valid and candidate.source.resources.get_reserved_out(candidate.resource_type) >= 1 and candidate.destination.resources.get_reserved_in(candidate.resource_type) >= 1
 	if not valid:
@@ -169,13 +179,14 @@ func _claim_candidate(resident: ResidentData, candidate: Candidate) -> HaulJob:
 		recalculate()
 		return null
 	var job := HaulJob.new(StringName("haul_%04d" % _next_id), candidate.source.id, candidate.destination.id, candidate.resource_type, 1, resident.id, candidate.porter_score)
+	job.work_phase_only = own_export
 	_next_id += 1
 	jobs.append(job)
 	current_job = job
 	var executor = _executors.get(resident.id)
 	if executor != null: executor.job = job
 	_claiming = false
-	if logger != null: logger.info(EventLog.LOGISTICS, "%s: выбрал доставку 1 FOOD — %s → %s" % [resident.resident_name, candidate.source.display_name, candidate.destination.display_name])
+	if logger != null: logger.info(EventLog.LOGISTICS, "%s: выбрал доставку 1 %s — %s → %s" % [resident.resident_name,ResourceType.Type.keys()[candidate.resource_type], candidate.source.display_name, candidate.destination.display_name])
 	recalculate()
 	return job
 func get_job(resident_id: String) -> HaulJob:
@@ -224,3 +235,15 @@ func drop_cargo(resource: ResourceType.Type, amount: int, resident_id: String) -
 	cargo_dropped.emit(resource, amount, resident_id)
 func notify_delivery() -> void:
 	delivered.emit()
+
+func claim_own_export(resident_id: String, destination: BuildingInstance) -> HaulJob:
+	if _claiming: return null
+	var resident: ResidentData = _residents.get(resident_id)
+	if resident == null: return null
+	var source: BuildingInstance = _buildings.get(resident.work_location_id)
+	if source == null: return null
+	var candidate := Candidate.new()
+	candidate.source = source
+	candidate.destination = destination
+	candidate.resource_type = ResourceType.Type.LOG
+	return _claim_delivery(resident,candidate,true)

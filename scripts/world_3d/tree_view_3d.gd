@@ -21,8 +21,13 @@ func setup(tree: RefCounted) -> void:
 	crown.position.y = 2.25
 	crown.material_override = material(Color(0.16,0.38,0.12))
 	add_child(crown)
+	tree.changed.connect(_refresh_growth)
+	_refresh_growth()
 func get_world_position() -> Vector3: return global_position
 func material(color: Color) -> StandardMaterial3D:
 	var result := StandardMaterial3D.new()
 	result.albedo_color = color
 	return result
+
+func _refresh_growth() -> void:
+	scale = Vector3.ONE * (0.3 if tree_data.state == tree_data.State.SAPLING else 1.0)

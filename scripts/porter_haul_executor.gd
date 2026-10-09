@@ -79,6 +79,9 @@ func validate_job() -> bool:
 	return true
 
 func _on_phase_changed(phase: String) -> void:
+	if job != null and job.work_phase_only and phase != "День":
+		cancel("конец рабочего времени")
+		return
 	if phase == "Ночь" and job != null and job.state in [Job.State.ASSIGNED, Job.State.GOING_TO_SOURCE]: cancel("началась ночь")
 func _on_intent_changed(intent: Intent) -> void:
 	if job != null and job.state == Job.State.GOING_TO_SOURCE and intent != _haul_intent: cancel("действие сменилось")
@@ -112,7 +115,7 @@ func _pickup(intent: Intent) -> void:
 		_interrupt_pending = false
 		cancel("подбор прерван")
 		return
-	if service.logger != null: service.logger.info(EventLog.LOGISTICS, "%s: забрал 1 FOOD — %s" % [resident.resident_name, source.display_name])
+	if service.logger != null: service.logger.info(EventLog.LOGISTICS, "%s: забрал 1 %s — %s" % [resident.resident_name,preload("res://scripts/resource_type.gd").Type.keys()[job.resource_type], source.display_name])
 	service.changed.emit()
 	if job == null or intents.current_intent != intent: return
 	job.state = Job.State.GOING_TO_DESTINATION
@@ -136,7 +139,7 @@ func _deliver(intent: Intent) -> void:
 		return
 	var completed := job
 	completed.state = Job.State.COMPLETED
-	if service.logger != null: service.logger.info(EventLog.LOGISTICS, "%s: доставил 1 FOOD — %s" % [resident.resident_name, destination.display_name])
+	if service.logger != null: service.logger.info(EventLog.LOGISTICS, "%s: доставил 1 %s — %s" % [resident.resident_name,preload("res://scripts/resource_type.gd").Type.keys()[job.resource_type], destination.display_name])
 	job = null
 	_haul_intent = null
 	_interrupt_pending = false

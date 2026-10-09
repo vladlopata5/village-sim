@@ -18,6 +18,9 @@ func register_building(building: RefCounted, position: Callable) -> void:
 		BuildingType.Type.STORAGE:
 			capabilities.append(&"employment")
 			profession = Profession.Type.PORTER
+		BuildingType.Type.LUMBERJACK_HUT:
+			capabilities.append(&"employment")
+			profession = Profession.Type.LUMBERJACK
 		BuildingType.Type.GATHERER_HUT:
 			capabilities.append(&"employment")
 			profession = Profession.Type.GATHERER
@@ -58,7 +61,7 @@ func _for_resident(resident_id: String, target_id: StringName) -> Array:
 					options.append(Option.new(&"assign_home", "Назначить дом", Option.Kind.MANAGEMENT_ACTION, target_id, not full, "Дом заполнен" if full else ""))
 			&"employment":
 				var already: bool = data.profession == target.profession and data.work_location_id == target_id
-				options.append(Option.new(&"employment", "Устроиться на работу", Option.Kind.MANAGEMENT_ACTION, target_id, not already, "Уже работает здесь" if already else ""))
+				options.append(Option.new(&"employment", "Устроиться на работу", Option.Kind.MANAGEMENT_ACTION, target_id, not already and control.can_assign_workplace(resident_id,target_id), "Уже работает здесь" if already else ("Рабочие места заняты" if not control.can_assign_workplace(resident_id,target_id) else "")))
 			&"ground_resource":
 				for action in [[&"pick_up", "Поднять"], [&"haul", "Отнести на склад"]]:
 					options.append(Option.new(action[0], action[1], Option.Kind.RESIDENT_ASSIGNMENT, target_id, false, "Поручения будут добавлены следующим этапом"))

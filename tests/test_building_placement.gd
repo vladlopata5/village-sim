@@ -43,7 +43,7 @@ func _run() -> void:
 	await process_frame
 	await process_frame
 	check(panel.name == "ConstructionPanel" and not panel.collapsed and panel.building_buttons.is_visible_in_tree(), "Construction panel exists and expanded by default")
-	check(panel.building_buttons.get_child_count() == 4, "All four existing building types supported")
+	check(panel.building_buttons.get_child_count() == 5, "All five existing building types supported")
 	check(not panel.get_global_rect().intersects(card.get_global_rect()), "Bottom panel avoids resident card")
 	var original_time: int = scene.game_time.total_minutes
 	click(panel.collapse_button.get_global_rect().get_center())

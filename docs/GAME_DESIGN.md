@@ -1579,7 +1579,8 @@ Standing tree блокирует NavigationGrid через physical bounding rec
 resident clearance 0.4 и generic runtime circle placement contract; никаких Tree
 branches в validator. Depletion снимает оба blockers без rebake и убирает view.
 
-LUMBERJACK / Лесоруб доступен в прежнем profession UI без workplace building.
+Исторический forestry foundation: LUMBERJACK первоначально работал без workplace;
+текущая модель с хижиной описана ниже.
 На обычном daytime WORK decision выбирается ближайшее standing unreserved tree
 с reachable access point, deterministic ID tie-break. Perimeter resolver проверяет
 8 фиксированных directions / 3 outward rings через NavigationGrid и выбирает
@@ -1603,3 +1604,60 @@ Porter container-to-container logistics не изменены. Ground LOG пок
 Следующий этап: ground resource pickup/logistics; Sawmill/PLANK позже. Без procedural
 forest, regeneration, tools, chopping animation, tree UI или save/load overhaul.
 Legacy 2D запускается, но forestry world-work реализован только в main_3d.
+
+
+## Forestry: Lumberjack Hut и локальный рабочий цикл
+
+Текущая модель заменяет прежний world-work лесоруб без workplace. LUMBERJACK
+требует назначенную BUILT Хижину лесоруба через общий PlayerControl/interaction.
+BUILDER остаётся world-work. Worker capacity хижины = 1; список работников
+вычисляется по ResidentData.work_location_id, без второй mutable копии.
+
+Хижина — обычный BuildingInstance/Definition: footprint 8×6 build cells
+(4×3 world units), quarter-turn rotation, 10 WOOD + 180 construction work-minutes,
+2 builder slots. Ghost/BuildGrid/NavGrid/access bridge и UNDER_CONSTRUCTION → BUILT
+общие. Starter hut не добавлена; игрок строит её. Container принимает только LOG,
+локальная capacity 12; рабочая область от logical center имеет radius 15 world units.
+
+На normal daytime WORK decision используется порядок:
+1. COLLECT: available reachable loose Ground LOG внутри собственной области;
+   reserve конкретный stable GroundResource ID + hut inbound capacity, физический
+   pickup одного LOG в inventory, доставка к default hut access, deposit.
+2. CHOP: STANDING, unreserved, reachable tree в области, только если полный
+   data-driven yield помещается в available free capacity. 60 actual work-minutes
+   → 3 отдельных Ground LOG; они не попадают прямо в inventory/container.
+3. PLANT: если STANDING + SAPLING count < target 12 и есть valid spot.
+4. EXPORT: если локальных задач нет, 1 LOG из собственной hut в ближайший
+   reachable BUILT container, принимающий LOG со свободной capacity.
+
+Пример: buffer 10/12 и yield 3, без loose LOG/посадки → EXPORT; после доставки
+одного LOG buffer 9/12 → CHOP снова eligible. Нет отдельного urgent export rule.
+Перекрывающиеся work areas не владеют деревьями/брёвнами: конкуренцию разрешают
+временные Tree/GroundResource reservations.
+
+Посадка: deterministic samples (7 rings × 16 directions), порядок по близости,
+проверки bounds/navigation/buildings/runtime blockers/Tree/Sapling/temporary claims.
+Minimum center spacing 2 world units. 30 actual work-minutes → individual SAPLING.
+Interrupted planting сбрасывает partial progress и claim. SAPLING radius 0.15,
+за 4320 game-minutes (3 дня) → обычный STANDING radius 0.35 с тем же ID.
+Оба состояния блокируют navigation/placement, не занимают BuildGrid; рост обновляет
+blockers без rebake. Terrain/species/tools/seeds/сезоны не добавлены.
+
+Export переиспользует HaulJob + PorterHaulExecutor полностью: atomic out/in,
+physical inventory, completion/drop. Только выбор fallback принадлежит лесорубу;
+его job имеет work_phase_only и отменяется вне DAY WORK. Обычный Porter видит
+container LOG export Hut → Storage через существующий service; Ground LOG он
+не подбирает. Warehouse имеет отдельную LOG capacity 20, начальный LOG stock 0;
+FOOD/WOOD balance не изменён.
+
+Interrupt before local pickup оставляет drop и освобождает Ground/inbound claims;
+after pickup создаёт GroundResource в текущей позиции и освобождает hut inbound.
+Chopping сохраняет Tree progress; planting progress не сохраняет. PlayerCommand,
+critical needs и конец WORK используют общий interrupt lifecycle. Profession change
+не прерывает committed action, но следующие tasks требуют актуальную hut profession.
+После каждого completed task — normal decision point, не автоматическая цепочка.
+
+BuildingCard показывает LOG N/12 и assigned worker/Лесоруб. Radius виден кольцом через существующий Navigation debug toggle; target UI не
+добавлен. Chopping сохраняет прежний +1 Gathering XP; local pickup/planting не дают
+дополнительного XP; export сохраняет shared successful haul +1 Logistics XP.
+GroundResource lifetime остаётся 4320 минут. Sawmill/PLANK/WOOD migration отложены.

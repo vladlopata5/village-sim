@@ -50,7 +50,6 @@ var interactions = InteractionService.new()
 var interaction_targets = InteractionTargets2D.new()
 var interaction_menu: PanelContainer
 var _ground_ids: Dictionary = {}
-var _next_ground_id := 1
 var residents: Array[ResidentData] = []
 var resident_runtimes: Array[ResidentRuntime] = []
 var population_label: Label
@@ -434,6 +433,7 @@ func _create_test_warehouse() -> void:
 	warehouse_data = BuildingData.new(&"warehouse_01", "Склад", BuildingType.Type.STORAGE)
 	warehouse_data.resources.set_capacity(ResourceType.Type.FOOD, 20)
 	warehouse_data.resources.add(ResourceType.Type.FOOD, 10)
+	warehouse_data.resources.set_capacity(ResourceType.Type.LOG, Balance.WAREHOUSE_LOG_CAPACITY)
 	warehouse_data.resources.set_capacity(ResourceType.Type.WOOD, 50)
 	warehouse_data.resources.add(ResourceType.Type.WOOD, 50)
 	buildings.append(warehouse_data)
@@ -492,8 +492,7 @@ func _show_ground_resource(drop) -> void:
 	$World.add_child(view)
 	view.setup(drop)
 	_ground_views[drop] = view
-	var id := StringName("ground_%d" % _next_ground_id)
-	_next_ground_id += 1
+	var id: StringName = drop.id
 	_ground_ids[drop] = id
 	interactions.register_target(id, ResourceType.display_name(drop.resource_type) + " на земле", drop, _ground_position.bind(drop), [&"ground_resource"])
 	interaction_targets.register(id, view)
@@ -517,7 +516,7 @@ func _setup_construction() -> void:
 	construction_panel = preload("res://scripts/construction_panel.gd").new()
 	$HUD.add_child(construction_panel)
 	var definitions: Array = []
-	for category in [BuildingType.Type.HOME, BuildingType.Type.STORAGE, BuildingType.Type.FOOD, BuildingType.Type.GATHERER_HUT]:
+	for category in [BuildingType.Type.HOME, BuildingType.Type.STORAGE, BuildingType.Type.FOOD, BuildingType.Type.GATHERER_HUT, BuildingType.Type.LUMBERJACK_HUT]:
 		definitions.append(BuildingDefinition.for_type(category))
 	construction_panel.setup(definitions)
 	construction_panel.definition_selected.connect(_select_building_definition)
@@ -544,11 +543,16 @@ func _activate_completed_building(building: BuildingInstance) -> void:
 	match building.type:
 		BuildingType.Type.STORAGE:
 			building.resources.set_capacity(ResourceType.Type.FOOD, 20)
+			building.resources.set_capacity(ResourceType.Type.LOG, Balance.WAREHOUSE_LOG_CAPACITY)
 			building.resources.set_capacity(ResourceType.Type.WOOD, 50)
 			logistics.add_warehouse(building)
 		BuildingType.Type.FOOD:
 			building.resources.set_capacity(ResourceType.Type.FOOD, 20)
 			logistics.add_kitchen(building)
+		BuildingType.Type.LUMBERJACK_HUT:
+			building.resources.set_allowed_resource_types([ResourceType.Type.LOG])
+			building.resources.set_capacity(ResourceType.Type.LOG,building.definition.local_resource_capacity)
+			logistics.register_building(building)
 		BuildingType.Type.GATHERER_HUT:
 			building.resources.set_allowed_resource_types([ResourceType.Type.FOOD])
 			building.resources.set_capacity(ResourceType.Type.FOOD, 5)

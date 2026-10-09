@@ -2,6 +2,7 @@ extends RefCounted
 ## Successfully claimed delivery, owned by one resident from creation.
 const ResourceType = preload("res://scripts/resource_type.gd")
 enum State { ASSIGNED, GOING_TO_SOURCE, CARRYING, GOING_TO_DESTINATION, COMPLETED, CANCELLED }
+var work_phase_only := false # Forestry exports stop/drop at the end of WORK.
 var priority: float = 0.0 # Claim-time porter score snapshot; never refreshed or compared with needs.
 var id: StringName
 var source_location_id: StringName

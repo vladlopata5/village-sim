@@ -24,10 +24,11 @@ func world():
 	return scene
 func prepare_marina(scene: Node) -> Node:
 	var marina = scene.resident_runtimes[3]
+	preload("res://tests/forestry_fixture.gd").hut(scene)
 	check(marina.data.resident_name=="Марина","Regression uses actual starting Marina")
 	scene.game_time.debug_skip_minutes(8)
 	check(scene.player_control.assign_profession(marina.data.id,Profession.Type.LUMBERJACK),"Assign at 06:08 through management API")
-	check(marina.data.work_location_id.is_empty() and marina.data.profession==Profession.Type.LUMBERJACK,"UI enum/world-work profession does not need workplace")
+	check(marina.data.work_location_id==&"test_hut" and marina.data.profession==Profession.Type.LUMBERJACK,"UI profession resolves its built hut")
 	for kind in range(4): marina.data.get_need(kind).value = 0
 	return marina
 func run() -> void:
@@ -37,7 +38,7 @@ func run() -> void:
 	scene.game_time.debug_skip_minutes(52) # Real phase boundary drives the existing schedule/AI.
 	var worker = marina.get_node("Lumberjack")
 	check(scene.game_time.get_phase()=="День" and scene._work_available(marina),"Main3D forestry provider exposes reachable standing tree")
-	check(marina.decision._has_work(),"AI workplace gate admits lumberjack world-work")
+	check(marina.decision._has_work(),"AI workplace gate admits assigned lumberjack")
 	var work: Array = marina.decision.collect_actions(marina.decision._has_work()).filter(func(row): return row.id=="WORK")
 	check(work.size()==1 and work[0].priority==Modifiers.action_utility(marina.data,Modifiers.Action.WORK,Balance.WORK_PRIORITY),"Forestry receives unchanged standard WORK utility")
 	check(lines.any(func(line): return "Марина: выбрал работу" in line),"Real selector chose WORK at 07:00")
