@@ -1,5 +1,18 @@
 # Village Sim — Technical Decisions
 
+## Текущий запуск: canonical main_3d (2026-10-09)
+
+Основная playable scene — `scenes/main_3d.tscn`; F5 / Run Project запускает её.
+Основной foundation перехода 2D → 3D/2.5D завершён. `scenes/main.tscn` сохранена
+как legacy/reference presentation/runtime и запускается отдельно (F6 / direct
+scene startup), включая существующие integration tests. Simulation/Domain остаётся
+общей активной архитектурой, не legacy. Новые gameplay/world features развиваются
+прежде всего в main_3d; параллельное развитие 2D требует отдельной причины.
+Исторические записи ниже о F5/2D default описывают прошлые этапы и заменены этим
+статусом. Это завершение foundation, не реализация отложенных cargo visuals, terrain,
+crowd avoidance или полноценной interaction-point system.
+
+
 ## 2026-10-04
 
 ### Engine

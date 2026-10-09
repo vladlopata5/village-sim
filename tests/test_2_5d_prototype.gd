@@ -28,7 +28,7 @@ func _run() -> void:
 	check(Coordinates.to_world(Vector2(2, 7), 4) == Vector3(2, 4, 7), "Optional height is presentation Y")
 	check(Coordinates.to_sim(Vector3(2, 100, 7)) == Vector2(2, 7), "Height is excluded from simulation coordinates")
 	check(Coordinates.on_ground(Vector3(2, 100, 7)) == Vector3(2, 0, 7), "Ground projection removes height")
-	check(ProjectSettings.get_setting("application/run/main_scene") == "res://scenes/main.tscn", "Existing 2D main scene remains the default")
+	check(ProjectSettings.get_setting("application/run/main_scene") == "res://scenes/main_3d.tscn", "Canonical project startup uses the migrated 3D main scene")
 	var scene = load("res://scenes/prototypes/2_5d_prototype.tscn").instantiate()
 	root.add_child(scene)
 	scene.movement.set_physics_process(false)

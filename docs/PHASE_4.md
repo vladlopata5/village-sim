@@ -1,5 +1,25 @@
 # Phase 4 — базовые потребности
 
+## Текущий запуск: canonical main_3d (2026-10-09)
+
+Основная playable scene — `scenes/main_3d.tscn`; F5 / Run Project запускает её.
+Основной foundation перехода 2D → 3D/2.5D завершён. `scenes/main.tscn` сохранена
+как legacy/reference presentation/runtime и запускается отдельно (F6 / direct
+scene startup), включая существующие integration tests. Simulation/Domain остаётся
+общей активной архитектурой, не legacy. Новые gameplay/world features развиваются
+прежде всего в main_3d; параллельное развитие 2D требует отдельной причины.
+Проверки finalization: suite 68/68 PASS, все stderr пустые; analyzer 175 scripts,
+0 diagnostics. F5-equivalent headless project startup, direct main_3d и direct
+legacy main — exit 0 без warnings/errors. Rendered QA загружает сцену через
+project setting: actual main_3d, resident/building selection/cards, MOVE_TO arrival,
+keyboard pan, wheel zoom, green snapped ghost, rotation 90° и Esc cancel проходят.
+Bootstrap не менялся; исправлено только прежнее ожидание 2D default в prototype test.
+
+Исторические записи ниже о F5/2D default описывают прошлые этапы и заменены этим
+статусом. Это завершение foundation, не реализация отложенных cargo visuals, terrain,
+crowd avoidance или полноценной interaction-point system.
+
+
 Статус: начат. Phase 3 завершён. Реализованы рост голода, тестовая кухня FOOD и первая реакция на голод: путь к кухне и 30 игровых минут еды. Добавлен локальный ограниченный запас FOOD кухни. Производство отсутствует.
 
 ResidentData.hunger остаётся целым числом 0–100; setter ограничивает диапазон. Main/ResidentHunger (scripts/resident_hunger.gd) получает данные и слушает GameTime.minute_changed. Каждый сигнал означает одну прошедшую игровую минуту, включая каждую минуту длинного кадра и debug-перемотки.
