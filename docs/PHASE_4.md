@@ -1633,3 +1633,55 @@ A при готовой B, второй доставляет последний 
 Отмена реального carrier возобновляет fetch; cancellation стройки очищает assignment
 и grid occupancy. Исходные восемь материалов заданы fixture, последние два реально
 прошли source → inventory → construction_delivered; длительный новый playtest не проводился.
+
+
+### 2026-10-09 — первая processing chain: LOG → Sawmill → PLANK
+
+SAWMILL («Лесопилка») — обычный BuildingInstance: 12×8 build cells (6×4 world units),
+rotation 90°, construction 15 WOOD / 240 work-minutes / 2 builders. Placement, ghost,
+BuildGrid/NavGrid blockers, DEFAULT ACCESS POINT, selection и completion переиспользованы.
+BUILT Sawmill имеет 1 workplace для SAWYER («Пильщик»); assignment — прежний
+ResidentData.work_location_id и PlayerControl employment API. Стартовая лесопилка не создаётся.
+
+BuildingDefinition.production_recipe — небольшой ProductionRecipe с inputs/outputs и
+work_required. Текущий временный recipe: 1 LOG → 1 PLANK за 30 actual work-minutes.
+PLANK («Доски») — игровая единица обработанной древесины, не буквальная одна доска.
+Отдельные buffers LOG=12 и PLANK=12 используют существующие per-resource capacities.
+Gatherer FOOD observer/60-minute professional cycle не переписан и не изменён.
+Input-consuming recipes исполняет небольшой ResidentRecipeController в общем runtime:
+обычный workplace WORK candidate → reserve input/output → идти к access point → WORKING.
+Никакого world-work exception, scheduler или per-frame production availability polling.
+
+Input reserve_out и output reserve_in создаются до цикла: LOG остаётся физически в
+контейнере, место под PLANK гарантировано. ResourceContainer.transform_reserved проверяет
+и обновляет весь локальный ledger до отправки synchronous resource signals. External import
+policy не ограничивает local production deposit. При completion input consumed, output
+produced, building.production_progress=0 и owner/reservations очищены; затем normal decision.
+Progress принадлежит BuildingInstance, как в Gatherer, и прибавляется по фактическим игровым
+минутам у action location. Short interruption сохраняет partial progress; обе reservations
+освобождаются и заново claim при resume. При отсутствии LOG/output capacity WORK unavailable.
+Relevant container events дают idle worker новый decision point, не прерывая personal action.
+PlayerCommand/critical/schedule используют прежний pipeline; после 17:00 production не идёт.
+
+External policies: Sawmill LOG import=true/export=false, PLANK import=false/export=true.
+Storage PLANK import=true/export=true, capacity=20; Storage→Storage по-прежнему запрещён.
+Lumberjack fallback может экспортировать LOG в Sawmill через общий destination provider;
+Hut A→Hut B остаётся запрещён. Porter выполняет Storage→Sawmill LOG и Sawmill→own Storage
+PLANK через обычные candidates/reservations/physical execution, без special deliveries.
+BuildingCard показывает LOG/PLANK, assigned Sawyer и production work progress.
+
+WOOD остаётся отдельным construction resource; PLANK пока не имеет потребителя кроме
+Storage. Заполненные output/storage buffers естественно останавливают recipe. Следующий
+крупный этап — migration construction WOOD → PLANK, вне текущего commit. Не добавлены
+tools/fuel/sawdust, animations, multiple recipes/workers, recipe selection или новые skills.
+
+
+Проверки Sawmill: полный suite 74/74 PASS, новый test_sawmill — 89 checks/0 failures.
+Analyzer: 190/190 scripts, 0 diagnostics. Canonical project, direct main_3d и legacy 2D
+headless startup: exit 0, stderr пустой. Rendered canonical main_3d: оба здания реально
+построены Builder (10+15 physical WOOD и 180+240 work-minutes), дерево срублено, три LOG
+физически собраны в hut, один экспортирован в Sawmill, произведён PLANK и доставлен
+Porter в свой Storage. No-input/output-full stops проверены. Rendered fixture управляет
+clock/work decision boundaries, отключает need growth и после первого harvest изолирует
+export от других forestry tasks; это не длительный ручной playtest. Full buffers заданы
+через debug/data APIs для проверки остановки; production не теряет оставшийся LOG.

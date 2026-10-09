@@ -128,3 +128,28 @@ func add_reserved(resource: ResourceType.Type, amount: int) -> bool:
 func _emit_availability(resource: ResourceType.Type, previous_available: int) -> void:
 	var available := get_available_amount(resource)
 	if available != previous_available: availability_changed.emit(resource, available)
+
+
+func transform_reserved(inputs: Dictionary, outputs: Dictionary) -> bool:
+	# Validate the entire local transaction before signals can invoke other consumers.
+	var types: Array = inputs.keys()
+	for resource in outputs:
+		if resource not in types: types.append(resource)
+	for resource in types:
+		var consumed: int = inputs.get(resource,0)
+		var produced: int = outputs.get(resource,0)
+		if consumed < 0 or produced < 0 or consumed > get_reserved_out(resource) or produced > get_reserved_in(resource): return false
+		var next_amount := get_amount(resource)-consumed+produced
+		if not allows_resource(resource) or next_amount < get_reserved_out(resource)-consumed or next_amount+get_reserved_in(resource)-produced > get_capacity(resource): return false
+	var previous: Dictionary = {}
+	for resource in types:
+		previous[resource] = get_available_amount(resource)
+		_amounts[resource] = get_amount(resource)-int(inputs.get(resource,0))+int(outputs.get(resource,0))
+		_reserved_out[resource] = get_reserved_out(resource)-int(inputs.get(resource,0))
+		_reserved_in[resource] = get_reserved_in(resource)-int(outputs.get(resource,0))
+	# All quantities/reservations are already final even inside synchronous callbacks.
+	for resource in types:
+		_emit_availability(resource,previous[resource])
+		changed.emit(resource,get_amount(resource))
+		reservations_changed.emit(resource)
+	return true

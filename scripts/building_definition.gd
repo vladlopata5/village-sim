@@ -4,7 +4,9 @@ const Balance = preload("res://scripts/balance_config.gd")
 const ResourceType = preload("res://scripts/resource_type.gd")
 # Prototype construction balance belongs to type definitions, not execution.
 const BuildingType = preload("res://scripts/building_type.gd")
+const Recipe = preload("res://scripts/production_recipe.gd")
 const CONSTRUCTION_BALANCE = {
+	BuildingType.Type.SAWMILL: {"wood":15,"minutes":240,"builders":2},
 	BuildingType.Type.LUMBERJACK_HUT: {"wood":10,"minutes":180,"builders":2},
 	BuildingType.Type.FOOD: {"wood": 15, "minutes": 240, "builders": 2},
 	BuildingType.Type.STORAGE: {"wood": 15, "minutes": 240, "builders": 2},
@@ -13,6 +15,7 @@ const CONSTRUCTION_BALANCE = {
 }
 # Explicit 3D physical area in build cells; legacy size remains the 2D visual footprint.
 const FOOTPRINT_CELLS = {
+	BuildingType.Type.SAWMILL: Vector2i(12,8),
 	BuildingType.Type.LUMBERJACK_HUT: Vector2i(8,6),
 	BuildingType.Type.HOME: Vector2i(6, 4),
 	BuildingType.Type.STORAGE: Vector2i(12, 8),
@@ -21,15 +24,21 @@ const FOOTPRINT_CELLS = {
 }
 # External haul policy is independent from ResourceContainer storage/direct deposits.
 const LOGISTICS_FLOW = {
+	BuildingType.Type.SAWMILL: {
+		ResourceType.Type.LOG: {"import":true,"export":false},
+		ResourceType.Type.PLANK: {"import":false,"export":true},
+	},
 	BuildingType.Type.STORAGE: {
 		ResourceType.Type.FOOD: {"import":true,"export":true},
 		ResourceType.Type.WOOD: {"import":true,"export":true},
 		ResourceType.Type.LOG: {"import":true,"export":true},
+		ResourceType.Type.PLANK: {"import":true,"export":true},
 	},
 	BuildingType.Type.FOOD: {ResourceType.Type.FOOD:{"import":true,"export":false}},
 	BuildingType.Type.GATHERER_HUT: {ResourceType.Type.FOOD:{"import":false,"export":true}},
 	BuildingType.Type.LUMBERJACK_HUT: {ResourceType.Type.LOG:{"import":false,"export":true}},
 }
+var production_recipe: Recipe
 var logistics_flow: Dictionary
 var worker_capacity := 0 # Zero keeps existing unlimited workplace semantics.
 var work_radius := 0.0 # WORLD units, unrelated to visual footprint.
@@ -56,8 +65,8 @@ func _init(type_id: StringName, category: BuildingType.Type, label: String, foot
 	max_builders = maxi(builder_limit, 0)
 	housing_capacity = maxi(resident_capacity, 0)
 static func for_type(category: BuildingType.Type, label: String = ""):
-	var ids := [&"kitchen", &"warehouse", &"gatherer_hut", &"home", &"lumberjack_hut"]
-	var labels := ["Общая кухня", "Склад", "Хижина собирателя", "Дом", "Хижина лесоруба"]
+	var ids := [&"kitchen", &"warehouse", &"gatherer_hut", &"home", &"lumberjack_hut", &"sawmill"]
+	var labels := ["Общая кухня", "Склад", "Хижина собирателя", "Дом", "Хижина лесоруба", "Лесопилка"]
 	var footprint_size := Vector2(64, 48) if category == BuildingType.Type.HOME else Vector2(144, 96)
 	var construction: Dictionary = CONSTRUCTION_BALANCE[category]
 	var result = load("res://scripts/building_definition.gd").new(ids[category], category, labels[category] if label.is_empty() else label, footprint_size, {ResourceType.Type.WOOD: construction.wood}, construction.minutes, construction.builders, Balance.HOUSE_RESIDENT_CAPACITY if category == BuildingType.Type.HOME else 0)
@@ -67,6 +76,9 @@ static func for_type(category: BuildingType.Type, label: String = ""):
 		result.work_radius = Balance.LUMBERJACK_WORK_RADIUS
 		result.target_tree_count = Balance.LUMBERJACK_TARGET_TREE_COUNT
 		result.local_resource_capacity = Balance.LUMBERJACK_LOG_CAPACITY
+	if category == BuildingType.Type.SAWMILL:
+		result.worker_capacity = Balance.SAWMILL_WORKER_CAPACITY
+		result.production_recipe = Recipe.new({ResourceType.Type.LOG:1},{ResourceType.Type.PLANK:1},Balance.SAWMILL_WORK_MINUTES)
 	return result
 
 func allows_external_import(resource: int) -> bool:

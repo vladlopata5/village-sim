@@ -103,3 +103,10 @@ const SAPLING_PHYSICAL_RADIUS := 0.15
 const TREE_GROWTH_MINUTES := 4320
 const TREE_PLANTING_MINUTES := 30
 const WAREHOUSE_LOG_CAPACITY := 20
+
+# First processing recipe; PLANK is a unit of processed timber, not one literal board.
+const SAWMILL_WORK_MINUTES := 30
+const SAWMILL_INPUT_CAPACITY := 12
+const SAWMILL_OUTPUT_CAPACITY := 12
+const SAWMILL_WORKER_CAPACITY := 1
+const WAREHOUSE_PLANK_CAPACITY := 20

@@ -1740,3 +1740,44 @@ Deadlock audit: реальные inbound reservations принадлежат у�
 работают на прежней стройке. Capacity остаётся 2; Porter не участвует, отдельного scheduler
 и копии reservation/material state нет. Direct reservation APIs по-прежнему требуют от
 владельца освобождения reservation при cancellation — новой ownership системы нет.
+
+
+### 2026-10-09 — первая processing chain: LOG → Sawmill → PLANK
+
+SAWMILL («Лесопилка») — обычный BuildingInstance: 12×8 build cells (6×4 world units),
+rotation 90°, construction 15 WOOD / 240 work-minutes / 2 builders. Placement, ghost,
+BuildGrid/NavGrid blockers, DEFAULT ACCESS POINT, selection и completion переиспользованы.
+BUILT Sawmill имеет 1 workplace для SAWYER («Пильщик»); assignment — прежний
+ResidentData.work_location_id и PlayerControl employment API. Стартовая лесопилка не создаётся.
+
+BuildingDefinition.production_recipe — небольшой ProductionRecipe с inputs/outputs и
+work_required. Текущий временный recipe: 1 LOG → 1 PLANK за 30 actual work-minutes.
+PLANK («Доски») — игровая единица обработанной древесины, не буквальная одна доска.
+Отдельные buffers LOG=12 и PLANK=12 используют существующие per-resource capacities.
+Gatherer FOOD observer/60-minute professional cycle не переписан и не изменён.
+Input-consuming recipes исполняет небольшой ResidentRecipeController в общем runtime:
+обычный workplace WORK candidate → reserve input/output → идти к access point → WORKING.
+Никакого world-work exception, scheduler или per-frame production availability polling.
+
+Input reserve_out и output reserve_in создаются до цикла: LOG остаётся физически в
+контейнере, место под PLANK гарантировано. ResourceContainer.transform_reserved проверяет
+и обновляет весь локальный ledger до отправки synchronous resource signals. External import
+policy не ограничивает local production deposit. При completion input consumed, output
+produced, building.production_progress=0 и owner/reservations очищены; затем normal decision.
+Progress принадлежит BuildingInstance, как в Gatherer, и прибавляется по фактическим игровым
+минутам у action location. Short interruption сохраняет partial progress; обе reservations
+освобождаются и заново claim при resume. При отсутствии LOG/output capacity WORK unavailable.
+Relevant container events дают idle worker новый decision point, не прерывая personal action.
+PlayerCommand/critical/schedule используют прежний pipeline; после 17:00 production не идёт.
+
+External policies: Sawmill LOG import=true/export=false, PLANK import=false/export=true.
+Storage PLANK import=true/export=true, capacity=20; Storage→Storage по-прежнему запрещён.
+Lumberjack fallback может экспортировать LOG в Sawmill через общий destination provider;
+Hut A→Hut B остаётся запрещён. Porter выполняет Storage→Sawmill LOG и Sawmill→own Storage
+PLANK через обычные candidates/reservations/physical execution, без special deliveries.
+BuildingCard показывает LOG/PLANK, assigned Sawyer и production work progress.
+
+WOOD остаётся отдельным construction resource; PLANK пока не имеет потребителя кроме
+Storage. Заполненные output/storage buffers естественно останавливают recipe. Следующий
+крупный этап — migration construction WOOD → PLANK, вне текущего commit. Не добавлены
+tools/fuel/sawdust, animations, multiple recipes/workers, recipe selection или новые skills.

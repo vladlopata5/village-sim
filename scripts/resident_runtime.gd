@@ -11,6 +11,7 @@ const Wander = preload("res://scripts/resident_wander_controller.gd")
 const Social = preload("res://scripts/resident_social_controller.gd")
 const Commands = preload("res://scripts/player_command_controller.gd")
 const Assignments = preload("res://scripts/resident_assignment_controller.gd")
+var recipe_work = preload("res://scripts/resident_recipe_controller.gd").new()
 var builder = preload("res://scripts/resident_builder_controller.gd").new()
 var assignments = Assignments.new()
 var commands = Commands.new()
@@ -28,9 +29,9 @@ func setup(resident: RefCounted, presentation: Node, clock: Node, locations: Ref
 	data = resident
 	data.skill_changed.connect(_on_skill_changed)
 	view = presentation
-	for controller in [intents, commands, schedule, need_dynamics, needs, assignments, decision, social, wander, builder]:
+	for controller in [intents, commands, schedule, need_dynamics, needs, assignments, decision, social, wander, builder, recipe_work]:
 		add_child(controller)
-	for controller in [commands, schedule, needs, assignments, decision, social, wander, builder]:
+	for controller in [commands, schedule, needs, assignments, decision, social, wander, builder, recipe_work]:
 		controller.logger = logger
 	intents.setup(data)
 	intents.intent_changed.connect(decision.capture_work_assignment.bind(data))
@@ -50,6 +51,7 @@ func setup(resident: RefCounted, presentation: Node, clock: Node, locations: Ref
 	decision.social = social
 	decision.setup(clock, data, intents, needs, schedule)
 	builder.setup(data, clock, locations, buildings, intents, decision)
+	recipe_work.setup(self, clock, locations, buildings)
 	# Complete cleanup in simulation before an executor can arrive synchronously.
 	intents.intent_changed.disconnect(view.apply_intent)
 	intents.intent_changed.connect(view.apply_intent)

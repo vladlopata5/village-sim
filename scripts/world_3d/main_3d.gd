@@ -76,7 +76,7 @@ func _setup_construction() -> void:
 	construction_panel = preload("res://scripts/construction_panel.gd").new()
 	$HUD.add_child(construction_panel)
 	var definitions: Array = []
-	for category in [BuildingType.Type.HOME, BuildingType.Type.STORAGE, BuildingType.Type.FOOD, BuildingType.Type.GATHERER_HUT, BuildingType.Type.LUMBERJACK_HUT]:
+	for category in [BuildingType.Type.HOME, BuildingType.Type.STORAGE, BuildingType.Type.FOOD, BuildingType.Type.GATHERER_HUT, BuildingType.Type.LUMBERJACK_HUT, BuildingType.Type.SAWMILL]:
 		definitions.append(BuildingDefinition.for_type(category))
 	construction_panel.setup(definitions)
 	construction_panel.definition_selected.connect(_select_building_definition)

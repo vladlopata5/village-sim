@@ -93,6 +93,7 @@ func _ready() -> void:
 	social_world.position_provider = _resident_position_2d
 	for runtime in resident_runtimes:
 		social_world.register(runtime)
+		runtime.recipe_work.position_provider = _production_position_2d
 		runtime.builder.position_provider = _production_position_2d
 		runtime.builder.cargo_dropped.connect(_drop_cargo.bind(runtime))
 		runtime.social.world = social_world
@@ -348,6 +349,7 @@ func _work_available(runtime: ResidentRuntime) -> bool:
 		Profession.Type.PORTER:
 			return logistics.has_available_job(runtime.data.id)
 		Profession.Type.BUILDER: return runtime.builder.has_work()
+		Profession.Type.SAWYER: return runtime.recipe_work.has_work()
 		Profession.Type.GATHERER: return production.can_work(runtime.data)
 		_: return false
 
@@ -355,6 +357,7 @@ func _request_work(runtime: ResidentRuntime) -> bool:
 	match runtime.data.profession:
 		Profession.Type.PORTER: return _request_haul_work(runtime)
 		Profession.Type.BUILDER: return runtime.builder.request_work()
+		Profession.Type.SAWYER: return runtime.recipe_work.request_work()
 		Profession.Type.GATHERER: return runtime.schedule.request_work()
 		_: return false
 
@@ -435,6 +438,7 @@ func _create_test_warehouse() -> void:
 	warehouse_data.resources.set_capacity(ResourceType.Type.FOOD, 20)
 	warehouse_data.resources.add(ResourceType.Type.FOOD, 10)
 	warehouse_data.resources.set_capacity(ResourceType.Type.LOG, Balance.WAREHOUSE_LOG_CAPACITY)
+	warehouse_data.resources.set_capacity(ResourceType.Type.PLANK, Balance.WAREHOUSE_PLANK_CAPACITY)
 	warehouse_data.resources.set_capacity(ResourceType.Type.WOOD, 50)
 	warehouse_data.resources.add(ResourceType.Type.WOOD, 50)
 	buildings.append(warehouse_data)
@@ -517,7 +521,7 @@ func _setup_construction() -> void:
 	construction_panel = preload("res://scripts/construction_panel.gd").new()
 	$HUD.add_child(construction_panel)
 	var definitions: Array = []
-	for category in [BuildingType.Type.HOME, BuildingType.Type.STORAGE, BuildingType.Type.FOOD, BuildingType.Type.GATHERER_HUT, BuildingType.Type.LUMBERJACK_HUT]:
+	for category in [BuildingType.Type.HOME, BuildingType.Type.STORAGE, BuildingType.Type.FOOD, BuildingType.Type.GATHERER_HUT, BuildingType.Type.LUMBERJACK_HUT, BuildingType.Type.SAWMILL]:
 		definitions.append(BuildingDefinition.for_type(category))
 	construction_panel.setup(definitions)
 	construction_panel.definition_selected.connect(_select_building_definition)
@@ -535,7 +539,9 @@ func _show_building(building: BuildingInstance) -> void:
 	world_locations.register(WorldLocation.new(building.id, building.display_name), view)
 	# The same registry/view gains functionality after the one-way state transition.
 	building.construction_changed.connect(_activate_completed_building.bind(building))
-	for runtime in resident_runtimes: runtime.builder.register_building(building)
+	for runtime in resident_runtimes:
+		runtime.builder.register_building(building)
+		runtime.recipe_work.register_building(building)
 	if building.is_built(): _activate_completed_building(building)
 
 func _activate_completed_building(building: BuildingInstance) -> void:
@@ -545,6 +551,7 @@ func _activate_completed_building(building: BuildingInstance) -> void:
 		BuildingType.Type.STORAGE:
 			building.resources.set_capacity(ResourceType.Type.FOOD, 20)
 			building.resources.set_capacity(ResourceType.Type.LOG, Balance.WAREHOUSE_LOG_CAPACITY)
+			building.resources.set_capacity(ResourceType.Type.PLANK, Balance.WAREHOUSE_PLANK_CAPACITY)
 			building.resources.set_capacity(ResourceType.Type.WOOD, 50)
 			logistics.add_warehouse(building)
 		BuildingType.Type.FOOD:
@@ -553,6 +560,11 @@ func _activate_completed_building(building: BuildingInstance) -> void:
 		BuildingType.Type.LUMBERJACK_HUT:
 			building.resources.set_allowed_resource_types([ResourceType.Type.LOG])
 			building.resources.set_capacity(ResourceType.Type.LOG,building.definition.local_resource_capacity)
+			logistics.register_building(building)
+		BuildingType.Type.SAWMILL:
+			building.resources.set_allowed_resource_types([ResourceType.Type.LOG,ResourceType.Type.PLANK])
+			building.resources.set_capacity(ResourceType.Type.LOG,Balance.SAWMILL_INPUT_CAPACITY)
+			building.resources.set_capacity(ResourceType.Type.PLANK,Balance.SAWMILL_OUTPUT_CAPACITY)
 			logistics.register_building(building)
 		BuildingType.Type.GATHERER_HUT:
 			building.resources.set_allowed_resource_types([ResourceType.Type.FOOD])

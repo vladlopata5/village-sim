@@ -59,7 +59,7 @@ func _run() -> void:
 	check(selection.selected_entity == null and not card.visible and not kitchen_view.selected, "Close clears selection/card/outline, keeps building")
 	click(screen(scene, warehouse.position))
 	check(selection.selected_building == warehouse and warehouse_view.selected and not kitchen_view.selected, "Warehouse selection replaces previous building outline")
-	check(card.resources_label.text == "FOOD: 10 / 20\nДревесина: 50 / 50\nБревно: 0 / 20" and card.type_label.text == "Тип: Склад", "Warehouse local resources displayed")
+	check(card.resources_label.text == "FOOD: 10 / 20\nДревесина: 50 / 50\nБревно: 0 / 20\nДоски: 0 / 20" and card.type_label.text == "Тип: Склад", "Warehouse local resources displayed")
 	click(screen(scene, hut.position))
 	check(selection.selected_building == hut and hut_view.selected and not warehouse_view.selected, "Switching building clears old highlight")
 	hut.production_progress = 17

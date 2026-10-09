@@ -36,6 +36,7 @@ func register(runtime: Node) -> void:
 	runtime.needs.meal_begun.connect(_on_meal.bind(runtime))
 	runtime.decision.work_cycle_started.connect(_on_work.bind(runtime))
 	runtime.builder.work_cycle_started.connect(_on_work.bind(runtime))
+	runtime.recipe_work.work_cycle_started.connect(_on_work.bind(runtime))
 func chance_for(context: Event.Context) -> float:
 	match context:
 		Event.Context.CONVERSATION: return Balance.SOCIAL_EVENT_CHANCE_CONVERSATION
@@ -58,6 +59,8 @@ func presence(runtime: Node) -> Dictionary:
 	if runtime.data.activity == Activity.Type.WORKING:
 		if runtime.builder.phase == runtime.builder.Phase.BUILDING and runtime.builder.site != null:
 			return {"building_id": runtime.builder.site.id, "tags": ["WORKING", "WORKER"]}
+		if runtime.recipe_work.phase == runtime.recipe_work.Phase.WORKING and runtime.recipe_work.building != null:
+			return {"building_id":runtime.recipe_work.building.id,"tags":["WORKING","WORKER"]}
 		var work: Dictionary = runtime.decision.get_committed_work_assignment()
 		if not work.is_empty(): return {"building_id": work.location_id, "tags": ["WORKING", "WORKER"]}
 	if runtime.data.activity == Activity.Type.TALKING:

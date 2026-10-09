@@ -53,6 +53,9 @@ func register_building(building: RefCounted) -> void:
 		BuildingType.Type.LUMBERJACK_HUT:
 			if not _workplaces.has(Profession.Type.LUMBERJACK): _workplaces[Profession.Type.LUMBERJACK] = building.id
 			_workplace_professions[building.id] = Profession.Type.LUMBERJACK
+		BuildingType.Type.SAWMILL:
+			if not _workplaces.has(Profession.Type.SAWYER): _workplaces[Profession.Type.SAWYER] = building.id
+			_workplace_professions[building.id] = Profession.Type.SAWYER
 		BuildingType.Type.GATHERER_HUT:
 			if not _workplaces.has(Profession.Type.GATHERER): _workplaces[Profession.Type.GATHERER] = building.id
 			_workplace_professions[building.id] = Profession.Type.GATHERER

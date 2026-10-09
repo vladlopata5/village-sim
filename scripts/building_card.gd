@@ -67,13 +67,15 @@ func _refresh() -> void:
 	id_label.text = "ID: %s" % _building.id
 	state_label.text = "Состояние: " + ("Построено" if _building.is_built() else "Строится")
 	type_label.text = "Тип: " + _type_text(_building.type)
-	if _control != null and _building.is_built() and _building.type == Types.Type.LUMBERJACK_HUT:
+	if _control != null and _building.is_built() and _building.type in [Types.Type.LUMBERJACK_HUT,Types.Type.SAWMILL]:
 		var workers: Array = _control.get_workplace_workers(_building.id)
 		resource_lines.append("Работники: %d / %d" % [workers.size(),_building.definition.worker_capacity])
-		for worker in workers: resource_lines.append(worker.resident_name + " — Лесоруб")
+		for worker in workers: resource_lines.append(worker.resident_name + " — " + preload("res://scripts/resident_profession.gd").display_name(worker.profession))
 	resources_label.text = "\n".join(resource_lines) if not resource_lines.is_empty() else "Ресурсов нет"
-	production_section.visible = _building.is_built() and _building.type == Types.Type.GATHERER_HUT
+	production_section.visible = _building.is_built() and (_building.type == Types.Type.GATHERER_HUT or _building.definition.production_recipe != null)
 	production_label.text = "FOOD • прогресс: %d / %d рабочих минут" % [_building.production_progress, Balance.GATHERER_WORK_MINUTES_PER_FOOD]
+	if _building.definition.production_recipe != null:
+		production_label.text = "Производство: %d / %d рабочих минут" % [_building.production_progress,_building.definition.production_recipe.work_required]
 	construction_section.visible = not _building.is_built()
 	_refresh_housing()
 	var materials := PackedStringArray()
@@ -89,6 +91,7 @@ func _type_text(category: int) -> String:
 		Types.Type.STORAGE: return "Склад"
 		Types.Type.GATHERER_HUT: return "Хижина собирателя"
 		Types.Type.LUMBERJACK_HUT: return "Хижина лесоруба"
+		Types.Type.SAWMILL: return "Лесопилка"
 		Types.Type.HOME: return "Дом"
 		_: return "Здание"
 func _close() -> void:

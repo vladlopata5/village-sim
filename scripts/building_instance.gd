@@ -32,6 +32,7 @@ var construction_progress: int = 0:
 		construction_progress = clamped
 		construction_changed.emit()
 var resources: ResourceContainer
+var production_worker_id: String = "" # Active recipe owner, not workplace assignment.
 var production_progress: int = 0
 var logistics_weight: float = Balance.DEFAULT_BUILDING_LOGISTICS_WEIGHT
 # Compatibility accessors keep existing systems using the same instance data.
