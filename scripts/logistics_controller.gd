@@ -31,8 +31,6 @@ var _clock: Node
 var _locations: RefCounted
 var _next_id := 1
 var _claiming := false
-var _available := false
-var _availability_dirty := true
 
 func setup(source: BuildingInstance, destination: BuildingInstance, resident: ResidentData) -> void:
 	_source = source
@@ -72,33 +70,41 @@ func _on_reservations_changed(_resource: ResourceType.Type) -> void:
 	recalculate()
 func recalculate() -> void:
 	# Explicit debug refresh / local events only. No clock polling or job creation.
-	_availability_dirty = true
 	if _claiming: return
+	for executor in _executors.values():
+		if executor.job != null: executor.validate_job()
 	changed.emit()
 	availability_changed.emit()
+func allows_external_delivery(source: BuildingInstance, destination: BuildingInstance, resource: int) -> bool:
+	if source == null or destination == null or source == destination: return false
+	if _buildings.get(source.id) != source or _buildings.get(destination.id) != destination: return false
+	if not source.is_built() or not destination.is_built(): return false
+	# Storage balancing needs explicit future demand, never ordinary hauling.
+	if source.type == BuildingType.Type.STORAGE and destination.type == BuildingType.Type.STORAGE: return false
+	return source.definition.allows_external_export(resource) and destination.definition.allows_external_import(resource) and source.resources.allows_resource(resource) and destination.resources.allows_resource(resource) and source.resources.get_capacity(resource)>0 and destination.resources.get_capacity(resource)>0
+func external_destinations(source: BuildingInstance, resource: int) -> Array:
+	return _buildings.values().filter(func(destination): return allows_external_delivery(source,destination,resource) and destination.resources.get_available_free_capacity(resource)>0)
+func _porter_pair(resident: ResidentData, source: BuildingInstance, destination: BuildingInstance) -> bool:
+	return source.id == resident.work_location_id or destination.id == resident.work_location_id
 func _pairs() -> Array:
 	var pairs: Array = []
 	for source in _buildings.values():
 		for destination in _buildings.values():
-			if source == destination: continue
-			if source.type == BuildingType.Type.STORAGE and destination.type == BuildingType.Type.FOOD:
-				pairs.append({"source": source, "destination": destination, "export": false})
-			elif source.type == BuildingType.Type.GATHERER_HUT and destination.type == BuildingType.Type.STORAGE:
-				pairs.append({"source": source, "destination": destination, "export": true})
-			elif source.type == BuildingType.Type.LUMBERJACK_HUT and destination.type == BuildingType.Type.STORAGE:
-				pairs.append({"source":source,"destination":destination,"export":true,"resource":ResourceType.Type.LOG})
+			for resource in ResourceType.Type.values():
+				if allows_external_delivery(source,destination,resource):
+					pairs.append({"source":source,"destination":destination,"resource":resource,"export":source.type != BuildingType.Type.STORAGE})
 	return pairs
 func _valid_pair(pair: Dictionary) -> bool:
 	var source: BuildingInstance = pair.source
 	var destination: BuildingInstance = pair.destination
 	var resource: ResourceType.Type = pair.get("resource",FOOD)
-	return _buildings.get(source.id) == source and _buildings.get(destination.id) == destination and source != destination and source.is_built() and destination.is_built() and source.resources.get_available_amount(resource) > 0 and destination.resources.allows_resource(resource) and destination.resources.get_available_free_capacity(resource) > 0 and _point(source) is Vector2 and _point(destination) is Vector2
+	return allows_external_delivery(source,destination,resource) and source.resources.get_available_amount(resource)>0 and destination.resources.get_available_free_capacity(resource)>0 and _point(source) is Vector2 and _point(destination) is Vector2
 func _point(building: BuildingInstance) -> Variant:
 	return _locations.get_position(building.id) if _locations != null else building.position
 func _eligible(resident: ResidentData) -> bool:
 	if resident == null or resident.profession != Profession.Type.PORTER or resident.inventory.amount != 0: return false
 	var workplace: BuildingInstance = _buildings.get(resident.work_location_id)
-	return workplace != null and workplace.is_built() and workplace.type == BuildingType.Type.STORAGE
+	return workplace != null and workplace.is_built() and workplace.type == BuildingType.Type.STORAGE and _point(workplace) is Vector2
 func _can_claim(resident: ResidentData, own_export: BuildingInstance = null) -> bool:
 	var eligible := _eligible(resident)
 	if own_export != null:
@@ -109,10 +115,8 @@ func _can_claim(resident: ResidentData, own_export: BuildingInstance = null) -> 
 func has_available_job(resident_id: String) -> bool:
 	var resident: ResidentData = _residents.get(resident_id)
 	if not _can_claim(resident): return false
-	if _availability_dirty:
-		_available = _pairs().any(_valid_pair)
-		_availability_dirty = false
-	return _available and position_provider.is_valid() and position_provider.call(resident_id) is Vector2
+	if not position_provider.is_valid() or not position_provider.call(resident_id) is Vector2: return false
+	return _pairs().any(func(pair): return _porter_pair(resident,pair.source,pair.destination) and _valid_pair(pair))
 func collect_candidates(resident_id: String) -> Array:
 	# Call at WORK selection (or explicit read-only debug/tests), not world updates.
 	var resident: ResidentData = _residents.get(resident_id)
@@ -121,7 +125,7 @@ func collect_candidates(resident_id: String) -> Array:
 	if not position is Vector2: return []
 	var candidates: Array = []
 	for pair in _pairs():
-		if not _valid_pair(pair): continue
+		if not _porter_pair(resident,pair.source,pair.destination) or not _valid_pair(pair): continue
 		var candidate := Candidate.new()
 		candidate.source = pair.source
 		candidate.destination = pair.destination
@@ -164,12 +168,15 @@ func _claim_candidate(resident: ResidentData, candidate: Candidate) -> HaulJob:
 func _claim_delivery(resident: ResidentData, candidate: Candidate, own_export: bool) -> HaulJob:
 	var own_source: BuildingInstance = candidate.source if own_export else null
 	if own_export and candidate.resource_type != ResourceType.Type.LOG: return null
+	if not own_export and (resident == null or not _porter_pair(resident,candidate.source,candidate.destination)): return null
 	if not _can_claim(resident,own_source) or not _valid_pair({"source": candidate.source, "destination": candidate.destination,"resource":candidate.resource_type}): return null
 	_claiming = true # Reserve callbacks cannot recursively claim a half-owned delivery.
 	var out: bool = candidate.source.resources.reserve_out(candidate.resource_type, 1)
 	var incoming: bool = out and candidate.destination.resources.reserve_in(candidate.resource_type, 1)
 	# Forced/player/world changes inside synchronous resource signals are rechecked too.
 	var valid: bool = incoming and _can_claim(resident,own_source) and _buildings.get(candidate.source.id) == candidate.source and _buildings.get(candidate.destination.id) == candidate.destination and candidate.source.is_built() and candidate.destination.is_built()
+	valid = valid and allows_external_delivery(candidate.source,candidate.destination,candidate.resource_type)
+	valid = valid and (own_export or _porter_pair(resident,candidate.source,candidate.destination))
 	valid = valid and _point(candidate.source) is Vector2 and _point(candidate.destination) is Vector2
 	valid = valid and candidate.source.resources.get_reserved_out(candidate.resource_type) >= 1 and candidate.destination.resources.get_reserved_in(candidate.resource_type) >= 1
 	if not valid:
@@ -180,6 +187,7 @@ func _claim_delivery(resident: ResidentData, candidate: Candidate, own_export: b
 		return null
 	var job := HaulJob.new(StringName("haul_%04d" % _next_id), candidate.source.id, candidate.destination.id, candidate.resource_type, 1, resident.id, candidate.porter_score)
 	job.work_phase_only = own_export
+	job.workplace_location_id = resident.work_location_id if not own_export else &""
 	_next_id += 1
 	jobs.append(job)
 	current_job = job

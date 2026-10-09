@@ -1755,7 +1755,7 @@ BUILDER остаётся world-work. Worker capacity хижины = 1; спис�
    → 3 отдельных Ground LOG; они не попадают прямо в inventory/container.
 3. PLANT: если STANDING + SAPLING count < target 12 и есть valid spot.
 4. EXPORT: если локальных задач нет, 1 LOG из собственной hut в ближайший
-   reachable BUILT container, принимающий LOG со свободной capacity.
+   reachable BUILT external_import(LOG) container со свободной capacity.
 
 Пример: buffer 10/12 и yield 3, без loose LOG/посадки → EXPORT; после доставки
 одного LOG buffer 9/12 → CHOP снова eligible. Нет отдельного urgent export rule.
@@ -1788,3 +1788,48 @@ BuildingCard показывает LOG N/12 и assigned worker/Лесоруб. Ra
 добавлен. Chopping сохраняет прежний +1 Gathering XP; local pickup/planting не дают
 дополнительного XP; export сохраняет shared successful haul +1 Logistics XP.
 GroundResource lifetime остаётся 4320 минут. Sawmill/PLANK/WOOD migration отложены.
+
+
+## Logistics: назначенная база PORTER и внешние flow policies
+
+PORTER использует ResidentData.work_location_id как единственную ссылку на конкретный
+BUILT STORAGE workplace. Общий PlayerControl/контекстное employment menu назначает
+склад; capacity остаётся прежней (несколько работников). Появление нового склада
+не меняет assignment. Без valid built/action-access базы WORK unavailable; её
+удаление/недоступность отменяет active haul с обычным reservation/drop cleanup.
+
+Потенциальные пары фильтруются ДО scoring:
+- inbound: external export source → собственный Storage;
+- outbound: собственный Storage → external import consumer;
+- third-party producer → consumer без собственной базы не является Porter candidate;
+- Storage → Storage в обе стороны запрещён: balancing/explicit demand отложены.
+
+BuildingDefinition.logistics_flow — небольшой resource → import/export flags словарь.
+Необъявленный resource имеет оба flags false. ResourceContainer не изменён: хранение,
+allowed types, количества/capacity/reservations и direct/local deposit — его прежняя
+ответственность. External policy не запрещает production/local пополнение.
+
+Текущие policies:
+- Storage FOOD/WOOD/LOG: external import true, export true;
+- Gatherer Hut FOOD: import false, export true;
+- Kitchen FOOD: import true, export false;
+- Lumberjack Hut LOG: import false, export true;
+- unrelated resource flows не объявлены/не разрешены.
+
+LogisticsController предоставляет общий external destination/filter API. Candidate
+creation, preflight и atomic post-reservation recheck используют ту же policy.
+Lumberjack fallback export также берёт destinations через этот service; Hut A → Hut B
+невозможен независимо от свободной capacity. Hut A → Storage разрешён.
+Local Ground LOG → own hut остаётся прямым forestry deposit: все три trips работают
+при external_import(LOG)=false. Будущая Sawmill сможет объявить import(LOG)=true.
+
+Scoring/urgency/distance/modifiers неизменны. Storage outbound использует destination
+import urgency; producer inbound — source export urgency, как прежде. HaulJob хранит
+committed workplace ID для валидации назначенной Porter базы; это snapshot действия,
+не дополнительное mutable resident assignment. Safe committed delivery после смены
+профессии/assignment сохраняется; исчезновение captured base отменяет её. Политики
+проверяются без переоценки priority/маршрута. Runtime data policy edits (debug/tests)
+требуют существующий service.recalculate() для немедленной active job validation.
+
+Не добавлены balancing, территории, priorities UI, ground pickup Porter, Sawmill/PLANK.
+Builder workflow и waiting logic не менялись.

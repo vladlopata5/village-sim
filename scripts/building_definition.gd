@@ -19,6 +19,18 @@ const FOOTPRINT_CELLS = {
 	BuildingType.Type.FOOD: Vector2i(12, 8),
 	BuildingType.Type.GATHERER_HUT: Vector2i(12, 8),
 }
+# External haul policy is independent from ResourceContainer storage/direct deposits.
+const LOGISTICS_FLOW = {
+	BuildingType.Type.STORAGE: {
+		ResourceType.Type.FOOD: {"import":true,"export":true},
+		ResourceType.Type.WOOD: {"import":true,"export":true},
+		ResourceType.Type.LOG: {"import":true,"export":true},
+	},
+	BuildingType.Type.FOOD: {ResourceType.Type.FOOD:{"import":true,"export":false}},
+	BuildingType.Type.GATHERER_HUT: {ResourceType.Type.FOOD:{"import":false,"export":true}},
+	BuildingType.Type.LUMBERJACK_HUT: {ResourceType.Type.LOG:{"import":false,"export":true}},
+}
+var logistics_flow: Dictionary
 var worker_capacity := 0 # Zero keeps existing unlimited workplace semantics.
 var work_radius := 0.0 # WORLD units, unrelated to visual footprint.
 var target_tree_count := 0
@@ -35,6 +47,7 @@ var housing_capacity: int
 func _init(type_id: StringName, category: BuildingType.Type, label: String, footprint_size: Vector2, requirements: Dictionary = {}, work_minutes: int = 0, builder_limit: int = 0, resident_capacity: int = 0) -> void:
 	id = type_id
 	type = category
+	logistics_flow = LOGISTICS_FLOW.get(category,{}).duplicate(true)
 	footprint_cells = FOOTPRINT_CELLS[category]
 	display_name = label
 	size = footprint_size
@@ -55,3 +68,8 @@ static func for_type(category: BuildingType.Type, label: String = ""):
 		result.target_tree_count = Balance.LUMBERJACK_TARGET_TREE_COUNT
 		result.local_resource_capacity = Balance.LUMBERJACK_LOG_CAPACITY
 	return result
+
+func allows_external_import(resource: int) -> bool:
+	return logistics_flow.get(resource,{}).get("import",false)
+func allows_external_export(resource: int) -> bool:
+	return logistics_flow.get(resource,{}).get("export",false)

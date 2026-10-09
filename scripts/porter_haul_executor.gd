@@ -69,6 +69,14 @@ func start(claimed: Job) -> bool:
 
 func validate_job() -> bool:
 	if job == null: return false
+	if not job.workplace_location_id.is_empty():
+		var workplace = service._buildings.get(job.workplace_location_id)
+		if workplace == null or not workplace.is_built() or workplace.type != preload("res://scripts/building_type.gd").Type.STORAGE or not locations.get_position(workplace.id) is Vector2:
+			cancel("рабочий склад недоступен")
+			return false
+	if not service.allows_external_delivery(source,destination,job.resource_type):
+		cancel("external flow недоступен")
+		return false
 	var source_needed := job.state in [Job.State.ASSIGNED, Job.State.GOING_TO_SOURCE]
 	if destination == null or service._buildings.get(destination.id) != destination or not destination.is_built() or not locations.get_position(destination.id) is Vector2:
 		cancel("цель доставки недоступна")

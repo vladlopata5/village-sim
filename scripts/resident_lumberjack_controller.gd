@@ -88,8 +88,7 @@ func best_task() -> Dictionary:
 		if not best.is_empty(): return best
 	if workplace.resources.get_available_amount(Resources.Type.LOG) < 1 or not _path(origin,home): return {}
 	distance = INF
-	for destination in world.buildings:
-		if destination == workplace or not destination.is_built() or not destination.resources.allows_resource(Resources.Type.LOG) or destination.resources.get_available_free_capacity(Resources.Type.LOG)<1: continue
+	for destination in world.logistics.external_destinations(workplace,Resources.Type.LOG):
 		var point: Variant = world.world_locations.get_position(destination.id)
 		if not point is Vector2 or not _path(home,point): continue
 		var value := home.distance_squared_to(point)

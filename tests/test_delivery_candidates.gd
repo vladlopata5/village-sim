@@ -101,16 +101,16 @@ func _run() -> void:
 		print("Calibration: urgency=%.0f distance=%.0f score=%.0f" % [row[0], row[1], score])
 	check(is_equal_approx(f.service.distance_penalty(1200), 4 * f.service.distance_penalty(600)), "Distance penalty quadratic")
 	check(Balance.WORK_PRIORITY == 7000, "Site/delivery score does not replace WORK utility")
-	# Concrete source pairs and stable tie-break, regardless of registry insertion order.
+	# Own storage restriction precedes scoring; stable route tie-break remains unchanged.
 	f = fixture()
 	f.service.position_provider = func(_id): return Vector2.ZERO
 	var nearer = building(&"warehouse_z", BT.STORAGE, Vector2(150, 0), 10)
 	f.source.position = Vector2(-100, 0)
 	f.service.add_warehouse(nearer)
 	var selected = f.service.claim_best_job(f.worker.id)
-	check(selected.source_location_id == nearer.id, "Full-route optimum can beat closest source")
+	check(selected.source_location_id == f.source.id, "Other storage cannot beat own base regardless of route score")
 	check(selected.assigned_resident_id == f.worker.id and selected.state == Job.State.ASSIGNED, "Job born already assigned after successful claim")
-	check(f.service.jobs.size() == 1 and nearer.resources.get_reserved_out(RT.FOOD) == 1 and f.target.resources.get_reserved_in(RT.FOOD) == 1, "Claim owns both reservations once")
+	check(f.service.jobs.size() == 1 and f.source.resources.get_reserved_out(RT.FOOD) == 1 and f.target.resources.get_reserved_in(RT.FOOD) == 1, "Claim owns both reservations once")
 	check(f.service.claim_best_job(f.worker.id) == null, "One active job per porter")
 	f.service.cancel_job(selected)
 	f.source.position = nearer.position

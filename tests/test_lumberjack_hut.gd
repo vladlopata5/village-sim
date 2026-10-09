@@ -105,7 +105,7 @@ func run() -> void:
 	idle(actor)
 	Fixture.clear_drops(scene)
 	# Full-buffer regression: export naturally frees enough capacity for a complete yield.
-	second_hut.resources.add(Resources.LOG,12)
+	check(second_hut.resources.get_amount(Resources.LOG)==0,"Empty second hut must not attract external export")
 	hut.resources.add(Resources.LOG,7)
 	hut.definition.target_tree_count = 0
 	check(hut.resources.get_amount(Resources.LOG)==10 and worker.best_target().is_empty(),"10/12 cannot fit full yield 3")
