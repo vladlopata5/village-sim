@@ -2,6 +2,7 @@ extends Node3D
 ## Optional debug meshes only: no collider, occupancy or gameplay control.
 var navigation: RefCounted
 var movement: Node
+var _grid := MeshInstance3D.new()
 var _blocked := MeshInstance3D.new()
 var _slow := MeshInstance3D.new()
 var _raw := MeshInstance3D.new()
@@ -9,6 +10,8 @@ var _smooth := MeshInstance3D.new()
 var _enabled := false
 func setup(grid: RefCounted) -> void:
 	navigation = grid
+	add_child(_grid)
+	_draw_grid()
 	add_child(_blocked)
 	add_child(_slow)
 	add_child(_raw)
@@ -38,9 +41,23 @@ func _material(color: Color) -> StandardMaterial3D:
 	material.cull_mode = BaseMaterial3D.CULL_DISABLED
 	material.albedo_color = color
 	return material
+func _draw_grid() -> void:
+	var mesh := ImmediateMesh.new()
+	mesh.surface_begin(Mesh.PRIMITIVE_LINES,_material(Color("6f8869")))
+	var bounds: Rect2=navigation.bounds
+	for x in range(navigation.grid_size().x+1):
+		var coordinate: float=bounds.position.x+x*navigation.CELL_SIZE
+		mesh.surface_add_vertex(Vector3(coordinate,0.03,bounds.position.y))
+		mesh.surface_add_vertex(Vector3(coordinate,0.03,bounds.end.y))
+	for z in range(navigation.grid_size().y+1):
+		var coordinate: float=bounds.position.y+z*navigation.CELL_SIZE
+		mesh.surface_add_vertex(Vector3(bounds.position.x,0.03,coordinate))
+		mesh.surface_add_vertex(Vector3(bounds.end.x,0.03,coordinate))
+	mesh.surface_end()
+	_grid.mesh=mesh # Created once; toggling only changes parent visibility.
 func _draw_blockers() -> void:
 	_draw_cells(_blocked,navigation.blocked_cells(),Color("a25945"))
-	_draw_cells(_slow,navigation.modified_cells(),Color("d6b440"))
+	_draw_cells(_slow,navigation.modified_cells().filter(func(cell): return navigation.get_cell_speed_multiplier(cell)<1.0),Color("d6b440"))
 func _draw_cells(view: MeshInstance3D, cells: Array, color: Color) -> void:
 	var mesh := ImmediateMesh.new()
 	if not cells.is_empty():

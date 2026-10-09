@@ -9,6 +9,13 @@ var navigation = preload("res://scripts/navigation_grid.gd").new()
 var navigation_debug = preload("res://scripts/world_3d/navigation_grid_debug.gd").new()
 var build_grid = preload("res://scripts/build_grid.gd").new()
 var runtime_placement_blockers = preload("res://scripts/runtime_placement_blockers.gd").new()
+var roads = preload("res://scripts/road_grid.gd").new()
+var road_tool = preload("res://scripts/world_3d/road_tool_3d.gd").new()
+var road_navigation = preload("res://scripts/world_3d/road_navigation_3d.gd").new()
+var road_layer = preload("res://scripts/world_3d/road_layer_3d.gd").new()
+var _road_button: Button
+var _road_events: Array[Dictionary] = []
+var _road_dragging := false
 var building_ghost: Node3D
 var forestry_area = preload("res://scripts/world_3d/forestry_area_3d.gd").new()
 var _next_tree_id := 17
@@ -28,7 +35,8 @@ func _ready() -> void:
 	navigation.changed.connect(_on_navigation_changed)
 	var toggle := CheckButton.new()
 	toggle.name = "NavigationDebugToggle"
-	toggle.text = "Navigation debug: blocked / slow / raw / smooth"
+	toggle.text = "Навигация"
+	toggle.tooltip_text = "Сетка, препятствия и маршруты жителей"
 	toggle.position = Vector2(16,590)
 	toggle.toggled.connect(navigation_debug.set_enabled)
 	toggle.toggled.connect(_set_work_area_debug)
@@ -36,6 +44,7 @@ func _ready() -> void:
 	resident_selection.selection_changed.connect(_update_navigation_debug)
 	_pointer_position = get_viewport().get_mouse_position()
 	_setup_forest()
+	_setup_roads()
 	ready_for_play = true
 func _create_resident_presentation(data: ResidentData, start: Vector2) -> Node:
 	var executor = Executor.new()
@@ -63,6 +72,7 @@ func _create_building_presentation(building: BuildingInstance) -> Node:
 	var registered: bool = build_grid.occupy(building.id, cells)
 	assert(registered, "Building registration must own a free footprint")
 	navigation.add_blocker(building.id, Geometry.footprint(building))
+	roads.edit(cells,true) # Actual footprint only; cancellation never restores roads.
 	return view
 func _register_interaction_view(_id: StringName, _view: Node) -> void:
 	pass # Ray picking uses explicit entity references, not the 2D screen registry.
@@ -85,6 +95,38 @@ func _setup_construction() -> void:
 	$World.add_child(building_ghost)
 	building_ghost.setup(placement)
 	placement.changed.connect(building_ghost.refresh)
+func _setup_roads() -> void:
+	road_tool.roads=roads
+	road_tool.build_grid=build_grid
+	road_tool.runtime_blockers=runtime_placement_blockers
+	road_layer.name="DirtRoadLayer"
+	$World.add_child(road_layer)
+	road_navigation.setup(roads,navigation)
+	road_layer.setup(roads)
+	_road_button=Button.new()
+	_road_button.text="Грунтовая дорога"
+	_road_button.tooltip_text="ЛКМ: рисовать • Shift+ЛКМ: стирать • ПКМ/Esc: выйти"
+	_road_button.focus_mode=Control.FOCUS_NONE
+	_road_button.toggle_mode=true
+	_road_button.pressed.connect(_select_road_tool)
+	construction_panel.building_buttons.add_child(_road_button)
+func _select_road_tool() -> void:
+	if road_tool.active:
+		_cancel_road_tool()
+		return
+	placement.cancel()
+	_clicks.clear()
+	interaction_menu.hide()
+	road_tool.select()
+	_road_button.button_pressed=true
+func _cancel_road_tool() -> void:
+	road_tool.cancel()
+	_road_dragging=false
+	_road_events.clear()
+	if _road_button!=null: _road_button.button_pressed=false
+func _select_building_definition(definition: BuildingDefinition) -> void:
+	_cancel_road_tool()
+	super._select_building_definition(definition)
 func _process(_delta: float) -> void:
 	if not ready_for_play or not placement.is_active(): return
 	var hit := ground_pick(_pointer_position)
@@ -125,8 +167,31 @@ func _on_movement_failed(intent: RefCounted, data: ResidentData) -> void:
 func _input(event: InputEvent) -> void:
 	# Observe pointer motion without consuming UI clicks; placement ray follows this viewport position.
 	if event is InputEventMouse: _pointer_position = event.position
+	if not road_tool.active: return
+	# Release always ends a stroke, including releases consumed by a UI control.
+	if event is InputEventMouseButton and event.button_index==MOUSE_BUTTON_LEFT and not event.pressed:
+		_road_dragging=false
+		_road_events.append({"end":true})
+	if event is InputEventMouseMotion and _road_dragging and get_viewport().gui_get_hovered_control()!=null:
+		_road_events.append({"end":true}) # Never interpolate across a UI-covered gap.
 func _unhandled_input(event: InputEvent) -> void:
 	if not ready_for_play: return
+	if road_tool.active:
+		if event is InputEventKey and event.pressed and event.keycode==KEY_ESCAPE:
+			_cancel_road_tool()
+			get_viewport().set_input_as_handled()
+		elif event is InputEventMouseButton and event.pressed and event.button_index==MOUSE_BUTTON_RIGHT:
+			_cancel_road_tool()
+			get_viewport().set_input_as_handled()
+		elif event is InputEventMouseButton and event.button_index==MOUSE_BUTTON_LEFT:
+			if event.pressed:
+				_road_dragging=true
+				_road_events.append({"screen":event.position,"erase":event.shift_pressed})
+			get_viewport().set_input_as_handled()
+		elif event is InputEventMouseMotion and _road_dragging:
+			_road_events.append({"screen":event.position,"erase":event.shift_pressed})
+			get_viewport().set_input_as_handled()
+		return
 	if event is InputEventKey and event.pressed and not event.echo and placement.is_active() and event.keycode == KEY_R:
 		placement.rotate()
 		get_viewport().set_input_as_handled()
@@ -138,6 +203,15 @@ func _unhandled_input(event: InputEvent) -> void:
 		_clicks.append(event)
 		get_viewport().set_input_as_handled()
 func _physics_process(_delta: float) -> void:
+	if road_tool.active:
+		for event in _road_events:
+			if event.has("end"):
+				road_tool.end_stroke()
+				continue
+			var hit := ground_pick(event.screen)
+			if hit.has("position"): road_tool.paint(hit.position,event.erase)
+			else: road_tool.end_stroke()
+	_road_events.clear()
 	for event in _clicks: handle_world_click(event.button_index, ground_pick(event.position) if placement.is_active() else pick(event.position), event.position)
 	_clicks.clear()
 func pick(screen_position: Vector2) -> Dictionary:
@@ -151,6 +225,7 @@ func pick(screen_position: Vector2) -> Dictionary:
 		if not hit.is_empty(): return hit
 	return {}
 func handle_world_click(button: int, hit: Dictionary, screen: Vector2 = Vector2.ZERO) -> void:
+	if road_tool.active: return
 	if placement.is_active():
 		if button == MOUSE_BUTTON_RIGHT: placement.cancel()
 		elif button == MOUSE_BUTTON_LEFT:
@@ -252,7 +327,7 @@ func _register_tree(tree: RefCounted) -> void:
 func _refresh_tree_blocker(tree: RefCounted) -> void:
 	navigation.set_traversal_modifier(tree.id,tree_footprint(tree),preload("res://scripts/balance_config.gd").TREE_TRAVERSAL_SPEED_MULTIPLIER)
 	runtime_placement_blockers.unregister(tree.id)
-	runtime_placement_blockers.register_circle(tree.id,_tree_world_position.bind(tree),tree.physical_radius)
+	runtime_placement_blockers.register_circle(tree.id,_tree_world_position.bind(tree),tree.physical_radius,true)
 func spawn_sapling(position: Vector2) -> RefCounted:
 	var tree = preload("res://scripts/tree_data.gd").new(StringName("tree_%02d" % _next_tree_id),position)
 	_next_tree_id += 1

@@ -61,7 +61,7 @@ func advance(delta: float) -> void:
 		var segment := _segments[_index]
 		var cost: float = segment.cost
 		var left := maxf(cost-_spent,0.0)
-		if left > remaining:
+		if left > remaining+0.0000000001: # Roundoff after many cell budgets is not remaining work.
 			_spent += remaining
 			# Interpolate from the fixed segment start instead of accumulating
 			# float32 transform rounding on every rendered/physics frame.

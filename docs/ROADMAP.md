@@ -904,3 +904,13 @@ Cost-aware smoothing and cell-boundary time integration share the same multiplie
 The two-tree Hut/Sawmill corridor stays reachable; faster detours remain preferred.
 Future speedups use normalized admissible weights. Roads, terrain heights/slopes,
 crowd avoidance and separate trunk obstacles remain deferred. See DECISIONS.
+
+
+## 2026-10-09 — Dirt roads v1 (implemented)
+
+Optional free instant world road cells (.5 units), player 1-unit paint/erase brush,
+MultiMesh visuals and generic weighted traversal at speed1.25. Buildings delete
+road under physical footprint; cancellation never restores it. Trees prevent paint.
+Existing Navigation toggle controls routes + cached aligned grid. No world save/load
+was introduced; future traffic may use the same road model API. Automatic roads,
+maintenance, terrain and connectivity requirements deferred. See DECISIONS.

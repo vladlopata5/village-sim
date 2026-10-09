@@ -81,7 +81,6 @@ func _remove_cells(id: StringName) -> void:
 # not multiplication. Default ground applies only when no source covers the cell.
 func set_traversal_modifier(id: StringName, area: Rect2, multiplier: float) -> void:
 	if id.is_empty() or not is_finite(multiplier) or multiplier <= 0.0: return
-	var affected := _detach_traversal_source(id)
 	var cells: Array[Vector2i] = []
 	if area.has_area():
 		var first := world_to_cell(Coordinates.from_plane(area.position))
@@ -90,10 +89,20 @@ func set_traversal_modifier(id: StringName, area: Rect2, multiplier: float) -> v
 			for x in range(maxi(0,first.x),mini(grid_size().x,ceili(end.x))):
 				var cell := Vector2i(x,y)
 				cells.append(cell)
-				if not _cell_speeds.has(cell): _cell_speeds[cell] = {}
-				_cell_speeds[cell][id] = multiplier
-				affected[cell] = true
-	_traversal_sources[id] = {"cells":cells,"speed":multiplier}
+	set_traversal_cells(id,cells,multiplier)
+func set_traversal_cells(id: StringName, cells: Array[Vector2i], multiplier: float) -> void:
+	if id.is_empty() or not is_finite(multiplier) or multiplier<=0.0: return
+	var affected := _detach_traversal_source(id)
+	var unique: Array[Vector2i] = []
+	var seen: Dictionary = {}
+	for cell in cells:
+		if not _backend.is_in_boundsv(cell) or seen.has(cell): continue
+		seen[cell]=true
+		unique.append(cell)
+		if not _cell_speeds.has(cell): _cell_speeds[cell]={}
+		_cell_speeds[cell][id]=multiplier
+		affected[cell]=true
+	_traversal_sources[id] = {"cells":unique,"speed":multiplier}
 	_update_traversal_weights(affected)
 	_publish_change()
 func remove_traversal_modifier(id: StringName) -> void:

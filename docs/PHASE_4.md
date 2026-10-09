@@ -1856,3 +1856,30 @@ smoothing. Clock/need growth and independent AI decisions were isolated; positio
 fixture buildings/trees and broad-zone geometry were seeded. This is rendered
 integration QA, not an unsupervised extended playtest. Tree trunk visual overlap,
 cell rasterization and approximate entry-weight routing remain accepted limitations.
+
+
+## 2026-10-09 — Dirt roads v1 (implemented)
+
+Optional free instant world road cells (.5 units), player 1-unit paint/erase brush,
+MultiMesh visuals and generic weighted traversal at speed1.25. Buildings delete
+road under physical footprint; cancellation never restores it. Trees prevent paint.
+Existing Navigation toggle controls routes + cached aligned grid. No world save/load
+was introduced; future traffic may use the same road model API. Automatic roads,
+maintenance, terrain and connectivity requirements deferred. See DECISIONS.
+
+
+Dirt road verification: full suite80/80 PASS, every test stderr empty; new road
+suite52 checks, weighted navigation38 and NavigationGrid107, 0 failures.
+Godot analyzer203/203 scripts, 0 diagnostics. Canonical project, direct main_3d
+and legacy2D headless: exit0, stderr empty. Controlled rendered QA24/24 PASS,
+exit0/stderr empty; straight/diagonal/fast/duplicate/Shift-erase strokes used real
+local viewport mouse events. Grid/route ON/OFF, visible roads when OFF, faster road
+detour and ground-speed restoration, building deletion/cancellation, normal forestry
+chop producing3LOG followed by road paint, camera/selection/MOVE_TO verified;
+viewport captures inspected. Fixture seeded positions, isolated needs/independent
+AI, drove work requests and minute events; not an extended unsupervised playtest.
+Physical timing: distance10 at base speed1 takes10s on ground and8s on road;
+30/144FPS positions match. A road detour of physical length10.29 had cost8.46 versus
+10 direct ground; an excessively distant road lost. Network sanity:1612 road cells,
+one MultiMesh, no tile nodes and no idle-frame weights/mesh rebuild. Changed edits
+currently rebuild the batch/source cell list; no chunks or premature optimization.

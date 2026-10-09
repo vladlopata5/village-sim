@@ -2059,3 +2059,49 @@ two planted trees in the old hard-blocker model, stays connected through slow zo
 A faster open detour is preferred when available; an only-exit forest remains usable.
 Overlapping-source removal preserves surviving contributors. Weather, roads, terrain
 height/slope/cost balancing, crowd avoidance and a separate trunk obstacle are deferred.
+
+
+## 2026-10-09 — Dirt roads v1
+
+DirtRoad is optional world cell state, free and instant, not a BuildingInstance,
+resource job or Builder task. RoadGrid owns binary cells independently of navigation
+and the player tool, with add/remove/query and deterministic enumeration. Cells align
+with BuildGrid/NavigationGrid: 0.5 world units, bounds [-64,64) x [-40,40).
+Player paint uses a 2x2-cell (1x1 world unit) brush anchored at the cursor cell,
+extending toward positive X/Z. Supercover rasterization fills intervals between
+mouse samples, including diagonal corners; no auto-route between endpoints.
+
+Choose «Грунтовая дорога» in the existing construction panel. LMB drag paints,
+Shift+LMB drag erases; RMB/Esc exits. Building and road modes exclude each other.
+Only unhandled world input paints; UI-covered gaps and releases end the stroke,
+preventing interpolation across UI. Wheel zoom and keyboard camera pan remain.
+Residents can stand on instant road paint; persistent runtime obstacles opt into
+blocks_roads. Trees/saplings use that flag and circle-vs-cell footprint validation.
+Paint skips blocked tree/building cells without removing entities. Chopping makes
+former tree cells paintable. Existing forestry planting rules are unchanged: a tree
+that later overlaps an existing road wins at .20 without automatic road deletion. Building placement ignores roads, but successful
+registration removes every road cell inside its actual footprint immediately,
+including UNDER_CONSTRUCTION. Cancellation does not restore deleted road state.
+Roads never change default building access points or require road connections.
+
+DIRT_ROAD_SPEED_MULTIPLIER=1.25. A small RoadNavigation3D world adapter, independent
+of mesh visibility/lifecycle, projects RoadGrid into NavigationGrid as one source
+through the generic set_traversal_cells API, updating once per changed stroke;
+no road-specific pathfinder. Existing normalized time-cost A* and cost-aware
+smoothing prefer roads only when their travel time is lower. Shared GridMovement3D
+uses the same speed: equal distance takes 80% of ground time. Ground=1, tree=.20,
+road=1.25; minimum-source overlap preserves tree speed even in injected road overlaps.
+Erasing removes state, visual and road modifier while retaining other source owners.
+
+RoadLayer3D is one MultiMesh of flat 0.5 tiles at Y=.015. It rebuilds only on road
+state change, never every frame; no tile nodes/colliders. The existing «Навигация»
+toggle now shows both resident routes and the aligned .5 grid. Grid is one cached
+ImmediateMesh, hidden with routes when OFF; normal road visuals always remain visible.
+Debug slow-cell overlays exclude fast road cells so they do not cover road visuals.
+
+There is no general canonical world save/load subsystem. This task adds no save
+system; runtime roads reset on restart. Sorted road cell coordinates can later be
+serialized. Future traffic/wear may call the same RoadGrid.add_road(cell); no player
+ownership or traffic counters are stored. Automatic formation, road construction,
+maintenance/weather, terrain slopes, connectivity requirements and roads for carts
+remain deferred. Gameplay professions, resources, access points and balance unchanged.

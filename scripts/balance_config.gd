@@ -121,3 +121,6 @@ const PORTER_GROUND_CLEANUP_BONUS := 200.0
 
 # Physical traversal only; planting/forestry balance remains unchanged.
 const TREE_TRAVERSAL_SPEED_MULTIPLIER := 0.20
+
+# Free instant dirt roads; a world surface state, not a construction job.
+const DIRT_ROAD_SPEED_MULTIPLIER := 1.25
