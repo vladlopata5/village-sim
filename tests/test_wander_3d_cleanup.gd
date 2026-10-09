@@ -55,7 +55,7 @@ func _run() -> void:
 	check(scene.navigation.blocked_cells() == expected_navigation.blocked_cells(), "Navigation blockers match exact snapped physical footprints plus unchanged clearance")
 	for resident in scene.residents:
 		check(scene.player_control.get_home(resident.id).id == resident.home_location_id and resident.home_location_id in expected, "Original home relationship remains valid")
-	check(scene.warehouse_data.resources.get_amount(0) == 10 and scene.warehouse_data.resources.get_amount(1) == 50 and scene.kitchen_data.resources.get_amount(0) == 0, "Initial resources preserved")
+	check(scene.warehouse_data.resources.get_amount(0) == 10 and scene.warehouse_data.resources.get_amount(preload("res://scripts/resource_type.gd").Type.PLANK) == 35 and scene.kitchen_data.resources.get_amount(0) == 0, "Initial resources preserved")
 	var actor = scene.resident_runtimes[1]
 	actor.view.global_position = Vector3(8.25,0,9.75)
 	var origin: Vector2 = actor.view.get_sim_position()

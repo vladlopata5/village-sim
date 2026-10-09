@@ -88,7 +88,7 @@ func _run() -> void:
 	var site = place(scene,Vector3(0.12,0,20.13),1)
 	check(site is Building and site in scene.buildings and site.state == Building.State.UNDER_CONSTRUCTION, "Confirm creates real registered UNDER_CONSTRUCTION BuildingInstance")
 	check(site.position == Vector2(0,500) and site.quarter_turns == 1, "Snapped world center bridges to simulation; rotation retained")
-	check(site.get_delivered_amount(Resources.WOOD) == 0 and site.construction_progress == 0 and site.active_builder_ids.is_empty(), "Existing construction initialization preserved")
+	check(site.get_delivered_amount(Resources.PLANK) == 0 and site.construction_progress == 0 and site.active_builder_ids.is_empty(), "Existing construction initialization preserved")
 	var view = scene.world_locations.get_view(site.id)
 	check(view is View and view.building_data == site and view.position == Vector3(0,0,20), "Runtime BuildingView3D references existing domain entity")
 	check(Geometry.building_size(site) == Vector2(2,3), "Rotation swaps physical mesh/blocker dimensions")
@@ -108,7 +108,7 @@ func _run() -> void:
 	check(not scene.navigation.is_world_walkable(Vector3(0,0,20)), "Removing building keeps overlapping independent navigation blocker")
 	scene.navigation.remove_blocker(&"other")
 	check(scene.navigation.find_path(start,target) == original, "Removing last blocker restores direct route without rebake")
-	# Full physical WOOD workflow; controllers and reservations are the existing implementation.
+	# Full physical PLANK workflow; controllers and reservations are the existing implementation.
 	site = place(scene,Vector3(4,0,14))
 	view = scene.world_locations.get_view(site.id)
 	scene.game_time.total_minutes = 420
@@ -118,15 +118,15 @@ func _run() -> void:
 	actor.decision._deciding = true # Drive bounded work decision points explicitly; keep real work_request/controllers.
 	actor.intents.cancel_current(actor.intents.current_intent)
 	check(scene._request_work(actor), "Existing builder chooses runtime 3D construction")
-	check(scene.warehouse_data.resources.get_reserved_out(Resources.WOOD) == 1 and site.get_construction_reserved_in(Resources.WOOD) == 1, "Existing physical reservation semantics apply")
+	check(scene.warehouse_data.resources.get_reserved_out(Resources.PLANK) == 1 and site.get_construction_reserved_in(Resources.PLANK) == 1, "Existing physical reservation semantics apply")
 	walk_phase(actor,Builder.Phase.GOING_TO_SOURCE)
-	check(actor.data.inventory.amount == 1 and scene.warehouse_data.resources.get_amount(Resources.WOOD) == 49, "Real navigation arrival picks up one WOOD")
+	check(actor.data.inventory.amount == 1 and scene.warehouse_data.resources.get_amount(Resources.PLANK) == 34, "Real navigation arrival picks up one PLANK")
 	walk_phase(actor,Builder.Phase.CARRYING_TO_SITE)
-	check(site.get_delivered_amount(Resources.WOOD) == 1, "Real navigation arrival delivers to construction, not center")
+	check(site.get_delivered_amount(Resources.PLANK) == 1, "Real navigation arrival delivers to construction, not center")
 	for trip in range(9):
 		walk_phase(actor,Builder.Phase.GOING_TO_SOURCE)
 		walk_phase(actor,Builder.Phase.CARRYING_TO_SITE)
-	check(site.get_delivered_amount(Resources.WOOD) == 10 and scene.warehouse_data.resources.get_amount(Resources.WOOD) == 40, "All ten units physically travel warehouse/inventory/site")
+	check(site.get_delivered_amount(Resources.PLANK) == 10 and scene.warehouse_data.resources.get_amount(Resources.PLANK) == 25, "All ten units physically travel warehouse/inventory/site")
 	walk_phase(actor,Builder.Phase.GOING_TO_SITE)
 	check(actor.builder.phase == Builder.Phase.BUILDING and actor.view.get_sim_position().is_equal_approx(scene.world_locations.get_position(site.id)), "Construction work starts at shared DEFAULT ACCESS POINT")
 	for cycle in range(3):
@@ -148,7 +148,7 @@ func _run() -> void:
 	check(scene._request_work(actor), "Claim new construction before cancellation")
 	var before_drops: int = scene.ground_resources.drops.size()
 	check(scene.cancel_construction(before_pickup.id), "Cancel before pickup supported")
-	check(scene.warehouse_data.resources.get_reserved_out(Resources.WOOD) == 0 and before_pickup.get_construction_reserved_in(Resources.WOOD) == 0 and before_pickup.active_builder_ids.is_empty(), "Before-pickup removal releases both reservations and slot")
+	check(scene.warehouse_data.resources.get_reserved_out(Resources.PLANK) == 0 and before_pickup.get_construction_reserved_in(Resources.PLANK) == 0 and before_pickup.active_builder_ids.is_empty(), "Before-pickup removal releases both reservations and slot")
 	check(scene.ground_resources.drops.size() == before_drops, "Before-pickup cancellation creates no phantom drop")
 	# Cancellation while transporting uses existing cleanup/drop semantics.
 	var cancelled = place(scene,Vector3(0,0,20))
@@ -157,8 +157,8 @@ func _run() -> void:
 	walk_phase(actor,Builder.Phase.GOING_TO_SOURCE)
 	var drops: int = scene.ground_resources.drops.size()
 	check(scene.cancel_construction(cancelled.id), "Remove during transport supported")
-	check(actor.builder.site == null and actor.data.inventory.amount == 0 and cancelled.active_builder_ids.is_empty() and cancelled.get_construction_reserved_in(Resources.WOOD) == 0, "Remove releases task/slot/inbound reservation")
-	check(scene.ground_resources.drops.size() == drops+1, "Picked-up WOOD drops physically on site cancellation")
+	check(actor.builder.site == null and actor.data.inventory.amount == 0 and cancelled.active_builder_ids.is_empty() and cancelled.get_construction_reserved_in(Resources.PLANK) == 0, "Remove releases task/slot/inbound reservation")
+	check(scene.ground_resources.drops.size() == drops+1, "Picked-up PLANK drops physically on site cancellation")
 	await process_frame
 	scene.free()
 	print("Construction 3D: %d checks, %d failures" % [checks,failures])

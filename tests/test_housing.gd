@@ -11,7 +11,7 @@ const Setup = preload("res://tests/behavior_test_setup.gd")
 const Assignment = preload("res://scripts/resident_assignment.gd")
 const Activity = preload("res://scripts/resident_activity.gd").Type
 const EventLog = preload("res://scripts/game_logger.gd")
-const WOOD = preload("res://scripts/resource_type.gd").Type.WOOD
+const PLANK = preload("res://scripts/resource_type.gd").Type.PLANK
 class ControlSpy extends "res://scripts/player_control.gd":
 	var calls: Array = []
 	func assign_home(resident_id: String, building_id: StringName) -> bool:
@@ -97,7 +97,7 @@ func _run() -> void:
 	for i in range(4): control.clear_home(population[i].id); control.assign_home(population[i].id, b.id)
 	check(not service.execute([population[5].id], stale) and population[5].home_location_id.is_empty(), "Context revalidates capacity at execution")
 	# House completion enables assignment only; it never auto-fills.
-	unfinished.add_delivered_material(WOOD, unfinished.get_required_amount(WOOD))
+	unfinished.add_delivered_material(PLANK, unfinished.get_required_amount(PLANK))
 	unfinished.construction_progress = unfinished.definition.construction_work_required
 	check(unfinished.complete_construction() and control.get_home_occupants(unfinished.id).is_empty(), "Completed house has no automatic occupants")
 	service.register_building(unfinished, func(): return Vector2.ZERO)
@@ -152,7 +152,7 @@ func _run() -> void:
 	var placed = scene.placement.confirm()
 	scene.resident_selection.select_building(placed)
 	check(building_card.construction_section.visible and not building_card.housing_section.visible and not scene.player_control.assign_home(actor.data.id, placed.id), "Placed unfinished house has no active housing")
-	placed.add_delivered_material(WOOD, placed.get_required_amount(WOOD))
+	placed.add_delivered_material(PLANK, placed.get_required_amount(PLANK))
 	placed.construction_progress = placed.definition.construction_work_required
 	placed.complete_construction()
 	check(building_card.housing_section.visible and building_card.housing_count.text == "Жильцы: 0 / 4" and not building_card.construction_section.visible, "Completion event reveals empty housing section")

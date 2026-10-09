@@ -54,10 +54,10 @@ func walk(actor: Node, phase: int) -> void:
 func _run() -> void:
 	var scene = scenario()
 	var a = place(scene, Vector3(4,0,14))
-	a.add_delivered_material(Resources.WOOD,8)
-	a.reserve_construction_material(Resources.WOOD,2)
+	a.add_delivered_material(Resources.PLANK,8)
+	a.reserve_construction_material(Resources.PLANK,2)
 	var b = place(scene,Vector3(10,0,18))
-	b.add_delivered_material(Resources.WOOD,10)
+	b.add_delivered_material(Resources.PLANK,10)
 	var actor = worker(scene)
 	assign_wait(scene,a,actor)
 	check(actor.builder.phase == Builder.Phase.WAITING_FOR_MATERIALS and actor.builder.site == a, "A8+2 stays committed instead of choosing material-ready B")
@@ -67,26 +67,26 @@ func _run() -> void:
 	var wait_logs: int = lines.filter(func(line): return "ждёт материалы" in line).size()
 	for minute in range(60): actor.builder._on_minute(420+minute)
 	check(actor.builder.source_search_count == searches and lines.filter(func(line): return "ждёт материалы" in line).size() == wait_logs, "Waiting never polls sources or logs per minute")
-	a.deliver_reserved_construction_material(Resources.WOOD,1)
+	a.deliver_reserved_construction_material(Resources.PLANK,1)
 	await process_frame
-	check(actor.builder.phase == Builder.Phase.WAITING_FOR_MATERIALS and a.get_delivered_amount(Resources.WOOD) == 9 and a.get_construction_reserved_in(Resources.WOOD) == 1, "First arrival 9+1 keeps same assignment")
-	a.deliver_reserved_construction_material(Resources.WOOD,1)
+	check(actor.builder.phase == Builder.Phase.WAITING_FOR_MATERIALS and a.get_delivered_amount(Resources.PLANK) == 9 and a.get_construction_reserved_in(Resources.PLANK) == 1, "First arrival 9+1 keeps same assignment")
+	a.deliver_reserved_construction_material(Resources.PLANK,1)
 	await process_frame
 	walk(actor,Builder.Phase.GOING_TO_SITE)
 	check(actor.builder.site == a and actor.builder.phase == Builder.Phase.BUILDING and b.active_builder_ids.is_empty(), "Second arrival resumes construction A through its event")
-	check(scene.warehouse_data.resources.get_reserved_out(Resources.WOOD) == 0 and a.get_construction_reserved_in(Resources.WOOD) == 0, "Wait never creates duplicate reservations")
+	check(scene.warehouse_data.resources.get_reserved_out(Resources.PLANK) == 0 and a.get_construction_reserved_in(Resources.PLANK) == 0, "Wait never creates duplicate reservations")
 	scene.free()
 
 	# Two real builders carrying the last units: first waits, second still delivers.
 	scene = scenario()
 	a = place(scene,Vector3(4,0,14))
-	a.add_delivered_material(Resources.WOOD,8)
+	a.add_delivered_material(Resources.PLANK,8)
 	actor = worker(scene)
 	var carrier = worker(scene,3)
 	check(scene._request_work(actor) and scene._request_work(carrier), "Both normal WORK requests reserve their own last unit")
-	check(a.get_construction_reserved_in(Resources.WOOD) == 2 and a.active_builder_ids.size() == 2, "Real inbound transport owns both existing slots")
+	check(a.get_construction_reserved_in(Resources.PLANK) == 2 and a.active_builder_ids.size() == 2, "Real inbound transport owns both existing slots")
 	b = place(scene,Vector3(10,0,18))
-	b.add_delivered_material(Resources.WOOD,10)
+	b.add_delivered_material(Resources.PLANK,10)
 	walk(actor,Builder.Phase.GOING_TO_SOURCE)
 	walk(actor,Builder.Phase.CARRYING_TO_SITE)
 	check(actor.builder.phase == Builder.Phase.WAITING_FOR_MATERIALS and carrier.builder.phase == Builder.Phase.GOING_TO_SOURCE, "First carrier waits while other carrier remains active; no slot deadlock")
@@ -96,7 +96,7 @@ func _run() -> void:
 	walk(actor,Builder.Phase.GOING_TO_SITE)
 	walk(carrier,Builder.Phase.GOING_TO_SITE)
 	check(actor.builder.phase == Builder.Phase.BUILDING and carrier.builder.phase == Builder.Phase.BUILDING and actor.builder.site == a and carrier.builder.site == a, "Both original builders resume A, not B")
-	check(a.get_delivered_amount(Resources.WOOD) == 10 and a.active_builder_ids.size() == 2 and scene.warehouse_data.resources.get_amount(Resources.WOOD) == 48, "Two physical deliveries retain capacity=2 and exact material counts")
+	check(a.get_delivered_amount(Resources.PLANK) == 10 and a.active_builder_ids.size() == 2 and scene.warehouse_data.resources.get_amount(Resources.PLANK) == 33, "Two physical deliveries retain capacity=2 and exact material counts")
 	scene.game_time.total_minutes += 60
 	actor.builder._on_minute(scene.game_time.total_minutes)
 	carrier.builder._on_minute(scene.game_time.total_minutes)
@@ -107,7 +107,7 @@ func _run() -> void:
 	for after_pickup in [false,true]:
 		scene = scenario()
 		a = place(scene,Vector3(4,0,14))
-		a.add_delivered_material(Resources.WOOD,8)
+		a.add_delivered_material(Resources.PLANK,8)
 		actor = worker(scene)
 		carrier = worker(scene,3)
 		actor.builder.request_work()
@@ -118,7 +118,7 @@ func _run() -> void:
 		carrier.commands.move_to(Vector2(0,500))
 		await process_frame
 		check(actor.builder.site == a and actor.builder.phase == Builder.Phase.GOING_TO_SOURCE, "Actual carrier cancellation wakes A waiter into fetch")
-		check(a.get_construction_reserved_in(Resources.WOOD) == 1 and scene.warehouse_data.resources.get_reserved_out(Resources.WOOD) == 1, "Cleanup and resumed fetch leave exactly one current reservation")
+		check(a.get_construction_reserved_in(Resources.PLANK) == 1 and scene.warehouse_data.resources.get_reserved_out(Resources.PLANK) == 1, "Cleanup and resumed fetch leave exactly one current reservation")
 		check(scene.ground_resources.drops.size() == (1 if after_pickup else 0), "Carrier cleanup preserves physical before/after pickup semantics")
 		scene.free()
 
@@ -126,18 +126,18 @@ func _run() -> void:
 	for has_source in [true,false]:
 		scene = scenario()
 		a = place(scene,Vector3(4,0,14))
-		a.add_delivered_material(Resources.WOOD,8)
-		a.reserve_construction_material(Resources.WOOD,2)
+		a.add_delivered_material(Resources.PLANK,8)
+		a.reserve_construction_material(Resources.PLANK,2)
 		b = place(scene,Vector3(10,0,18))
-		b.add_delivered_material(Resources.WOOD,10)
+		b.add_delivered_material(Resources.PLANK,10)
 		actor = worker(scene)
 		assign_wait(scene,a,actor)
-		if not has_source: scene.warehouse_data.resources.try_take(Resources.WOOD,50)
-		a.release_construction_material(Resources.WOOD,2)
+		if not has_source: scene.warehouse_data.resources.try_take(Resources.PLANK,35)
+		a.release_construction_material(Resources.PLANK,2)
 		await process_frame
 		if has_source:
-			check(actor.builder.site == a and actor.builder.phase == Builder.Phase.GOING_TO_SOURCE and a.get_construction_reserved_in(Resources.WOOD) == 1, "Lost inbound reservation invokes existing one-unit fetch on A")
-			check(scene.warehouse_data.resources.get_reserved_out(Resources.WOOD) == 1, "Fetch reserves real source stock")
+			check(actor.builder.site == a and actor.builder.phase == Builder.Phase.GOING_TO_SOURCE and a.get_construction_reserved_in(Resources.PLANK) == 1, "Lost inbound reservation invokes existing one-unit fetch on A")
+			check(scene.warehouse_data.resources.get_reserved_out(Resources.PLANK) == 1, "Fetch reserves real source stock")
 		else:
 			check(actor.builder.site == null and a.active_builder_ids.is_empty() and not actor.intents.has_current_action(), "No source/no inbound releases impossible wait")
 			check(actor.builder.best_site() == b, "Fresh global choice can select B after abandonment")
@@ -145,17 +145,17 @@ func _run() -> void:
 
 	scene = scenario()
 	a = place(scene,Vector3(4,0,14))
-	a.add_delivered_material(Resources.WOOD,8)
-	a.reserve_construction_material(Resources.WOOD,1)
+	a.add_delivered_material(Resources.PLANK,8)
+	a.reserve_construction_material(Resources.PLANK,1)
 	actor = worker(scene)
-	check(actor.builder.request_work() and actor.builder.phase == Builder.Phase.GOING_TO_SOURCE and a.get_construction_reserved_in(Resources.WOOD) == 2, "8+1 is partial coverage: reserve/fetch uncovered last unit, never waiting-only")
+	check(actor.builder.request_work() and actor.builder.phase == Builder.Phase.GOING_TO_SOURCE and a.get_construction_reserved_in(Resources.PLANK) == 2, "8+1 is partial coverage: reserve/fetch uncovered last unit, never waiting-only")
 	scene.free()
 
 	# Multiple already-assigned waiters and arrival from away share the same access resolver.
 	scene = scenario()
 	a = place(scene,Vector3(4,0,14))
-	a.add_delivered_material(Resources.WOOD,8)
-	a.reserve_construction_material(Resources.WOOD,2)
+	a.add_delivered_material(Resources.PLANK,8)
+	a.reserve_construction_material(Resources.PLANK,2)
 	actor = worker(scene)
 	carrier = worker(scene,3)
 	assign_wait(scene,a,actor,false)
@@ -163,7 +163,7 @@ func _run() -> void:
 	walk(actor,Builder.Phase.GOING_TO_WAIT)
 	assign_wait(scene,a,carrier)
 	check(actor.builder.phase == Builder.Phase.WAITING_FOR_MATERIALS and carrier.builder.phase == Builder.Phase.WAITING_FOR_MATERIALS, "Two assigned waiters hold their own slots")
-	a.deliver_reserved_construction_material(Resources.WOOD,2)
+	a.deliver_reserved_construction_material(Resources.PLANK,2)
 	await process_frame
 	walk(actor,Builder.Phase.GOING_TO_SITE)
 	walk(carrier,Builder.Phase.GOING_TO_SITE)
@@ -173,9 +173,9 @@ func _run() -> void:
 	for ending in ["player","critical","schedule","complete","cancel","profession"]:
 		scene = scenario()
 		a = place(scene,Vector3(4,0,14))
-		a.add_delivered_material(Resources.WOOD,8)
+		a.add_delivered_material(Resources.PLANK,8)
 		a.add_construction_work(27)
-		a.reserve_construction_material(Resources.WOOD,2)
+		a.reserve_construction_material(Resources.PLANK,2)
 		actor = worker(scene)
 		assign_wait(scene,a,actor)
 		match ending:
@@ -188,7 +188,7 @@ func _run() -> void:
 				scene.game_time.total_minutes = 1020
 				scene.game_time.phase_changed.emit("Вечер")
 			"complete":
-				a.deliver_reserved_construction_material(Resources.WOOD,2)
+				a.deliver_reserved_construction_material(Resources.PLANK,2)
 				a.add_construction_work(180)
 				a.complete_construction()
 			"cancel": check(scene.cancel_construction(a.id), "Construction cancellation succeeds")

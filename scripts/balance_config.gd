@@ -109,4 +109,9 @@ const SAWMILL_WORK_MINUTES := 30
 const SAWMILL_INPUT_CAPACITY := 12
 const SAWMILL_OUTPUT_CAPACITY := 12
 const SAWMILL_WORKER_CAPACITY := 1
-const WAREHOUSE_PLANK_CAPACITY := 20
+# Hut (10) + Sawmill (15) + one small building reserve (10).
+# Per-resource capacity; FOOD/LOG capacities are independent.
+const WAREHOUSE_PLANK_CAPACITY := 35
+const STARTER_PLANK_RESERVE := 10
+static func starter_plank_amount(hut_cost: int, sawmill_cost: int) -> int:
+	return hut_cost + sawmill_cost + STARTER_PLANK_RESERVE

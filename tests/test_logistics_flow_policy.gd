@@ -33,7 +33,7 @@ func walk(actor: Node, reason: StringName = &"") -> void:
 		if not reason.is_empty() and actor.intents.current_intent.reason_id!=reason: break
 		if not actor.view.movement.is_moving(): break
 func run() -> void:
-	for row in [[Types.STORAGE,Resources.FOOD,true,true],[Types.STORAGE,Resources.WOOD,true,true],[Types.STORAGE,Resources.LOG,true,true],[Types.GATHERER_HUT,Resources.FOOD,false,true],[Types.FOOD,Resources.FOOD,true,false],[Types.LUMBERJACK_HUT,Resources.LOG,false,true],[Types.LUMBERJACK_HUT,Resources.FOOD,false,false]]:
+	for row in [[Types.STORAGE,Resources.FOOD,true,true],[Types.STORAGE,Resources.PLANK,true,true],[Types.STORAGE,Resources.LOG,true,true],[Types.GATHERER_HUT,Resources.FOOD,false,true],[Types.FOOD,Resources.FOOD,true,false],[Types.LUMBERJACK_HUT,Resources.LOG,false,true],[Types.LUMBERJACK_HUT,Resources.FOOD,false,false]]:
 		var def = Definition.for_type(row[0])
 		check(def.allows_external_import(row[1])==row[2] and def.allows_external_export(row[1])==row[3],"Per-building/resource import/export policy")
 	var service = Logistics.new()

@@ -20,6 +20,8 @@ func scene() -> Node:
 	var world = load("res://scenes/main_3d.tscn").instantiate()
 	root.add_child(world)
 	world.game_time.set_process(false)
+	# Isolate recipe/logistics expectations from construction bootstrap stock.
+	world.warehouse_data.resources.try_take(Resources.PLANK,world.warehouse_data.resources.get_amount(Resources.PLANK))
 	world.game_time.total_minutes = 420
 	world.game_logger.console_enabled = false
 	world.social_events.enabled = false
@@ -36,7 +38,7 @@ func place(world: Node, point: Vector3 = Vector3(4,0,14)):
 	world.placement.rotate()
 	return world.placement.confirm()
 func finish(target: RefCounted) -> void:
-	target.add_delivered_material(Resources.WOOD,target.get_required_amount(Resources.WOOD))
+	target.add_delivered_material(Resources.PLANK,target.get_required_amount(Resources.PLANK))
 	target.add_construction_work(target.definition.construction_work_required)
 	check(target.complete_construction(),"Existing construction completes same instance")
 func walk(actor: Node, reason: StringName = &"") -> void:
@@ -61,12 +63,12 @@ func run() -> void:
 	check(saw.definition.footprint_cells==Vector2i(12,8) and saw.quarter_turns==1,"12x8 build cells, normal quarter-turn placement")
 	check(world.build_grid.occupied_cells(saw.id).size()==96 and not world.navigation.is_world_walkable(Coordinates.to_world(saw.position)),"Construction occupies footprint and navigation immediately")
 	check(not world.player_control.assign_workplace(actor.data.id,saw.id),"UNDER_CONSTRUCTION cannot employ Sawyer")
-	check(saw.definition.worker_capacity==1 and saw.get_required_amount(Resources.WOOD)==15,"Single-worker ordinary construction WOOD balance")
+	check(saw.definition.worker_capacity==1 and saw.get_required_amount(Resources.PLANK)==15,"Single-worker ordinary construction PLANK balance")
 	var recipe: RefCounted = saw.definition.production_recipe
 	check(recipe.inputs=={Resources.LOG:1} and recipe.outputs=={Resources.PLANK:1} and recipe.work_required==30,"Recipe is data: 1 LOG -> 1 PLANK /30 actual work-minutes")
 	finish(saw)
 	check(saw.resources.get_capacity(Resources.LOG)==12 and saw.resources.get_capacity(Resources.PLANK)==12,"Separate input/output buffers use existing per-resource capacity")
-	check(not saw.resources.allows_resource(Resources.FOOD) and not saw.resources.allows_resource(Resources.WOOD),"Only LOG/PLANK functional storage, WOOD remains construction-only")
+	check(not saw.resources.allows_resource(Resources.FOOD),"Only LOG/PLANK functional storage, PLANK also supplies construction")
 	check(world.player_control.assign_workplace(actor.data.id,saw.id) and actor.data.profession==Profession.SAWYER,"Player workplace API assigns SAWYER to exact built sawmill")
 	check(not world.player_control.assign_workplace(world.resident_runtimes[2].data.id,saw.id),"Second Sawyer rejected")
 	check(preload("res://scripts/resident_profession.gd").display_name(Profession.SAWYER)=="Пильщик","Existing profession UI label")

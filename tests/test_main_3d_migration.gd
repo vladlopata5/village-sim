@@ -32,7 +32,7 @@ func _run() -> void:
 	var residents: Array = []
 	var buildings: Array = []
 	for data in old.residents: residents.append([data.id, data.resident_name, data.profession, data.home_location_id])
-	for data in old.buildings: buildings.append([data.id, data.type, data.position, data.state, data.resources.get_amount(Resources.FOOD), data.resources.get_amount(Resources.WOOD)])
+	for data in old.buildings: buildings.append([data.id, data.type, data.position, data.state, data.resources.get_amount(Resources.FOOD), data.resources.get_amount(Resources.PLANK)])
 	old.free()
 	var scene = load("res://scenes/main_3d.tscn").instantiate()
 	root.add_child(scene)
@@ -52,7 +52,7 @@ func _run() -> void:
 		check(runtime.view.view.position == Vector3.ZERO and runtime.view.get_sim_position() == Coordinates.to_sim(runtime.view.global_position), "Executor owns physical position; view has zero local offset")
 	for i in range(7):
 		var data = scene.buildings[i]
-		check([data.id, data.type, data.position, data.state, data.resources.get_amount(Resources.FOOD), data.resources.get_amount(Resources.WOOD)] == buildings[i], "Building state/resources/location match 2D starter")
+		check([data.id, data.type, data.position, data.state, data.resources.get_amount(Resources.FOOD), data.resources.get_amount(Resources.PLANK)] == buildings[i], "Building state/resources/location match 2D starter")
 		var view = scene.world_locations.get_view(data.id)
 		check(view.building_data == data and view.global_position == Coordinates.to_world(data.position), "Building view uses domain ID and logical center")
 		var point: Variant = scene.world_locations.get_position(data.id)

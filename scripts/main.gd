@@ -439,8 +439,9 @@ func _create_test_warehouse() -> void:
 	warehouse_data.resources.add(ResourceType.Type.FOOD, 10)
 	warehouse_data.resources.set_capacity(ResourceType.Type.LOG, Balance.WAREHOUSE_LOG_CAPACITY)
 	warehouse_data.resources.set_capacity(ResourceType.Type.PLANK, Balance.WAREHOUSE_PLANK_CAPACITY)
-	warehouse_data.resources.set_capacity(ResourceType.Type.WOOD, 50)
-	warehouse_data.resources.add(ResourceType.Type.WOOD, 50)
+	var hut_cost: int = BuildingDefinition.for_type(BuildingType.Type.LUMBERJACK_HUT).construction_requirements[ResourceType.Type.PLANK]
+	var sawmill_cost: int = BuildingDefinition.for_type(BuildingType.Type.SAWMILL).construction_requirements[ResourceType.Type.PLANK]
+	warehouse_data.resources.add(ResourceType.Type.PLANK, Balance.starter_plank_amount(hut_cost, sawmill_cost))
 	buildings.append(warehouse_data)
 	warehouse_data.position = Vector2(300, 237.5)
 	var view = _create_building_presentation(warehouse_data)
@@ -552,7 +553,6 @@ func _activate_completed_building(building: BuildingInstance) -> void:
 			building.resources.set_capacity(ResourceType.Type.FOOD, 20)
 			building.resources.set_capacity(ResourceType.Type.LOG, Balance.WAREHOUSE_LOG_CAPACITY)
 			building.resources.set_capacity(ResourceType.Type.PLANK, Balance.WAREHOUSE_PLANK_CAPACITY)
-			building.resources.set_capacity(ResourceType.Type.WOOD, 50)
 			logistics.add_warehouse(building)
 		BuildingType.Type.FOOD:
 			building.resources.set_capacity(ResourceType.Type.FOOD, 20)

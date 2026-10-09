@@ -5,7 +5,7 @@ const Skill = preload("res://scripts/skill_type.gd")
 const Profession = preload("res://scripts/resident_profession.gd")
 const Definition = preload("res://scripts/building_definition.gd")
 const HOME = preload("res://scripts/building_type.gd").Type.HOME
-const WOOD = preload("res://scripts/resource_type.gd").Type.WOOD
+const PLANK = preload("res://scripts/resource_type.gd").Type.PLANK
 const FOOD = preload("res://scripts/resource_type.gd").Type.FOOD
 const Balance = preload("res://scripts/balance_config.gd")
 var checks := 0
@@ -87,7 +87,7 @@ func _run() -> void:
 	for interrupted in [false, true]:
 		scene = scenario()
 		var cycle_site = site_in(scene)
-		cycle_site.add_delivered_material(WOOD, cycle_site.get_required_amount(WOOD))
+		cycle_site.add_delivered_material(PLANK, cycle_site.get_required_amount(PLANK))
 		actor = scene.resident_runtimes[1]
 		become(scene, actor, Profession.Type.BUILDER)
 		check(actor.builder.request_work(), "Builder starts actual task")
@@ -101,7 +101,7 @@ func _run() -> void:
 	# Multiple workers contribute their own cycles, including the cycle completing the building.
 	scene = scenario()
 	var site = site_in(scene)
-	site.add_delivered_material(WOOD, site.get_required_amount(WOOD))
+	site.add_delivered_material(PLANK, site.get_required_amount(PLANK))
 	var actors = [scene.resident_runtimes[1], scene.resident_runtimes[3]]
 	for worker in actors:
 		become(scene, worker, Profession.Type.BUILDER)
@@ -122,10 +122,10 @@ func _run() -> void:
 	become(scene, actor, Profession.Type.BUILDER)
 	actor.builder.request_work()
 	arrive(actor)
-	check(actor.data.inventory.amount == 1 and actor.data.get_skill_xp(Skill.Type.CONSTRUCTION) == 0 and actor.data.get_skill_xp(Skill.Type.LOGISTICS) == 0, "WOOD pickup grants no XP")
+	check(actor.data.inventory.amount == 1 and actor.data.get_skill_xp(Skill.Type.CONSTRUCTION) == 0 and actor.data.get_skill_xp(Skill.Type.LOGISTICS) == 0, "PLANK pickup grants no XP")
 	become(scene, actor, Profession.Type.NONE)
 	arrive(actor)
-	check(site.get_delivered_amount(WOOD) == 1 and actor.data.get_skill_xp(Skill.Type.CONSTRUCTION) == 0 and actor.data.get_skill_xp(Skill.Type.LOGISTICS) == 0, "WOOD delivery grants no XP")
+	check(site.get_delivered_amount(PLANK) == 1 and actor.data.get_skill_xp(Skill.Type.CONSTRUCTION) == 0 and actor.data.get_skill_xp(Skill.Type.LOGISTICS) == 0, "PLANK delivery grants no XP")
 	scene.free()
 
 	scene = scenario()
@@ -191,7 +191,7 @@ func _run() -> void:
 			scene.game_time.debug_skip_minutes(27)
 		elif profession == Profession.Type.BUILDER:
 			site = site_in(scene)
-			site.add_delivered_material(WOOD, site.get_required_amount(WOOD))
+			site.add_delivered_material(PLANK, site.get_required_amount(PLANK))
 			actor.builder.request_work()
 			arrive(actor)
 			scene.game_time.debug_skip_minutes(27)

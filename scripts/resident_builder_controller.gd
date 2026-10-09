@@ -18,7 +18,7 @@ var source: Instance
 var phase := Phase.NONE
 var work_minutes := 0
 var _last_work_minute := 0
-var _resource: ResourceType.Type = ResourceType.Type.WOOD
+var _resource: ResourceType.Type
 var _source_reserved := false
 var _site_reserved := false
 var _intent: Intent
@@ -363,7 +363,10 @@ func _on_phase(phase_name: String) -> void:
 	# A carried unit is delivered safely before leaving work.
 
 func _on_resource_changed(resource: ResourceType.Type, _amount: int) -> void:
-	if resource == ResourceType.Type.WOOD: _on_world_changed()
+	for candidate in _buildings:
+		if not candidate.is_built() and candidate.definition.construction_requirements.has(resource):
+			_on_world_changed()
+			return
 func _on_world_changed() -> void:
 	_availability_dirty = true
 	if _exiting or _mutating: return

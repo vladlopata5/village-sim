@@ -321,7 +321,7 @@ func _runtime_tests() -> void:
 	scene.placement.select(Definition.for_type(BuildingType.Type.HOME))
 	scene.placement.update_position(Vector2(-500,200))
 	var site=scene.placement.confirm()
-	site.add_delivered_material(ResourceType.Type.WOOD,10)
+	site.add_delivered_material(ResourceType.Type.PLANK,10)
 	check(actor.builder.request_work(),"Builder real task starts")
 	actor.view._process(100)
 	check(random.draws==1,"Builder building cycle start rolls once; transport not hooked")

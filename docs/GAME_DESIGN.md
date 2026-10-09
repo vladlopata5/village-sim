@@ -1781,3 +1781,34 @@ WOOD остаётся отдельным construction resource; PLANK пока �
 Storage. Заполненные output/storage buffers естественно останавливают recipe. Следующий
 крупный этап — migration construction WOOD → PLANK, вне текущего commit. Не добавлены
 tools/fuel/sawdust, animations, multiple recipes/workers, recipe selection или новые skills.
+
+## 2026-10-09 — Construction economy: PLANK replaces abstract WOOD
+
+Текущее строительство использует физические Доски (PLANK). Старые записи WOOD
+ниже/выше относятся к историческим этапам; WOOD удалён из ResourceType, runtime
+stock/config и gameplay. Enum содержит FOOD/LOG/PLANK; FOOD сохраняет ID 0.
+Сохранений с numeric resource IDs в текущем прототипе нет; save migration не добавлена.
+
+Construction balance задаёт generic requirements dictionary ResourceType → amount,
+а не отдельное wood/plank поле. Стоимости: HOME/GATHERER_HUT/LUMBERJACK_HUT —
+10 PLANK; STORAGE/FOOD/SAWMILL — 15 PLANK. Work time (180/240), builders=2,
+worker capacity и recipe 1 LOG → 1 PLANK / 30 actual work-minutes не изменены.
+Позже несколько материалов можно задать тем же словарём без новых requirement fields.
+
+Starter Storage: 35 PLANK = актуальные costs Hut (10) + Sawmill (15) + explicit
+bootstrap reserve 10 (одно малое здание). Stock вычисляется из definitions через
+balance helper; PLANK per-resource capacity повышена с 20 до 35, чтобы bootstrap
+реально помещался. FOOD 10/20, LOG 0/20 и другие стартовые данные не изменены.
+
+Tree → Ground LOG → own Hut → Sawmill → PLANK → Porter own Storage → Builder
+→ construction теперь замыкает экономику. Builder остаётся resource-generic:
+requirement → source reservation → inventory → delivered construction material.
+Существующий source filter допускает любой BUILT container с available material,
+не только Storage; новая Storage-only policy не вводилась. Porter ownership не менялся.
+Events проверяют наличие resource в требованиях активных строек, без WOOD/PLANK branch.
+Полное inbound покрытие сохраняет текущую стройку/slot и event-driven wait. Interrupt
+после pickup создаёт GroundResource(PLANK), до pickup освобождает обе reservations.
+Cancelled construction сохраняет прежний cleanup; BuildGrid/NavGrid/lifecycle не менялись.
+
+Smooth construction progress НЕ реализован и остаётся отдельным backlog item.
+Нет новых ресурсов, recipe modifiers, storage balancing или anti-softlock системы.

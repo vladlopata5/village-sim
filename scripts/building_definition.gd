@@ -6,12 +6,12 @@ const ResourceType = preload("res://scripts/resource_type.gd")
 const BuildingType = preload("res://scripts/building_type.gd")
 const Recipe = preload("res://scripts/production_recipe.gd")
 const CONSTRUCTION_BALANCE = {
-	BuildingType.Type.SAWMILL: {"wood":15,"minutes":240,"builders":2},
-	BuildingType.Type.LUMBERJACK_HUT: {"wood":10,"minutes":180,"builders":2},
-	BuildingType.Type.FOOD: {"wood": 15, "minutes": 240, "builders": 2},
-	BuildingType.Type.STORAGE: {"wood": 15, "minutes": 240, "builders": 2},
-	BuildingType.Type.GATHERER_HUT: {"wood": 10, "minutes": 180, "builders": 2},
-	BuildingType.Type.HOME: {"wood": 10, "minutes": 180, "builders": 2},
+	BuildingType.Type.SAWMILL: {"requirements": {ResourceType.Type.PLANK: 15},"minutes":240,"builders":2},
+	BuildingType.Type.LUMBERJACK_HUT: {"requirements": {ResourceType.Type.PLANK: 10},"minutes":180,"builders":2},
+	BuildingType.Type.FOOD: {"requirements": {ResourceType.Type.PLANK: 15}, "minutes": 240, "builders": 2},
+	BuildingType.Type.STORAGE: {"requirements": {ResourceType.Type.PLANK: 15}, "minutes": 240, "builders": 2},
+	BuildingType.Type.GATHERER_HUT: {"requirements": {ResourceType.Type.PLANK: 10}, "minutes": 180, "builders": 2},
+	BuildingType.Type.HOME: {"requirements": {ResourceType.Type.PLANK: 10}, "minutes": 180, "builders": 2},
 }
 # Explicit 3D physical area in build cells; legacy size remains the 2D visual footprint.
 const FOOTPRINT_CELLS = {
@@ -30,7 +30,6 @@ const LOGISTICS_FLOW = {
 	},
 	BuildingType.Type.STORAGE: {
 		ResourceType.Type.FOOD: {"import":true,"export":true},
-		ResourceType.Type.WOOD: {"import":true,"export":true},
 		ResourceType.Type.LOG: {"import":true,"export":true},
 		ResourceType.Type.PLANK: {"import":true,"export":true},
 	},
@@ -69,7 +68,7 @@ static func for_type(category: BuildingType.Type, label: String = ""):
 	var labels := ["Общая кухня", "Склад", "Хижина собирателя", "Дом", "Хижина лесоруба", "Лесопилка"]
 	var footprint_size := Vector2(64, 48) if category == BuildingType.Type.HOME else Vector2(144, 96)
 	var construction: Dictionary = CONSTRUCTION_BALANCE[category]
-	var result = load("res://scripts/building_definition.gd").new(ids[category], category, labels[category] if label.is_empty() else label, footprint_size, {ResourceType.Type.WOOD: construction.wood}, construction.minutes, construction.builders, Balance.HOUSE_RESIDENT_CAPACITY if category == BuildingType.Type.HOME else 0)
+	var result = load("res://scripts/building_definition.gd").new(ids[category], category, labels[category] if label.is_empty() else label, footprint_size, construction.requirements, construction.minutes, construction.builders, Balance.HOUSE_RESIDENT_CAPACITY if category == BuildingType.Type.HOME else 0)
 
 	if category == BuildingType.Type.LUMBERJACK_HUT:
 		result.worker_capacity = Balance.LUMBERJACK_WORKER_CAPACITY

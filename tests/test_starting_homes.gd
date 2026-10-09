@@ -5,7 +5,7 @@ const Definition = preload("res://scripts/building_definition.gd")
 const View = preload("res://scripts/building_view_2d.gd")
 const Types = preload("res://scripts/building_type.gd").Type
 const Activity = preload("res://scripts/resident_activity.gd").Type
-const WOOD = preload("res://scripts/resource_type.gd").Type.WOOD
+const PLANK = preload("res://scripts/resource_type.gd").Type.PLANK
 var checks := 0
 var failures := 0
 func _initialize() -> void: call_deferred("_run")
@@ -54,7 +54,7 @@ func _run() -> void:
 		check(view is View and view.building_data == home and not view is Marker2D, "Same BuildingView as player-built houses; no home marker")
 		check(view.scene_file_path == "res://scenes/building_view_2d.tscn" and not view.has_node("Diamond"), "No prototype home visual nodes")
 		check(scene.world_locations.get_position(home.id) == home.position and scene.world_locations.get_location(home.id).display_name == "Дом", "Normal world location registration")
-		check(home.construction_progress == 0 and home.get_delivered_amount(WOOD) == 0 and home.active_builder_ids.is_empty(), "Prebuilt houses require no retroactive materials/work/builders")
+		check(home.construction_progress == 0 and home.get_delivered_amount(PLANK) == 0 and home.active_builder_ids.is_empty(), "Prebuilt houses require no retroactive materials/work/builders")
 		click(view.get_global_transform_with_canvas() * Vector2(20, 10))
 		check(scene.resident_selection.selected_building == home and view.selected and card.visible, "Real LMB selects starter home through normal building flow")
 		check(card.name_label.text == "Дом" and card.id_label.text == "ID: %s" % home.id and card.state_label.text == "Состояние: Построено", "Ordinary BuildingCard name/ID/state")
@@ -103,7 +103,7 @@ func _run() -> void:
 	var placed = scene.placement.confirm()
 	check(placed != null and placed.state == Instance.State.UNDER_CONSTRUCTION, "Player placement still starts UNDER_CONSTRUCTION")
 	check(placed.definition.id == homes[0].definition.id and placed.definition.size == homes[0].definition.size and placed.definition.housing_capacity == 4, "One HOME definition type for starter/player buildings")
-	placed.add_delivered_material(WOOD, placed.get_required_amount(WOOD))
+	placed.add_delivered_material(PLANK, placed.get_required_amount(PLANK))
 	placed.construction_progress = placed.definition.construction_work_required
 	check(placed.complete_construction() and placed.is_built(), "Normal player construction completes")
 	var placed_view = scene.world_locations.get_view(placed.id)

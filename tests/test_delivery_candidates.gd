@@ -76,7 +76,7 @@ func _run() -> void:
 	f.target.resources.reserve_in(RT.FOOD, 10)
 	check(f.service.collect_candidates(f.worker.id).is_empty(), "No uncovered destination capacity")
 	f.target.resources.release_in(RT.FOOD, 20)
-	f.target.resources.set_allowed_resource_types([RT.WOOD])
+	f.target.resources.set_allowed_resource_types([RT.PLANK])
 	check(f.service.collect_candidates(f.worker.id).is_empty(), "Resource not accepted: no candidate")
 	f.target.resources.set_allowed_resource_types([RT.FOOD])
 	f.target.resources.add(RT.FOOD, 20)
@@ -91,9 +91,9 @@ func _run() -> void:
 	source_site.resources.add(RT.FOOD, 10)
 	f.service.add_warehouse(source_site)
 	check(f.service.collect_candidates(f.worker.id).size() == 1, "Construction source excluded")
-	f.source.resources.set_capacity(RT.WOOD, 50)
-	f.source.resources.add(RT.WOOD, 50)
-	check(f.service.collect_candidates(f.worker.id).all(func(c): return c.resource_type == RT.FOOD), "Builder WOOD not offered to porters")
+	f.source.resources.set_capacity(RT.PLANK, 50)
+	f.source.resources.add(RT.PLANK, 50)
+	check(f.service.collect_candidates(f.worker.id).all(func(c): return c.resource_type == RT.FOOD), "Builder PLANK not offered to porters")
 	# Calibration is independent from the normal WORK/Need comparison.
 	for row in [[7000.0, 300.0, 6750.0], [7000.0, 600.0, 6000.0], [4000.0, 600.0, 3000.0], [8000.0, 600.0, 7000.0], [10000.0, 1200.0, 6000.0], [6000.0, 300.0, 5750.0]]:
 		var score: float = row[0] - f.service.distance_penalty(row[1])

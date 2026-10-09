@@ -49,10 +49,10 @@ func run() -> void:
 	check(hut != null and not hut.is_built() and hut.quarter_turns==1,"Real rotated placement creates construction")
 	check(not scene.player_control.assign_workplace(actor.data.id,hut.id),"Under construction hut cannot employ")
 	check(not scene.navigation.is_world_walkable(Coordinates.to_world(hut.position)),"Construction footprint already blocks navigation")
-	hut.add_delivered_material(Resources.WOOD,10)
+	hut.add_delivered_material(Resources.PLANK,10)
 	hut.construction_progress = 180
-	check(hut.complete_construction(),"Ordinary WOOD/work lifecycle activates same instance")
-	check(hut.resources.get_capacity(Resources.LOG)==12 and not hut.resources.allows_resource(Resources.FOOD) and not hut.resources.allows_resource(Resources.WOOD),"Built hut stores only LOG")
+	check(hut.complete_construction(),"Ordinary PLANK/work lifecycle activates same instance")
+	check(hut.resources.get_capacity(Resources.LOG)==12 and not hut.resources.allows_resource(Resources.FOOD) and not hut.resources.allows_resource(Resources.PLANK),"Built hut stores only LOG")
 	check(scene.player_control.assign_workplace(actor.data.id,hut.id),"Built hut employs lumberjack")
 	var other = scene.resident_runtimes[1]
 	check(not scene.player_control.assign_workplace(other.data.id,hut.id),"Second worker rejected atomically")
