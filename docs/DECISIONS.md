@@ -1631,3 +1631,23 @@ Placement поверх resident не запрещён: blocked active position �
 safe path cancellation; автоматический displacement не добавлен. Placement validation
 проверяет finite coordinates, bounds и occupancy, не доступность входа/terrain.
 Scale 1:25 и весь simulation balance сохранены. Migration остаётся постепенной.
+
+
+### Generic runtime placement blockers (2026-10-09)
+
+Отдельный RefCounted registry принадлежит Main3D, injected в BuildingPlacement3D.
+register_circle(stable ID, Callable WORLD position, radius) — opt-in в запрещение
+строительства; unregister снимает blocker. Mutable positions не копируются.
+ResidentExecutor3D предоставляет get_world_position, lifecycle tree_exiting снимает
+регистрацию; radius берётся из общего physical Geometry.RESIDENT_RADIUS=0.4.
+Validator не проверяет resident/animal/cart классы. Future entities могут использовать
+тот же circle contract (bounding circle), без создания этих systems сейчас.
+
+Intersection: closest point rotated axis-aligned rectangle к circle center,
+distance_squared <= radius_squared. Касание консервативно запрещено; дополнительного
+clearance нет. IDs сортируются для deterministic first overlap. Stale Callable safely
+удаляется; unavailable/nonfinite provider position не описывает физическую сущность
+и пропускается. Ghost проверяет live providers при каждом validation update; базовый
+confirm вызывает can_place заново до создания Instance. BuildGrid и NavigationGrid
+не изменены. Эта проверка заменяет прежнее ограничение «placement поверх resident
+не запрещён»; collision response/displacement/crowd avoidance не добавлены.

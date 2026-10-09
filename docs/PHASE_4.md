@@ -1344,3 +1344,22 @@ headless startup: exit 0, stderr пуст. Rendered viewport QA: реальны�
 green/red ghost/snap/rotation, invalid/valid confirm, selection/cards, Esc cancel,
 camera pan/zoom и normal builder AI при x20: 10 WOOD, 180 work-minutes, BUILT.
 Card live показывает 3/10 WOOD и 1/2 builders, затем обычную built housing section.
+
+
+### Runtime placement blockers (2026-10-09)
+
+В main_3d добавлен generic live circle-provider registry; все residents зарегистрированы
+с executor WORLD position и radius=0.4. BuildingPlacement3D проверяет повернутый
+physical footprint после static grid checks, включая partial overlap/contact.
+Ghost автоматически становится valid после ухода entity; confirm повторно проверяет
+current providers, поэтому stale green preview не создаёт building поверх resident.
+BuildGrid static ownership и NavigationGrid obstacles не изменены. Новых UI/gameplay
+entities, crowd avoidance или collision response нет. Предыдущее ограничение этого
+этапа «resident occupancy не проверяется» снято.
+
+Проверки: полный suite 67/67 PASS, stderr пуст; runtime placement blockers —
+55 checks, construction 3D — 92, 0 failures. Analyzer: 174 scripts, 0 diagnostics.
+Old 2D main и main_3d headless: exit 0, stderr пуст. Rendered viewport QA:
+inside/partial overlap → red, rotation changes intersection, actual MOVE_TO → green,
+confirm succeeds after departure. Natural builder AI при x20 завершил новый HOME:
+10 WOOD/180 work-minutes/BUILT; cards/selection/camera работают, runtime stderr пуст.

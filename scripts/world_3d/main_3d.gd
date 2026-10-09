@@ -8,6 +8,7 @@ const Geometry = preload("res://scripts/world_3d/world_geometry.gd")
 var navigation = preload("res://scripts/navigation_grid.gd").new()
 var navigation_debug = preload("res://scripts/world_3d/navigation_grid_debug.gd").new()
 var build_grid = preload("res://scripts/build_grid.gd").new()
+var runtime_placement_blockers = preload("res://scripts/runtime_placement_blockers.gd").new()
 var building_ghost: Node3D
 var ready_for_play := false
 var _clicks: Array[InputEventMouseButton] = []
@@ -35,6 +36,9 @@ func _create_resident_presentation(data: ResidentData, start: Vector2) -> Node:
 	executor.position = Coordinates.to_world(start)
 	executor.navigation = navigation
 	executor.setup(data)
+	var registered: bool = runtime_placement_blockers.register_circle(StringName(data.id), executor.get_world_position, Geometry.RESIDENT_RADIUS)
+	assert(registered, "Each resident has one runtime placement blocker")
+	executor.tree_exiting.connect(runtime_placement_blockers.unregister.bind(StringName(data.id)))
 	executor.set_time_speed(game_time.speed_multiplier)
 	game_time.speed_changed.connect(executor.set_time_speed)
 	executor.intent_failed.connect(_on_movement_failed.bind(data))
@@ -55,6 +59,7 @@ func _register_interaction_view(_id: StringName, _view: Node) -> void:
 func _setup_construction() -> void:
 	placement = preload("res://scripts/world_3d/building_placement_3d.gd").new()
 	placement.grid = build_grid
+	placement.runtime_blockers = runtime_placement_blockers
 	placement.setup(buildings)
 	placement.logger = game_logger
 	placement.placed.connect(_show_building)

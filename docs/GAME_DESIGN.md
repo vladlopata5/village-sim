@@ -1528,3 +1528,16 @@ migration bridge. cancel_construction(id) освобождает незавер�
 сетки через существующий worker cleanup, без demolition UI/refund. BUILT не удаляется.
 F5/2D остаётся прежним. Cargo/drop visuals, terrain, roads/trees, crowd и полноценные
 interaction points пока не перенесены/не реализованы.
+
+
+### Runtime placement blockers (2026-10-09)
+
+BuildGrid сохраняет только permanent/construction building occupancy. Dynamic entities
+не занимают его клетки. 3D placement после bounds/static occupancy отдельно проверяет
+RuntimePlacementBlockers: live WORLD position provider + circle radius в X/Z.
+Все residents main_3d подключены с physical radius=0.4. Planned rotated physical
+rectangle пересекается с кругом, включая касание — ghost invalid, confirm отклонён.
+После ухода entity следующий validation update возвращает valid. Confirm всегда
+повторно читает providers. Animal/Cart/Vehicle позже могут зарегистрироваться через
+тот же контракт без изменения validator; сейчас они не реализованы. Это не
+NavigationGrid obstacle/crowd system и не добавляет navigation blockers.

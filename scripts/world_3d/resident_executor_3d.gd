@@ -23,7 +23,8 @@ func setup(data: RefCounted) -> void:
 	movement.set_physics_process(false)
 	movement.arrived.connect(_arrived)
 	movement.failed.connect(_failed)
-func get_sim_position() -> Vector2: return Coordinates.to_sim(global_position)
+func get_world_position() -> Vector3: return global_position
+func get_sim_position() -> Vector2: return Coordinates.to_sim(get_world_position())
 func set_selected(value: bool) -> void: view.set_selected(value)
 func set_time_speed(multiplier: int) -> void: _time_speed = multiplier
 func move_to(target: Vector2) -> void:

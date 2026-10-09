@@ -541,3 +541,12 @@ NavigationRegion3D использует pre-baked mesh; есть visual debug pa
   Default access point остаётся временным rotation-aware migration bridge.
 - Дальше: cargo/ground-resource visuals, полноценные interaction points, terrain,
   roads/trees и crowd movement. F5 остаётся 2D fallback; полная migration не завершена.
+
+
+### Выполнено: runtime placement blockers (2026-10-09)
+
+- Placement отдельно от static BuildGrid проверяет generic live X/Z circle providers.
+- Residents подключены с radius=0.4; partial overlap/rotation и confirm-time recheck
+  предотвращают размещение поверх движущейся сущности.
+- Future Animal/Cart/Vehicle смогут opt-in в тот же contract; сами systems не добавлены.
+  NavigationGrid/crowd avoidance по-прежнему отдельны от placement blockers.
