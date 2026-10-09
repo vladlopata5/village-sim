@@ -125,6 +125,16 @@ func integration() -> void:
 		actor.view.set_physics_process(false)
 	await physics_frame
 	check(world.roads.cells().is_empty(),"No starter roads or duplicate simulation objects")
+	# Regression: buildings exist first, then the player paints through them.
+	check(world.warehouse_data.is_built(),"Existing-building road fixture is BUILT")
+	await check_building_before_road(world,world.warehouse_data,"BUILT")
+	world._select_building_definition(Def.for_type(Types.HOME))
+	world.placement.update_world_position(Vector3(40,0,16.5))
+	var existing_site=world.placement.confirm()
+	check(existing_site!=null and not existing_site.is_built(),"Existing-building road fixture is UNDER_CONSTRUCTION")
+	if existing_site!=null:
+		await check_building_before_road(world,existing_site,"UNDER_CONSTRUCTION")
+		check(world.cancel_construction(existing_site.id),"Remove regression construction fixture")
 	var actor=world.resident_runtimes[0]
 	world.resident_selection.select(actor.data)
 	var toggle=world.get_node("HUD/NavigationDebugToggle")
@@ -242,3 +252,38 @@ func integration() -> void:
 	check(world.navigation.revision==network_revision and world.road_layer.multimesh==network_mesh,"Idle frames rebuild neither road visuals nor navigation weights")
 	check(world.road_layer.multimesh.instance_count==world.roads.cells().size() and world.road_layer.get_child_count()==0,"No per-tile presentation nodes or duplicates")
 	world.free()
+
+func check_building_before_road(world, building, state_label: String) -> void:
+	var cells: Array[Vector2i]=world.build_grid.occupied_cells(building.id)
+	check(not cells.is_empty() and cells.all(func(cell): return not world.roads.contains(cell)),state_label+": building exists before any footprint roads")
+	var minimum: Vector2i=cells[0]
+	var maximum: Vector2i=cells[0]
+	for cell in cells:
+		minimum=minimum.min(cell)
+		maximum=maximum.max(cell)
+	var row: int=floori((minimum.y+maximum.y)/2.0)
+	var before:=Vector2i(minimum.x-2,row)
+	var after:=Vector2i(maximum.x+2,row)
+	world._cancel_road_tool()
+	world._select_road_tool()
+	world.road_tool.paint(world.build_grid.cell_to_world(before))
+	world.road_tool.paint(world.build_grid.cell_to_world(after))
+	await process_frame
+	check(cells.all(func(cell): return not world.road_tool.can_paint(cell)),state_label+": tool rejects actual occupied footprint cells")
+	check(cells.all(func(cell): return not world.roads.contains(cell)),state_label+": painting creates no road under building")
+	check(world.roads.contains(before) and world.roads.contains(after),state_label+": neighboring valid cells on both sides still painted")
+	check(world.road_layer.multimesh.instance_count==world.roads.cells().size(),state_label+": visual instance count matches only accepted roads")
+	# Dummy headless RenderingServer has no MultiMesh transform storage.
+	# The same test also runs rendered to verify actual tile positions.
+	if DisplayServer.get_name()!="headless":
+		var visual_cells: Array[Vector2i]=[]
+		for index in range(world.road_layer.multimesh.instance_count):
+			var position: Vector3=world.road_layer.multimesh.get_instance_transform(index).origin
+			visual_cells.append(world.build_grid.world_to_cell(position))
+		check(cells.all(func(cell): return cell not in visual_cells),state_label+": no visual road instances inside footprint")
+		check(before in visual_cells and after in visual_cells,state_label+": neighboring road instances visible")
+	check(cells.all(func(cell): return world.navigation.get_cell_speed_multiplier(cell)==1.0),state_label+": no road traversal multiplier under building, even on blocked cells")
+	check(is_equal_approx(world.navigation.get_cell_speed_multiplier(before),1.25) and is_equal_approx(world.navigation.get_cell_speed_multiplier(after),1.25),state_label+": neighboring road traversal multipliers applied")
+	check(cells.all(func(cell): return world.build_grid.occupant(cell)==building.id),state_label+": painting preserves building occupancy")
+	world._cancel_road_tool()
+	world.roads.edit(world.roads.cells(),true)
