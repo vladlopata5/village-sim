@@ -51,7 +51,8 @@ func _run() -> void:
 		var access: Variant = scene.world_locations.get_position(building.id)
 		check(access is Vector2 and scene.navigation.is_world_walkable(Coordinates.to_world(access)), "Starter access point remains walkable")
 		expected_navigation.add_blocker(building.id,footprint)
-	for tree in scene.trees: expected_navigation.add_blocker(tree.id,scene.tree_footprint(tree))
+	for tree in scene.trees:
+		check(scene._reachable_wander_target(Vector2(-24.5*25,-13.25*25),tree.position), "Wander can target a slow tree cell through the ordinary full-path validator")
 	check(scene.navigation.blocked_cells() == expected_navigation.blocked_cells(), "Navigation blockers match exact snapped physical footprints plus unchanged clearance")
 	for resident in scene.residents:
 		check(scene.player_control.get_home(resident.id).id == resident.home_location_id and resident.home_location_id in expected, "Original home relationship remains valid")

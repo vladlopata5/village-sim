@@ -1408,9 +1408,9 @@ Canonical main_3d имеет 16 deterministic individual Trees в западно
 X=-34.25..-25.25, Z=-13.25..-4.25 world units; они не snapped и не занимают BuildGrid.
 TreeData: stable ID/kind TREE, simulation position, physical radius 0.35, STANDING /
 DEPLETED, separate reservation owner, persistent work_done/work_required и yield.
-Standing tree блокирует NavigationGrid через physical bounding rectangle + standard
-resident clearance 0.4 и generic runtime circle placement contract; никаких Tree
-branches в validator. Depletion снимает оба blockers без rebake и убирает view.
+Standing tree замедляет NavigationGrid через physical bounding rectangle без дополнительного
+resident clearance; generic runtime circle сохраняет запрет placement, без Tree
+branches в validator. Depletion снимает slow source/placement blocker и убирает view.
 
 Исторический forestry foundation: LUMBERJACK первоначально работал без workplace;
 текущая модель с хижиной описана ниже.
@@ -1504,7 +1504,7 @@ BUILDER остаётся world-work. Worker capacity хижины = 1; спис�
 Minimum center spacing 2 world units. 30 actual work-minutes → individual SAPLING.
 Interrupted planting сбрасывает partial progress и claim. SAPLING radius 0.15,
 за 4320 game-minutes (3 дня) → обычный STANDING radius 0.35 с тем же ID.
-Оба состояния блокируют navigation/placement, не занимают BuildGrid; рост обновляет
+Оба состояния замедляют navigation и блокируют placement, не занимают BuildGrid; рост обновляет
 blockers без rebake. Terrain/species/tools/seeds/сезоны не добавлены.
 
 Export переиспользует HaulJob + PorterHaulExecutor полностью: atomic out/in,
@@ -1828,3 +1828,31 @@ interrupt preserved17,resume reached30,and final177→180 completed after3 minut
 Materials and final-edge progress were seeded by fixture; physical access trips,
 minute signals, existing work requests and completion path were real. No new UI,
 logistics/resource or modifier changes; integer-minute resolution remains.
+
+
+## 2026-10-09 — Weighted traversal and soft tree zones
+
+Added generic modifier registry to NavigationGrid, normalized AStarGrid2D weights,
+travel-time-safe smoothing and shared GridMovement3D segment timing. Tree lifecycle
+now adds/replaces/removes .20 speed zones without resident-clearance expansion;
+placement remains blocked by trees and buildings keep hard navigation footprints.
+Existing action/forestry/resource logic, simulation balance and 1:25 bridge remain.
+Debug toggle additionally displays modifier cells. New regression suite covers the
+formerly trapped Stephan corridor, overlap ownership, future speedups, dynamic
+replanning, exact fivefold traversal time and 30/144 FPS plus x1/x20 consistency.
+No roads, terrain, crowd steering or escape exceptions. See DECISIONS for formulas.
+
+
+Weighted traversal verification: full suite 79/79 PASS, every test stderr empty;
+new weighted navigation suite 38 checks, existing NavigationGrid 107, 0 failures.
+Godot analyzer 198/198 scripts, 0 diagnostics. Canonical project, direct main_3d,
+legacy 2D and historical navmesh prototype headless: exit0, stderr empty.
+Controlled rendered canonical QA: 13/13 checks, exit0, stderr empty; viewport
+captures inspected for corridor/soft cells and raw/smoothed detour. Real Stephan
+MOVE_TO exited the two-tree Hut/Sawmill corridor; normal forestry work then reached
+the perimeter, chopped a tree and produced 3 LOG. Removal restored speed1; replanting
+restored .20. A seeded broad soft-zone fixture demonstrated a faster detour after
+smoothing. Clock/need growth and independent AI decisions were isolated; positions,
+fixture buildings/trees and broad-zone geometry were seeded. This is rendered
+integration QA, not an unsupervised extended playtest. Tree trunk visual overlap,
+cell rasterization and approximate entry-weight routing remain accepted limitations.

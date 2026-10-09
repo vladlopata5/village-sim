@@ -1577,9 +1577,9 @@ Canonical main_3d имеет 16 deterministic individual Trees в западно
 X=-34.25..-25.25, Z=-13.25..-4.25 world units; они не snapped и не занимают BuildGrid.
 TreeData: stable ID/kind TREE, simulation position, physical radius 0.35, STANDING /
 DEPLETED, separate reservation owner, persistent work_done/work_required и yield.
-Standing tree блокирует NavigationGrid через physical bounding rectangle + standard
-resident clearance 0.4 и generic runtime circle placement contract; никаких Tree
-branches в validator. Depletion снимает оба blockers без rebake и убирает view.
+Standing tree замедляет NavigationGrid через physical bounding rectangle без дополнительного
+resident clearance; generic runtime circle сохраняет запрет placement, без Tree
+branches в validator. Depletion снимает slow source/placement blocker и убирает view.
 
 Исторический forestry foundation: LUMBERJACK первоначально работал без workplace;
 текущая модель с хижиной описана ниже.
@@ -1642,7 +1642,7 @@ BUILDER остаётся world-work. Worker capacity хижины = 1; спис�
 Minimum center spacing 2 world units. 30 actual work-minutes → individual SAPLING.
 Interrupted planting сбрасывает partial progress и claim. SAPLING radius 0.15,
 за 4320 game-minutes (3 дня) → обычный STANDING radius 0.35 с тем же ID.
-Оба состояния блокируют navigation/placement, не занимают BuildGrid; рост обновляет
+Оба состояния замедляют navigation и блокируют placement, не занимают BuildGrid; рост обновляет
 blockers без rebake. Terrain/species/tools/seeds/сезоны не добавлены.
 
 Export переиспользует HaulJob + PorterHaulExecutor полностью: atomic out/in,
@@ -1888,3 +1888,48 @@ BuildingCard already subscribes to construction_changed and updates incrementall
 no frame polling or new UI. PLANK delivery/reservations, waiting, source selection,
 logistics and production are unchanged. Smooth construction progress backlog CLOSED.
 Current resolution is integer simulation minutes, not sub-minute/frame animation.
+
+
+## 2026-10-09 — Weighted traversal and soft tree zones
+
+Canonical main_3d keeps hard blockers for BUILT/UNDER_CONSTRUCTION buildings
+(physical footprint plus resident clearance). Trees and saplings instead register
+TREE_TRAVERSAL_SPEED_MULTIPLIER=0.20 over their existing physical bounding rectangle,
+rasterized to navigation cells without added resident clearance. Even the trunk is
+walkable in this first version; visual overlap is accepted. Trees still block
+building placement through RuntimePlacementBlockers, never BuildGrid occupancy.
+
+NavigationGrid owns generic set/remove_traversal_modifier(source_id, area, speed),
+cell/world multiplier queries and travel-time integration. Ground speed is 1.
+Sources retain independent IDs; minimum active multiplier wins, not multiplication:
+two overlapping .20 zones remain .20. Ground is the fallback only when no source
+covers the cell, so future speedups above 1 are supported. A slow source takes
+precedence over a speedup in an overlap. No roads/terrain systems were added.
+
+AStarGrid2D (jumping disabled) weights entry into a cell by M / cell_speed,
+where M=max(1, all registered source speeds). All weights stay >=1, preserving
+admissibility of the octile heuristic even for future fast roads. A common scale
+factor does not change route ordering: this approximates distance / speed on the
+cell graph. Smoothing compares exact piecewise segment travel time against the
+replaced raw subpath and rejects slower shortcuts, even if line of sight is clear.
+The existing supercover hard-obstacle/corner-cutting checks remain authoritative.
+Cell routing is approximate; this is not a continuous globally optimal path solver.
+
+GridMovement3D follows the same piecewise distance/speed model at cell boundaries,
+consuming elapsed simulation-scaled movement time across all cells/waypoints.
+Transient segment timing interpolates from fixed path endpoints to avoid accumulating
+float32 transform rounding each frame. ResidentExecutor3D still owns world position;
+all profession/need/PlayerCommand movements share this layer. Simulation coordinates,
+1:25 bridge, base movement speed and gameplay balance are unchanged.
+
+Planting adds a source, growth replaces its footprint under the same stable tree ID,
+and depletion removes it alongside existing placement/view cleanup and 3 LOG yield.
+Navigation revisions replan active routes and refresh existing location providers.
+No per-cell logs, escape teleport, forced actions or anti-trap exceptions exist.
+Existing debug toggle shows hard cells red, traversal zones yellow, raw/smooth paths.
+
+The playtest corridor between a Lumberjack Hut and Sawmill, closed at both exits by
+two planted trees in the old hard-blocker model, stays connected through slow zones.
+A faster open detour is preferred when available; an only-exit forest remains usable.
+Overlapping-source removal preserves surviving contributors. Weather, roads, terrain
+height/slope/cost balancing, crowd avoidance and a separate trunk obstacle are deferred.

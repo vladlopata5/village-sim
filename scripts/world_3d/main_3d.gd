@@ -28,7 +28,7 @@ func _ready() -> void:
 	navigation.changed.connect(_on_navigation_changed)
 	var toggle := CheckButton.new()
 	toggle.name = "NavigationDebugToggle"
-	toggle.text = "Navigation debug: blocked / raw / smooth"
+	toggle.text = "Navigation debug: blocked / slow / raw / smooth"
 	toggle.position = Vector2(16,590)
 	toggle.toggled.connect(navigation_debug.set_enabled)
 	toggle.toggled.connect(_set_work_area_debug)
@@ -215,7 +215,7 @@ func tree_footprint(tree: RefCounted) -> Rect2:
 	return Rect2(point-Vector2.ONE*tree.physical_radius,Vector2.ONE*tree.physical_radius*2.0)
 func _deplete_tree(tree: RefCounted) -> void:
 	if not tree_views.has(tree.id): return # Exactly-once world removal/yield.
-	navigation.remove_blocker(tree.id)
+	navigation.remove_traversal_modifier(tree.id)
 	runtime_placement_blockers.unregister(tree.id)
 	var view: Node = tree_views[tree.id]
 	view.queue_free()
@@ -250,7 +250,7 @@ func _register_tree(tree: RefCounted) -> void:
 	tree_views[tree.id] = view
 	_refresh_tree_blocker(tree)
 func _refresh_tree_blocker(tree: RefCounted) -> void:
-	navigation.add_blocker(tree.id,tree_footprint(tree))
+	navigation.set_traversal_modifier(tree.id,tree_footprint(tree),preload("res://scripts/balance_config.gd").TREE_TRAVERSAL_SPEED_MULTIPLIER)
 	runtime_placement_blockers.unregister(tree.id)
 	runtime_placement_blockers.register_circle(tree.id,_tree_world_position.bind(tree),tree.physical_radius)
 func spawn_sapling(position: Vector2) -> RefCounted:

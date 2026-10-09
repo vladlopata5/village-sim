@@ -3,12 +3,14 @@ extends Node3D
 var navigation: RefCounted
 var movement: Node
 var _blocked := MeshInstance3D.new()
+var _slow := MeshInstance3D.new()
 var _raw := MeshInstance3D.new()
 var _smooth := MeshInstance3D.new()
 var _enabled := false
 func setup(grid: RefCounted) -> void:
 	navigation = grid
 	add_child(_blocked)
+	add_child(_slow)
 	add_child(_raw)
 	add_child(_smooth)
 	navigation.changed.connect(_on_grid_changed)
@@ -37,10 +39,12 @@ func _material(color: Color) -> StandardMaterial3D:
 	material.albedo_color = color
 	return material
 func _draw_blockers() -> void:
+	_draw_cells(_blocked,navigation.blocked_cells(),Color("a25945"))
+	_draw_cells(_slow,navigation.modified_cells(),Color("d6b440"))
+func _draw_cells(view: MeshInstance3D, cells: Array, color: Color) -> void:
 	var mesh := ImmediateMesh.new()
-	var cells: Array = navigation.blocked_cells()
 	if not cells.is_empty():
-		mesh.surface_begin(Mesh.PRIMITIVE_TRIANGLES,_material(Color("a25945")))
+		mesh.surface_begin(Mesh.PRIMITIVE_TRIANGLES,_material(color))
 		for cell in cells:
 			var center: Vector3 = navigation.cell_to_world(cell,0.025)
 			var half: float = navigation.CELL_SIZE/2.0
@@ -50,7 +54,7 @@ func _draw_blockers() -> void:
 			var d := center+Vector3(-half,0,half)
 			for point in [a,c,b,a,d,c]: mesh.surface_add_vertex(point)
 		mesh.surface_end()
-	_blocked.mesh = mesh
+	view.mesh = mesh
 func _draw_paths() -> void:
 	if is_instance_valid(movement): _on_path_changed(movement.current_path())
 	else:

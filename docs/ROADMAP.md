@@ -578,9 +578,9 @@ Canonical main_3d имеет 16 deterministic individual Trees в западно
 X=-34.25..-25.25, Z=-13.25..-4.25 world units; они не snapped и не занимают BuildGrid.
 TreeData: stable ID/kind TREE, simulation position, physical radius 0.35, STANDING /
 DEPLETED, separate reservation owner, persistent work_done/work_required и yield.
-Standing tree блокирует NavigationGrid через physical bounding rectangle + standard
-resident clearance 0.4 и generic runtime circle placement contract; никаких Tree
-branches в validator. Depletion снимает оба blockers без rebake и убирает view.
+Standing tree замедляет NavigationGrid через physical bounding rectangle без дополнительного
+resident clearance; generic runtime circle сохраняет запрет placement, без Tree
+branches в validator. Depletion снимает slow source/placement blocker и убирает view.
 
 Исторический forestry foundation: LUMBERJACK первоначально работал без workplace;
 текущая модель с хижиной описана ниже.
@@ -643,7 +643,7 @@ BUILDER остаётся world-work. Worker capacity хижины = 1; спис�
 Minimum center spacing 2 world units. 30 actual work-minutes → individual SAPLING.
 Interrupted planting сбрасывает partial progress и claim. SAPLING radius 0.15,
 за 4320 game-minutes (3 дня) → обычный STANDING radius 0.35 с тем же ID.
-Оба состояния блокируют navigation/placement, не занимают BuildGrid; рост обновляет
+Оба состояния замедляют navigation и блокируют placement, не занимают BuildGrid; рост обновляет
 blockers без rebake. Terrain/species/tools/seeds/сезоны не добавлены.
 
 Export переиспользует HaulJob + PorterHaulExecutor полностью: atomic out/in,
@@ -893,3 +893,14 @@ BuildingCard already subscribes to construction_changed and updates incrementall
 no frame polling or new UI. PLANK delivery/reservations, waiting, source selection,
 logistics and production are unchanged. Smooth construction progress backlog CLOSED.
 Current resolution is integer simulation minutes, not sub-minute/frame animation.
+
+
+## 2026-10-09 — Weighted traversal and soft tree zones (completed)
+
+Canonical NavigationGrid now supports generic source-owned speed modifiers and
+travel-time A*. Trees/saplings are walkable at speed .20, retaining independent
+placement blocking. Buildings remain hard obstacles with resident clearance.
+Cost-aware smoothing and cell-boundary time integration share the same multipliers.
+The two-tree Hut/Sawmill corridor stays reachable; faster detours remain preferred.
+Future speedups use normalized admissible weights. Roads, terrain heights/slopes,
+crowd avoidance and separate trunk obstacles remain deferred. See DECISIONS.

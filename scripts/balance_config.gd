@@ -118,3 +118,6 @@ static func starter_plank_amount(hut_cost: int, sawmill_cost: int) -> int:
 
 # Small cleanup preference against world urgency 0..11000; no age term.
 const PORTER_GROUND_CLEANUP_BONUS := 200.0
+
+# Physical traversal only; planting/forestry balance remains unchanged.
+const TREE_TRAVERSAL_SPEED_MULTIPLIER := 0.20

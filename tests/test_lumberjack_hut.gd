@@ -138,7 +138,7 @@ func run() -> void:
 	check(scene.trees.size()==count+1 and scene.forestry_area.claims.is_empty(),"Full planting creates exactly one individual sapling")
 	var sapling = scene.trees.back()
 	check(sapling.state==TreeData.State.SAPLING and sapling.growth_progress==0,"New tree starts as sapling")
-	check(scene.runtime_placement_blockers.has_blocker(sapling.id) and not scene.navigation.is_world_walkable(Coordinates.to_world(sapling.position)) and scene.build_grid.occupied_cells(sapling.id).is_empty(),"Sapling blocks navigation/placement, never BuildGrid")
+	check(scene.runtime_placement_blockers.has_blocker(sapling.id) and scene.navigation.is_world_walkable(Coordinates.to_world(sapling.position)) and is_equal_approx(scene.navigation.get_world_speed_multiplier(Coordinates.to_world(sapling.position)),0.2) and scene.build_grid.occupied_cells(sapling.id).is_empty(),"Sapling slows navigation and blocks placement, never BuildGrid")
 	var count_before: int = scene.forestry_area.tree_count(hut)
 	check(not scene.forestry_area.spot_valid(hut,sapling.position) and not scene.forestry_area.spot_valid(hut,hut.position),"Tree and building overlap planting rejected")
 	# Grow through the same minute-event implementation without unrelated 4320-minute needs simulation.

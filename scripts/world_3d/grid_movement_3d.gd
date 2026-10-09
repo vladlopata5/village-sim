@@ -12,6 +12,8 @@ var _target := Vector3.ZERO
 var _moving := false
 var _pending := false
 var _index := 0
+var _segments: Array[Dictionary] = []
+var _spent := 0.0
 var _revision := -1
 func set_target(world_position: Vector3) -> void:
 	_target = world_position
@@ -19,12 +21,16 @@ func set_target(world_position: Vector3) -> void:
 	_pending = true # Plan on advance, after intent ownership is established.
 	raw_path.clear()
 	_path.clear()
+	_segments.clear()
+	_spent = 0.0
 	path_changed.emit(_path)
 func stop() -> void:
 	_moving = false
 	_pending = false
 	raw_path.clear()
 	_path.clear()
+	_segments.clear()
+	_spent = 0.0
 	path_changed.emit(_path)
 func is_moving() -> bool: return _moving
 func current_path() -> PackedVector3Array: return _path
@@ -39,21 +45,31 @@ func advance(delta: float) -> void:
 		_path = navigation.smooth_path(raw_path)
 		_pending = false
 		_revision = navigation.revision
-		_index = 1
+		_index = 0
+		_spent = 0.0
+		_segments.clear()
 		if _path.is_empty():
 			_fail()
 			return
+		for index in range(1,_path.size()):
+			_segments.append_array(navigation.traversal_segments(_path[index-1],_path[index]))
 		path_changed.emit(_path)
 	var remaining := maxf(delta,0.0) * maxf(speed,0.0)
-	# Consume distance across waypoints, so x20 cannot lose time at cell edges.
-	while _index < _path.size():
-		var waypoint := _path[_index]
-		var distance := body.global_position.distance_to(waypoint)
-		if distance > remaining:
-			body.global_position = body.global_position.move_toward(waypoint,remaining)
+	# Budget is elapsed time * base speed. Crossing slow cells consumes more of
+	# that budget; consume all boundaries so large x20 steps remain FPS independent.
+	while _index < _segments.size():
+		var segment := _segments[_index]
+		var cost: float = segment.cost
+		var left := maxf(cost-_spent,0.0)
+		if left > remaining:
+			_spent += remaining
+			# Interpolate from the fixed segment start instead of accumulating
+			# float32 transform rounding on every rendered/physics frame.
+			body.global_position = segment.start.lerp(segment.end,_spent/cost)
 			return
-		body.global_position = waypoint
-		remaining -= distance
+		body.global_position = segment.end
+		remaining = maxf(remaining-left,0.0)
+		_spent = 0.0
 		_index += 1
 	stop()
 	arrived.emit()

@@ -51,7 +51,7 @@ func run() -> void:
 	for tree in scene.trees:
 		check(not ids.has(tree.id),"Unique tree ID")
 		ids[tree.id] = true
-		check(not scene.navigation.is_world_walkable(Coordinates.to_world(tree.position)),"Standing tree blocks navigation including clearance")
+		check(scene.navigation.is_world_walkable(Coordinates.to_world(tree.position)) and is_equal_approx(scene.navigation.get_world_speed_multiplier(Coordinates.to_world(tree.position)),0.2),"Standing tree is walkable with slow traversal")
 		check(scene.runtime_placement_blockers.has_blocker(tree.id),"Tree opt-in generic placement blocker")
 		check(scene.build_grid.occupied_cells(tree.id).is_empty(),"Tree never occupies BuildGrid")
 		var point: Variant = scene.tree_locations.resolve(tree,scene.resident_runtimes[1].view.get_sim_position())
