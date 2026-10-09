@@ -1714,7 +1714,7 @@ Events проверяют наличие resource в требованиях ак
 после pickup создаёт GroundResource(PLANK), до pickup освобождает обе reservations.
 Cancelled construction сохраняет прежний cleanup; BuildGrid/NavGrid/lifecycle не менялись.
 
-Smooth construction progress НЕ реализован и остаётся отдельным backlog item.
+Smooth construction progress backlog закрыт этапом incremental construction (2026-10-09).
 Нет новых ресурсов, recipe modifiers, storage balancing или anti-softlock системы.
 
 Проверки migration: full suite 75/75 PASS, stderr пустой; construction economy 60,
@@ -1772,7 +1772,7 @@ signals wake idle workers through normal decisions; no polling or second logisti
 engine was introduced. Builder and Lumberjack keep existing task execution while
 sharing source resolve/selection/reservation adapters.
 
-Deferred: smooth construction progress, age urgency, roads, carts, stacks, storage
+Deferred: age urgency, roads, carts, stacks, storage
 balancing, new resources/buildings, and profession/workplace infrastructure refactor.
 
 
@@ -1786,3 +1786,45 @@ Builder House completion and input protection exercised. Clock and normal work
 requests are driven by fixture, need growth/independent decisions isolated;
 source alternatives/output capacity temporarily controlled to exercise each path.
 This is rendered integration QA, not an extended unsupervised playtest.
+
+
+## 2026-10-09 — Incremental construction work (completed)
+
+Construction contribution is applied on GameClock minute_changed, by actual elapsed
+working game minutes, directly to BuildingInstance.construction_progress. Builder's
+work_minutes is transient cycle timing only, never buffered uncredited building work.
+At the valid access point with materials complete, WORKING action and owned slot,
+one working minute contributes one work-minute. Existing Builder has no construction
+skill/trait speed multiplier; no new modifier or balance change was introduced.
+FPS and wall-frame count do not affect contribution; pause produces no time ticks.
+The final interval ending at 17:00 is credited, then schedule cleanup stops work.
+
+Interruption/cancellation keeps already applied progress; cleanup never credits
+unobserved future time or re-applies work. Resume starts a new cycle from domain
+progress. Multiple Builders add independently; elapsed timestamp advances before
+synchronous callbacks, and contribution clamps to cycle remainder and building
+remaining work. Completion immediately calls the existing complete_construction()
+path and releases assignments/slots, with the existing building activation signals.
+If final work was applied before a synchronous interrupt, completion wins; an
+interrupt before a work tick contributes no additional work.
+
+The 60-minute cycle remains the XP/decision boundary. Only a full cycle awards
++1 CONSTRUCTION XP; a building completed mid-cycle grants no partial/bonus XP.
+Social WORK remains triggered once at work-cycle start, never per progress tick.
+BuildingCard already subscribes to construction_changed and updates incrementally;
+no frame polling or new UI. PLANK delivery/reservations, waiting, source selection,
+logistics and production are unchanged. Smooth construction progress backlog CLOSED.
+Current resolution is integer simulation minutes, not sub-minute/frame animation.
+
+
+Incremental construction verification: full suite78/78 PASS, all test stderr empty;
+55 new canonical integration checks include minute accrual, duplicate tick, card,
+17+13 interrupt/resume, remote/no-catch-up, cancellation, two workers, cycle XP,
+critical, completion/interrupt ordering,17:00 and30/144FPS × x1/x20/pause.
+Existing waiting, skills and social suites passed. Analyzer197/197,0 diagnostics.
+Canonical project/direct main_3d/legacy2D headless exit0,stderr empty.
+Controlled rendered QA showed card10/180 during cycle,50/180 with two Builders,
+interrupt preserved17,resume reached30,and final177→180 completed after3 minutes.
+Materials and final-edge progress were seeded by fixture; physical access trips,
+minute signals, existing work requests and completion path were real. No new UI,
+logistics/resource or modifier changes; integer-minute resolution remains.

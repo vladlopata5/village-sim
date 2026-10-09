@@ -66,6 +66,7 @@ func _run() -> void:
 	var searches: int = actor.builder.source_search_count
 	var wait_logs: int = lines.filter(func(line): return "ждёт материалы" in line).size()
 	for minute in range(60): actor.builder._on_minute(420+minute)
+	check(a.construction_progress == 0, "Sixty waiting minutes never contribute construction work")
 	check(actor.builder.source_search_count == searches and lines.filter(func(line): return "ждёт материалы" in line).size() == wait_logs, "Waiting never polls sources or logs per minute")
 	a.deliver_reserved_construction_material(Resources.PLANK,1)
 	await process_frame

@@ -294,12 +294,34 @@ func _on_arrival(intent: Intent) -> void:
 		if logger != null: logger.info(EventLog.BUILDING, "%s: начал строительный цикл (%d мин)" % [_data.resident_name, Balance.BUILDER_WORK_CYCLE_MINUTES])
 
 func _accrue_work(now: int) -> void:
-	if phase != Phase.BUILDING: return
+	if phase != Phase.BUILDING or not _valid_site(): return
+	var previous := _last_work_minute
+	_last_work_minute = now # Advance before synchronous construction callbacks.
 	var point: Variant = _position()
-	var action_point: Variant = _locations.get_position(site.id) if site != null else null
-	if point is Vector2 and action_point is Vector2 and point.distance_to(action_point) <= 8.0 and _data.activity == Activity.Type.WORKING:
-		work_minutes += maxi(now - _last_work_minute, 0)
-	_last_work_minute = now
+	var action_point: Variant = _locations.get_position(site.id)
+	if not point is Vector2 or not action_point is Vector2 or point.distance_to(action_point)>8.0 or _data.activity!=Activity.Type.WORKING or _intents.current_intent!=_intent or not site.are_construction_materials_complete(): return
+	# The interval ending at 17:00 still contains the final working minute.
+	var minute_of_day := posmod(previous,1440)
+	if minute_of_day<420 or minute_of_day>=1020: return
+	var elapsed := mini(maxi(now-previous,0),1020-minute_of_day)
+	elapsed = mini(elapsed,Balance.BUILDER_WORK_CYCLE_MINUTES-work_minutes)
+	elapsed = mini(elapsed,site.definition.construction_work_required-site.construction_progress)
+	if elapsed<=0: return
+	var worked_site := site
+	work_minutes += elapsed # Action timing only; already applied work is never buffered.
+	_mutating = true
+	worked_site.add_construction_work(elapsed)
+	var completed := worked_site.can_complete_construction() and worked_site.complete_construction()
+	_mutating = false
+	if completed:
+		if logger!=null: logger.info(EventLog.BUILDING,"%s: строительство завершено" % worked_site.display_name)
+		_interrupt_pending = false
+		_finish_task("строительство завершено",work_minutes>=Balance.BUILDER_WORK_CYCLE_MINUTES)
+	elif _interrupt_pending:
+		_interrupt_pending = false
+		abort("прерывание во время work update",false)
+	elif work_minutes>=Balance.BUILDER_WORK_CYCLE_MINUTES:
+		_finish_task("завершил строительный цикл",true)
 
 func _on_minute(now: int) -> void:
 	if phase == Phase.NONE or _is_waiting(): return
@@ -310,21 +332,12 @@ func _on_minute(now: int) -> void:
 		abort("источник удалён")
 		return
 	_accrue_work(now)
-	if phase == Phase.BUILDING and work_minutes >= Balance.BUILDER_WORK_CYCLE_MINUTES:
-		_finish_task("завершил строительный цикл", true)
 
 func _flush_work() -> void:
-	_accrue_work(_clock.total_minutes)
-	if site != null and work_minutes > 0:
-		var contribution := work_minutes
-		work_minutes = 0
-		site.add_construction_work(contribution)
-		if logger != null:
-			var message := "завершил строительный цикл" if contribution >= Balance.BUILDER_WORK_CYCLE_MINUTES else "прервал строительный цикл, сохранён вклад"
-			logger.info(EventLog.BUILDING, "%s: %s (+%d мин)" % [_data.resident_name, message, contribution])
-		if site.can_complete_construction():
-			site.complete_construction()
-			if logger != null: logger.info(EventLog.BUILDING, "%s: строительство завершено" % site.display_name)
+	# All contribution is already in BuildingInstance. Cleanup cannot apply it twice.
+	if work_minutes>0 and logger!=null:
+		var message := "завершил строительный цикл" if work_minutes>=Balance.BUILDER_WORK_CYCLE_MINUTES else "прервал строительный цикл, сохранён вклад"
+		logger.info(EventLog.BUILDING,"%s: %s (%d мин уже начислено)" % [_data.resident_name,message,work_minutes])
 
 func _cleanup(reason: String) -> Intent:
 	_availability_dirty = true

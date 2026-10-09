@@ -224,7 +224,7 @@ func _run() -> void:
 		scene.game_time.advance(59.0 / speed)
 		actor.data.get_need(preload("res://scripts/need_type.gd").Type.LEISURE).value = 100
 		actor.decision.request_decision("normal_need_growth")
-		check(site.construction_progress == 0 and actor.builder.work_minutes == 59 and actor.decision.decision_count == count, "Ordinary needs do not interrupt committed 59-minute cycle")
+		check(site.construction_progress == 59 and actor.builder.work_minutes == 59 and actor.decision.decision_count == count, "Ordinary needs do not interrupt committed 59-minute cycle")
 		scene.player_control.assign_profession(actor.data.id, Profession.Type.NONE)
 		scene.game_time.advance(1.0 / speed)
 		check(site.construction_progress == 60 and actor.builder.phase == Builder.Phase.NONE and actor.decision.decision_count == count + 1 and site.active_builder_ids.is_empty(), "60-minute cycle credits +60 and exactly one normal decision, respects profession change")
