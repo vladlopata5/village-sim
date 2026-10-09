@@ -282,7 +282,8 @@ func _create_test_residents() -> void:
 			data.profession = Profession.Type.GATHERER
 			data.work_location_id = gatherer_hut_data.id
 		residents.append(data)
-	var home_positions = [Vector2(-300, -120), Vector2(-100, -200), Vector2(100, -200), Vector2(300, -120)]
+	# Source centers align physical footprint edges to BuildGrid 0.5 at world scale 1:25.
+	var home_positions = [Vector2(-300, -125), Vector2(-100, -200), Vector2(100, -200), Vector2(300, -125)]
 	var start_positions = [Vector2(120, 80), Vector2(220, 100), Vector2(-100, 100), Vector2(0, 180)]
 	for index in range(residents.size()):
 		var data = residents[index]
@@ -419,7 +420,7 @@ func _create_test_kitchen() -> void:
 	kitchen_data.resources.set_capacity(ResourceType.Type.FOOD, Balance.KITCHEN_FOOD_CAPACITY)
 	buildings.append(kitchen_data)
 	# Same ID links two distinct data objects: building meaning and world place.
-	kitchen_data.position = Vector2(-280, 240)
+	kitchen_data.position = Vector2(-275, 237.5)
 	var view = _create_building_presentation(kitchen_data)
 	view.name = "CommunalKitchen"
 	_register_building_location(kitchen_data, view)
@@ -436,7 +437,7 @@ func _create_test_warehouse() -> void:
 	warehouse_data.resources.set_capacity(ResourceType.Type.WOOD, 50)
 	warehouse_data.resources.add(ResourceType.Type.WOOD, 50)
 	buildings.append(warehouse_data)
-	warehouse_data.position = Vector2(300, 240)
+	warehouse_data.position = Vector2(300, 237.5)
 	var view = _create_building_presentation(warehouse_data)
 	view.name = "Warehouse"
 	_register_building_location(warehouse_data, view)
@@ -446,7 +447,7 @@ func _create_test_gatherer_hut() -> void:
 	gatherer_hut_data.resources.set_allowed_resource_types([ResourceType.Type.FOOD])
 	gatherer_hut_data.resources.set_capacity(ResourceType.Type.FOOD, 5)
 	buildings.append(gatherer_hut_data)
-	gatherer_hut_data.position = Vector2(380, -240)
+	gatherer_hut_data.position = Vector2(375, -237.5)
 	var view = _create_building_presentation(gatherer_hut_data)
 	view.name = "GathererHut"
 	_register_building_location(gatherer_hut_data, view)

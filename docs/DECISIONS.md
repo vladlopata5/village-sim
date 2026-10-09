@@ -1651,3 +1651,19 @@ clearance нет. IDs сортируются для deterministic first overlap.
 confirm вызывает can_place заново до создания Instance. BuildGrid и NavigationGrid
 не изменены. Эта проверка заменяет прежнее ограничение «placement поверх resident
 не запрещён»; collision response/displacement/crowd avoidance не добавлены.
+
+
+### 2026-10-09 — Reachable wander candidates и aligned starter layout
+
+Причина недоступных прогулок: унаследованный 2D sampler проверял только FIELD bounds,
+не NavigationGrid obstacles/clearance/connectivity. Main_3d передаёт небольшой
+reachability callback в WanderTarget.nearby; максимум 8 попыток, прежний радиус.
+Null означает отказ без intent и повторного бесконечного поиска. Executor и position
+authority не меняются; underlying NavigationGrid не требует исправления.
+
+Starter centers исправлены явно в shared simulation setup, не runtime auto-snap.
+Kitchen (-275,237.5), warehouse (300,237.5), hut (375,-237.5),
+home_stepan (-300,-125), home_marina (300,-125); Anna/Fedor homes без изменений.
+Main_3d registration asserts equality to footprint-aware BuildGrid.snap. Это
+не изменение баланса/scale; небольшое смещение shared world видно также в 2D.
+Пересечений после snap нет, дополнительных перестановок не требуется.

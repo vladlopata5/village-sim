@@ -1541,3 +1541,16 @@ rectangle пересекается с кругом, включая касани�
 повторно читает providers. Animal/Cart/Vehicle позже могут зарегистрироваться через
 тот же контракт без изменения validator; сейчас они не реализованы. Это не
 NavigationGrid obstacle/crowd system и не добавляет navigation blockers.
+
+
+### Main_3d: прогулки и стартовая сетка (2026-10-09)
+
+Main_3d проверяет случайные wander targets через текущую NavigationGrid: bounds,
+проходимость с clearance и наличие полного пути. До восьми кандидатов в прежнем
+радиусе; если ни один не доступен, действие не начинается. 2D sampler без
+navigation callback сохраняет прежнее поведение. Никаких POI или новых предпочтений.
+
+Starter building centers явно выровнены в shared setup по тому же footprint-aware
+BuildGrid snap, что runtime placement (0.5 world unit, scale 1:25). Registration
+проверяет alignment, но не округляет domain positions. Footprint edges совпадают
+с cell boundaries; IDs, housing, resources и BUILT state сохранены. F5 остаётся 2D.

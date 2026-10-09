@@ -48,6 +48,7 @@ func _create_building_presentation(building: BuildingInstance) -> Node:
 	view.name = String(building.id)
 	$World/BuildingViews.add_child(view)
 	view.position = Coordinates.to_world(building.position)
+	assert(view.position.is_equal_approx(build_grid.snap(view.position, building.definition.footprint_cells, building.quarter_turns)), "Building source center must already be footprint-aligned")
 	view.setup(building)
 	var cells: Array = build_grid.footprint_cells(view.position, building.definition.footprint_cells, building.quarter_turns)
 	var registered: bool = build_grid.occupy(building.id, cells)
@@ -172,3 +173,13 @@ func _update_navigation_debug() -> void:
 func _on_navigation_changed(_revision: int) -> void:
 	# Reuse local availability events; cached logistics offers must see new locations.
 	logistics.recalculate()
+
+func _wander_available_2d(resident_id: String) -> bool:
+	var origin: Variant = _production_position_2d(resident_id)
+	return origin is Vector2 and navigation.is_world_walkable(Coordinates.to_world(origin))
+func _wander_target_2d(rng: RandomNumberGenerator, resident_id: String):
+	var origin: Variant = _production_position_2d(resident_id)
+	if not origin is Vector2: return null
+	return WanderTarget.nearby(origin, rng, field.FIELD, _reachable_wander_target)
+func _reachable_wander_target(origin: Vector2, target: Vector2) -> bool:
+	return not navigation.find_path(Coordinates.to_world(origin), Coordinates.to_world(target)).is_empty()

@@ -550,3 +550,10 @@ NavigationRegion3D использует pre-baked mesh; есть visual debug pa
   предотвращают размещение поверх движущейся сущности.
 - Future Animal/Cart/Vehicle смогут opt-in в тот же contract; сами systems не добавлены.
   NavigationGrid/crowd avoidance по-прежнему отдельны от placement blockers.
+
+
+### Выполнено: cleanup main_3d перед default switch (2026-10-09)
+
+- Wander targets проверяются по NavigationGrid до создания intent, до 8 попыток.
+- Starter footprints выровнены явно в shared setup по runtime BuildGrid snap.
+- Main scene switch не выполнен: F5 по-прежнему запускает 2D fallback.

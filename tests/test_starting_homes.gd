@@ -35,7 +35,7 @@ func _run() -> void:
 	var card = scene.get_node("HUD/BuildingCard")
 	var homes: Array = scene.buildings.filter(func(building): return building.type == Types.HOME)
 	var ids := [&"home_stepan", &"home_anna", &"home_fedor", &"home_marina"]
-	var positions := [Vector2(-300, -120), Vector2(-100, -200), Vector2(100, -200), Vector2(300, -120)]
+	var positions := [Vector2(-300, -125), Vector2(-100, -200), Vector2(100, -200), Vector2(300, -125)]
 	check(homes.size() == 4, "Starting world has exactly four ordinary HOME instances")
 	check(not FileAccess.file_exists("res://scripts/world_location_view_2d.gd") and not FileAccess.file_exists("res://scenes/world_location_view_2d.tscn"), "Dead prototype home script/scene are removed")
 	var seen: Array = []
@@ -48,7 +48,7 @@ func _run() -> void:
 		check(home.definition.id == &"home" and home.definition.type == Types.HOME and home.definition.housing_capacity == 4, "Uses normal HOME definition/capacity")
 		check(home.id == ids[index] and home.id not in seen, "Unique stable home ID")
 		seen.append(home.id)
-		check(home.position == positions[index] and home.display_name == "Дом", "Original position and normal house label")
+		check(home.position == positions[index] and home.display_name == "Дом", "Grid-aligned source position and normal house label")
 		check(resident.home_location_id == home.id and scene.player_control.get_home(resident.id) == home, "Initial resident relationship references concrete house")
 		check(scene.player_control.get_home_occupants(home.id) == [resident], "Initial occupancy is one, derived from residents")
 		check(view is View and view.building_data == home and not view is Marker2D, "Same BuildingView as player-built houses; no home marker")

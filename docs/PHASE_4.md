@@ -1363,3 +1363,19 @@ Old 2D main и main_3d headless: exit 0, stderr пуст. Rendered viewport QA:
 inside/partial overlap → red, rotation changes intersection, actual MOVE_TO → green,
 confirm succeeds after departure. Natural builder AI при x20 завершил новый HOME:
 10 WOOD/180 work-minutes/BUILT; cards/selection/camera работают, runtime stderr пуст.
+
+
+### Main_3d cleanup: wander и starter alignment (2026-10-09)
+
+Добавлена navigation-aware выборка до 8 wander candidates без изменения radius,
+needs/utility/movement ownership. Недоступные точки не создают action. Исправлены
+source centers стартовых зданий; registration проверяет alignment без rounding.
+Starter/runtime footprints теперь используют одну сетку. Layout overlaps отсутствуют;
+resources, home IDs, professions и construction lifecycle сохранены. F5 остаётся 2D.
+
+Проверки cleanup: suite 68/68 PASS, stderr пуст; новый wander/starter suite —
+134 checks, construction 3D — 92, migration — 97, BuildGrid — 46. Godot analyzer:
+175 scripts, 0 diagnostics. Old 2D main и main_3d headless — exit 0, stderr пуст.
+Rendered viewport QA с временным overlay 0.5: starter/runtime edges aligned;
+после placement трёх HOME 80/80 прогулок завершились, 0 unavailable wander routes.
+Это автоматизированный rendered QA, не human manual playtest.
