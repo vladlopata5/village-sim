@@ -6,6 +6,9 @@ var workplace_location_id: StringName = &"" # Committed porter base; no auto rea
 var work_phase_only := false # Forestry exports stop/drop at the end of WORK.
 var priority: float = 0.0 # Claim-time porter score snapshot; never refreshed or compared with needs.
 var id: StringName
+var source_ref: RefCounted
+var validation: Callable # Workflow-owned committed eligibility, outside physical executor.
+var award_logistics_xp := true
 var source_location_id: StringName
 var destination_location_id: StringName
 var resource_type: ResourceType.Type
@@ -19,6 +22,7 @@ func _init(job_id: StringName, source_id: StringName, destination_id: StringName
 	priority = job_priority
 	id = job_id
 	source_location_id = source_id
+	source_ref = preload("res://scripts/resource_source_ref.gd").new(preload("res://scripts/resource_source_ref.gd").Kind.CONTAINER,source_id)
 	destination_location_id = destination_id
 	resource_type = resource
 	amount = quantity

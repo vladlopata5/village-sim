@@ -2,6 +2,7 @@ extends RefCounted
 ## Physical world data, separate from inventory, containers and presentation.
 const ResourceType = preload("res://scripts/resource_type.gd")
 const LIFETIME_MINUTES := 3 * 24 * 60
+signal availability_changed
 var id: StringName
 var reservation_owner_id := &""
 var resource_type: ResourceType.Type
@@ -22,6 +23,9 @@ func age_minutes(now: int) -> int:
 func reserve(worker_id: StringName) -> bool:
 	if worker_id.is_empty() or amount < 1 or not reservation_owner_id.is_empty(): return false
 	reservation_owner_id = worker_id
+	availability_changed.emit()
 	return true
 func release(worker_id: StringName) -> void:
-	if reservation_owner_id == worker_id: reservation_owner_id = &""
+	if reservation_owner_id == worker_id:
+		reservation_owner_id = &""
+		availability_changed.emit()

@@ -14,6 +14,10 @@ signal cargo_dropped(resource: ResourceType.Type, amount: int)
 var logger: EventLog
 var position_provider: Callable
 var site: Instance
+const Source = preload("res://scripts/resource_source_ref.gd")
+var sources = preload("res://scripts/resource_sources.gd").new()
+var _owns_sources := true
+var source_ref: Source
 var source: Instance
 var phase := Phase.NONE
 var work_minutes := 0
@@ -42,6 +46,7 @@ func setup(data: RefCounted, clock: Node, locations: RefCounted, buildings: Arra
 	_clock = clock
 	_locations = locations
 	_buildings = buildings
+	sources.locations = locations
 	_intents = intents
 	_decision = decision
 	intents.forced_interrupt.connect(_on_forced_interrupt)
@@ -51,13 +56,24 @@ func setup(data: RefCounted, clock: Node, locations: RefCounted, buildings: Arra
 	clock.phase_changed.connect(_on_phase)
 	for building in buildings: register_building(building)
 
+func bind_sources(provider: RefCounted) -> void:
+	_owns_sources = false
+	sources = provider
+	if not sources.changed.is_connected(_on_sources_changed): sources.changed.connect(_on_sources_changed)
+	_on_world_changed()
+func _on_sources_changed() -> void:
+	if phase==Phase.GOING_TO_SOURCE and not _mutating and not sources.reserved(source_ref,_resource,_source_owner()): abort("источник недоступен")
+	_on_world_changed()
+func _source_owner() -> StringName: return StringName("builder:"+_data.id)
 func register_building(building: Instance) -> void:
+	if _owns_sources: sources.buildings[building.id] = building
 	if not building.construction_changed.is_connected(_on_world_changed): building.construction_changed.connect(_on_world_changed)
 	if not building.resources.availability_changed.is_connected(_on_resource_changed): building.resources.availability_changed.connect(_on_resource_changed)
 	_on_world_changed()
 
 func unregister_building(building: Instance) -> void:
 	# World registry removes the entity before notifying its workers.
+	if building not in _buildings: sources.buildings.erase(building.id)
 	if site == building: abort("стройка отменена")
 	if building.construction_changed.is_connected(_on_world_changed): building.construction_changed.disconnect(_on_world_changed)
 	if building.resources.availability_changed.is_connected(_on_resource_changed): building.resources.availability_changed.disconnect(_on_resource_changed)
@@ -75,7 +91,7 @@ func nearest_source(resource: ResourceType.Type, from_position: Vector2) -> Inst
 	var best: Instance = null
 	var best_distance := INF
 	for building in _buildings:
-		if not building.is_built() or building.resources.get_available_amount(resource) < 1: continue
+		if not building.is_built() or not building.definition.allows_external_export(resource) or building.resources.get_available_amount(resource) < 1: continue
 		var point: Variant = _locations.get_position(building.id)
 		if not point is Vector2: continue
 		var distance: float = from_position.distance_squared_to(point)
@@ -89,8 +105,11 @@ func _material_trip(candidate: Instance) -> Dictionary:
 	if not current_position is Vector2: return {}
 	for resource in candidate.definition.construction_requirements:
 		if candidate.get_uncovered_construction_amount(resource) <= 0: continue
-		var available_source := nearest_source(resource, current_position)
-		if available_source != null: return {"resource": resource, "source": available_source}
+		var end: Variant = _locations.get_position(candidate.id)
+		if not end is Vector2: continue
+		source_search_count += 1
+		var matches: Array = sources.find(resource,current_position,end,candidate.id)
+		if not matches.is_empty(): return {"resource":resource,"reference":matches[0]}
 	return {}
 
 func _eligible(candidate: Instance) -> bool:
@@ -155,21 +174,22 @@ func _continue_task() -> bool:
 		# An uncovered deficit without a source cannot keep a task waiting.
 		_finish_task("нет доступных материалов")
 		return false
-	source = trip.source
+	source_ref = trip.reference
+	source = sources.resolve(source_ref) if source_ref.kind==Source.Kind.CONTAINER else null
 	_resource = trip.resource
 	_mutating = true
-	_source_reserved = source.resources.reserve_out(_resource, 1)
+	_source_reserved = sources.reserve(source_ref,_resource,_source_owner())
 	_site_reserved = _source_reserved and site.reserve_construction_material(_resource, 1)
 	_mutating = false
 	if _interrupt_pending:
 		_interrupt_pending = false
 		abort("прерывание при резервировании", false)
 		return false
-	if not _site_reserved:
+	if not _site_reserved or not sources.reserved(source_ref,_resource,_source_owner()) or not _valid_site():
 		abort("не удалось зарезервировать материалы")
 		return false
 	phase = Phase.GOING_TO_SOURCE
-	return _move(&"builder_source", _locations.get_position(source.id))
+	return _move(&"builder_source", sources.point(source_ref))
 
 func _materials_incoming() -> bool:
 	for resource in site.definition.construction_requirements:
@@ -224,11 +244,11 @@ func _on_arrival(intent: Intent) -> void:
 		abort("стройка недоступна при прибытии")
 		return
 	if phase == Phase.GOING_TO_SOURCE:
-		if source not in _buildings or not source.is_built() or not _locations.get_position(source.id) is Vector2:
+		if not sources.reserved(source_ref,_resource,_source_owner()) or not sources.point(source_ref) is Vector2:
 			abort("источник недоступен")
 			return
 		_mutating = true
-		var taken: bool = source.resources.take_reserved(_resource, 1)
+		var taken: bool = sources.pickup(source_ref,_resource,_source_owner())
 		if taken:
 			_source_reserved = false
 			_data.inventory.put(_resource, 1)
@@ -240,7 +260,7 @@ func _on_arrival(intent: Intent) -> void:
 		if not taken:
 			abort("не удалось получить материал")
 			return
-		if logger != null: logger.info(EventLog.BUILDING, "%s: забрал 1 %s — %s" % [_data.resident_name, ResourceType.Type.keys()[_resource], source.display_name])
+		if logger != null: logger.info(EventLog.BUILDING, "%s: забрал 1 %s — %s" % [_data.resident_name, ResourceType.Type.keys()[_resource], sources.label(source_ref)])
 		phase = Phase.CARRYING_TO_SITE
 		_move(&"builder_delivery", _locations.get_position(site.id))
 	elif phase == Phase.CARRYING_TO_SITE:
@@ -286,7 +306,7 @@ func _on_minute(now: int) -> void:
 	if not _valid_site():
 		abort("стройка удалена или завершена")
 		return
-	if phase == Phase.GOING_TO_SOURCE and (source not in _buildings or not source.is_built()):
+	if phase == Phase.GOING_TO_SOURCE and not sources.reserved(source_ref,_resource,_source_owner()):
 		abort("источник удалён")
 		return
 	_accrue_work(now)
@@ -312,7 +332,7 @@ func _cleanup(reason: String) -> Intent:
 	var old: Intent = _intent
 	_intent = null
 	_flush_work()
-	if _source_reserved and source != null: source.resources.release_out(_resource, 1)
+	if _source_reserved: sources.release(source_ref,_resource,_source_owner())
 	if _site_reserved and site != null: site.release_construction_material(_resource, 1)
 	_source_reserved = false
 	_site_reserved = false
@@ -324,6 +344,7 @@ func _cleanup(reason: String) -> Intent:
 	if site != null: site.release_builder_slot(_data.id)
 	site = null
 	source = null
+	source_ref = null
 	phase = Phase.NONE
 	work_minutes = 0
 	_exiting = false

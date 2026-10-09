@@ -13,13 +13,11 @@ var resident: RefCounted
 var clock: Node
 var locations: RefCounted
 var intents: Node
-var source: RefCounted
 var destination: RefCounted
 var job: Job:
 	set(value):
 		job = value
 		if value != null:
-			source = service._buildings.get(value.source_location_id)
 			destination = service._buildings.get(value.destination_location_id)
 			_source_reserved = true
 			_destination_reserved = true
@@ -56,7 +54,7 @@ func can_start() -> bool:
 func start(claimed: Job) -> bool:
 	if job != claimed or claimed.state != Job.State.ASSIGNED or intents.player_controlled or intents.forced_priority > 0: return false
 	if not validate_job(): return false
-	var target: Variant = locations.get_position(claimed.source_location_id)
+	var target: Variant = service.sources.point(claimed.source_ref)
 	if not target is Vector2: return false
 	claimed.state = Job.State.GOING_TO_SOURCE
 	_haul_intent = Intent.new(Intent.Type.MOVE_TO, &"haul_source", target, HAUL_PRIORITY, true)
@@ -69,20 +67,18 @@ func start(claimed: Job) -> bool:
 
 func validate_job() -> bool:
 	if job == null: return false
-	if not job.workplace_location_id.is_empty():
-		var workplace = service._buildings.get(job.workplace_location_id)
-		if workplace == null or not workplace.is_built() or workplace.type != preload("res://scripts/building_type.gd").Type.STORAGE or not locations.get_position(workplace.id) is Vector2:
-			cancel("рабочий склад недоступен")
-			return false
-	if not service.allows_external_delivery(source,destination,job.resource_type):
-		cancel("external flow недоступен")
+	if _mutating: return true
+	if job.validation.is_valid() and not job.validation.call():
+		cancel("workflow недоступен")
 		return false
-	var source_needed := job.state in [Job.State.ASSIGNED, Job.State.GOING_TO_SOURCE]
-	if destination == null or service._buildings.get(destination.id) != destination or not destination.is_built() or not locations.get_position(destination.id) is Vector2:
+	if not service.inbound_valid(job) or destination == null or not destination.is_built() or not destination.definition.allows_external_import(job.resource_type) or not locations.get_position(destination.id) is Vector2:
 		cancel("цель доставки недоступна")
 		return false
-	if source_needed and (source == null or service._buildings.get(source.id) != source or not source.is_built() or not locations.get_position(source.id) is Vector2):
-		cancel("источник недоступен")
+	if job.source_ref.kind==preload("res://scripts/resource_source_ref.gd").Kind.CONTAINER and not service.sources.export_allowed(job.source_ref,job.resource_type):
+		cancel("external source policy недоступна")
+		return false
+	if _source_reserved and not service.sources.reserved(job.source_ref,job.resource_type,job.id):
+		cancel("источник или reservation недоступны")
 		return false
 	return true
 
@@ -112,7 +108,7 @@ func _pickup(intent: Intent) -> void:
 		return
 	intent.interruptible = false
 	_mutating = true
-	var taken: bool = source.resources.take_reserved(job.resource_type, job.amount)
+	var taken: bool = service.sources.pickup(job.source_ref,job.resource_type,job.id)
 	if taken:
 		_source_reserved = false
 		resident.inventory.put(job.resource_type, job.amount)
@@ -123,7 +119,7 @@ func _pickup(intent: Intent) -> void:
 		_interrupt_pending = false
 		cancel("подбор прерван")
 		return
-	if service.logger != null: service.logger.info(EventLog.LOGISTICS, "%s: забрал 1 %s — %s" % [resident.resident_name,preload("res://scripts/resource_type.gd").Type.keys()[job.resource_type], source.display_name])
+	if service.logger != null: service.logger.info(EventLog.LOGISTICS, "%s: забрал 1 %s — %s" % [resident.resident_name,preload("res://scripts/resource_type.gd").Type.keys()[job.resource_type], service.sources.label(job.source_ref)])
 	service.changed.emit()
 	if job == null or intents.current_intent != intent: return
 	job.state = Job.State.GOING_TO_DESTINATION
@@ -137,7 +133,7 @@ func _deliver(intent: Intent) -> void:
 		return
 	_mutating = true
 	resident.inventory.clear()
-	var delivered: bool = destination.resources.add_reserved(job.resource_type, job.amount)
+	var delivered: bool = service.deliver_inbound(job)
 	if delivered: _destination_reserved = false
 	else: resident.inventory.put(job.resource_type, job.amount)
 	_mutating = false
@@ -152,7 +148,7 @@ func _deliver(intent: Intent) -> void:
 	_haul_intent = null
 	_interrupt_pending = false
 	service.finish_job(completed)
-	resident.add_skill_xp(Skill.Type.LOGISTICS, 1)
+	if completed.award_logistics_xp: resident.add_skill_xp(Skill.Type.LOGISTICS, 1)
 	intents.clear_completed(intent)
 	service.notify_delivery()
 	service.changed.emit()
@@ -168,8 +164,8 @@ func cancel(reason: String) -> bool:
 	cancelled.state = Job.State.CANCELLED
 	job = null
 	_haul_intent = null
-	if _source_reserved and source != null: source.resources.release_out(cancelled.resource_type, cancelled.amount)
-	if _destination_reserved and destination != null: destination.resources.release_in(cancelled.resource_type, cancelled.amount)
+	if _source_reserved: service.sources.release(cancelled.source_ref,cancelled.resource_type,cancelled.id)
+	if _destination_reserved: service.release_inbound(cancelled)
 	_source_reserved = false
 	_destination_reserved = false
 	var amount: int = resident.inventory.amount

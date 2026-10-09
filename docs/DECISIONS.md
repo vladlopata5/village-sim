@@ -1938,3 +1938,50 @@ Cancelled construction сохраняет прежний cleanup; BuildGrid/NavG
 
 Smooth construction progress НЕ реализован и остаётся отдельным backlog item.
 Нет новых ресурсов, recipe modifiers, storage balancing или anti-softlock системы.
+
+
+## 2026-10-09 — Worker self-logistics and shared physical sources
+
+Workers remain ordinary WORK candidates at priority 7000. Sawyer first runs an
+available production recipe; otherwise fetches missing input for its OWN Sawmill,
+or exports its own output to a BUILT accepting Storage (output-blocked export wins).
+Gatherer produces while capacity exists and only self-exports own Hut FOOD when
+production is unavailable. There is no mandatory export after every cycle.
+Lumberjack retains local COLLECT → CHOP → PLANT → EXPORT order and work radius.
+Production can operate without Porter; Porter improves throughput.
+
+ResourceSourceRef contains only CONTAINER + building_id or GROUND + drop_id.
+ResourceSources resolves live domain objects, positions, external_export policy,
+route availability and native reservations. It contains no candidate priorities,
+work assignment or scheduler. Container uses reserve_out/release_out; Ground uses
+exclusive claim/release and remains globally claimable. Owner ledgers identify
+managed reservations; quantities remain in ResourceContainer/GroundResource.
+Destination remains BuildingInstance/ResourceContainer. Builder keeps its existing
+construction inbound reservations, slots, event-driven waiting and work cycles.
+All external container sourcing, including Builder, requires external_export=true:
+Sawmill LOG is protected, Sawmill PLANK is exportable.
+
+Porter-specific own-Storage eligibility and no Storage→Storage remain in its
+workflow. Ground candidates deliver only to the assigned Storage, obey projected
+capacity/import policy, and receive PORTER_GROUND_CLEANUP_BONUS=200 (roughly 2%
+of maximum world urgency), then the existing route penalty. Ground never has
+absolute priority; there is no age/despawn urgency. Shared source selection uses
+full reachable route and stable IDs, with no absolute Ground/container preference.
+
+Existing HaulJob now carries a stable source reference and workflow validation.
+HaulExecutor (renamed from porter_haul_executor) executes movement → pickup → carry
+→ delivery and interruption cleanup; no Storage-only eligibility lives there.
+Claim reserves source and destination atomically, rechecks synchronous changes,
+then creates an assigned committed job. Pickup/delivery revalidate ownership,
+lifecycle and resource policy. Ground despawn before pickup cancels/releases inbound;
+after pickup inventory is authoritative and the job no longer depends on that drop.
+Before pickup interrupts release reservations; after pickup cargo drops at actual
+resident position. Self-logistics stops/cleans up at end of WORK; no forced night haul.
+New Sawyer/Gatherer self-hauls grant no additional skill XP; existing Porter and
+Lumberjack export XP behavior is preserved. Event-driven resource/claim/capacity
+signals wake idle workers through normal decisions; no polling or second logistics
+engine was introduced. Builder and Lumberjack keep existing task execution while
+sharing source resolve/selection/reservation adapters.
+
+Deferred: smooth construction progress, age urgency, roads, carts, stacks, storage
+balancing, new resources/buildings, and profession/workplace infrastructure refactor.

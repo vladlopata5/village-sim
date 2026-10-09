@@ -115,3 +115,6 @@ const WAREHOUSE_PLANK_CAPACITY := 35
 const STARTER_PLANK_RESERVE := 10
 static func starter_plank_amount(hut_cost: int, sawmill_cost: int) -> int:
 	return hut_cost + sawmill_cost + STARTER_PLANK_RESERVE
+
+# Small cleanup preference against world urgency 0..11000; no age term.
+const PORTER_GROUND_CLEANUP_BONUS := 200.0

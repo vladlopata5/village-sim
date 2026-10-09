@@ -3,7 +3,7 @@ extends RefCounted
 const EventLog = preload("res://scripts/game_logger.gd")
 const HaulJob = preload("res://scripts/haul_job.gd")
 const Candidate = preload("res://scripts/delivery_candidate.gd")
-const Executor = preload("res://scripts/porter_haul_executor.gd")
+const Executor = preload("res://scripts/haul_executor.gd")
 const BuildingInstance = preload("res://scripts/building_instance.gd")
 const BuildingType = preload("res://scripts/building_type.gd")
 const ResidentData = preload("res://scripts/resident_data.gd")
@@ -11,6 +11,9 @@ const Profession = preload("res://scripts/resident_profession.gd")
 const ResourceType = preload("res://scripts/resource_type.gd")
 const Balance = preload("res://scripts/balance_config.gd")
 const Priority = preload("res://scripts/logistics_priority.gd")
+const Source = preload("res://scripts/resource_source_ref.gd")
+var sources = preload("res://scripts/resource_sources.gd").new()
+var _inbound: Dictionary = {} # Owned inbound reservations for committed hauls.
 const FOOD = ResourceType.Type.FOOD
 signal changed
 signal availability_changed
@@ -33,6 +36,8 @@ var _next_id := 1
 var _claiming := false
 
 func setup(source: BuildingInstance, destination: BuildingInstance, resident: ResidentData) -> void:
+	sources.buildings = _buildings
+	if not sources.changed.is_connected(recalculate): sources.changed.connect(recalculate)
 	_source = source
 	_destination = destination
 	_resident = resident
@@ -113,10 +118,7 @@ func _can_claim(resident: ResidentData, own_export: BuildingInstance = null) -> 
 	var executor = _executors.get(resident.id)
 	return executor == null or executor.can_start()
 func has_available_job(resident_id: String) -> bool:
-	var resident: ResidentData = _residents.get(resident_id)
-	if not _can_claim(resident): return false
-	if not position_provider.is_valid() or not position_provider.call(resident_id) is Vector2: return false
-	return _pairs().any(func(pair): return _porter_pair(resident,pair.source,pair.destination) and _valid_pair(pair))
+	return not collect_candidates(resident_id).is_empty()
 func collect_candidates(resident_id: String) -> Array:
 	# Call at WORK selection (or explicit read-only debug/tests), not world updates.
 	var resident: ResidentData = _residents.get(resident_id)
@@ -128,14 +130,32 @@ func collect_candidates(resident_id: String) -> Array:
 		if not _porter_pair(resident,pair.source,pair.destination) or not _valid_pair(pair): continue
 		var candidate := Candidate.new()
 		candidate.source = pair.source
+		candidate.source_ref = Source.new(Source.Kind.CONTAINER,pair.source.id)
 		candidate.destination = pair.destination
 		candidate.resource_type = pair.get("resource",FOOD)
 		candidate.world_urgency = Priority.export_priority(pair.source.resources, candidate.resource_type, pair.source.logistics_weight) if pair.export else Priority.import_priority(pair.destination.resources, candidate.resource_type, pair.destination.logistics_weight)
+		if not sources.reachable(position,_point(pair.source)) or not sources.reachable(_point(pair.source),_point(pair.destination)): continue
 		candidate.route_distance = position.distance_to(_point(pair.source)) + _point(pair.source).distance_to(_point(pair.destination))
 		candidate.distance_penalty = distance_penalty(candidate.route_distance)
 		candidate.personal_modifier = _get_personal_delivery_modifier(resident, candidate)
 		candidate.porter_score = candidate.world_urgency - candidate.distance_penalty + candidate.personal_modifier
 		candidates.append(candidate)
+	var base: BuildingInstance = _buildings.get(resident.work_location_id)
+	if is_instance_valid(sources.ground) and base != null and _point(base) is Vector2:
+		for drop in sources.ground.drops:
+			var source_ref := Source.new(Source.Kind.GROUND,drop.id)
+			if not sources.available(source_ref,drop.resource_type) or not base.definition.allows_external_import(drop.resource_type) or base.resources.get_available_free_capacity(drop.resource_type)<1: continue
+			if not sources.reachable(position,drop.world_position) or not sources.reachable(drop.world_position,_point(base)): continue
+			var candidate := Candidate.new()
+			candidate.source_ref = source_ref
+			candidate.destination = base
+			candidate.resource_type = drop.resource_type
+			candidate.world_urgency = Priority.import_priority(base.resources,drop.resource_type,base.logistics_weight)
+			candidate.route_distance = position.distance_to(drop.world_position)+drop.world_position.distance_to(_point(base))
+			candidate.distance_penalty = distance_penalty(candidate.route_distance)
+			candidate.personal_modifier = _get_personal_delivery_modifier(resident,candidate)
+			candidate.porter_score = candidate.world_urgency-candidate.distance_penalty+candidate.personal_modifier+Balance.PORTER_GROUND_CLEANUP_BONUS
+			candidates.append(candidate)
 	return candidates
 func distance_penalty(distance: float) -> float:
 	return pow(distance / Balance.PORTER_DISTANCE_SCALE, 2.0) * Balance.PORTER_DISTANCE_WEIGHT
@@ -157,7 +177,7 @@ func claim_best_job(resident_id: String) -> HaulJob:
 		if best == null: break
 		if logger != null and logger.debug_enabled:
 			for candidate in candidates:
-				logger.debug(EventLog.LOGISTICS, "%s: candidate %s → %s urgency=%.1f distance=%.1f penalty=%.1f personal=%.1f score=%.1f" % [resident.resident_name, candidate.source.display_name, candidate.destination.display_name, candidate.world_urgency, candidate.route_distance, candidate.distance_penalty, candidate.personal_modifier, candidate.porter_score])
+				logger.debug(EventLog.LOGISTICS, "%s: candidate %s → %s urgency=%.1f distance=%.1f penalty=%.1f personal=%.1f score=%.1f" % [resident.resident_name, sources.label(candidate.source_ref), candidate.destination.display_name, candidate.world_urgency, candidate.route_distance, candidate.distance_penalty, candidate.personal_modifier, candidate.porter_score])
 		attempted[best.stable_key()] = true
 		var job := _claim_candidate(resident, best)
 		if job != null: return job
@@ -165,38 +185,80 @@ func claim_best_job(resident_id: String) -> HaulJob:
 	return null
 func _claim_candidate(resident: ResidentData, candidate: Candidate) -> HaulJob:
 	return _claim_delivery(resident,candidate,false)
+func _porter_base_valid(id: StringName) -> bool:
+	var base: BuildingInstance = _buildings.get(id)
+	return base != null and base.is_built() and base.type==BuildingType.Type.STORAGE and _point(base) is Vector2
 func _claim_delivery(resident: ResidentData, candidate: Candidate, own_export: bool) -> HaulJob:
+	if candidate.source_ref == null and candidate.source != null: candidate.source_ref = Source.new(Source.Kind.CONTAINER,candidate.source.id)
 	var own_source: BuildingInstance = candidate.source if own_export else null
 	if own_export and candidate.resource_type != ResourceType.Type.LOG: return null
-	if not own_export and (resident == null or not _porter_pair(resident,candidate.source,candidate.destination)): return null
-	if not _can_claim(resident,own_source) or not _valid_pair({"source": candidate.source, "destination": candidate.destination,"resource":candidate.resource_type}): return null
-	_claiming = true # Reserve callbacks cannot recursively claim a half-owned delivery.
-	var out: bool = candidate.source.resources.reserve_out(candidate.resource_type, 1)
-	var incoming: bool = out and candidate.destination.resources.reserve_in(candidate.resource_type, 1)
-	# Forced/player/world changes inside synchronous resource signals are rechecked too.
-	var valid: bool = incoming and _can_claim(resident,own_source) and _buildings.get(candidate.source.id) == candidate.source and _buildings.get(candidate.destination.id) == candidate.destination and candidate.source.is_built() and candidate.destination.is_built()
-	valid = valid and allows_external_delivery(candidate.source,candidate.destination,candidate.resource_type)
-	valid = valid and (own_export or _porter_pair(resident,candidate.source,candidate.destination))
-	valid = valid and _point(candidate.source) is Vector2 and _point(candidate.destination) is Vector2
-	valid = valid and candidate.source.resources.get_reserved_out(candidate.resource_type) >= 1 and candidate.destination.resources.get_reserved_in(candidate.resource_type) >= 1
+	if not own_export and (resident == null or (candidate.source_ref.kind==Source.Kind.CONTAINER and not _porter_pair(resident,candidate.source,candidate.destination)) or (candidate.source_ref.kind==Source.Kind.GROUND and candidate.destination.id!=resident.work_location_id)): return null
+	var eligibility: Callable = _can_claim.bind(resident,own_source)
+	var validation: Callable = Callable() if own_export else _porter_base_valid.bind(resident.work_location_id)
+	var job := claim_transport(resident.id,candidate.source_ref,candidate.destination,candidate.resource_type,eligibility,own_export,validation,true,candidate.porter_score)
+	if job != null: job.workplace_location_id = resident.work_location_id if not own_export else &""
+	return job
+func claim_transport(resident_id: String, source_ref: Source, destination: BuildingInstance, resource: int, eligibility: Callable, work_phase_only: bool = true, validation: Callable = Callable(), award_xp: bool = false, score: float = 0.0) -> HaulJob:
+	# Controllers supply gameplay eligibility. This transaction only owns reservations.
+	var resident: ResidentData = _residents.get(resident_id)
+	var executor = _executors.get(resident_id)
+	if _claiming or resident==null or (executor!=null and not executor.can_start()) or get_job(resident_id)!=null or not eligibility.call(): return null
+	if destination==null or _buildings.get(destination.id)!=destination or not destination.is_built() or not destination.definition.allows_external_import(resource) or destination.resources.get_available_free_capacity(resource)<1: return null
+	var start: Variant = position_provider.call(resident_id) if position_provider.is_valid() else null
+	var end: Variant = _point(destination)
+	if not start is Vector2 or not end is Vector2 or not sources.available(source_ref,resource) or not sources.reachable(start,sources.point(source_ref)) or not sources.reachable(sources.point(source_ref),end): return null
+	if source_ref.kind==Source.Kind.CONTAINER and source_ref.id==destination.id: return null
+	_claiming = true
+	var id := StringName("haul_%04d" % _next_id)
+	_next_id += 1
+	var out: bool = sources.reserve(source_ref,resource,id)
+	var incoming := false
+	if out:
+		_inbound[id] = {"destination":destination,"resource":resource}
+		incoming = destination.resources.reserve_in(resource,1)
+		if not incoming: _inbound.erase(id)
+	var valid: bool = incoming and eligibility.call() and (executor==null or executor.can_start()) and _buildings.get(destination.id)==destination and destination.is_built() and destination.definition.allows_external_import(resource) and sources.reserved(source_ref,resource,id) and destination.resources.get_reserved_in(resource)>=1 and _point(destination) is Vector2 and sources.point(source_ref) is Vector2
+	valid = valid and (not validation.is_valid() or validation.call())
+	if valid: valid = sources.reachable(start,sources.point(source_ref)) and sources.reachable(sources.point(source_ref),_point(destination))
 	if not valid:
-		if out: candidate.source.resources.release_out(candidate.resource_type, 1)
-		if incoming: candidate.destination.resources.release_in(candidate.resource_type, 1)
+		if out: sources.release(source_ref,resource,id)
+		if incoming:
+			_inbound.erase(id)
+			destination.resources.release_in(resource,1)
 		_claiming = false
 		recalculate()
 		return null
-	var job := HaulJob.new(StringName("haul_%04d" % _next_id), candidate.source.id, candidate.destination.id, candidate.resource_type, 1, resident.id, candidate.porter_score)
-	job.work_phase_only = own_export
-	job.workplace_location_id = resident.work_location_id if not own_export else &""
-	_next_id += 1
+	var job := HaulJob.new(id,source_ref.id,destination.id,resource,1,resident_id,score)
+	job.source_ref = source_ref
+	job.work_phase_only = work_phase_only
+	job.validation = validation
+	job.award_logistics_xp = award_xp
 	jobs.append(job)
 	current_job = job
-	var executor = _executors.get(resident.id)
-	if executor != null: executor.job = job
+	if executor!=null: executor.job = job
 	_claiming = false
-	if logger != null: logger.info(EventLog.LOGISTICS, "%s: выбрал доставку 1 %s — %s → %s" % [resident.resident_name,ResourceType.Type.keys()[candidate.resource_type], candidate.source.display_name, candidate.destination.display_name])
+	if logger!=null: logger.info(EventLog.LOGISTICS,"%s: выбрал доставку 1 %s — %s → %s" % [resident.resident_name,ResourceType.Type.keys()[resource],sources.label(source_ref),destination.display_name])
 	recalculate()
 	return job
+func inbound_valid(job: HaulJob) -> bool:
+	var row: Dictionary = _inbound.get(job.id,{})
+	if row.is_empty() or _buildings.get(job.destination_location_id)!=row.destination or row.resource!=job.resource_type: return false
+	var managed := 0
+	for claim in _inbound.values():
+		if claim.destination==row.destination and claim.resource==row.resource: managed += 1
+	return row.destination.resources.get_reserved_in(job.resource_type)>=managed
+func release_inbound(job: HaulJob) -> void:
+	var row: Dictionary = _inbound.get(job.id,{})
+	if row.is_empty(): return
+	_inbound.erase(job.id)
+	row.destination.resources.release_in(job.resource_type,1)
+func deliver_inbound(job: HaulJob) -> bool:
+	if not inbound_valid(job): return false
+	var row: Dictionary = _inbound[job.id]
+	_inbound.erase(job.id)
+	if row.destination.resources.add_reserved(job.resource_type,1): return true
+	_inbound[job.id] = row
+	return false
 func get_job(resident_id: String) -> HaulJob:
 	for job in jobs:
 		if job.assigned_resident_id == resident_id: return job
@@ -209,8 +271,8 @@ func cancel_job(job: HaulJob) -> bool:
 	var executor = _executors.get(job.assigned_resident_id)
 	if executor != null and executor.job == job: return executor.cancel("отмена задачи")
 	# Isolated data-level claim without execution binding.
-	_buildings[job.source_location_id].resources.release_out(job.resource_type, job.amount)
-	_buildings[job.destination_location_id].resources.release_in(job.resource_type, job.amount)
+	sources.release(job.source_ref,job.resource_type,job.id)
+	release_inbound(job)
 	job.state = HaulJob.State.CANCELLED
 	finish_job(job)
 	job_cancelled.emit(job.assigned_resident_id)
@@ -218,6 +280,7 @@ func cancel_job(job: HaulJob) -> bool:
 func bind_world(clock: Node, locations: RefCounted) -> void:
 	_clock = clock
 	_locations = locations
+	sources.locations = locations
 func bind_execution(clock: Node, locations: RefCounted, intents: Node, schedule: Node) -> void:
 	use_executor(intents.resident_data, clock, locations, intents, schedule)
 func use_executor(resident: ResidentData, clock: Node, locations: RefCounted, intents: Node, _schedule: Node) -> bool:

@@ -349,16 +349,16 @@ func _work_available(runtime: ResidentRuntime) -> bool:
 		Profession.Type.PORTER:
 			return logistics.has_available_job(runtime.data.id)
 		Profession.Type.BUILDER: return runtime.builder.has_work()
-		Profession.Type.SAWYER: return runtime.recipe_work.has_work()
-		Profession.Type.GATHERER: return production.can_work(runtime.data)
+		Profession.Type.SAWYER: return runtime.self_logistics.has_work()
+		Profession.Type.GATHERER: return runtime.self_logistics.has_work()
 		_: return false
 
 func _request_work(runtime: ResidentRuntime) -> bool:
 	match runtime.data.profession:
 		Profession.Type.PORTER: return _request_haul_work(runtime)
 		Profession.Type.BUILDER: return runtime.builder.request_work()
-		Profession.Type.SAWYER: return runtime.recipe_work.request_work()
-		Profession.Type.GATHERER: return runtime.schedule.request_work()
+		Profession.Type.SAWYER: return runtime.self_logistics.request_work()
+		Profession.Type.GATHERER: return runtime.self_logistics.request_work()
 		_: return false
 
 func _configure_logistics() -> void:
@@ -373,7 +373,14 @@ func _configure_logistics() -> void:
 	logistics.job_cancelled.connect(_on_job_cancelled)
 	logistics.changed.connect(_update_logistics)
 	logistics.bind_world(game_time, world_locations)
+	logistics.sources.bind_ground(ground_resources)
+	logistics.sources.route_available = _resource_route_available
+	for runtime in resident_runtimes:
+		runtime.builder.bind_sources(logistics.sources)
+		runtime.self_logistics.setup(runtime,self)
 	logistics.recalculate()
+
+func _resource_route_available(_start: Vector2, _target: Vector2) -> bool: return true
 
 func _drop_executor_cargo(resource: ResourceType.Type, amount: int, resident_id: String) -> void:
 	var runtime = get_resident_runtime(find_resident(resident_id))
@@ -485,7 +492,7 @@ func _update_logistics() -> void:
 
 	for active_job in logistics.jobs:
 		if not active_job.is_active(): continue
-		var source_name: String = world_locations.get_location(active_job.source_location_id).display_name
+		var source_name: String = logistics.sources.label(active_job.source_ref)
 		var destination_name: String = world_locations.get_location(active_job.destination_location_id).display_name
 		summary += "\n%s → %s • %d FOOD • priority: %.0f" % [source_name, destination_name, active_job.amount, active_job.priority]
 	logistics_label.text = summary
@@ -597,7 +604,7 @@ func _refresh_porter_availability() -> void:
 	_logistics_notification_pending = false
 	for runtime in resident_runtimes:
 		if not is_instance_valid(runtime) or not is_instance_valid(runtime.decision): continue
-		if runtime.data.profession == Profession.Type.PORTER and runtime.data.activity == preload("res://scripts/resident_activity.gd").Type.IDLE and not runtime.intents.has_current_action() and logistics.has_available_job(runtime.data.id):
+		if runtime.data.profession in [Profession.Type.PORTER,Profession.Type.SAWYER,Profession.Type.GATHERER,Profession.Type.LUMBERJACK] and runtime.data.activity == preload("res://scripts/resident_activity.gd").Type.IDLE and not runtime.intents.has_current_action() and _work_available(runtime):
 			runtime.decision.request_decision("logistics_available")
 
 # Presentation factories preserve the same starter data and controller wiring.

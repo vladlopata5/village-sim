@@ -270,3 +270,6 @@ func _grow_trees(now: int) -> void:
 
 func _set_work_area_debug(enabled: bool) -> void:
 	for view in $World/BuildingViews.get_children(): view.set_work_area_debug(enabled)
+
+func _resource_route_available(start: Vector2, target: Vector2) -> bool:
+	return not navigation.find_path(Coordinates.to_world(start),Coordinates.to_world(target)).is_empty()

@@ -19,6 +19,8 @@ var logger: RefCounted
 var world: Node
 var tree: RefCounted
 var hut: RefCounted
+const Source = preload("res://scripts/resource_source_ref.gd")
+var source_ref: Source
 var drop: RefCounted
 var target: Vector2
 var chopping := false
@@ -73,13 +75,12 @@ func best_task() -> Dictionary:
 	var best: Dictionary = {}
 	var distance := INF
 	if workplace.resources.get_available_free_capacity(Resources.Type.LOG) >= 1:
-		for candidate in world.ground_resources.drops:
-			if candidate.resource_type != Resources.Type.LOG or not candidate.reservation_owner_id.is_empty() or not world.forestry_area.inside(workplace,candidate.world_position): continue
-			if not _path(origin,candidate.world_position) or not _path(candidate.world_position,home): continue
-			var value := origin.distance_squared_to(candidate.world_position)
-			if best.is_empty() or value < distance or (value == distance and String(candidate.id)<String(best.drop.id)):
-				distance = value
-				best = {"kind":&"COLLECT","drop":candidate,"point":candidate.world_position}
+		for reference in world.logistics.sources.find(Resources.Type.LOG,origin,home,workplace.id):
+			if reference.kind!=Source.Kind.GROUND: continue
+			var candidate = world.logistics.sources.resolve(reference)
+			if not world.forestry_area.inside(workplace,candidate.world_position): continue
+			best = {"kind":&"COLLECT","drop":candidate,"reference":reference,"point":candidate.world_position}
+			break
 	if not best.is_empty(): return best
 	best = best_target()
 	if not best.is_empty(): return best
@@ -118,7 +119,8 @@ func request_work() -> bool:
 		claimed = tree.claim(StringName(runtime.data.id))
 	elif kind==&"COLLECT":
 		drop = candidate.drop
-		_ground_reserved = drop in world.ground_resources.drops and drop.reserve(StringName(runtime.data.id))
+		source_ref = candidate.reference
+		_ground_reserved = world.logistics.sources.reserve(source_ref,Resources.Type.LOG,StringName(runtime.data.id))
 		_incoming = _ground_reserved and hut.resources.reserve_in(Resources.Type.LOG,1)
 		claimed = _incoming
 	elif kind==&"PLANT": claimed = world.forestry_area.claim(runtime.data.id,hut,candidate.spot)
@@ -143,7 +145,7 @@ func _arrived(intent: RefCounted) -> void:
 		return
 	if kind == &"COLLECT":
 		_mutating = true
-		var taken: bool = world.ground_resources.take_reserved(drop,StringName(runtime.data.id))
+		var taken: bool = world.logistics.sources.pickup(source_ref,Resources.Type.LOG,StringName(runtime.data.id))
 		if taken:
 			_ground_reserved = false
 			runtime.data.inventory.put(Resources.Type.LOG,1)
@@ -203,7 +205,7 @@ func _cleanup() -> RefCounted:
 	var old = _intent
 	_intent = null
 	if tree != null: tree.release(StringName(runtime.data.id))
-	if _ground_reserved and drop != null: drop.release(StringName(runtime.data.id))
+	if _ground_reserved: world.logistics.sources.release(source_ref,Resources.Type.LOG,StringName(runtime.data.id))
 	if _incoming and hut != null: hut.resources.release_in(Resources.Type.LOG,1)
 	if world != null: world.forestry_area.release(runtime.data.id)
 	if runtime.data.inventory.amount>0:
@@ -214,6 +216,7 @@ func _cleanup() -> RefCounted:
 	tree = null
 	hut = null
 	drop = null
+	source_ref = null
 	kind = &""
 	chopping = false
 	work_minutes = 0

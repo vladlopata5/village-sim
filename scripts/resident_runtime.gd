@@ -11,6 +11,7 @@ const Wander = preload("res://scripts/resident_wander_controller.gd")
 const Social = preload("res://scripts/resident_social_controller.gd")
 const Commands = preload("res://scripts/player_command_controller.gd")
 const Assignments = preload("res://scripts/resident_assignment_controller.gd")
+var self_logistics = preload("res://scripts/resident_self_logistics.gd").new()
 var recipe_work = preload("res://scripts/resident_recipe_controller.gd").new()
 var builder = preload("res://scripts/resident_builder_controller.gd").new()
 var assignments = Assignments.new()
@@ -29,7 +30,7 @@ func setup(resident: RefCounted, presentation: Node, clock: Node, locations: Ref
 	data = resident
 	data.skill_changed.connect(_on_skill_changed)
 	view = presentation
-	for controller in [intents, commands, schedule, need_dynamics, needs, assignments, decision, social, wander, builder, recipe_work]:
+	for controller in [intents, commands, schedule, need_dynamics, needs, assignments, decision, social, wander, builder, recipe_work, self_logistics]:
 		add_child(controller)
 	for controller in [commands, schedule, needs, assignments, decision, social, wander, builder, recipe_work]:
 		controller.logger = logger
