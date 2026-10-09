@@ -132,10 +132,33 @@ func _run() -> void:
 	check(camera.size == camera.min_zoom, "Zoom-in is bounded")
 	camera.zoom(-100)
 	check(camera.size == camera.max_zoom, "Zoom-out is bounded")
-	var height: float = camera.position.y
-	var original: Vector2 = Coordinates.to_sim(camera.position)
-	camera.pan(Vector2(1, 0), 1.0)
-	check(camera.position.y == height and Coordinates.to_sim(camera.position) == original + Vector2(camera.movement_speed, 0), "Camera pan operates only on X/Z")
+	check_camera_pan(camera)
 	scene.free()
 	print("2.5D prototype: %d checks, %d failures" % [checks, failures])
 	quit(1 if failures > 0 else 0)
+
+func check_camera_pan(camera: Camera3D) -> void:
+	var original_position := camera.global_position
+	var original_rotation := camera.rotation_degrees
+	var original_size := camera.size
+	# Screen projection checks are independent of hardcoded world directions.
+	for yaw in [45.0, -20.0, 110.0]:
+		camera.rotation_degrees.y = yaw
+		for zoom_size in [camera.min_zoom, camera.max_zoom]:
+			camera.size = zoom_size
+			for direction in [Vector2.UP, Vector2.DOWN, Vector2.LEFT, Vector2.RIGHT, Vector2(1,-1), Vector2(-1,-1), Vector2(1,1), Vector2(-1,1)]:
+				camera.global_position = original_position
+				var screen_before := camera.unproject_position(Vector3.ZERO)
+				camera.pan(direction, 0.25)
+				var displacement := camera.global_position-original_position
+				var screen_delta := camera.unproject_position(Vector3.ZERO)-screen_before
+				check(is_zero_approx(displacement.y) and is_equal_approx(displacement.length(),camera.movement_speed*0.25),"Camera pan preserves height and speed, including diagonals")
+				check((is_zero_approx(direction.x) and absf(screen_delta.x)<0.001) or screen_delta.x*direction.x<0,"Camera horizontal pan follows screen orientation at any yaw/zoom")
+				check((is_zero_approx(direction.y) and absf(screen_delta.y)<0.001) or screen_delta.y*direction.y<0,"Camera vertical pan follows projected forward at any yaw/zoom")
+	camera.global_position = original_position
+	camera.pan(Vector2.RIGHT, -1.0)
+	check(camera.global_position.is_equal_approx(original_position),"Negative delta cannot pan camera")
+	camera.pan(Vector2.ZERO, 1.0)
+	check(camera.global_position.is_equal_approx(original_position),"No input leaves camera unchanged")
+	camera.rotation_degrees = original_rotation
+	camera.size = original_size

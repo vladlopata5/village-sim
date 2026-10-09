@@ -1,5 +1,4 @@
 extends Camera3D
-const Coordinates = preload("res://scripts/prototypes/plane_coordinates.gd")
 @export var movement_speed: float = 12.0
 @export var zoom_step: float = 2.0
 @export var min_zoom: float = 8.0
@@ -12,8 +11,14 @@ func _process(delta: float) -> void:
 	if Input.is_physical_key_pressed(KEY_S) or Input.is_physical_key_pressed(KEY_DOWN): direction.y += 1.0
 	pan(direction, delta)
 func pan(direction: Vector2, delta: float) -> void:
-	var point := Coordinates.to_sim(position) + direction.limit_length() * movement_speed * maxf(delta, 0.0)
-	position = Coordinates.to_world(point, position.y)
+	var right := global_basis.x
+	var forward := -global_basis.z
+	right.y = 0.0
+	forward.y = 0.0
+	right = right.normalized()
+	forward = forward.normalized()
+	var movement := (right * direction.x - forward * direction.y).limit_length()
+	global_position += movement * movement_speed * maxf(delta, 0.0)
 func zoom(steps: float) -> void:
 	size = clampf(size - steps * zoom_step, min_zoom, max_zoom)
 func _unhandled_input(event: InputEvent) -> void:
