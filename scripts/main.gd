@@ -85,6 +85,7 @@ func _ready() -> void:
 		player_control.register_intents(runtime.data.id, runtime.intents)
 		player_control.register_commands(runtime.data.id, runtime.commands)
 		player_control.register_assignments(runtime.data.id, runtime.assignments)
+		player_control.profession_changed.connect(runtime.builder.on_profession_changed)
 		runtime.decision.work_available = _work_available.bind(runtime)
 		runtime.decision.work_request = _request_work.bind(runtime)
 		runtime.schedule.work_decision = runtime.decision.request_decision

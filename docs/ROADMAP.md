@@ -709,3 +709,35 @@ committed workplace ID для валидации назначенной Porter �
 
 Не добавлены balancing, территории, priorities UI, ground pickup Porter, Sawmill/PLANK.
 Builder workflow и waiting logic не менялись.
+
+
+### 2026-10-09 — Builder сохраняет commitment при доставке последних материалов
+
+Исправлена ветка ResidentBuilderController._continue_task: пустой material trip раньше
+означал одновременно отсутствие источника и нулевой uncovered deficit, поэтому после
+доставки builder завершал task, освобождал slot и выбирал другую стройку. Теперь
+существующие site + active_builder_ids сохраняют assignment: если для каждого required
+resource delivered + construction_reserved_in >= required, но delivered ещё недостаточно,
+уже назначенный builder входит в WAITING_FOR_MATERIALS. Свободный builder по-прежнему
+выбирает обычные candidates; формула site score и WORK utility не изменились.
+
+Ожидание происходит у общего DEFAULT ACCESS POINT, при необходимости через GOING_TO_WAIT.
+Это interruptible stationary intent с прежним WORK_PRIORITY, не forced action. Общий
+continue_intent допускает movement/stationary стадии одного action и сохраняет pending goal.
+construction_changed/availability_changed ставят один deferred reconsider текущего task
+после завершения синхронной material mutation. Нет minute/frame polling поиска материала.
+9 delivered + 1 inbound сохраняет ожидание; последний delivery запускает work на той же
+стройке. Потеря inbound возобновляет обычный one-unit fetch, а невозможный uncovered fetch
+освобождает task. 8 delivered + 1 inbound при требовании 10 не является полным покрытием.
+
+PlayerCommand, critical needs, completion/cancellation/removal, конец WORK phase в 17:00
+освобождают assignment стандартным cleanup; накопленный construction progress сохраняется.
+Смена профессии во время ожидания завершает безопасный stationary этап. Рейсы и рабочие
+циклы сохраняют прежнюю committed семантику. Логи только переходов wait/resume/lost delivery.
+
+Deadlock audit: реальные inbound reservations принадлежат уже активным builders с их
+собственными slots. Ожидающий первый доставивший не отменяет рейс второго; тому не нужен
+новый slot для доставки. Два последних рейса физически заканчиваются, затем оба builder
+работают на прежней стройке. Capacity остаётся 2; Porter не участвует, отдельного scheduler
+и копии reservation/material state нет. Direct reservation APIs по-прежнему требуют от
+владельца освобождения reservation при cancellation — новой ownership системы нет.

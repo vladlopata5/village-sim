@@ -8,7 +8,7 @@ const Activity = preload("res://scripts/resident_activity.gd")
 const ResourceType = preload("res://scripts/resource_type.gd")
 const Skill = preload("res://scripts/skill_type.gd")
 const EventLog = preload("res://scripts/game_logger.gd")
-enum Phase { NONE, GOING_TO_SOURCE, CARRYING_TO_SITE, GOING_TO_SITE, BUILDING }
+enum Phase { NONE, GOING_TO_SOURCE, CARRYING_TO_SITE, GOING_TO_SITE, BUILDING, GOING_TO_WAIT, WAITING_FOR_MATERIALS }
 signal work_cycle_started(building_id: StringName)
 signal cargo_dropped(resource: ResourceType.Type, amount: int)
 var logger: EventLog
@@ -34,6 +34,7 @@ var _interrupt_pending := false
 var _had_work := false
 var _availability_dirty := true
 var _potential_work := false
+var _waiting_resume_queued := false
 var source_search_count := 0
 
 func setup(data: RefCounted, clock: Node, locations: RefCounted, buildings: Array, intents: Node, decision: Node) -> void:
@@ -148,10 +149,11 @@ func _continue_task() -> bool:
 	if site.are_construction_materials_complete():
 		phase = Phase.GOING_TO_SITE
 		return _move(&"builder_site", _locations.get_position(site.id))
+	if _materials_incoming(): return _wait_for_materials()
 	var trip := _material_trip(site)
 	if trip.is_empty():
-		# No polling/wait loop: source/site changes can expose work at a later decision.
-		_finish_task("нет доступных материалов или весь дефицит в пути")
+		# An uncovered deficit without a source cannot keep a task waiting.
+		_finish_task("нет доступных материалов")
 		return false
 	source = trip.source
 	_resource = trip.resource
@@ -169,9 +171,49 @@ func _continue_task() -> bool:
 	phase = Phase.GOING_TO_SOURCE
 	return _move(&"builder_source", _locations.get_position(source.id))
 
+func _materials_incoming() -> bool:
+	for resource in site.definition.construction_requirements:
+		if site.get_uncovered_construction_amount(resource) > 0: return false
+	return true
+
+func _is_waiting() -> bool:
+	return phase in [Phase.GOING_TO_WAIT, Phase.WAITING_FOR_MATERIALS]
+
+func _wait_for_materials() -> bool:
+	var was_waiting := _is_waiting()
+	if not was_waiting and logger != null:
+		var counts: Array[String] = []
+		for resource in site.definition.construction_requirements:
+			counts.append("%s %d/%d, в пути %d" % [ResourceType.Type.keys()[resource], site.get_delivered_amount(resource), site.get_required_amount(resource), site.get_construction_reserved_in(resource)])
+		logger.info(EventLog.BUILDING, "%s: ждёт материалы — %s (%s)" % [_data.resident_name, site.id, "; ".join(counts)])
+	var point: Vector2 = _locations.get_position(site.id)
+	var current: Variant = _position()
+	if not current is Vector2 or current.distance_to(point) > 8.0:
+		if phase == Phase.GOING_TO_WAIT: return true
+		phase = Phase.GOING_TO_WAIT
+		return _move(&"builder_wait_arrival", point)
+	if phase == Phase.WAITING_FOR_MATERIALS: return true
+	phase = Phase.WAITING_FOR_MATERIALS
+	# A stationary, interruptible action retains assignment without an AI retry loop.
+	return _set_task_intent(Intent.new(Intent.Type.NONE, &"builder_wait_materials", point, Balance.WORK_PRIORITY, true))
+
+func _resume_waiting() -> void:
+	_waiting_resume_queued = false
+	if not _is_waiting() or not _valid_site(): return
+	if site.are_construction_materials_complete():
+		if logger != null: logger.info(EventLog.BUILDING, "%s: материалы доставлены — продолжает строительство %s" % [_data.resident_name, site.id])
+	elif _materials_incoming():
+		return # Still covered: no new reservation or source search.
+	elif logger != null:
+		logger.info(EventLog.BUILDING, "%s: ожидаемая поставка отменена — пересматривает работу %s" % [_data.resident_name, site.id])
+	_continue_task()
+
 func _move(reason: StringName, target: Vector2) -> bool:
+	return _set_task_intent(Intent.new(Intent.Type.MOVE_TO, reason, target, Balance.WORK_PRIORITY, false))
+
+func _set_task_intent(next: Intent) -> bool:
 	var previous: Intent = _intent
-	_intent = Intent.new(Intent.Type.MOVE_TO, reason, target, Balance.WORK_PRIORITY, false)
+	_intent = next
 	var accepted: bool = _intents.submit(_intent) if previous == null else _intents.continue_intent(previous, _intent)
 	if not accepted: abort("маршрут не принят")
 	return accepted
@@ -218,7 +260,12 @@ func _on_arrival(intent: Intent) -> void:
 		if logger != null: logger.info(EventLog.BUILDING, "%s: доставил 1 %s — %s" % [_data.resident_name, ResourceType.Type.keys()[_resource], site.display_name])
 		source = null
 		_continue_task()
+	elif phase == Phase.GOING_TO_WAIT:
+		_continue_task()
 	elif phase == Phase.GOING_TO_SITE:
+		if not site.are_construction_materials_complete():
+			_continue_task()
+			return
 		phase = Phase.BUILDING
 		work_minutes = 0
 		_last_work_minute = _clock.total_minutes
@@ -235,7 +282,7 @@ func _accrue_work(now: int) -> void:
 	_last_work_minute = now
 
 func _on_minute(now: int) -> void:
-	if phase == Phase.NONE: return
+	if phase == Phase.NONE or _is_waiting(): return
 	if not _valid_site():
 		abort("стройка удалена или завершена")
 		return
@@ -305,8 +352,13 @@ func _on_intent_changed(intent: Intent) -> void:
 	if _mutating: _interrupt_pending = true
 	else: abort("смена намерения", false)
 
+func on_profession_changed(resident_id: String) -> void:
+	# Waiting carries no cargo/work cycle to finish; it is already a safe boundary.
+	if resident_id == _data.id and _is_waiting() and _data.profession != Profession.Type.BUILDER:
+		_finish_task("смена профессии во время ожидания")
+
 func _on_phase(phase_name: String) -> void:
-	if phase_name != "День" and phase in [Phase.BUILDING, Phase.GOING_TO_SITE, Phase.GOING_TO_SOURCE]:
+	if phase_name != "День" and phase in [Phase.BUILDING, Phase.GOING_TO_SITE, Phase.GOING_TO_SOURCE, Phase.GOING_TO_WAIT, Phase.WAITING_FOR_MATERIALS]:
 		abort("конец рабочего времени")
 	# A carried unit is delivered safely before leaving work.
 
@@ -317,6 +369,10 @@ func _on_world_changed() -> void:
 	if _exiting or _mutating: return
 	if site != null and phase != Phase.NONE and not _valid_site():
 		abort("изменение доступности стройки")
+	if _is_waiting() and not _waiting_resume_queued:
+		# Coalesce synchronous reservation/delivery signals; never run inside a carrier mutation.
+		_waiting_resume_queued = true
+		call_deferred("_resume_waiting")
 	var available := has_work()
 	if available and not _had_work and _data.activity == Activity.Type.IDLE and not _intents.has_current_action():
 		_decision.call_deferred("request_decision", "construction_available")

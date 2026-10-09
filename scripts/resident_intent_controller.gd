@@ -84,9 +84,9 @@ func clear_reason(reason_id: StringName) -> void:
 		_activate(next)
 
 func continue_intent(previous: ResidentIntent, next: ResidentIntent) -> bool:
-	# Same action, next movement stage: preserve its pending higher priority goal.
+	# Same action, next movement/stationary stage: preserve its pending higher priority goal.
 	if player_controlled: return false
-	if previous != current_intent or previous.type == ResidentIntent.Type.NONE or next == null or next.type != ResidentIntent.Type.MOVE_TO:
+	if previous != current_intent or not has_current_action() or next == null or (next.type == ResidentIntent.Type.NONE and next.reason_id.is_empty()):
 		return false
 	if previous == _forced_intent:
 		_forced_intent = next
