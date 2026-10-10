@@ -12,12 +12,12 @@ func register_building(building: RefCounted, position: Callable) -> void:
 	if not building.is_built(): return
 	var capabilities: Array = []
 	var profession := -1
+	if building.definition.is_storage:
+		capabilities.append(&"employment")
+		profession = Profession.Type.PORTER
 	match building.type:
 		BuildingType.Type.HOME: capabilities.append(&"housing")
 		BuildingType.Type.FOOD: capabilities.append(&"food")
-		BuildingType.Type.STORAGE:
-			capabilities.append(&"employment")
-			profession = Profession.Type.PORTER
 		BuildingType.Type.LUMBERJACK_HUT:
 			capabilities.append(&"employment")
 			profession = Profession.Type.LUMBERJACK

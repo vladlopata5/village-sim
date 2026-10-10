@@ -124,3 +124,8 @@ const TREE_TRAVERSAL_SPEED_MULTIPLIER := 0.20
 
 # Free instant dirt roads; a world surface state, not a construction job.
 const DIRT_ROAD_SPEED_MULTIPLIER := 1.25
+
+const TOWN_CENTER_RESOURCE_CAPACITY := 100
+const TOWN_CENTER_STARTING_PLANK := 60
+const TOWN_CENTER_STARTING_FOOD := 20
+const TOWN_CENTER_FALLBACK_CAPACITY := 10

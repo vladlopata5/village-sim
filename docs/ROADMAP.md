@@ -914,3 +914,35 @@ road under physical footprint; cancellation never restores it. Trees prevent pai
 Existing Navigation toggle controls routes + cached aligned grid. No world save/load
 was introduced; future traffic may use the same road model API. Automatic roads,
 maintenance, terrain and connectivity requirements deferred. See DECISIONS.
+
+
+## 2026-10-10 — Town Center v1
+Canonical new games start with one ordinary BUILT TOWN_CENTER (id town_center),
+four unchanged residents and the existing forest. The four starter HOME buildings,
+warehouse, Kitchen and Gatherer Hut are replaced. Legacy 2D keeps its historical
+reference setup; explicit legacy-starter integration fixtures preserve those scenarios.
+Town Center uses the shared BuildingInstance, 16x12 build-cell footprint (8x6 world
+units), BuildGrid/NavigationGrid, selection/card and deterministic default access point.
+It is not in the construction catalog, has no player placement recipe and cannot be
+cancelled as a BUILT building; no demolition system was added.
+
+Starting resources: 60 PLANK, 20 FOOD, 0 LOG; capacity 100 for each. Definition.is_storage
+is the small shared storage capability used by Porter eligibility and storage destination
+queries. Storage and Town Center have it; import/export remain explicit per resource.
+Porter can work from Town Center. Production-first self-logistics priorities are unchanged.
+The first runtime Gatherer Hut/Kitchen activates existing production/needs and HUD wiring.
+
+Definition.fallback_housing_capacity supplies ten transient committed trip/sleep claims.
+ResidentData.home_location_id remains optional permanent HOME ownership only. A valid
+normal HOME wins; otherwise deterministic available fallback housing is claimed on sleep
+action activation, then outdoor sleep when full/unavailable. Fallback sleep quality is 1.0;
+critical on-the-spot sleep remains outdoor quality. Wake, interruption, forced commands,
+critical needs and runtime removal release claims; invalidated targets are safely retried
+through the existing schedule path. No beds, rooms, rent or persistent occupant list.
+
+Town Center BuildingCard exposes "Управление поселением": the sole "Жители" panel
+lists current PlayerControl residents, refreshes on residents_changed and selects through
+existing ResidentSelection/ResidentCard. New resident lifecycle callers must register /
+unregister with PlayerControl and create/remove their runtime as usual. No migration,
+economy, politics or placeholder tabs. Entrance/interior points, relocation/demolition,
+final visuals and save/load remain later work; default access point is still a bridge.

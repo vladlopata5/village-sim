@@ -13,6 +13,8 @@ var _control: RefCounted
 var _selection: Selection
 var _building: Instance
 var _last_snapshot: Array = []
+signal settlement_management_requested
+var management_button: Button
 @onready var name_label: Label = $Margin/Column/Scroll/Content/Name
 @onready var id_label: Label = $Margin/Column/Scroll/Content/ID
 @onready var state_label: Label = $Margin/Column/Scroll/Content/State
@@ -27,6 +29,11 @@ var _last_snapshot: Array = []
 @onready var close_button: Button = $Margin/Column/Close
 func _ready() -> void:
 	hide()
+	management_button = Button.new()
+	management_button.text = "Управление поселением"
+	$Margin/Column/Scroll/Content.add_child(management_button)
+	$Margin/Column/Scroll/Content.move_child(management_button,4)
+	management_button.pressed.connect(func(): settlement_management_requested.emit())
 	close_button.pressed.connect(_close)
 func bind_selection(selection: Selection) -> void:
 	_selection = selection
@@ -49,6 +56,7 @@ func _process(_delta: float) -> void:
 	# Same live-data pattern as ResidentCard; no node/list rebuilding per frame.
 	if visible: _refresh()
 func _refresh() -> void:
+	if management_button != null: management_button.visible = _building != null and _building.is_built() and _building.type == Types.Type.TOWN_CENTER
 	if _building == null:
 		hide()
 		return
@@ -93,6 +101,7 @@ func _type_text(category: int) -> String:
 		Types.Type.LUMBERJACK_HUT: return "Хижина лесоруба"
 		Types.Type.SAWMILL: return "Лесопилка"
 		Types.Type.HOME: return "Дом"
+		Types.Type.TOWN_CENTER: return "Городской центр"
 		_: return "Здание"
 func _close() -> void:
 	if _selection != null and _selection.selected_building != null: _selection.clear()

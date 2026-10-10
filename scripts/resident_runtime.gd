@@ -26,7 +26,7 @@ var need_dynamics = Dynamics.new()
 var decision = Decision.new()
 var needs = Needs.new()
 
-func setup(resident: RefCounted, presentation: Node, clock: Node, locations: RefCounted, buildings: Array) -> void:
+func setup(resident: RefCounted, presentation: Node, clock: Node, locations: RefCounted, buildings: Array, housing: RefCounted = null) -> void:
 	data = resident
 	data.skill_changed.connect(_on_skill_changed)
 	view = presentation
@@ -38,6 +38,7 @@ func setup(resident: RefCounted, presentation: Node, clock: Node, locations: Ref
 	intents.intent_changed.connect(decision.capture_work_assignment.bind(data))
 	view.intent_completed.connect(intents.report_arrival)
 	commands.setup(data, intents)
+	schedule.fallback_housing = housing
 	schedule.setup(clock, locations, intents, buildings)
 	intents.intent_changed.connect(view.apply_intent)
 	view.apply_intent(intents.current_intent)

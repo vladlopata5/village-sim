@@ -29,6 +29,7 @@ func proposed_footprint() -> Rect2:
 	var size: Vector2 = Vector2(grid.rotated_size(selected_definition.footprint_cells, quarter_turns)) * grid.CELL_SIZE
 	return Rect2(Coordinates.world_plane(world_position) - size / 2.0, size)
 func validation_reason() -> String:
+	if not is_active() or not selected_definition.player_buildable: return "Здание недоступно для строительства"
 	var reason: String = grid.validation_reason(proposed_cells())
 	if not reason.is_empty(): return reason
 	if runtime_blockers != null and not runtime_blockers.first_overlap(proposed_footprint()).is_empty():

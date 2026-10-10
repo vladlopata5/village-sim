@@ -47,7 +47,7 @@ func setup(data: RefCounted) -> void:
 	data.construction_changed.connect(_refresh)
 	_refresh()
 func _refresh() -> void:
-	var colors := [Color("bd976b"), Color("829ba7"), Color("9aaa70"), Color("c2aa91"),Color("88735d"),Color("a28559")]
+	var colors := [Color("bd976b"), Color("829ba7"), Color("9aaa70"), Color("c2aa91"),Color("88735d"),Color("a28559"),Color("547ea8")]
 	material.albedo_color = colors[building_data.type] if building_data.is_built() else Color("8b7357")
 	caption.text = building_data.display_name + ("" if building_data.is_built() else " — строится")
 func set_selected(value: bool) -> void: indicator.visible = value

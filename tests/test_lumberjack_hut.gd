@@ -176,7 +176,7 @@ func run() -> void:
 	scene.game_time.total_minutes = 420
 	# All resources unavailable means no candidate, without forestry polling/forced action.
 	hut.definition.target_tree_count = 0
-	scene.warehouse_data.resources.add(Resources.LOG,19)
+	scene.warehouse_data.resources.add(Resources.LOG,scene.warehouse_data.resources.get_available_free_capacity(Resources.LOG))
 	check(worker.best_task().is_empty(),"Full hut and no accepting destination yields no task")
 	scene.free()
 	print("Lumberjack hut: %d checks, %d failures" % [checks,failures])

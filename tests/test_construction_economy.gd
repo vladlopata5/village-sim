@@ -40,7 +40,7 @@ func construct(world: Node, actor: Node, category: int, point: Vector3):
 	return site
 func run() -> void:
 	check(not preload("res://scripts/resource_type.gd").Type.has("WOOD"),"Dead WOOD resource removed")
-	for category in Types.values():
+	for category in Definition.CONSTRUCTION_BALANCE:
 		var definition = Definition.for_type(category)
 		var small: bool = category in [Types.HOME,Types.GATHERER_HUT,Types.LUMBERJACK_HUT]
 		check(definition.construction_requirements == {Resources.PLANK:10 if small else 15},"Every current type uses original amount in PLANK")
@@ -52,7 +52,7 @@ func run() -> void:
 	check(site.deliver_reserved_construction_material(Resources.FOOD,1) and site.are_construction_materials_complete(),"Second material completes generic requirements")
 	site.add_construction_work(synthetic.construction_work_required)
 	check(site.complete_construction(),"Multi-resource completion uses existing lifecycle")
-	var world = load("res://scenes/main_3d.tscn").instantiate()
+	var world = preload("res://tests/legacy_starter_3d.gd").instantiate()
 	root.add_child(world)
 	world.game_time.set_process(false)
 	world.game_time.total_minutes = 420

@@ -19,7 +19,7 @@ func select(definition: Definition) -> void:
 func update_position(world_position: Vector2) -> void:
 	position = world_position
 func can_place() -> bool:
-	if not is_active(): return false
+	if not is_active() or not selected_definition.player_buildable: return false
 	var proposed := Rect2(position - selected_definition.size / 2.0, selected_definition.size)
 	for building in buildings:
 		if proposed.intersects(building.footprint()): return false

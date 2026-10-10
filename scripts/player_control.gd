@@ -46,10 +46,10 @@ func setup(population: Array, buildings: Array) -> void:
 func register_building(building: RefCounted) -> void:
 	if building not in _buildings: _buildings.append(building)
 	if not building.is_built(): return
+	if building.definition.is_storage:
+		if not _workplaces.has(Profession.Type.PORTER): _workplaces[Profession.Type.PORTER] = building.id
+		_workplace_professions[building.id] = Profession.Type.PORTER
 	match building.type:
-		BuildingType.Type.STORAGE:
-			if not _workplaces.has(Profession.Type.PORTER): _workplaces[Profession.Type.PORTER] = building.id
-			_workplace_professions[building.id] = Profession.Type.PORTER
 		BuildingType.Type.LUMBERJACK_HUT:
 			if not _workplaces.has(Profession.Type.LUMBERJACK): _workplaces[Profession.Type.LUMBERJACK] = building.id
 			_workplace_professions[building.id] = Profession.Type.LUMBERJACK
@@ -155,3 +155,16 @@ func can_assign_workplace(resident_id: String, location_id: StringName) -> bool:
 	if resident == null or building == null or not building.is_built() or not _workplace_professions.has(location_id): return false
 	if resident.work_location_id == location_id and resident.profession == _workplace_professions[location_id]: return true
 	return building.definition.worker_capacity == 0 or get_workplace_workers(location_id).size() < building.definition.worker_capacity
+
+func register_resident(resident: RefCounted) -> void:
+	if _residents.has(resident.id): return
+	_residents[resident.id] = resident
+	resident.home_changed.connect(_on_resident_home_changed.bind(resident.id))
+	residents_changed.emit()
+func unregister_resident(resident_id: String) -> void:
+	var resident: RefCounted = _residents.get(resident_id)
+	if resident == null: return
+	resident.home_changed.disconnect(_on_resident_home_changed.bind(resident_id))
+	_residents.erase(resident_id)
+	for registry in [_intents,_commands,_assignments]: registry.erase(resident_id)
+	residents_changed.emit()

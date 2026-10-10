@@ -15,7 +15,7 @@ func check(ok: bool, message: String) -> void:
 		failures+=1
 		push_error(message)
 func fixture() -> Node:
-	var world = load("res://scenes/main_3d.tscn").instantiate()
+	var world = preload("res://tests/legacy_starter_3d.gd").instantiate()
 	root.add_child(world)
 	world.game_time.set_process(false)
 	world.game_time.total_minutes=420

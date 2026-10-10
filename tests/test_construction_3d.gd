@@ -117,16 +117,17 @@ func _run() -> void:
 	actor.intents.clear_reason(&"day_work")
 	actor.decision._deciding = true # Drive bounded work decision points explicitly; keep real work_request/controllers.
 	actor.intents.cancel_current(actor.intents.current_intent)
+	var starting_plank: int = scene.warehouse_data.resources.get_amount(Resources.PLANK)
 	check(scene._request_work(actor), "Existing builder chooses runtime 3D construction")
 	check(scene.warehouse_data.resources.get_reserved_out(Resources.PLANK) == 1 and site.get_construction_reserved_in(Resources.PLANK) == 1, "Existing physical reservation semantics apply")
 	walk_phase(actor,Builder.Phase.GOING_TO_SOURCE)
-	check(actor.data.inventory.amount == 1 and scene.warehouse_data.resources.get_amount(Resources.PLANK) == 34, "Real navigation arrival picks up one PLANK")
+	check(actor.data.inventory.amount == 1 and scene.warehouse_data.resources.get_amount(Resources.PLANK) == starting_plank-1, "Real navigation arrival picks up one PLANK")
 	walk_phase(actor,Builder.Phase.CARRYING_TO_SITE)
 	check(site.get_delivered_amount(Resources.PLANK) == 1, "Real navigation arrival delivers to construction, not center")
 	for trip in range(9):
 		walk_phase(actor,Builder.Phase.GOING_TO_SOURCE)
 		walk_phase(actor,Builder.Phase.CARRYING_TO_SITE)
-	check(site.get_delivered_amount(Resources.PLANK) == 10 and scene.warehouse_data.resources.get_amount(Resources.PLANK) == 25, "All ten units physically travel warehouse/inventory/site")
+	check(site.get_delivered_amount(Resources.PLANK) == 10 and scene.warehouse_data.resources.get_amount(Resources.PLANK) == starting_plank-10, "All ten units physically travel warehouse/inventory/site")
 	walk_phase(actor,Builder.Phase.GOING_TO_SITE)
 	check(actor.builder.phase == Builder.Phase.BUILDING and actor.view.get_sim_position().is_equal_approx(scene.world_locations.get_position(site.id)), "Construction work starts at shared DEFAULT ACCESS POINT")
 	for cycle in range(3):

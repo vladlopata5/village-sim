@@ -93,7 +93,7 @@ func run() -> void:
 	check(second_job.destination_location_id==b.id,"Porter B claims its own B after release")
 	service.cancel_job(second_job)
 	# Actual main_3d executors, resource reservations and command cleanup.
-	var scene=load("res://scenes/main_3d.tscn").instantiate()
+	var scene=preload("res://tests/legacy_starter_3d.gd").instantiate()
 	root.add_child(scene)
 	scene.game_time.set_process(false)
 	for actor in scene.resident_runtimes:

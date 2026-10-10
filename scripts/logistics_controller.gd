@@ -45,7 +45,7 @@ func setup(source: BuildingInstance, destination: BuildingInstance, resident: Re
 	register_building(destination)
 	if resident != null: register_resident(resident)
 func register_building(building: BuildingInstance) -> void:
-	if _buildings.has(building.id): return
+	if building == null or _buildings.has(building.id): return
 	_buildings[building.id] = building
 	building.resources.availability_changed.connect(_on_amount_changed)
 	building.resources.reservations_changed.connect(_on_reservations_changed)
@@ -85,7 +85,7 @@ func allows_external_delivery(source: BuildingInstance, destination: BuildingIns
 	if _buildings.get(source.id) != source or _buildings.get(destination.id) != destination: return false
 	if not source.is_built() or not destination.is_built(): return false
 	# Storage balancing needs explicit future demand, never ordinary hauling.
-	if source.type == BuildingType.Type.STORAGE and destination.type == BuildingType.Type.STORAGE: return false
+	if source.definition.is_storage and destination.definition.is_storage: return false
 	return source.definition.allows_external_export(resource) and destination.definition.allows_external_import(resource) and source.resources.allows_resource(resource) and destination.resources.allows_resource(resource) and source.resources.get_capacity(resource)>0 and destination.resources.get_capacity(resource)>0
 func external_destinations(source: BuildingInstance, resource: int) -> Array:
 	return _buildings.values().filter(func(destination): return allows_external_delivery(source,destination,resource) and destination.resources.get_available_free_capacity(resource)>0)
@@ -97,7 +97,7 @@ func _pairs() -> Array:
 		for destination in _buildings.values():
 			for resource in ResourceType.Type.values():
 				if allows_external_delivery(source,destination,resource):
-					pairs.append({"source":source,"destination":destination,"resource":resource,"export":source.type != BuildingType.Type.STORAGE})
+					pairs.append({"source":source,"destination":destination,"resource":resource,"export":not source.definition.is_storage})
 	return pairs
 func _valid_pair(pair: Dictionary) -> bool:
 	var source: BuildingInstance = pair.source
@@ -109,7 +109,7 @@ func _point(building: BuildingInstance) -> Variant:
 func _eligible(resident: ResidentData) -> bool:
 	if resident == null or resident.profession != Profession.Type.PORTER or resident.inventory.amount != 0: return false
 	var workplace: BuildingInstance = _buildings.get(resident.work_location_id)
-	return workplace != null and workplace.is_built() and workplace.type == BuildingType.Type.STORAGE and _point(workplace) is Vector2
+	return workplace != null and workplace.is_built() and workplace.definition.is_storage and _point(workplace) is Vector2
 func _can_claim(resident: ResidentData, own_export: BuildingInstance = null) -> bool:
 	var eligible := _eligible(resident)
 	if own_export != null:
@@ -187,7 +187,7 @@ func _claim_candidate(resident: ResidentData, candidate: Candidate) -> HaulJob:
 	return _claim_delivery(resident,candidate,false)
 func _porter_base_valid(id: StringName) -> bool:
 	var base: BuildingInstance = _buildings.get(id)
-	return base != null and base.is_built() and base.type==BuildingType.Type.STORAGE and _point(base) is Vector2
+	return base != null and base.is_built() and base.definition.is_storage and _point(base) is Vector2
 func _claim_delivery(resident: ResidentData, candidate: Candidate, own_export: bool) -> HaulJob:
 	if candidate.source_ref == null and candidate.source != null: candidate.source_ref = Source.new(Source.Kind.CONTAINER,candidate.source.id)
 	var own_source: BuildingInstance = candidate.source if own_export else null

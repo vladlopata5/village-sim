@@ -1,5 +1,5 @@
 extends "res://scripts/main.gd"
-## Shares Main's starter setup and simulation wiring; replaces presentation factories.
+## Shares Main's simulation wiring; canonical Town Center starter; replaces presentation factories.
 const Coordinates = preload("res://scripts/world_3d/world_coordinates.gd")
 const Executor = preload("res://scripts/world_3d/resident_executor_3d.gd")
 const BuildingView = preload("res://scripts/world_3d/building_view_3d.gd")
@@ -23,6 +23,8 @@ var _last_growth_minute := 0
 var trees: Array = []
 var tree_views: Dictionary = {}
 var tree_locations = preload("res://scripts/world_3d/tree_locations_3d.gd").new()
+var legacy_reference_setup := false # Explicit historical integration fixture only.
+var settlement_panel: PanelContainer
 var ready_for_play := false
 var _clicks: Array[InputEventMouseButton] = []
 var _pointer_position := Vector2.ZERO
@@ -30,6 +32,10 @@ func _ready() -> void:
 	world_locations = preload("res://scripts/world_3d/building_locations_3d.gd").new()
 	world_locations.navigation = navigation
 	super._ready()
+	settlement_panel = preload("res://scripts/settlement_residents_panel.gd").new()
+	$HUD.add_child(settlement_panel)
+	settlement_panel.setup(player_control,resident_selection)
+	$HUD/BuildingCard.settlement_management_requested.connect(settlement_panel.show)
 	$World.add_child(navigation_debug)
 	navigation_debug.setup(navigation)
 	navigation.changed.connect(_on_navigation_changed)
@@ -348,3 +354,23 @@ func _set_work_area_debug(enabled: bool) -> void:
 
 func _resource_route_available(start: Vector2, target: Vector2) -> bool:
 	return not navigation.find_path(Coordinates.to_world(start),Coordinates.to_world(target)).is_empty()
+
+func _create_starting_buildings() -> void:
+	if legacy_reference_setup:
+		_create_test_kitchen()
+		_create_test_warehouse()
+		_create_test_gatherer_hut()
+		return
+	warehouse_data = BuildingData.new(&"town_center", "Городской центр", BuildingType.Type.TOWN_CENTER)
+	warehouse_data.position = Vector2(300,237.5)
+	for resource in ResourceType.Type.values():
+		warehouse_data.resources.set_capacity(resource,Balance.TOWN_CENTER_RESOURCE_CAPACITY)
+	warehouse_data.resources.add(ResourceType.Type.PLANK,Balance.TOWN_CENTER_STARTING_PLANK)
+	warehouse_data.resources.add(ResourceType.Type.FOOD,Balance.TOWN_CENTER_STARTING_FOOD)
+	buildings.append(warehouse_data)
+	var view = _create_building_presentation(warehouse_data)
+	_register_building_location(warehouse_data,view)
+func _starting_home_id(index: int) -> StringName:
+	return super._starting_home_id(index) if legacy_reference_setup else &""
+func _create_starting_home(data: ResidentData, index: int) -> void:
+	if legacy_reference_setup: _create_legacy_home(data,index)

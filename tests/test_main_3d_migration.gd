@@ -34,7 +34,7 @@ func _run() -> void:
 	for data in old.residents: residents.append([data.id, data.resident_name, data.profession, data.home_location_id])
 	for data in old.buildings: buildings.append([data.id, data.type, data.position, data.state, data.resources.get_amount(Resources.FOOD), data.resources.get_amount(Resources.PLANK)])
 	old.free()
-	var scene = load("res://scenes/main_3d.tscn").instantiate()
+	var scene = preload("res://tests/legacy_starter_3d.gd").instantiate()
 	root.add_child(scene)
 	for frame in range(120):
 		await physics_frame

@@ -27,7 +27,7 @@ func can_work(resident: RefCounted) -> bool:
 		if _can_work_at(resident, output): return true
 	return false
 func _can_work_at(resident: RefCounted, output: RefCounted) -> bool:
-	return output.is_built() and output.type == BuildingType.Type.GATHERER_HUT and resident.profession == Profession.Type.GATHERER and resident.work_location_id == output.id and output.resources.get_available_free_capacity(FOOD) > 0 and _locations.get_position(output.id) is Vector2
+	return output != null and output.is_built() and output.type == BuildingType.Type.GATHERER_HUT and resident.profession == Profession.Type.GATHERER and resident.work_location_id == output.id and output.resources.get_available_free_capacity(FOOD) > 0 and _locations.get_position(output.id) is Vector2
 func _contributes(resident: RefCounted, output: RefCounted) -> bool:
 	var assignment: Dictionary = work_assignment_provider.call(resident.id) if work_assignment_provider.is_valid() else {}
 	if assignment.is_empty(): return _can_work_at(resident, output)
@@ -37,7 +37,7 @@ func _on_minute(_minute: int) -> void:
 	for output in [building] + additional_buildings: _produce(output)
 
 func _produce(output: RefCounted) -> void:
-	if not output.is_built(): return
+	if output == null or not output.is_built(): return
 	# Physical/output capacity is checked before adding even one work minute.
 	if output.resources.get_available_free_capacity(FOOD) <= 0:
 		if not _blocked_buildings.get(output.id, false) and logger != null: logger.info(EventLog.PRODUCTION, "%s: производство остановлено — выходной контейнер заполнен" % output.display_name)

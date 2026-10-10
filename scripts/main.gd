@@ -21,17 +21,18 @@ var warehouse_food_label: Label
 const Balance = preload("res://scripts/balance_config.gd")
 const Production = preload("res://scripts/gatherer_production.gd")
 var production = Production.new()
-var gatherer_hut_data: BuildingData
+var gatherer_hut_data: BuildingInstance
 var production_label: Label
 var warehouse_data: BuildingData
 var food_label: Label
 const BuildingInstance = preload("res://scripts/building_instance.gd")
 const BuildingDefinition = preload("res://scripts/building_definition.gd")
 var buildings: Array[BuildingInstance] = []
+var fallback_housing = preload("res://scripts/fallback_housing.gd").new()
 var placement = preload("res://scripts/building_placement.gd").new()
 var construction_panel: PanelContainer
 var placement_input: Node
-var kitchen_data: BuildingData
+var kitchen_data: BuildingInstance
 var world_locations = WorldLocations2D.new()
 const ResidentFactory = preload("res://scripts/resident_factory.gd")
 const ResidentGenerator = preload("res://scripts/resident_generator.gd")
@@ -68,9 +69,8 @@ func _ready() -> void:
 		system.logger = game_logger
 	$HUD/ResidentCard.bind_selection(resident_selection)
 	$HUD/BuildingCard.bind_selection(resident_selection)
-	_create_test_kitchen()
-	_create_test_warehouse()
-	_create_test_gatherer_hut()
+	fallback_housing.setup(buildings,world_locations)
+	_create_starting_buildings()
 	# Account for the elapsed work minute before residents choose their next action.
 	add_child(production)
 	production.setup(game_time, gatherer_hut_data, residents, world_locations, _production_position_2d)
@@ -122,13 +122,15 @@ func _ready() -> void:
 			runtime.intents.clear_reason(&"day_work")
 			runtime.decision.request_decision("startup_work")
 	production.changed.connect(_update_production)
-	gatherer_hut_data.resources.changed.connect(_on_hut_resources_changed)
+	if gatherer_hut_data != null: gatherer_hut_data.resources.changed.connect(_on_hut_resources_changed)
 	_update_production()
 	_update_logistics()
 	warehouse_data.resources.changed.connect(_update_warehouse_food)
 	_update_warehouse_food(ResourceType.Type.FOOD, warehouse_data.resources.get_amount(ResourceType.Type.FOOD))
-	kitchen_data.resources.changed.connect(_update_food)
-	_update_food(ResourceType.Type.FOOD, kitchen_data.resources.get_amount(ResourceType.Type.FOOD))
+	if kitchen_data != null:
+		kitchen_data.resources.changed.connect(_update_food)
+		_update_food(ResourceType.Type.FOOD, kitchen_data.resources.get_amount(ResourceType.Type.FOOD))
+	else: food_label.text = "Кухня ещё не построена"
 	game_time.minute_changed.connect(_update_clock)
 	game_time.phase_changed.connect(field.show_phase)
 	game_time.phase_changed.connect(_update_phase)
@@ -274,32 +276,27 @@ func _create_test_residents() -> void:
 	residents.append(ResidentFactory.create(
 		"resident_001", "Степан", 30, Profession.Type.PORTER,
 		generator.generate_traits(),
-		20, 35, 65, &"home_stepan", warehouse_data.id, starting_preferences.liked, starting_preferences.disliked))
-	var home_ids = [&"home_anna", &"home_fedor", &"home_marina"]
+		20, 35, 65, _starting_home_id(0), warehouse_data.id, starting_preferences.liked, starting_preferences.disliked))
 	for index in range(3):
 		var data = generator.generate(["Анна", "Фёдор", "Марина"][index])
-		data.home_location_id = home_ids[index]
+		data.home_location_id = _starting_home_id(index+1)
 		if index == 1:
 			data.profession = Profession.Type.GATHERER
-			data.work_location_id = gatherer_hut_data.id
+			data.work_location_id = gatherer_hut_data.id if gatherer_hut_data != null else &""
 		residents.append(data)
 	# Source centers align physical footprint edges to BuildGrid 0.5 at world scale 1:25.
-	var home_positions = [Vector2(-300, -125), Vector2(-100, -200), Vector2(100, -200), Vector2(300, -125)]
 	var start_positions = [Vector2(120, 80), Vector2(220, 100), Vector2(-100, 100), Vector2(0, 180)]
 	for index in range(residents.size()):
 		var data = residents[index]
 		assert(find_resident(data.id) == data, "Resident IDs must be unique")
-		# Prebuilt homes use the same definition, view and registration as placed homes.
-		var home = BuildingInstance.new(data.home_location_id, BuildingDefinition.for_type(BuildingType.Type.HOME), home_positions[index], BuildingInstance.State.BUILT)
-		buildings.append(home)
-		_show_building(home)
+		_create_starting_home(data,index)
 		var view = _create_resident_presentation(data, start_positions[index])
 		var runtime = ResidentRuntime.new()
 		runtime.name = data.id
 		$Residents.add_child(runtime)
 		resident_runtimes.append(runtime)
 		runtime.logger = game_logger
-		runtime.setup(data, view, game_time, world_locations, buildings)
+		runtime.setup(data, view, game_time, world_locations, buildings, fallback_housing)
 		interactions.register_target(StringName(data.id), data.resident_name, data, _resident_interaction_position.bind(data.id), [&"resident"])
 		_register_interaction_view(StringName(data.id), view)
 
@@ -363,7 +360,7 @@ func _request_work(runtime: ResidentRuntime) -> bool:
 
 func _configure_logistics() -> void:
 	logistics.setup(warehouse_data, kitchen_data, null)
-	logistics.add_production_source(gatherer_hut_data)
+	if gatherer_hut_data != null: logistics.add_production_source(gatherer_hut_data)
 	for runtime in resident_runtimes:
 		logistics.register_resident(runtime.data)
 		logistics.use_executor(runtime.data, game_time, world_locations, runtime.intents, runtime.schedule)
@@ -437,7 +434,7 @@ func _create_test_kitchen() -> void:
 
 func _update_warehouse_food(resource: ResourceType.Type, amount: int) -> void:
 	if resource == ResourceType.Type.FOOD:
-		warehouse_food_label.text = "Еда на складе: %d/20" % amount
+		warehouse_food_label.text = ("Еда на складе: %d/%d" % [amount,warehouse_data.resources.get_capacity(ResourceType.Type.FOOD)]) if warehouse_data.type == BuildingType.Type.STORAGE else ("%s: FOOD %d/%d" % [warehouse_data.display_name,amount,warehouse_data.resources.get_capacity(ResourceType.Type.FOOD)])
 		_update_logistics()
 
 func _create_test_warehouse() -> void:
@@ -470,14 +467,21 @@ func _on_hut_resources_changed(_resource: ResourceType.Type, _amount: int) -> vo
 	_update_production()
 
 func _update_production() -> void:
+	if gatherer_hut_data == null:
+		production_label.text = "Хижина собирателя ещё не построена"
+		return
 	production_label.text = "Хижина собирателя: FOOD %d/5\nproduction progress %d/%d" % [gatherer_hut_data.resources.get_amount(ResourceType.Type.FOOD), gatherer_hut_data.production_progress, Balance.GATHERER_WORK_MINUTES_PER_FOOD]
 
 func _update_logistics() -> void:
 	if logistics_label == null:
 		return
 	var source = warehouse_data.resources
-	var destination = kitchen_data.resources
-	var summary := "Склад: %d/%d FOOD • зарезервировано на вывоз: %d\nКухня: %d/%d FOOD • зарезервировано под доставку: %d" % [source.get_amount(ResourceType.Type.FOOD), source.get_capacity(ResourceType.Type.FOOD), source.get_reserved_out(ResourceType.Type.FOOD), destination.get_amount(ResourceType.Type.FOOD), destination.get_capacity(ResourceType.Type.FOOD), destination.get_reserved_in(ResourceType.Type.FOOD)]
+	var destination = kitchen_data.resources if kitchen_data != null else null
+	var summary := ""
+	if destination != null:
+		summary = "Склад: %d/%d FOOD • зарезервировано на вывоз: %d\nКухня: %d/%d FOOD • зарезервировано под доставку: %d" % [source.get_amount(ResourceType.Type.FOOD), source.get_capacity(ResourceType.Type.FOOD), source.get_reserved_out(ResourceType.Type.FOOD), destination.get_amount(ResourceType.Type.FOOD), destination.get_capacity(ResourceType.Type.FOOD), destination.get_reserved_in(ResourceType.Type.FOOD)]
+	else:
+		summary = warehouse_data.display_name + " • FOOD %d • LOG %d • PLANK %d" % [source.get_amount(ResourceType.Type.FOOD),source.get_amount(ResourceType.Type.LOG),source.get_amount(ResourceType.Type.PLANK)]
 	var job = logistics.current_job
 	if job == null or not job.is_active():
 		for offered_job in logistics.jobs:
@@ -562,6 +566,10 @@ func _activate_completed_building(building: BuildingInstance) -> void:
 			building.resources.set_capacity(ResourceType.Type.PLANK, Balance.WAREHOUSE_PLANK_CAPACITY)
 			logistics.add_warehouse(building)
 		BuildingType.Type.FOOD:
+			if kitchen_data == null:
+				kitchen_data = building
+				building.resources.changed.connect(_update_food)
+				_update_food(ResourceType.Type.FOOD,building.resources.get_amount(ResourceType.Type.FOOD))
 			building.resources.set_capacity(ResourceType.Type.FOOD, 20)
 			logistics.add_kitchen(building)
 		BuildingType.Type.LUMBERJACK_HUT:
@@ -576,7 +584,10 @@ func _activate_completed_building(building: BuildingInstance) -> void:
 		BuildingType.Type.GATHERER_HUT:
 			building.resources.set_allowed_resource_types([ResourceType.Type.FOOD])
 			building.resources.set_capacity(ResourceType.Type.FOOD, 5)
-			production.additional_buildings.append(building)
+			if gatherer_hut_data == null:
+				gatherer_hut_data = building
+				production.building = building
+			else: production.additional_buildings.append(building)
 			logistics.add_production_source(building)
 	building.resources.changed.connect(_on_hut_resources_changed)
 	player_control.register_building(building)
@@ -632,3 +643,18 @@ func _register_building_location(building: BuildingInstance, view: Node) -> void
 	_register_interaction_view(building.id, view)
 func _register_interaction_view(id: StringName, view: Node) -> void:
 	interaction_targets.register(id, view)
+
+# Legacy 2D reference starter; canonical 3D overrides only these setup hooks.
+func _create_starting_buildings() -> void:
+	_create_test_kitchen()
+	_create_test_warehouse()
+	_create_test_gatherer_hut()
+func _starting_home_id(index: int) -> StringName:
+	return [&"home_stepan",&"home_anna",&"home_fedor",&"home_marina"][index]
+func _create_starting_home(data: ResidentData, index: int) -> void:
+	_create_legacy_home(data,index)
+func _create_legacy_home(data: ResidentData, index: int) -> void:
+	var positions = [Vector2(-300,-125),Vector2(-100,-200),Vector2(100,-200),Vector2(300,-125)]
+	var home = BuildingInstance.new(data.home_location_id,BuildingDefinition.for_type(BuildingType.Type.HOME),positions[index],BuildingInstance.State.BUILT)
+	buildings.append(home)
+	_show_building(home)

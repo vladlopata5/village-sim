@@ -95,7 +95,7 @@ func release(source_ref: Source, resource: int, owner: StringName) -> void:
 func storage_destinations(source: Source, resource: int, origin: Vector2) -> Array:
 	var result: Array = []
 	for building in buildings.values():
-		if building.id==source.id or not building.is_built() or building.type!=preload("res://scripts/building_type.gd").Type.STORAGE: continue
+		if building.id==source.id or not building.is_built() or not building.definition.is_storage: continue
 		if not building.definition.allows_external_import(resource) or building.resources.get_available_free_capacity(resource)<1: continue
 		var target: Variant = locations.get_position(building.id) if locations != null else building.position
 		if target is Vector2 and reachable(origin,target): result.append(building)

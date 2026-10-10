@@ -19,6 +19,9 @@ var _buildings: Array = []
 var _night_intent: ResidentIntent
 var _night_started := false
 var _sleep_home_id: StringName = &""
+var fallback_housing: RefCounted
+var _fallback_id: StringName = &""
+var _was_sleeping := false
 var is_night: bool:
 	get: return _phase == "Ночь"
 var _intents: IntentController
@@ -30,6 +33,11 @@ func setup(game_time: Node, locations: RefCounted, intents: IntentController, bu
 	_intents.intent_changed.connect(_on_intent_changed)
 	_intents.forced_interrupt.connect(_on_forced_interrupt)
 	_intents.intent_completed.connect(_on_intent_completed)
+	_intents.resident_data.activity_changed.connect(_on_activity_changed)
+	tree_exiting.connect(_release_fallback)
+	if fallback_housing != null:
+		fallback_housing.claim_invalidated.connect(_on_fallback_invalidated)
+		game_time.minute_changed.connect(_validate_fallback)
 	game_time.phase_changed.connect(_on_phase_changed)
 	_on_phase_changed(game_time.get_phase())
 
@@ -41,6 +49,7 @@ func request_manual_move(world_target: Vector2) -> bool:
 	return _intents.submit(ResidentIntent.new(ResidentIntent.Type.MOVE_TO, &"manual_move", world_target, MANUAL_PRIORITY, true))
 
 func _on_phase_changed(phase: String) -> void:
+	_release_fallback()
 	var changed_phase := phase != _phase
 	_phase = phase
 	if _intents.player_controlled: return # Track phase, defer AI until command completion.
@@ -93,10 +102,10 @@ func _on_intent_completed(intent: ResidentIntent) -> void:
 		data.activity = Activity.Type.WORKING
 	elif is_night and intent == _night_intent and intent.reason_id == &"night_home":
 		# Quality uses the committed destination, never the newly assigned home.
-		var home_available := _get_home_target(_sleep_home_id) is Vector2
+		var home_available := (_get_home_target(_sleep_home_id) is Vector2) if _fallback_id.is_empty() else (fallback_housing.target(_fallback_id) is Vector2)
 		if not home_available and logger != null:
 			logger.debug(EventLog.SCHEDULE, "%s: дом стал недоступен, спит снаружи на месте" % data.resident_name)
-		_start_sleep(Balance.HOME_SLEEP_QUALITY if home_available else Balance.OUTDOOR_SLEEP_QUALITY, "дома" if home_available else "снаружи")
+		_start_sleep(Balance.HOME_SLEEP_QUALITY if home_available else Balance.OUTDOOR_SLEEP_QUALITY, ("во временном жилье" if not _fallback_id.is_empty() else "дома") if home_available else "снаружи")
 	if logger != null: logger.sync_activity(data)
 
 func request_work() -> bool:
@@ -122,8 +131,12 @@ func _get_home_target(home_id: StringName) -> Variant:
 			return target if target is Vector2 else building.position
 	return null
 
-func _configure_night_intent(intent: ResidentIntent) -> void:
+func _configure_night_intent(intent: ResidentIntent, allocate: bool = true) -> void:
 	var target: Variant = _get_home_target(_intents.resident_data.home_location_id)
+	if not target is Vector2 and fallback_housing != null and allocate:
+		_fallback_id = fallback_housing.claim(_intents.resident_data.id)
+		if not _fallback_id.is_empty(): target = fallback_housing.target(_fallback_id)
+	else: _release_fallback()
 	intent.type = ResidentIntent.Type.MOVE_TO if target is Vector2 else ResidentIntent.Type.NONE
 	intent.reason_id = &"night_home" if target is Vector2 else &"night_outdoor"
 	if target is Vector2: intent.target_position = target
@@ -133,30 +146,34 @@ func _request_night_sleep() -> void:
 	if _night_intent != null and (_intents.current_intent == _night_intent or _intents.pending_intent == _night_intent): return
 	_night_started = false
 	_night_intent = ResidentIntent.new(ResidentIntent.Type.NONE, &"night_outdoor", Vector2.ZERO, HOME_PRIORITY, true)
-	_configure_night_intent(_night_intent)
+	_configure_night_intent(_night_intent,false)
 	if not _intents.submit(_night_intent): _night_intent = null
 
 func _on_intent_changed(intent: ResidentIntent) -> void:
-	if intent != _night_intent or _night_started: return
+	if intent != _night_intent:
+		if not intent.reason_id.is_empty(): _release_fallback()
+		return
+	if _night_started: return
 	# A queued schedule intent is not a committed trip yet. Resolve housing when
 	# it actually activates, before the presentation executor receives it.
 	_configure_night_intent(intent)
 	_night_started = true
 	var data = _intents.resident_data
-	_sleep_home_id = data.home_location_id if intent.reason_id == &"night_home" else &""
+	_sleep_home_id = data.home_location_id if _fallback_id.is_empty() and intent.reason_id == &"night_home" else &""
 	if intent.type == ResidentIntent.Type.NONE:
 		_start_sleep(Balance.OUTDOOR_SLEEP_QUALITY, "снаружи")
 	else:
 		data.activity = Activity.Type.MOVING
 	if logger != null:
 		if intent.reason_id == &"night_home":
-			logger.info(EventLog.SCHEDULE, "%s: идёт спать домой — %s" % [data.resident_name, data.home_location_id])
+			logger.info(EventLog.SCHEDULE, "%s: идёт спать %s — %s" % [data.resident_name,"во временное жильё" if not _fallback_id.is_empty() else "домой", _fallback_id if not _fallback_id.is_empty() else data.home_location_id])
 		else:
 			logger.info(EventLog.SCHEDULE, "%s: спит снаружи — дома нет или он недоступен" % data.resident_name)
 			if not data.home_location_id.is_empty(): logger.debug(EventLog.SCHEDULE, "%s: назначенный дом недоступен, используется outdoor sleep" % data.resident_name)
 		logger.sync_activity(data)
 
 func _on_forced_interrupt(_previous: ResidentIntent) -> void:
+	_release_fallback()
 	_night_intent = null
 	_night_started = false
 	_sleep_home_id = &""
@@ -165,3 +182,22 @@ func _start_sleep(quality: float, context: String) -> void:
 	_intents.resident_data.start_sleep(quality)
 	if logger != null:
 		logger.debug(EventLog.SCHEDULE, "%s: начал спать %s, quality=%.2f" % [_intents.resident_data.resident_name, context, quality])
+
+func _release_fallback() -> void:
+	if fallback_housing != null and _intents != null and _intents.resident_data != null:
+		fallback_housing.release(_intents.resident_data.id)
+	_fallback_id = &""
+func _on_activity_changed() -> void:
+	var sleeping: bool = _intents.resident_data.activity == Activity.Type.SLEEPING
+	if _was_sleeping and not sleeping: _release_fallback()
+	_was_sleeping = sleeping
+func _validate_fallback(_minute: int) -> void:
+	if not _fallback_id.is_empty(): fallback_housing.validate()
+func _on_fallback_invalidated(resident_id: String) -> void:
+	if _intents.resident_data.id != resident_id: return
+	_fallback_id = &""
+	if _intents.resident_data.activity == Activity.Type.SLEEPING: _intents.resident_data.activity = Activity.Type.IDLE
+	if _night_intent != null: _intents.cancel_current(_night_intent)
+	_night_intent = null
+	_night_started = false
+	if is_night and not _intents.player_controlled: _request_night_sleep()

@@ -15,6 +15,7 @@ const CONSTRUCTION_BALANCE = {
 }
 # Explicit 3D physical area in build cells; legacy size remains the 2D visual footprint.
 const FOOTPRINT_CELLS = {
+	BuildingType.Type.TOWN_CENTER: Vector2i(16,12),
 	BuildingType.Type.SAWMILL: Vector2i(12,8),
 	BuildingType.Type.LUMBERJACK_HUT: Vector2i(8,6),
 	BuildingType.Type.HOME: Vector2i(6, 4),
@@ -24,6 +25,11 @@ const FOOTPRINT_CELLS = {
 }
 # External haul policy is independent from ResourceContainer storage/direct deposits.
 const LOGISTICS_FLOW = {
+	BuildingType.Type.TOWN_CENTER: {
+		ResourceType.Type.FOOD: {"import":true,"export":true},
+		ResourceType.Type.LOG: {"import":true,"export":true},
+		ResourceType.Type.PLANK: {"import":true,"export":true},
+	},
 	BuildingType.Type.SAWMILL: {
 		ResourceType.Type.LOG: {"import":true,"export":false},
 		ResourceType.Type.PLANK: {"import":false,"export":true},
@@ -52,6 +58,9 @@ var construction_requirements: Dictionary
 var construction_work_required: int
 var max_builders: int
 var housing_capacity: int
+var is_storage := false
+var fallback_housing_capacity := 0
+var player_buildable := true
 func _init(type_id: StringName, category: BuildingType.Type, label: String, footprint_size: Vector2, requirements: Dictionary = {}, work_minutes: int = 0, builder_limit: int = 0, resident_capacity: int = 0) -> void:
 	id = type_id
 	type = category
@@ -64,12 +73,17 @@ func _init(type_id: StringName, category: BuildingType.Type, label: String, foot
 	max_builders = maxi(builder_limit, 0)
 	housing_capacity = maxi(resident_capacity, 0)
 static func for_type(category: BuildingType.Type, label: String = ""):
-	var ids := [&"kitchen", &"warehouse", &"gatherer_hut", &"home", &"lumberjack_hut", &"sawmill"]
-	var labels := ["Общая кухня", "Склад", "Хижина собирателя", "Дом", "Хижина лесоруба", "Лесопилка"]
+	var ids := [&"kitchen", &"warehouse", &"gatherer_hut", &"home", &"lumberjack_hut", &"sawmill", &"town_center"]
+	var labels := ["Общая кухня", "Склад", "Хижина собирателя", "Дом", "Хижина лесоруба", "Лесопилка", "Городской центр"]
 	var footprint_size := Vector2(64, 48) if category == BuildingType.Type.HOME else Vector2(144, 96)
-	var construction: Dictionary = CONSTRUCTION_BALANCE[category]
+	var construction: Dictionary = CONSTRUCTION_BALANCE.get(category,{"requirements":{},"minutes":0,"builders":0})
 	var result = load("res://scripts/building_definition.gd").new(ids[category], category, labels[category] if label.is_empty() else label, footprint_size, construction.requirements, construction.minutes, construction.builders, Balance.HOUSE_RESIDENT_CAPACITY if category == BuildingType.Type.HOME else 0)
 
+	result.is_storage = category in [BuildingType.Type.STORAGE,BuildingType.Type.TOWN_CENTER]
+	if category == BuildingType.Type.TOWN_CENTER:
+		result.fallback_housing_capacity = Balance.TOWN_CENTER_FALLBACK_CAPACITY
+		result.player_buildable = false
+		result.size = Vector2(200,150)
 	if category == BuildingType.Type.LUMBERJACK_HUT:
 		result.worker_capacity = Balance.LUMBERJACK_WORKER_CAPACITY
 		result.work_radius = Balance.LUMBERJACK_WORK_RADIUS
