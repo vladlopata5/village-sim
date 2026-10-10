@@ -2,6 +2,8 @@ extends RefCounted
 ## Intent data contains no resident, scene, UI or movement implementation.
 enum Type { NONE, MOVE_TO }
 
+var building_id: StringName = &""
+var slot_purpose := -1
 var type: Type
 var reason_id: StringName
 var target_position: Vector2

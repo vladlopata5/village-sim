@@ -1,4 +1,5 @@
 extends Node
+const Purpose = preload("res://scripts/building_slot_purpose.gd").Type
 ## Generic input-consuming recipe execution. Work/progress use the existing building data.
 const Intent = preload("res://scripts/resident_intent.gd")
 const Profession = preload("res://scripts/resident_profession.gd")
@@ -78,6 +79,7 @@ func request_work() -> bool:
 		return false
 	phase = Phase.GOING_TO_WORK
 	_intent = Intent.new(Intent.Type.MOVE_TO,&"recipe_work",_locations.get_position(building.id),Balance.WORK_PRIORITY,false)
+	if _locations.has_method("configure_intent"): _locations.configure_intent(_intent,building.id,Purpose.WORKER,_runtime.data.id)
 	if not _runtime.intents.submit(_intent):
 		abort()
 		return false
@@ -98,7 +100,7 @@ func _accrue() -> void:
 	if phase != Phase.WORKING or not _valid(): return
 	var point: Variant = position_provider.call(_runtime.data.id) if position_provider.is_valid() else null
 	var target: Vector2 = _locations.get_position(building.id)
-	if point is Vector2 and point.distance_to(target) <= 8.0 and _runtime.data.activity == Activity.Type.WORKING:
+	if point is Vector2 and (_locations.at_action(_runtime.data.id,building.id,Purpose.WORKER,point,8.0) if _locations.has_method("at_action") else point.distance_to(target)<=8.0) and _runtime.data.activity == Activity.Type.WORKING:
 		building.production_progress = mini(building.production_progress+maxi(_clock.total_minutes-_last_minute,0),building.definition.production_recipe.work_required)
 	_last_minute = _clock.total_minutes
 func _on_minute(_minute: int) -> void:

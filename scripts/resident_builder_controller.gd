@@ -1,4 +1,5 @@
 extends Node
+const Purpose = preload("res://scripts/building_slot_purpose.gd").Type
 ## Resident-owned construction workflow. Site score selects a task only after WORK wins.
 const Instance = preload("res://scripts/building_instance.gd")
 const Profession = preload("res://scripts/resident_profession.gd")
@@ -208,7 +209,7 @@ func _wait_for_materials() -> bool:
 		logger.info(EventLog.BUILDING, "%s: ждёт материалы — %s (%s)" % [_data.resident_name, site.id, "; ".join(counts)])
 	var point: Vector2 = _locations.get_position(site.id)
 	var current: Variant = _position()
-	if not current is Vector2 or current.distance_to(point) > 8.0:
+	if not current is Vector2 or not (_locations.at_action(_data.id,site.id,Purpose.CONSTRUCTION,current,8.0) if _locations.has_method("at_action") else current.distance_to(point)<=8.0):
 		if phase == Phase.GOING_TO_WAIT: return true
 		phase = Phase.GOING_TO_WAIT
 		return _move(&"builder_wait_arrival", point)
@@ -234,6 +235,10 @@ func _move(reason: StringName, target: Vector2) -> bool:
 func _set_task_intent(next: Intent) -> bool:
 	var previous: Intent = _intent
 	_intent = next
+	if _locations.has_method("configure_intent"):
+		if phase==Phase.GOING_TO_SOURCE:
+			if source_ref!=null and source_ref.kind==Source.Kind.CONTAINER: _locations.configure_intent(_intent,source_ref.id,Purpose.COURIER,_data.id)
+		elif site!=null: _locations.configure_intent(_intent,site.id,Purpose.CONSTRUCTION,_data.id)
 	var accepted: bool = _intents.submit(_intent) if previous == null else _intents.continue_intent(previous, _intent)
 	if not accepted: abort("маршрут не принят")
 	return accepted
@@ -299,7 +304,7 @@ func _accrue_work(now: int) -> void:
 	_last_work_minute = now # Advance before synchronous construction callbacks.
 	var point: Variant = _position()
 	var action_point: Variant = _locations.get_position(site.id)
-	if not point is Vector2 or not action_point is Vector2 or point.distance_to(action_point)>8.0 or _data.activity!=Activity.Type.WORKING or _intents.current_intent!=_intent or not site.are_construction_materials_complete(): return
+	if not point is Vector2 or not action_point is Vector2 or not (_locations.at_action(_data.id,site.id,Purpose.CONSTRUCTION,point,8.0) if _locations.has_method("at_action") else point.distance_to(action_point)<=8.0) or _data.activity!=Activity.Type.WORKING or _intents.current_intent!=_intent or not site.are_construction_materials_complete(): return
 	# The interval ending at 17:00 still contains the final working minute.
 	var minute_of_day := posmod(previous,1440)
 	if minute_of_day<420 or minute_of_day>=1020: return

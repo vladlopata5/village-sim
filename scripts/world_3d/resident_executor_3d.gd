@@ -28,12 +28,14 @@ func get_sim_position() -> Vector2: return Coordinates.to_sim(get_world_position
 func set_selected(value: bool) -> void: view.set_selected(value)
 func set_time_speed(multiplier: int) -> void: _time_speed = multiplier
 func move_to(target: Vector2) -> void:
+	_exit_building()
 	_active = null
 	movement.set_target(Coordinates.to_world(target))
 func apply_intent(intent: Intent) -> void:
 	if intent.type == Intent.Type.NONE:
 		_active = null
 		movement.stop()
+		if not _reporting_arrival: _exit_building()
 		return
 	move_to(intent.target_position)
 	_active = intent
@@ -41,10 +43,90 @@ func _physics_process(delta: float) -> void:
 	movement.speed = Coordinates.length_to_world(Modifiers.movement_speed(resident_data, 120.0)) * _time_speed
 	movement.advance(delta)
 func _arrived() -> void:
+	if uses!=null and _active!=null and not _active.building_id.is_empty():
+		_enter_or_wait()
+		return
+	_finish_arrival()
+func _finish_arrival() -> void:
 	var completed = _active
 	_active = null
-	if completed != null: intent_completed.emit(completed)
+	if completed != null:
+		_reporting_arrival=true
+		intent_completed.emit(completed)
+		_reporting_arrival=false
+		_release_finished()
 func _failed() -> void:
 	var failed_intent = _active
 	_active = null
 	if failed_intent != null: intent_failed.emit(failed_intent)
+
+const Slot = preload("res://scripts/world_3d/building_slot_3d.gd")
+signal building_use_unavailable(intent: Intent)
+var uses: RefCounted
+var _intents: Node
+var _building: StringName = &""
+var _marker: Marker3D
+var _waiting := false
+var _reporting_arrival := false
+var _entry_position := Vector3.ZERO
+func bind_building_use(service: RefCounted, intents: Node) -> void:
+	uses=service
+	uses.executors[resident_data.id]=weakref(self)
+	_intents=intents
+	uses.slots_changed.connect(_slot_changed)
+	uses.removed.connect(_building_removed)
+	intents.forced_interrupt.connect(_forced_exit)
+	resident_data.activity_changed.connect(_check_activity)
+func _exit_building() -> void:
+	_waiting=false
+	if _marker==null: return
+	var marker := _marker
+	var id := _building
+	_marker=null
+	_building=&""
+	if marker.purpose!=Slot.Purpose.CONSTRUCTION and is_inside_tree():
+		global_position=_entry_position
+	uses.release(id,marker,resident_data.id)
+func _forced_exit(_intent: Intent) -> void: _exit_building()
+func _check_activity() -> void:
+	if not _reporting_arrival: _release_finished()
+func _release_finished() -> void:
+	if resident_data.activity not in [preload("res://scripts/resident_activity.gd").Type.WORKING,preload("res://scripts/resident_activity.gd").Type.EATING,preload("res://scripts/resident_activity.gd").Type.SLEEPING] and (_active==null or _active.type==Intent.Type.NONE): _exit_building()
+func _enter_or_wait() -> void:
+	if _active==null or _marker!=null: return
+	if _active.slot_purpose==Slot.Purpose.CONSTRUCTION:
+		var free: Array = uses.choices(_active.building_id,_active.slot_purpose,global_position)
+		if not free.is_empty() and global_position.distance_to(free[0].global_position)>0.1:
+			movement.set_target(free[0].global_position)
+			return
+	var arriving := _active
+	var marker: Marker3D = uses.acquire(arriving.building_id,arriving.slot_purpose,resident_data.id,global_position)
+	# Occupancy signals can synchronously interrupt this action.
+	if _active!=arriving:
+		if marker!=null: uses.release(arriving.building_id,marker,resident_data.id)
+		return
+	if marker==null:
+		if _active.slot_purpose in [Slot.Purpose.WORKER,Slot.Purpose.COURIER]:
+			_waiting=true
+			return
+		var unavailable := _active
+		_active=null
+		building_use_unavailable.emit(unavailable)
+		return
+	_waiting=false
+	_building=_active.building_id
+	_marker=marker
+	_entry_position=global_position
+	# This transition can later animate/internal-navigate without changing actions.
+	global_position=marker.global_position
+	_finish_arrival()
+func _slot_changed(id: StringName, purpose: int) -> void:
+	if _waiting and _active!=null and _active.building_id==id and _active.slot_purpose==purpose: call_deferred("_enter_or_wait")
+func _building_removed(id: StringName) -> void:
+	if _building==id or (_active!=null and _active.building_id==id):
+		_exit_building()
+		if _intents!=null: _intents.abort_current(_intents.current_intent)
+		_failed()
+func _exit_tree() -> void:
+	_exit_building()
+	if uses!=null: uses.executors.erase(resident_data.id)

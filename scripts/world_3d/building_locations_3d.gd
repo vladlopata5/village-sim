@@ -1,7 +1,9 @@
 extends RefCounted
-## Migration bridge: one derived, deterministic access point; not a slot/entrance system.
+const Purpose = preload("res://scripts/building_slot_purpose.gd").Type
+## Authored entrance/action bridge. Derived access retained only for legacy reference fixtures.
 const Coordinates = preload("res://scripts/world_3d/world_coordinates.gd")
 const Geometry = preload("res://scripts/world_3d/world_geometry.gd")
+var uses: RefCounted
 var navigation: RefCounted
 var _locations: Dictionary = {}
 var _views: Dictionary = {}
@@ -18,6 +20,15 @@ func get_position(id: StringName) -> Variant:
 	var view = get_view(id)
 	return resolve_action_position(view.building_data) if view != null else null
 func resolve_action_position(building: RefCounted) -> Variant:
+	if uses != null:
+		var entry: Variant = uses.entrance(building.id)
+		if not building.is_built():
+			var target_view = uses.view(building.id)
+			if target_view==null: return null
+			for marker in preload("res://scripts/world_3d/building_layouts_3d.gd").markers(target_view.layout,preload("res://scripts/world_3d/building_slot_3d.gd")):
+				if marker.purpose==Purpose.CONSTRUCTION and navigation.is_world_walkable(marker.global_position): return Coordinates.to_sim(marker.global_position)
+		if entry is Vector3: return Coordinates.to_sim(entry)
+		return null
 	if navigation == null: return null
 	var cached: Dictionary = _access.get(building.id,{})
 	if cached.get("revision",-1) == navigation.revision: return cached.point
@@ -44,3 +55,17 @@ func unregister(id: StringName) -> void:
 	_locations.erase(id)
 	_views.erase(id)
 	_access.erase(id)
+
+func configure_intent(intent: RefCounted, building_id: StringName, purpose: int, resident_id: String) -> void:
+	if uses==null: return
+	intent.building_id=building_id
+	intent.slot_purpose=purpose
+	if purpose==Purpose.CONSTRUCTION:
+		var view = get_view(building_id)
+		if view==null: return
+		var free: Array = uses.choices(building_id,purpose,uses.resident_position(resident_id,view.global_position))
+		if not free.is_empty(): intent.target_position=Coordinates.to_sim(free[0].global_position)
+func at_action(resident_id: String, building_id: StringName, purpose: int, point: Vector2, tolerance: float) -> bool:
+	if uses!=null: return uses.occupied_by(building_id,resident_id,purpose)
+	var target: Variant = get_position(building_id)
+	return target is Vector2 and point.distance_to(target)<=tolerance

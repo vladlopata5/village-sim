@@ -1,4 +1,5 @@
 extends Node
+const Purpose = preload("res://scripts/building_slot_purpose.gd").Type
 const EventLog = preload("res://scripts/game_logger.gd")
 var logger: EventLog
 ## One FOOD recipe. Work is summed into building-owned progress, never resident-owned.
@@ -49,7 +50,7 @@ func _produce(output: RefCounted) -> void:
 	for resident in residents:
 		if not target is Vector2 or not _contributes(resident, output) or resident.activity != Activity.Type.WORKING: continue
 		var position: Variant = _position_provider.call(resident.id)
-		if position is Vector2 and position.distance_to(target) <= WORK_POSITION_TOLERANCE: workers += 1
+		if position is Vector2 and (_locations.at_action(resident.id,output.id,Purpose.WORKER,position,WORK_POSITION_TOLERANCE) if _locations.has_method("at_action") else position.distance_to(target)<=WORK_POSITION_TOLERANCE): workers += 1
 	if workers == 0 and output.production_progress < Balance.GATHERER_WORK_MINUTES_PER_FOOD: return
 	output.production_progress += workers
 	while output.production_progress >= Balance.GATHERER_WORK_MINUTES_PER_FOOD and output.resources.get_available_free_capacity(FOOD) > 0:

@@ -1,4 +1,5 @@
 extends Node
+const Purpose = preload("res://scripts/building_slot_purpose.gd").Type
 ## Ordinary workplace WORK: collect, chop, plant, then shared container haul export.
 const Profession = preload("res://scripts/resident_profession.gd")
 const BuildingType = preload("res://scripts/building_type.gd")
@@ -140,7 +141,7 @@ func _hut_valid() -> bool:
 	return hut != null and hut in world.buildings and hut.is_built() and world.world_locations.get_position(hut.id) is Vector2
 func _arrived(intent: RefCounted) -> void:
 	if intent != _intent: return
-	if not _hut_valid() or runtime.view.get_sim_position().distance_to(target)>8.0:
+	if not _hut_valid() or not (world.world_locations.at_action(runtime.data.id,hut.id,Purpose.COURIER,runtime.view.get_sim_position(),8.0) if kind==&"CARRYING" and world.world_locations.has_method("at_action") else runtime.view.get_sim_position().distance_to(target)<=8.0):
 		abort()
 		return
 	if kind == &"COLLECT":
@@ -157,6 +158,7 @@ func _arrived(intent: RefCounted) -> void:
 		kind = &"CARRYING"
 		target = world.world_locations.get_position(hut.id)
 		_intent = Intent.new(Intent.Type.MOVE_TO,&"lumberjack_delivery",target,Balance.WORK_PRIORITY,false)
+		if world.world_locations.has_method("configure_intent"): world.world_locations.configure_intent(_intent,hut.id,Purpose.COURIER,runtime.data.id)
 		if not runtime.intents.continue_intent(intent,_intent): abort()
 	elif kind==&"CARRYING":
 		_mutating = true

@@ -2105,3 +2105,25 @@ serialized. Future traffic/wear may call the same RoadGrid.add_road(cell); no pl
 ownership or traffic counters are stored. Automatic formation, road construction,
 maintenance/weather, terrain slopes, connectivity requirements and roads for carts
 remain deferred. Gameplay professions, resources, access points and balance unchanged.
+
+
+## 2026-10-10 — Authored entrance/slot execution bridge
+Use small editable Marker3D layout scenes under the existing primitive BuildingView3D,
+not new domain entities or an interior scheduler. BuildingSlotPurpose is a domain
+request vocabulary; physical marker occupancy lives only in the world layer. Domain
+worker/housing/max_builders capacities are validated against authored marker counts.
+Gatherer capacity is explicitly four, as approved; it no longer uses unlimited workers.
+Acquisition occurs atomically at arrival. The existing executor centralizes instant
+enter/exit and interruption cleanup, so later internal movement can replace that
+transition without changing work/needs/sleep/logistics rules. WORKER and COURIER wait
+through local slot-change signals; VISITOR has no queue; SLEEP uses existing fallback.
+Fallback housing claims represent actual sleeping occupants, not inbound trips.
+
+Entrance zones are authored physical rectangles, separate from building footprint,
+BuildGrid occupancy and NavigationGrid clearance. A local spatial index checks
+placement conflicts without scanning all buildings each frame. Roads are permitted
+under entrances. Global connectivity remains player responsibility. Quarter-turn
+rotation uses the scene hierarchy. Canonical action proximity checks query the same
+physical slot occupancy as the executor; historical legacy-reference fixtures retain
+only the necessary old derived-access compatibility. No new gameplay scheduler,
+resource reservation model, production chain or indoor pathfinding is introduced.

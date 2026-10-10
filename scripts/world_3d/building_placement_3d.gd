@@ -1,6 +1,7 @@
 extends "res://scripts/building_placement.gd"
 ## Uses the shared ID/registry/lifecycle flow, with world-grid placement rules.
 const Coordinates = preload("res://scripts/world_3d/world_coordinates.gd")
+var entrance_zones: RefCounted
 var grid: RefCounted
 var runtime_blockers: RefCounted
 var quarter_turns := 0
@@ -32,6 +33,11 @@ func validation_reason() -> String:
 	if not is_active() or not selected_definition.player_buildable: return "Здание недоступно для строительства"
 	var reason: String = grid.validation_reason(proposed_cells())
 	if not reason.is_empty(): return reason
+	var zone := proposed_entrance_zone()
+	if entrance_zones!=null:
+		var entrance_reason: String = entrance_zones.validation_reason(proposed_footprint(),zone)
+		if not entrance_reason.is_empty(): return entrance_reason
+	if runtime_blockers!=null and entrance_zones!=null and not runtime_blockers.first_overlap(zone).is_empty(): return "Вход занят физическим объектом"
 	if runtime_blockers != null and not runtime_blockers.first_overlap(proposed_footprint()).is_empty():
 		return "Место занято подвижным объектом"
 	return ""
@@ -40,3 +46,6 @@ func _create_instance(id: StringName) -> Instance:
 	var building := super._create_instance(id)
 	building.quarter_turns = quarter_turns
 	return building
+
+func proposed_entrance_zone() -> Rect2:
+	return preload("res://scripts/world_3d/building_layouts_3d.gd").entrance_zone(selected_definition,world_position,quarter_turns)

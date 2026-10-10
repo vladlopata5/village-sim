@@ -35,11 +35,15 @@ func setup(resident: RefCounted, presentation: Node, clock: Node, locations: Ref
 	for controller in [commands, schedule, needs, assignments, decision, social, wander, builder, recipe_work]:
 		controller.logger = logger
 	intents.setup(data)
+	if view.has_method("bind_building_use") and locations.get("uses")!=null:
+		view.bind_building_use(locations.uses,intents)
 	intents.intent_changed.connect(decision.capture_work_assignment.bind(data))
 	view.intent_completed.connect(intents.report_arrival)
 	commands.setup(data, intents)
 	schedule.fallback_housing = housing
 	schedule.setup(clock, locations, intents, buildings)
+	if view.has_signal("building_use_unavailable"):
+		view.building_use_unavailable.connect(_on_building_use_unavailable)
 	intents.intent_changed.connect(view.apply_intent)
 	view.apply_intent(intents.current_intent)
 	need_dynamics.setup(clock, data)
@@ -68,3 +72,10 @@ func _on_skill_changed(skill: int, amount: int, previous_level: int) -> void:
 	logger.debug(EventLog.AI, "%s: %s +%d XP (%d XP, ур. %d)" % [data.resident_name, label, amount, data.get_skill_xp(skill), level])
 	if level > previous_level:
 		logger.info(EventLog.AI, "%s: навык «%s» повышен до уровня %d" % [data.resident_name, label, level])
+
+func _on_building_use_unavailable(intent: RefCounted) -> void:
+	if intent.reason_id in [&"night_home",&"night_outdoor"]:
+		schedule.on_sleep_slot_unavailable(intent)
+		return
+	intents.abort_current(intent)
+	decision.call_deferred("request_decision","building_slot_unavailable")

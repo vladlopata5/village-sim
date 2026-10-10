@@ -45,6 +45,7 @@ const LOGISTICS_FLOW = {
 }
 var production_recipe: Recipe
 var logistics_flow: Dictionary
+var visitor_capacity := 0
 var worker_capacity := 0 # Zero keeps existing unlimited workplace semantics.
 var work_radius := 0.0 # WORLD units, unrelated to visual footprint.
 var target_tree_count := 0
@@ -79,6 +80,8 @@ static func for_type(category: BuildingType.Type, label: String = ""):
 	var construction: Dictionary = CONSTRUCTION_BALANCE.get(category,{"requirements":{},"minutes":0,"builders":0})
 	var result = load("res://scripts/building_definition.gd").new(ids[category], category, labels[category] if label.is_empty() else label, footprint_size, construction.requirements, construction.minutes, construction.builders, Balance.HOUSE_RESIDENT_CAPACITY if category == BuildingType.Type.HOME else 0)
 
+	if category == BuildingType.Type.GATHERER_HUT: result.worker_capacity = Balance.GATHERER_WORKER_CAPACITY
+	if category == BuildingType.Type.FOOD: result.visitor_capacity = 4
 	result.is_storage = category in [BuildingType.Type.STORAGE,BuildingType.Type.TOWN_CENTER]
 	if category == BuildingType.Type.TOWN_CENTER:
 		result.fallback_housing_capacity = Balance.TOWN_CENTER_FALLBACK_CAPACITY

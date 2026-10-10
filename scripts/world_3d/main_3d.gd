@@ -24,6 +24,8 @@ var trees: Array = []
 var tree_views: Dictionary = {}
 var tree_locations = preload("res://scripts/world_3d/tree_locations_3d.gd").new()
 var legacy_reference_setup := false # Explicit historical integration fixture only.
+var entrance_zones = preload("res://scripts/world_3d/building_entrance_zones_3d.gd").new()
+var building_uses = preload("res://scripts/world_3d/building_use_3d.gd").new()
 var settlement_panel: PanelContainer
 var ready_for_play := false
 var _clicks: Array[InputEventMouseButton] = []
@@ -31,6 +33,8 @@ var _pointer_position := Vector2.ZERO
 func _ready() -> void:
 	world_locations = preload("res://scripts/world_3d/building_locations_3d.gd").new()
 	world_locations.navigation = navigation
+	building_uses.navigation = navigation
+	if not legacy_reference_setup: world_locations.uses = building_uses
 	super._ready()
 	settlement_panel = preload("res://scripts/settlement_residents_panel.gd").new()
 	$HUD.add_child(settlement_panel)
@@ -73,6 +77,9 @@ func _create_building_presentation(building: BuildingInstance) -> Node:
 	view.position = Coordinates.to_world(building.position)
 	assert(view.position.is_equal_approx(build_grid.snap(view.position, building.definition.footprint_cells, building.quarter_turns)), "Building source center must already be footprint-aligned")
 	view.setup(building)
+	if not legacy_reference_setup:
+		building_uses.register(building,view)
+		entrance_zones.register(building)
 	view.set_work_area_debug(navigation_debug.visible)
 	var cells: Array = build_grid.footprint_cells(view.position, building.definition.footprint_cells, building.quarter_turns)
 	var registered: bool = build_grid.occupy(building.id, cells)
@@ -85,6 +92,7 @@ func _register_interaction_view(_id: StringName, _view: Node) -> void:
 func _setup_construction() -> void:
 	placement = preload("res://scripts/world_3d/building_placement_3d.gd").new()
 	placement.grid = build_grid
+	placement.entrance_zones = entrance_zones if not legacy_reference_setup else null
 	placement.runtime_blockers = runtime_placement_blockers
 	placement.setup(buildings)
 	placement.logger = game_logger
@@ -154,6 +162,8 @@ func cancel_construction(id: StringName) -> bool:
 	for runtime in resident_runtimes: runtime.builder.unregister_building(building)
 	if resident_selection.selected_building == building: resident_selection.clear()
 	var view: Node = world_locations.get_view(id)
+	building_uses.unregister(id)
+	entrance_zones.release(id)
 	world_locations.unregister(id)
 	if is_instance_valid(view):
 		view.collision_layer = 0

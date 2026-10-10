@@ -1,4 +1,5 @@
 extends RefCounted
+const Purpose = preload("res://scripts/building_slot_purpose.gd").Type
 ## Physical execution of one already-claimed delivery for one resident.
 const Job = preload("res://scripts/haul_job.gd")
 const Intent = preload("res://scripts/resident_intent.gd")
@@ -58,6 +59,7 @@ func start(claimed: Job) -> bool:
 	if not target is Vector2: return false
 	claimed.state = Job.State.GOING_TO_SOURCE
 	_haul_intent = Intent.new(Intent.Type.MOVE_TO, &"haul_source", target, HAUL_PRIORITY, true)
+	if claimed.source_ref.kind==preload("res://scripts/resource_source_ref.gd").Kind.CONTAINER and locations.has_method("configure_intent"): locations.configure_intent(_haul_intent,claimed.source_ref.id,Purpose.COURIER,resident.id)
 	if not intents.submit(_haul_intent):
 		_haul_intent = null
 		claimed.state = Job.State.ASSIGNED
@@ -124,6 +126,7 @@ func _pickup(intent: Intent) -> void:
 	if job == null or intents.current_intent != intent: return
 	job.state = Job.State.GOING_TO_DESTINATION
 	_haul_intent = Intent.new(Intent.Type.MOVE_TO, &"haul_destination", locations.get_position(destination.id), HAUL_PRIORITY, false)
+	if locations.has_method("configure_intent"): locations.configure_intent(_haul_intent,destination.id,Purpose.COURIER,resident.id)
 	intents.continue_intent(intent, _haul_intent)
 	service.changed.emit()
 

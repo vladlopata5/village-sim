@@ -88,7 +88,7 @@ func _run() -> void:
 	check(not scene.placement.can_place(), "Resident partial overlap blocks physical footprint")
 	actor.view.global_position = center + Vector3(1.91,0,0)
 	check(scene.placement.can_place(), "Resident close but separated does not add phantom clearance")
-	actor.view.global_position = center + Vector3(0,0,1.7)
+	actor.view.global_position = center + Vector3(1,0,1.7)
 	check(scene.placement.can_place(), "Resident beyond short depth clear at zero rotation")
 	scene.placement.rotate()
 	check(not scene.placement.can_place(), "90 degree depth expansion intersects same stationary circle")

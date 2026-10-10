@@ -5,6 +5,8 @@ var building_data: RefCounted
 var indicator: MeshInstance3D
 var material: StandardMaterial3D
 var work_area: MeshInstance3D
+var layout: Node3D
+var inside_count := 0
 var caption: Label3D
 func setup(data: RefCounted) -> void:
 	building_data = data
@@ -44,11 +46,16 @@ func setup(data: RefCounted) -> void:
 	add_child(caption)
 	if data.definition.work_radius > 0:
 		_create_work_area(data.definition.work_radius)
+	layout = preload("res://scripts/world_3d/building_layouts_3d.gd").create(data.definition)
+	layout.rotation.y = data.quarter_turns*PI/2.0
+	add_child(layout)
+	_create_layout_visuals()
 	data.construction_changed.connect(_refresh)
 	_refresh()
 func _refresh() -> void:
 	var colors := [Color("bd976b"), Color("829ba7"), Color("9aaa70"), Color("c2aa91"),Color("88735d"),Color("a28559"),Color("547ea8")]
 	material.albedo_color = colors[building_data.type] if building_data.is_built() else Color("8b7357")
+	set_inside_count(inside_count)
 	caption.text = building_data.display_name + ("" if building_data.is_built() else " — строится")
 func set_selected(value: bool) -> void: indicator.visible = value
 
@@ -68,3 +75,33 @@ func _create_work_area(radius: float) -> void:
 	add_child(work_area)
 func set_work_area_debug(enabled: bool) -> void:
 	if work_area != null: work_area.visible = enabled
+
+func set_inside_count(count: int) -> void:
+	inside_count = count
+	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA if count>0 else BaseMaterial3D.TRANSPARENCY_DISABLED
+	var color := material.albedo_color
+	color.a = 0.22 if count>0 else 1.0
+	material.albedo_color = color
+func _create_layout_visuals() -> void:
+	var layouts = preload("res://scripts/world_3d/building_layouts_3d.gd")
+	var colors := [Color("7fe889"),Color("ffe178"),Color("ec89e1"),Color("82b7ff"),Color("ff9f5c")]
+	for marker in layouts.markers(layout,preload("res://scripts/world_3d/building_slot_3d.gd")):
+		var mesh := BoxMesh.new()
+		mesh.size = Vector3(0.24,0.12,0.24)
+		var tint := StandardMaterial3D.new()
+		tint.albedo_color = colors[marker.purpose]
+		mesh.material = tint
+		var cube := MeshInstance3D.new()
+		cube.mesh = mesh
+		cube.position.y = 0.06
+		marker.add_child(cube)
+	for marker in layouts.markers(layout,preload("res://scripts/world_3d/building_entrance_3d.gd")):
+		var mesh := BoxMesh.new()
+		mesh.size = Vector3(marker.zone_size.x,0.08,marker.zone_size.y)
+		var tint := StandardMaterial3D.new()
+		tint.albedo_color = Color("c8c4aa")
+		mesh.material = tint
+		var platform := MeshInstance3D.new()
+		platform.mesh = mesh
+		platform.position.y = 0.04
+		marker.add_child(platform)

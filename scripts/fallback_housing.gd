@@ -36,3 +36,16 @@ func owns(resident_id: String, building_id: StringName) -> bool:
 	return _claims.get(resident_id,&"")==building_id and not building_id.is_empty()
 func release(resident_id: String) -> void:
 	if _claims.erase(resident_id): changed.emit()
+
+func available_building() -> StringName:
+	validate()
+	var candidates := _buildings.duplicate()
+	candidates.sort_custom(func(a,b): return String(a.id)<String(b.id))
+	for building in candidates:
+		if target(building.id) is Vector2 and count(building.id)<building.definition.fallback_housing_capacity: return building.id
+	return &""
+func claim_at(resident_id: String, building_id: StringName) -> bool:
+	if not target(building_id) is Vector2: return false
+	_claims[resident_id]=building_id
+	changed.emit()
+	return true

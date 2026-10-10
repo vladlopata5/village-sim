@@ -122,7 +122,7 @@ func run() -> void:
 		actor.intents.abort_current(actor.intents.current_intent)
 		actor.schedule._on_phase_changed("Ночь")
 		walk(actor)
-	check(builder.schedule._fallback_id.is_empty() and builder.data.current_sleep_quality==1.0 and builder.view.get_sim_position().is_equal_approx(world.world_locations.get_position(home.id)),"Assigned resident physically sleeps at HOME rather than Town Center")
+	check(builder.schedule._fallback_id.is_empty() and builder.data.current_sleep_quality==1.0 and world.building_uses.occupied_by(home.id,builder.data.id,3),"Assigned resident physically sleeps at HOME rather than Town Center")
 	check(world.fallback_housing.count(center.id)==3 and world.resident_runtimes.all(func(actor): return actor.data.activity==preload("res://scripts/resident_activity.gd").Type.SLEEPING),"Remaining three homeless residents physically sleep at Town Center")
 	world.free()
 	print("Town Center bootstrap: %d checks, %d failures" % [checks,failures])

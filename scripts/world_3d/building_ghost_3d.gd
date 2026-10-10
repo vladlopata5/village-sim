@@ -2,6 +2,7 @@ extends Node3D
 ## Preview only: no collider, entity, resource container or navigation registration.
 const Grid = preload("res://scripts/build_grid.gd")
 var placement: RefCounted
+var entrance_view := MeshInstance3D.new()
 var box_view := MeshInstance3D.new()
 var cells_view := MeshInstance3D.new()
 var caption := Label3D.new()
@@ -13,6 +14,11 @@ func setup(model: RefCounted) -> void:
 	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	material.cull_mode = BaseMaterial3D.CULL_DISABLED
 	material.no_depth_test = true # Invalid overlap preview must remain visible through the existing building.
+	add_child(entrance_view)
+	var platform := BoxMesh.new()
+	platform.size = Vector3(1,0.08,1)
+	platform.material=material
+	entrance_view.mesh=platform
 	add_child(box_view)
 	add_child(cells_view)
 	caption.billboard = BaseMaterial3D.BILLBOARD_ENABLED
@@ -45,6 +51,8 @@ func refresh() -> void:
 			lines.surface_add_vertex(Vector3(width/2,0.04,z * Grid.CELL_SIZE - depth/2))
 		lines.surface_end()
 		cells_view.mesh = lines
+	var entrance: Rect2 = placement.proposed_entrance_zone()
+	entrance_view.global_position=Vector3(entrance.get_center().x,0.04,entrance.get_center().y)
 	var valid: bool = placement.can_place()
 	material.albedo_color = Color(0.2,0.9,0.45,0.5) if valid else Color(1,0.2,0.2,0.5)
 	caption.text = "%s · %d°

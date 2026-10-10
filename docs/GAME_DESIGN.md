@@ -2021,3 +2021,39 @@ existing ResidentSelection/ResidentCard. New resident lifecycle callers must reg
 unregister with PlayerControl and create/remove their runtime as usual. No migration,
 economy, politics or placeholder tabs. Entrance/interior points, relocation/demolition,
 final visuals and save/load remain later work; default access point is still a bridge.
+
+
+## 2026-10-10 — Entrances and physical building slots v1
+Canonical main_3d now uses WORLD → one authored exterior entrance → acquire on
+arrival → instant interior transition → action → release/exit at the same entrance.
+Layouts in scenes/building_layouts are editable Godot Marker3D scenes, rotated by
+normal transform hierarchy. Slot types: WORKER, COURIER, VISITOR, SLEEP; exterior
+CONSTRUCTION places are available only while UNDER_CONSTRUCTION. Gameplay domain
+capacities and assignments remain authoritative; marker counts are validated.
+Gatherer Hut now explicitly has worker_capacity=4 (approved prototype capacity);
+Kitchen has four Visitor places, HOME four Sleep places, Town Center ten fallback
+Sleep places, and every current resource building one Courier place.
+
+There are no advance interior reservations or queues. WORKER/COURIER wait at the
+entrance and retry on slot-release events; committed resource reservations survive.
+A full VISITOR arrival cancels the attempt and returns to normal decisions. Full HOME
+Sleep uses fallback housing; full Town Center uses outdoor sleep without changing
+home_location_id. Town Center transient claims now start at actual sleep arrival,
+not trip activation; this supersedes the earlier trip-claim description. Forced
+interruption and completion release occupancy. ResidentExecutor3D owns physical
+position; controllers request building ID + purpose, never set interior coordinates.
+
+Builders use nearest free valid exterior Construction places, retaining existing
+max_builders/active_builder ownership, incremental progress, waiting, XP and social
+cycle semantics. Ground pickup, trees, planting, world MOVE_TO and outdoor social
+behavior are unchanged. Occupied interiors make the whole primitive building
+translucent; colored cubes and entrance platforms are temporary visuals.
+
+Placement protects footprint↔entrance and entrance↔entrance for BUILT and
+UNDER_CONSTRUCTION. Trees/runtime blockers also reject entrance overlap. Roads may
+cross entrances and are preserved there; only actual footprint road cells are removed.
+No global entrance connectivity validation is performed. Interior navigation,
+multiple entrances, rooms, furniture, queues and final art remain deferred.
+Derived DEFAULT ACCESS POINT remains only in explicit historical 3D reference
+fixtures; legacy 2D keeps its old presentation. Canonical building actions execute
+at occupied authored places rather than the old derived access point.

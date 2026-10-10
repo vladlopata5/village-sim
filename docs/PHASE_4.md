@@ -1883,3 +1883,26 @@ Physical timing: distance10 at base speed1 takes10s on ground and8s on road;
 10 direct ground; an excessively distant road lost. Network sanity:1612 road cells,
 one MultiMesh, no tile nodes and no idle-frame weights/mesh rebuild. Changed edits
 currently rebuild the batch/source cell list; no chunks or premature optimization.
+
+
+### 2026-10-10 — Entrance/interior execution v1
+Implemented authored one-entrance layouts and typed WORKER/COURIER/VISITOR/SLEEP
+places in canonical main_3d; exterior CONSTRUCTION places preserve Builder gameplay.
+Acquisition is on arrival, workers/couriers retry event-driven, visitors cancel when
+full, and sleep falls back to Town Center/outdoors. Entrance placement protections
+preserve roads underneath entrances. This supersedes canonical DEFAULT ACCESS POINT
+execution and advance fallback-trip claims. Interior movement remains instantaneous;
+no indoor pathfinding, multiple entrances or global connectivity protection yet.
+
+Validation: full suite84/84 scripts PASS; focused interior integration136/136 checks.
+Godot analyzer216/216 files, zero diagnostics. Canonical project, direct main_3d
+and legacy2D headless startup exit0, stderr empty. Controlled GPU rendered QA141/141
+checks, existing camera/input57/57 and roads75/75, exit0/stderr empty. Captures inspected:
+HOME, four Kitchen visitors, Sawyer, four Gatherers, ten Town Center sleepers, two
+exterior Builders, four rotations, ResidentCard and Town Center management. Real
+physics raycasts select interior residents; MMB and MOVE_TO retain existing controls.
+Tests drive actual domain workflows with isolated needs/AI and controlled elapsed
+simulation time; this is not a long unsupervised playtest. Courier pickup/delivery
+is instantaneous at arrival, so its occupancy is transient; waiting/reservations
+and interruption/drop cleanup are integration-tested. Primitive captions can overlap
+at high interior population; no label/art overhaul was included.

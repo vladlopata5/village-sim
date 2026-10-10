@@ -83,6 +83,9 @@ func run() -> void:
 	actor.intents.abort_current(actor.intents.current_intent)
 	actor.schedule._on_phase_changed("Утро")
 	actor.schedule._on_phase_changed("Ночь")
+	for step in range(800):
+		if actor.data.activity==Activity.SLEEPING: break
+		actor.view._physics_process(0.05)
 	world.buildings.erase(center)
 	world.fallback_housing.validate()
 	check(actor.schedule._fallback_id.is_empty() and actor.data.activity==Activity.SLEEPING and actor.data.current_sleep_quality==0.6,"Invalidated fallback building safely releases capacity and uses outdoor sleep")
@@ -111,6 +114,9 @@ func run() -> void:
 	check(not world.settlement_panel.resident_buttons.has(extra.id),"Resident-removed signal refreshes list")
 	var removed_actor = world.resident_runtimes[3]
 	removed_actor.schedule._on_phase_changed("Ночь")
+	for step in range(800):
+		if removed_actor.data.activity==Activity.SLEEPING: break
+		removed_actor.view._physics_process(0.05)
 	check(world.fallback_housing.owns(removed_actor.data.id,center.id),"Resident removal fixture holds committed fallback slot")
 	var removed_id: String = removed_actor.data.id
 	removed_actor.free()

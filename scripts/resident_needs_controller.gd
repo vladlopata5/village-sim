@@ -1,4 +1,5 @@
 extends Node
+const Purpose = preload("res://scripts/building_slot_purpose.gd").Type
 const EventLog = preload("res://scripts/game_logger.gd")
 var logger: EventLog
 ## Concrete ways to satisfy needs. Selection/comparison lives in DecisionController.
@@ -56,10 +57,13 @@ func try_eat(priority: int, critical_priority: int = 0) -> bool:
 	if critical_priority > 0: return _try_critical_eat(priority, critical_priority)
 	if _active_intent != null and _active_intent.reason_id == &"eat": return true
 	if _food_unavailable: return false
+	if critical_priority==0 and not _has_visitor_room(): return false
 	food_search_count += 1
 	for building in _buildings:
 		if not building.is_built() or building.type != BuildingType.Type.FOOD:
 			continue
+		var uses: RefCounted = _locations.get("uses")
+		if uses!=null and uses.choices(building.id,Purpose.VISITOR,Vector3.ZERO).is_empty(): continue
 		var target: Variant = _locations.get_position(building.id)
 		if not target is Vector2 or not building.resources.reserve_out(FOOD, 1):
 			continue
@@ -137,6 +141,7 @@ func _start_reserved_meal(building: RefCounted, target: Vector2, priority: int, 
 	_food_building = building
 	_reserved_food = true
 	_active_intent = Intent.new(Intent.Type.MOVE_TO, &"eat", target, priority, true)
+	if _locations.has_method("configure_intent"): _locations.configure_intent(_active_intent,building.id,Purpose.VISITOR,_data.id)
 	eat_started.emit(_active_intent) # Ownership before synchronous arrival/cleanup.
 	var accepted: bool = _intents.force_set_intent(_active_intent, critical_priority) if critical_priority > 0 else _intents.submit(_active_intent)
 	if not accepted: _cancel_own_action()
@@ -256,7 +261,7 @@ func can_try_eat() -> bool:
 	return _data.hunger >= Modifiers.eat_threshold(_data) and not _food_unavailable
 
 func has_food_action() -> bool:
-	return can_try_eat() and _count_available_food() > 0
+	return can_try_eat() and _count_available_food() > 0 and _has_visitor_room()
 
 func _on_food_availability_changed(resource: ResourceType.Type, _amount: int) -> void:
 	if resource != FOOD or _exiting: return
@@ -293,3 +298,10 @@ func register_food_building(building: RefCounted) -> void:
 
 func meal_location_id() -> StringName:
 	return _food_building.id if _meal_active and _food_building != null else &""
+
+func _has_visitor_room() -> bool:
+	var uses: RefCounted = _locations.get("uses")
+	if uses==null: return true
+	for building in _buildings:
+		if building.is_built() and building.type==BuildingType.Type.FOOD and building.resources.get_available_amount(FOOD)>0 and not uses.choices(building.id,Purpose.VISITOR,Vector3.ZERO).is_empty(): return true
+	return false
