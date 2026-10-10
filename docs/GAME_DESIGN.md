@@ -1979,3 +1979,13 @@ serialized. Future traffic/wear may call the same RoadGrid.add_road(cell); no pl
 ownership or traffic counters are stored. Automatic formation, road construction,
 maintenance/weather, terrain slopes, connectivity requirements and roads for carts
 remain deferred. Gameplay professions, resources, access points and balance unchanged.
+
+
+### Camera MMB grab-map pan (2026-10-10)
+Canonical main_3d supports middle-button drag, including over current UI panels.
+Relative mouse motion moves the map with the cursor on X/Z using camera right /
+projected forward, orthographic size / viewport pixels, and pitch compensation.
+Yaw changes remain screen-relative; zoom changes the world distance per pixel.
+MMB input is consumed before gameplay tools; keyboard pan and wheel zoom remain.
+The current UI has no competing MMB drag interaction. Camera bounds are unchanged
+(the current controller has no map clamping). No inertia or camera rotation added.
