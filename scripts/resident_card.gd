@@ -93,7 +93,8 @@ func _refresh() -> void:
 	profession_choice.disabled = _control == null
 	var intent = _control.current_intent(data.id) if _control != null else null
 	var reason: String = String(intent.reason_id) if intent != null else ""
-	intent_label.text = "Действие: " + _intent_text(reason)
+	var handling: StringName = intent.resource_handling if intent != null else &""
+	intent_label.text = "Действие: " + (("Погрузка" if handling==&"loading" else "Разгрузка") if not handling.is_empty() else _intent_text(reason))
 	intent_label.visible = not reason.is_empty() and not (reason == "social" and data.activity == Activity.Type.TALKING) and not (reason == "eat" and data.activity == Activity.Type.EATING) and not (reason == "leisure" and data.activity == Activity.Type.RELAXING)
 	id_label.text = "ID: " + data.id
 	hunger_label.text = _state_line("Голод", data.hunger, StateText.hunger_description(data.hunger))

@@ -34,6 +34,7 @@ var _ground_reserved := false
 var _incoming := false
 var _mutating := false
 var _interrupt_pending := false
+var handling = preload("res://scripts/resource_handling.gd").new()
 func setup(owner_runtime: Node, game_clock: Node, world_trees: Array, resolver: RefCounted, completion: Callable) -> void:
 	runtime = owner_runtime
 	clock = game_clock
@@ -140,6 +141,16 @@ func _reason() -> StringName:
 func _hut_valid() -> bool:
 	return hut != null and hut in world.buildings and hut.is_built() and world.world_locations.get_position(hut.id) is Vector2
 func _arrived(intent: RefCounted) -> void:
+	if intent != _intent or handling.is_active(): return
+	if kind in [&"COLLECT",&"CARRYING"]:
+		intent.resource_handling = &"loading" if kind==&"COLLECT" else &"unloading"
+		handling.start(intent.resource_handling,clock.total_minutes,Balance.RESOURCE_LOADING_MINUTES if kind==&"COLLECT" else Balance.RESOURCE_UNLOADING_MINUTES)
+		runtime.data.activity=Activity.Type.HAULING
+		if logger != null: logger.info(EventLog.LOGISTICS, "%s: %s (%d игровых минут)" % [runtime.data.resident_name,"погрузка" if intent.resource_handling==&"loading" else "разгрузка",Balance.RESOURCE_LOADING_MINUTES if kind==&"COLLECT" else Balance.RESOURCE_UNLOADING_MINUTES])
+		return
+	_complete_arrival(intent)
+
+func _complete_arrival(intent: RefCounted) -> void:
 	if intent != _intent: return
 	if not _hut_valid() or not (world.world_locations.at_action(runtime.data.id,hut.id,Purpose.COURIER,runtime.view.get_sim_position(),8.0) if kind==&"CARRYING" and world.world_locations.has_method("at_action") else runtime.view.get_sim_position().distance_to(target)<=8.0):
 		abort()
@@ -193,6 +204,16 @@ func _minute(now: int) -> void:
 	if not _hut_valid() or (kind==&"CHOP" and not _valid()) or (kind==&"COLLECT" and drop not in world.ground_resources.drops):
 		abort()
 		return
+	if kind==&"COLLECT" and not world.logistics.sources.reserved(source_ref,Resources.Type.LOG,StringName(runtime.data.id)):
+		abort()
+		return
+	if kind in [&"COLLECT",&"CARRYING"] and (not _incoming or hut.resources.get_reserved_in(Resources.Type.LOG)<1):
+		abort()
+		return
+	if handling.is_active() and handling.advance(now):
+		var arrived = _intent
+		_complete_arrival(arrived)
+		arrived.resource_handling=&""
 	_accrue(now)
 	if chopping and tree.state==TreeData.State.DEPLETED:
 		var completed = tree
@@ -205,6 +226,8 @@ func _minute(now: int) -> void:
 func _cleanup() -> RefCounted:
 	_cleaning = true
 	var old = _intent
+	handling.cancel()
+	if old!=null: old.resource_handling=&""
 	_intent = null
 	if tree != null: tree.release(StringName(runtime.data.id))
 	if _ground_reserved: world.logistics.sources.release(source_ref,Resources.Type.LOG,StringName(runtime.data.id))
@@ -243,5 +266,5 @@ func _changed(intent: RefCounted) -> void:
 	if _intent != null and intent != _intent: abort(false)
 func _forced(_previous: RefCounted) -> void: abort(false)
 func _phase(phase: String) -> void:
-	if phase != "День": abort()
+	if phase != "День" and kind not in [&"COLLECT",&"CARRYING"]: abort()
 func _exit_tree() -> void: abort(false)

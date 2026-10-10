@@ -43,7 +43,7 @@ func finish(target: RefCounted) -> void:
 	check(target.complete_construction(),"Existing construction completes same instance")
 func walk(actor: Node, reason: StringName = &"") -> void:
 	for step in range(2000):
-		actor.view._physics_process(0.05)
+		preload("res://tests/handling_test_step.gd").move_3d(actor,0.05)
 		if not reason.is_empty() and actor.intents.current_intent.reason_id != reason: break
 		if not actor.view.movement.is_moving(): break
 func begin(world: Node, actor: Node) -> void:

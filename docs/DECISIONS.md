@@ -2127,3 +2127,25 @@ rotation uses the scene hierarchy. Canonical action proximity checks query the s
 physical slot occupancy as the executor; historical legacy-reference fixtures retain
 only the necessary old derived-access compatibility. No new gameplay scheduler,
 resource reservation model, production chain or indoor pathfinding is introduced.
+
+
+## 2026-10-10 — Exterior courier handling, superseding interior COURIER
+COURIER is an authored walkable exterior point, not an interior teleport destination.
+Use the existing BuildingUse3D occupancy and event-driven waiting. Layout validation
+keeps it outside physical footprint plus resident clearance and separate from other
+markers; quarter-turn transforms rotate it normally. UC buildings expose COURIER
+for material delivery, independently of domain builder ownership and CONSTRUCTION.
+
+ResourceHandling is a small one-shot game-minute deadline helper. Controllers own
+all resource checks, transfers and interruption cleanup; the helper owns no job,
+resource, slot, profession or XP. Central LOADING/UNLOADING durations are 10/10.
+Existing HAULING activity plus transient intent.resource_handling represents the
+operation in ResidentCard without adding activities or a scheduler. Pickup/delivery
+revalidate their existing claims and reservations before mutation. Ground expiry
+before pickup cancels handling; after pickup the haul no longer depends on Ground.
+
+Schedule changes do not abort committed cargo execution, including the pre-pickup
+leg. Normal WORK eligibility still governs creation of the next task. Forced/critical
+interruptions retain the existing before-pickup release / after-pickup drop semantics.
+Legacy 2D executes the same game-time resource handling while retaining its original
+presentation. No inventory capacity, recipe, priority or reservation model changes.

@@ -24,11 +24,12 @@ func entrance(id: StringName) -> Variant:
 	return null
 func choices(id: StringName, purpose: int, origin: Vector3) -> Array:
 	var target := view(id)
-	if target==null or (purpose==Slot.Purpose.CONSTRUCTION)==target.building_data.is_built(): return []
+	if target==null: return []
+	if purpose!=Slot.Purpose.COURIER and (purpose==Slot.Purpose.CONSTRUCTION)==target.building_data.is_built(): return []
 	var result: Array = []
 	for marker in Layouts.markers(target.layout,Slot):
 		if marker.purpose!=purpose or not marker.occupant.is_empty(): continue
-		if purpose==Slot.Purpose.CONSTRUCTION and not navigation.is_world_walkable(marker.global_position): continue
+		if purpose in [Slot.Purpose.CONSTRUCTION,Slot.Purpose.COURIER] and not navigation.is_world_walkable(marker.global_position): continue
 		result.append(marker)
 	result.sort_custom(func(a,b):
 		var da: float = origin.distance_squared_to(a.global_position)
@@ -37,7 +38,9 @@ func choices(id: StringName, purpose: int, origin: Vector3) -> Array:
 	return result
 func acquire(id: StringName, purpose: int, resident_id: String, origin: Vector3) -> Marker3D:
 	var target := view(id)
-	if target==null: return null
+	if target==null or resident_id.is_empty(): return null
+	for other in _views.values():
+		if is_instance_valid(other) and Layouts.markers(other.layout,Slot).any(func(m): return m.occupant==resident_id): return null
 	if purpose==Slot.Purpose.CONSTRUCTION and resident_id not in target.building_data.active_builder_ids: return null
 	var free := choices(id,purpose,origin)
 	if free.is_empty(): return null
@@ -55,7 +58,7 @@ func release(id: StringName, marker: Marker3D, resident_id: String) -> void:
 func inside_count(id: StringName) -> int:
 	var target := view(id)
 	if target==null: return 0
-	return Layouts.markers(target.layout,Slot).filter(func(m): return m.purpose!=Slot.Purpose.CONSTRUCTION and not m.occupant.is_empty()).size()
+	return Layouts.markers(target.layout,Slot).filter(func(m): return m.purpose not in [Slot.Purpose.CONSTRUCTION,Slot.Purpose.COURIER] and not m.occupant.is_empty()).size()
 func occupied_by(id: StringName, resident_id: String, purpose: int) -> bool:
 	var target := view(id)
 	return target!=null and Layouts.markers(target.layout,Slot).any(func(m): return m.purpose==purpose and m.occupant==resident_id)
@@ -64,3 +67,10 @@ var executors: Dictionary = {} # Weak world references, not copied positions.
 func resident_position(id: String, fallback: Vector3) -> Vector3:
 	var body: Node3D = executors[id].get_ref() if executors.has(id) else null
 	return body.global_position if is_instance_valid(body) else fallback
+
+func courier_position(id: StringName) -> Variant:
+	var target := view(id)
+	if target==null: return null
+	for marker in Layouts.markers(target.layout,Slot):
+		if marker.purpose==Slot.Purpose.COURIER and navigation.is_world_walkable(marker.global_position): return marker.global_position
+	return null

@@ -86,7 +86,7 @@ func _run() -> void:
 				scene.kitchen_data.resources.add(FOOD, 1)
 				resident.data.hunger = 75
 				resident.needs.try_eat(5000)
-				resident.view._process(20)
+				preload("res://tests/handling_test_step.gd").move_2d(resident,20)
 			"leisure": resident.social.try_leisure(5000)
 			"wander":
 				resident.wander.target_provider = scene._wander_target_2d.bind(resident.data.id)
@@ -94,7 +94,7 @@ func _run() -> void:
 			"social": scene.social_world.arrive(resident.data.id, {"target_id": scene.residents[3].id, "group_id": 0})
 			"sleep":
 				resident.schedule._on_phase_changed("Ночь")
-				resident.view._process(20)
+				preload("res://tests/handling_test_step.gd").move_2d(resident,20)
 			"personal_route": resident.schedule.request_manual_move(Vector2(100, 200))
 		var previous = resident.intents.current_intent
 		var activity: int = resident.data.activity
@@ -109,7 +109,7 @@ func _run() -> void:
 	work_api(scene, resident)
 	scene.player_control.assign_profession(resident.data.id, Profession.GATHERER)
 	scene.game_time.debug_next_phase()
-	resident.view._process(20)
+	preload("res://tests/handling_test_step.gd").move_2d(resident,20)
 	scene.game_time.debug_skip_minutes(45)
 	check(scene.gatherer_hut_data.production_progress == 15 and resident.data.activity == Activity.WORKING, "Old gatherer cycle is physically working at minute 45")
 	var before: int = resident.decision.decision_count
@@ -129,7 +129,7 @@ func _run() -> void:
 	scene.player_control.assign_profession(resident.data.id, Profession.GATHERER)
 	scene.game_time.debug_skip_minutes(30)
 	check(resident.intents.current_intent.reason_id == &"day_work", "New profession is used on next normal action completion")
-	resident.view._process(20)
+	preload("res://tests/handling_test_step.gd").move_2d(resident,20)
 	check(resident.data.activity == Activity.WORKING, "New gatherer reaches workplace normally")
 	scene.free()
 	# A stale professional route can finish moving, but cannot begin an invalid cycle.
@@ -141,7 +141,7 @@ func _run() -> void:
 	var old_route = resident.intents.current_intent
 	scene.player_control.assign_profession(resident.data.id, Profession.NONE)
 	check(resident.intents.current_intent == old_route, "Old work route is not forcibly replaced")
-	resident.view._process(20)
+	preload("res://tests/handling_test_step.gd").move_2d(resident,20)
 	check(not resident.decision._work_cycle_active and resident.data.activity == Activity.IDLE, "Arrival after assignment change does not start invalid old work")
 	scene.free()
 	# Both haul stages complete safely, then eligibility uses the new assignment.
@@ -152,12 +152,12 @@ func _run() -> void:
 		scene.player_control.assign_profession(resident.data.id, Profession.PORTER)
 		scene.game_time.debug_next_phase()
 		var job = scene.logistics.current_job
-		if picked_up: resident.view._process(20)
+		if picked_up: preload("res://tests/handling_test_step.gd").move_2d(resident,20)
 		var haul = resident.intents.current_intent
 		scene.player_control.assign_profession(resident.data.id, Profession.NONE)
 		check(resident.intents.current_intent == haul and job.is_active(), "Profession change preserves already-started haul stage")
-		if not picked_up: resident.view._process(20)
-		resident.view._process(20)
+		if not picked_up: preload("res://tests/handling_test_step.gd").move_2d(resident,20)
+		preload("res://tests/handling_test_step.gd").move_2d(resident,20)
 		check(job.state == Job.State.COMPLETED and resident.data.inventory.amount == 0 and scene.kitchen_data.resources.get_amount(FOOD) == 1, "Old porter delivers safely after role removal")
 		check(scene.logistics.jobs.is_empty() and job.state == Job.State.COMPLETED and not scene._work_available(resident), "No next haul from old profession")
 		scene.free()
@@ -170,9 +170,9 @@ func _run() -> void:
 	scene.game_time.debug_next_phase()
 	var claimed = scene.logistics.current_job
 	check(claimed.assigned_resident_id == resident.data.id and claimed.state == Job.State.GOING_TO_SOURCE, "Anna claims the same logistics API as Stepan")
-	resident.view._process(20)
+	preload("res://tests/handling_test_step.gd").move_2d(resident,20)
 	scene.player_control.assign_profession(resident.data.id, Profession.NONE)
-	resident.view._process(20)
+	preload("res://tests/handling_test_step.gd").move_2d(resident,20)
 	check(claimed.state == Job.State.COMPLETED and scene.kitchen_data.resources.get_amount(FOOD) == 1, "Newly assigned porter really delivers, not just UI eligibility")
 	print("Haul proof: new PORTER Anna -> pickup -> assign NONE -> deliver -> no next claim")
 	scene.free()
@@ -182,7 +182,7 @@ func _run() -> void:
 	work_api(scene, resident)
 	scene.player_control.assign_profession(resident.data.id, Profession.GATHERER)
 	scene.game_time.debug_next_phase()
-	resident.view._process(20)
+	preload("res://tests/handling_test_step.gd").move_2d(resident,20)
 	scene.game_time.debug_skip_minutes(45)
 	scene.player_control.assign_profession(resident.data.id, Profession.PORTER)
 	scene.game_time.debug_skip_minutes(15)
@@ -194,7 +194,7 @@ func _run() -> void:
 	work_api(scene, resident)
 	scene.player_control.assign_profession(resident.data.id, Profession.PORTER)
 	scene.game_time.debug_next_phase()
-	resident.view._process(20)
+	preload("res://tests/handling_test_step.gd").move_2d(resident,20)
 	var loaded_job = scene.logistics.current_job
 	var drop_position: Vector2 = resident.view.global_position
 	resident.data.fatigue = 100
@@ -226,7 +226,7 @@ func _run() -> void:
 	listen(scene)
 	scene.game_logger.debug_enabled = true
 	resident.wander.try_wander(500)
-	resident.view._process(20)
+	preload("res://tests/handling_test_step.gd").move_2d(resident,20)
 	resident.wander.target_provider = Callable()
 	scene.game_time.debug_skip_minutes(10)
 	check(lines.count("[06:00][AI] Анна: начинает прогулку") == 1 and lines.count("[06:10][AI] Анна: прогулка завершена") == 1, "Exactly one WANDER INFO start/end at game timestamps")

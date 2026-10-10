@@ -2,6 +2,7 @@ extends RefCounted
 ## Small authored-layout catalog; geometry and gameplay capacities remain separate.
 const Slot = preload("res://scripts/world_3d/building_slot_3d.gd")
 const Entrance = preload("res://scripts/world_3d/building_entrance_3d.gd")
+const Geometry = preload("res://scripts/world_3d/world_geometry.gd")
 const Coordinates = preload("res://scripts/world_3d/world_coordinates.gd")
 static func create(definition: RefCounted) -> Node3D:
 	return load("res://scenes/building_layouts/%s.tscn" % definition.id).instantiate()
@@ -15,13 +16,18 @@ static func validate(layout: Node, definition: RefCounted) -> bool:
 	var entrances := markers(layout,Entrance)
 	if entrances.size()!=1: return false
 	var slots := markers(layout,Slot)
+	var physical := Rect2(-Vector2(definition.footprint_cells)*0.25,Vector2(definition.footprint_cells)*0.5)
+	for marker in slots:
+		if marker.purpose!=Slot.Purpose.COURIER: continue
+		if physical.grow(Geometry.RESIDENT_RADIUS).has_point(Coordinates.world_plane(marker.position)): return false
+		if slots.any(func(other): return other!=marker and marker.position.distance_to(other.position)<2.0*Geometry.RESIDENT_RADIUS): return false
 	var ids: Dictionary = {}
 	var counts: Dictionary = {}
 	for marker in slots:
 		if marker.local_id.is_empty() or ids.has(marker.local_id): return false
 		ids[marker.local_id]=true
 		counts[marker.purpose]=counts.get(marker.purpose,0)+1
-	return counts.get(Slot.Purpose.WORKER,0)==definition.worker_capacity and counts.get(Slot.Purpose.SLEEP,0)==maxi(definition.housing_capacity,definition.fallback_housing_capacity) and counts.get(Slot.Purpose.COURIER,0)==(0 if definition.logistics_flow.is_empty() else 1) and counts.get(Slot.Purpose.VISITOR,0)==definition.visitor_capacity and counts.get(Slot.Purpose.CONSTRUCTION,0)>=definition.max_builders
+	return counts.get(Slot.Purpose.WORKER,0)==definition.worker_capacity and counts.get(Slot.Purpose.SLEEP,0)==maxi(definition.housing_capacity,definition.fallback_housing_capacity) and counts.get(Slot.Purpose.COURIER,0)==(1 if not definition.logistics_flow.is_empty() or definition.max_builders>0 else 0) and counts.get(Slot.Purpose.VISITOR,0)==definition.visitor_capacity and counts.get(Slot.Purpose.CONSTRUCTION,0)>=definition.max_builders
 static var _entrance_data: Dictionary = {}
 static func entrance_zone(definition: RefCounted, center: Vector3, turns: int) -> Rect2:
 	if not _entrance_data.has(definition.id):

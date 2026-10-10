@@ -16,7 +16,7 @@ script = ExtResource("1")
 [node name="CourierSlots" type="Node3D" parent="."]
 
 [node name="Slot0" type="Marker3D" parent="CourierSlots"]
-position = Vector3(3.35, 0, 2.35)
+position = Vector3(4.75, 0, 3.75)
 script = ExtResource("2")
 local_id = &"courierslots_0"
 purpose = 1

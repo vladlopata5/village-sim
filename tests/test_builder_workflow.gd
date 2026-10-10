@@ -33,7 +33,7 @@ func builder(scene: Node, index: int = 1) -> Node:
 	var runtime = scene.resident_runtimes[index]
 	scene.player_control.assign_profession(runtime.data.id, Profession.Type.BUILDER)
 	return runtime
-func arrive(runtime: Node) -> void: runtime.view._process(100)
+func arrive(runtime: Node) -> void: preload("res://tests/handling_test_step.gd").move_2d(runtime,100)
 func stock(site: Instance) -> void: site.add_delivered_material(PLANK, site.get_required_amount(PLANK))
 func _run() -> void:
 	check(Profession.display_name(Profession.Type.BUILDER) == "Строитель", "BUILDER exists with display name")

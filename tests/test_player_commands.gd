@@ -65,11 +65,11 @@ func _run() -> void:
 	check(not resident.intents.submit(Intent.new(Intent.Type.MOVE_TO, &"ai", Vector2.ZERO, 99999999)) and not resident.intents.force_set_intent(Intent.new(), 99999999), "Player ownership rejects ordinary and any numeric forced AI priority")
 	paused = true
 	var old_position: Vector2 = resident.view.global_position
-	resident.view._process(20)
+	preload("res://tests/handling_test_step.gd").move_2d(resident,20)
 	check(resident.view.global_position == old_position and resident.commands.active_command == second, "Pause preserves active command and stops movement")
 	paused = false
 	var count: int = resident.decision.decision_count
-	resident.view._process(20)
+	preload("res://tests/handling_test_step.gd").move_2d(resident,20)
 	check(second.state == Command.State.COMPLETED and resident.commands.active_command == null and not resident.intents.player_controlled, "Arrival clears player ownership and completes command")
 	check(resident.decision.decision_count == count + 1, "Command completion creates exactly one normal decision")
 	resident.view.intent_completed.emit(resident.intents.current_intent)
@@ -95,17 +95,17 @@ func _run() -> void:
 			"sleep":
 				scene.game_time.total_minutes = 1380
 				resident.schedule._on_phase_changed("Ночь")
-				resident.view._process(20)
+				preload("res://tests/handling_test_step.gd").move_2d(resident,20)
 			"eat_reserved", "eating":
 				scene.kitchen_data.resources.add(FOOD, 1)
 				resident.data.hunger = 75
 				resident.needs.try_eat(5000)
-				if action == "eating": resident.view._process(20)
+				if action == "eating": preload("res://tests/handling_test_step.gd").move_2d(resident,20)
 			"work":
 				work_api(scene, resident)
 				scene.player_control.assign_profession(resident.data.id, Profession.GATHERER)
 				scene.game_time.debug_next_phase()
-				resident.view._process(20)
+				preload("res://tests/handling_test_step.gd").move_2d(resident,20)
 				scene.game_time.debug_skip_minutes(15)
 		var progress: float = scene.gatherer_hut_data.production_progress
 		check(scene.player_control.move_to(resident.data.id, Vector2(-500, 300)), "Player interrupt accepted for " + action)
@@ -130,7 +130,7 @@ func _run() -> void:
 	scene.kitchen_data.resources.add(FOOD, 1)
 	resident.data.hunger = 75
 	resident.needs.try_eat(5000)
-	resident.view._process(20)
+	preload("res://tests/handling_test_step.gd").move_2d(resident,20)
 	count = resident.decision.decision_count
 	scene.player_control.move_to(resident.data.id, resident.view.global_position)
 	check(resident.commands.active_command == null and resident.needs._active_intent == null and not resident.needs._meal_active and scene.kitchen_data.resources.get_amount(FOOD) == 0, "Same-point command completes after cleanup without refunding consumed food")
@@ -157,7 +157,7 @@ func _run() -> void:
 		scene.game_time.debug_skip_minutes(5)
 		resident.decision.check_critical()
 		check(resident.commands.active_command == command and resident.intents.current_intent.reason_id == &"player_move", "ACTIVE player is above critical " + critical)
-		resident.view._process(20)
+		preload("res://tests/handling_test_step.gd").move_2d(resident,20)
 		check(command.state == Command.State.COMPLETED and resident.commands.active_command == null and resident.intents.forced_priority > 0, "Critical AI resumes after command completes " + critical)
 		scene.free()
 	# Phase boundaries never cancel ACTIVE player ownership; they update future AI context.
@@ -168,7 +168,7 @@ func _run() -> void:
 	for phase in ["День", "Вечер", "Ночь", "Утро"]:
 		scene.game_time.debug_next_phase()
 		check(resident.schedule.get_phase() == phase and resident.commands.active_command == across_phases and resident.intents.current_intent.reason_id == &"player_move", "ACTIVE command survives mandatory phase " + phase)
-	resident.view._process(20)
+	preload("res://tests/handling_test_step.gd").move_2d(resident,20)
 	check(across_phases.state == Command.State.COMPLETED and resident.commands.active_command == null, "Command completes normally after night and morning boundaries")
 	scene.free()
 	# Source/destination reservations and cargo use existing forced-interrupt cleanup.
@@ -179,7 +179,7 @@ func _run() -> void:
 		scene.player_control.assign_profession(resident.data.id, Profession.PORTER)
 		scene.game_time.debug_next_phase()
 		var job = scene.logistics.current_job
-		if picked_up: resident.view._process(20)
+		if picked_up: preload("res://tests/handling_test_step.gd").move_2d(resident,20)
 		var position: Vector2 = resident.view.global_position
 		scene.player_control.move_to(resident.data.id, Vector2(-500, 300))
 		check(job.state == Job.CANCELLED and scene.warehouse_data.resources.get_reserved_out(FOOD) == 0 and scene.kitchen_data.resources.get_reserved_in(FOOD) == 0 and resident.data.inventory.amount == 0, "Player haul interrupt settles reservations and job")

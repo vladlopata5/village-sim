@@ -29,7 +29,7 @@ func stop(actor: Node) -> void:
 	actor.intents.cancel_current(actor.intents.current_intent)
 func walk(actor: Node, reason: StringName = &"") -> void:
 	for step in range(1600):
-		actor.view._physics_process(0.05)
+		preload("res://tests/handling_test_step.gd").move_3d(actor,0.05)
 		if not reason.is_empty() and actor.intents.current_intent.reason_id!=reason: break
 		if not actor.view.movement.is_moving(): break
 func run() -> void:

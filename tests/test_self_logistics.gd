@@ -43,7 +43,7 @@ func place(world: Node, type: int, at: Vector3, built: bool = true):
 	return building
 func walk(actor: Node, reason: StringName = &"") -> void:
 	for step in range(2000):
-		actor.view._physics_process(0.05)
+		preload("res://tests/handling_test_step.gd").move_3d(actor,0.05)
 		if not reason.is_empty() and actor.intents.current_intent.reason_id!=reason: break
 		if not actor.view.movement.is_moving(): break
 func idle(actor: Node) -> void:
@@ -101,7 +101,9 @@ func run() -> void:
 	walk(worker,&"haul_source")
 	world.game_time.total_minutes=1020
 	world.game_time.phase_changed.emit("Вечер")
-	check(world.logistics.get_job(worker.data.id)==null and worker.data.inventory.amount==0 and saw.resources.get_reserved_in(R.LOG)==0,"Worker safe cleanup at schedule end, no night forced haul")
+	check(world.logistics.get_job(worker.data.id)!=null and worker.data.inventory.amount==1 and saw.resources.get_reserved_in(R.LOG)==1,"Committed self-supply survives schedule end")
+	walk(worker)
+	check(world.logistics.get_job(worker.data.id)==null and worker.data.inventory.amount==0 and saw.resources.get_reserved_in(R.LOG)==0,"Self-supply completes after schedule end without new work")
 	world.free()
 	# Gatherer own output fallback; resume unchanged production when buffer freed.
 	world = scene()

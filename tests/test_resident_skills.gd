@@ -29,7 +29,7 @@ func site_in(scene: Node):
 	return scene.placement.confirm()
 func become(scene: Node, actor: Node, profession: int) -> void:
 	scene.player_control.assign_profession(actor.data.id, profession)
-func arrive(actor: Node) -> void: actor.view._process(100)
+func arrive(actor: Node) -> void: preload("res://tests/handling_test_step.gd").move_2d(actor,100)
 func start_gathering(scene: Node, actor: Node) -> void:
 	actor.data.work_location_id = scene.gatherer_hut_data.id
 	actor.decision.work_available = scene.production.can_work.bind(actor.data)

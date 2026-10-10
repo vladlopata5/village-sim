@@ -982,3 +982,11 @@ multiple entrances, rooms, furniture, queues and final art remain deferred.
 Derived DEFAULT ACCESS POINT remains only in explicit historical 3D reference
 fixtures; legacy 2D keeps its old presentation. Canonical building actions execute
 at occupied authored places rather than the old derived access point.
+
+
+### 2026-10-10 — External courier handling foundation complete
+COURIER is exterior and physically reached; building and Ground loading/unloading
+take 10 + 10 game minutes. Builder UC deliveries use COURIER separately from
+CONSTRUCTION. Committed deliveries finish across WORK boundaries with existing
+forced interruption cleanup. Shared deadline helper, no new logistics engine.
+Crowd avoidance, queue visuals, indoor movement and cargo animations remain deferred.

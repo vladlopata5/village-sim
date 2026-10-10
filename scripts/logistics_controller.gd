@@ -105,7 +105,7 @@ func _valid_pair(pair: Dictionary) -> bool:
 	var resource: ResourceType.Type = pair.get("resource",FOOD)
 	return allows_external_delivery(source,destination,resource) and source.resources.get_available_amount(resource)>0 and destination.resources.get_available_free_capacity(resource)>0 and _point(source) is Vector2 and _point(destination) is Vector2
 func _point(building: BuildingInstance) -> Variant:
-	return _locations.get_position(building.id) if _locations != null else building.position
+	return (_locations.get_resource_position(building.id) if _locations.has_method("get_resource_position") else _locations.get_position(building.id)) if _locations != null else building.position
 func _eligible(resident: ResidentData) -> bool:
 	if resident == null or resident.profession != Profession.Type.PORTER or resident.inventory.amount != 0: return false
 	var workplace: BuildingInstance = _buildings.get(resident.work_location_id)

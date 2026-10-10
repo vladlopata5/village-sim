@@ -60,7 +60,7 @@ func _run() -> void:
 		scene = make_scene()
 		scene.game_time.set_speed(speed)
 		scene.game_time.debug_next_phase()
-		scene.resident_runtimes[0].view._process(20.0)
+		preload("res://tests/handling_test_step.gd").move_2d(scene.resident_runtimes[0],20.0)
 		job = scene.logistics.current_job
 		var old = scene.resident_runtimes[0].intents.current_intent
 		scene.game_time.debug_next_phase()
@@ -100,9 +100,9 @@ func _run() -> void:
 	scene.residents[0].hunger = 90
 	scene.resident_runtimes[0].decision.rng.seed = Seed.for_action([{"id": "WORK", "priority": 7000}, {"id": "EAT", "priority": preload("res://scripts/action_utility.gd").eat(90)}], "EAT")
 	check(job.state == Job.State.GOING_TO_SOURCE and scene.resident_runtimes[0].intents.current_intent.reason_id == &"haul_source", "Strong hunger does not interrupt work to source")
-	scene.resident_runtimes[0].view._process(20.0)
+	preload("res://tests/handling_test_step.gd").move_2d(scene.resident_runtimes[0],20.0)
 	check(scene.residents[0].inventory.amount == 1 and scene.ground_resources.drops.is_empty(), "Strong hunger also retains loaded task")
-	scene.resident_runtimes[0].view._process(20.0)
+	preload("res://tests/handling_test_step.gd").move_2d(scene.resident_runtimes[0],20.0)
 	check(job.state == Job.State.COMPLETED and scene.residents[0].activity == Activity.Type.EATING and scene.resident_runtimes[0].intents.current_intent.reason_id == &"eat", "At action boundary eats before starting next haul")
 	scene.game_time.debug_skip_minutes(30)
 	check(scene.residents[0].hunger < 76, "Successful meal lowers strong hunger")
@@ -114,7 +114,7 @@ func _run() -> void:
 	scene.logistics.changed.connect(func():
 		if carrying_scene.logistics.current_job.state == Job.State.CARRYING:
 			carrying_scene.residents[0].hunger = 100)
-	scene.resident_runtimes[0].view._process(20.0)
+	preload("res://tests/handling_test_step.gd").move_2d(scene.resident_runtimes[0],20.0)
 	check(scene.logistics.current_job.state == Job.State.CANCELLED and scene.ground_resources.drops.size() == 1 and scene.resident_runtimes[0].intents.current_intent.reason_id == &"eat", "Forced in CARRYING notification remains cancelled and does not issue a delivery route")
 	scene.free()
 	# Already eating at the critical threshold keeps its elapsed meal time.
@@ -123,7 +123,7 @@ func _run() -> void:
 	scene.residents[0].get_need(preload("res://scripts/need_type.gd").Type.HUNGER).base_weight = 100
 	scene.residents[0].hunger = 75
 	scene.resident_runtimes[0].decision.request_decision("test")
-	scene.resident_runtimes[0].view._process(20.0)
+	preload("res://tests/handling_test_step.gd").move_2d(scene.resident_runtimes[0],20.0)
 	scene.game_time.debug_skip_minutes(20)
 	scene.residents[0].hunger = 100
 	check(scene.residents[0].activity == Activity.Type.EATING, "Critical hunger retains already active food action")
@@ -135,7 +135,7 @@ func _run() -> void:
 		scene = make_scene()
 		scene.game_time.debug_next_phase()
 		job = scene.logistics.current_job
-		if picked_up: scene.resident_runtimes[0].view._process(20)
+		if picked_up: preload("res://tests/handling_test_step.gd").move_2d(scene.resident_runtimes[0],20)
 		var dropped_at: Vector2 = scene.resident_runtimes[0].view.position
 		scene.residents[0].fatigue = 100
 		check(job.state == Job.State.CANCELLED and scene.residents[0].activity == Activity.Type.SLEEPING, "Critical fatigue cancels ordinary haul and sleeps in place")

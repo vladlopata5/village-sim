@@ -16,7 +16,7 @@ func check(ok: bool, message: String) -> void:
 		push_error(message)
 func walk(actor: Node) -> void:
 	for step in range(8000):
-		actor.view._physics_process(0.05)
+		preload("res://tests/handling_test_step.gd").move_3d(actor,0.05)
 		if not actor.view.movement.is_moving(): break
 func construct(world: Node, actor: Node, type: int, point: Vector3):
 	world.placement.select(Def.for_type(type))

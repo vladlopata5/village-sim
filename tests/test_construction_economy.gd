@@ -21,7 +21,7 @@ func place(world: Node, category: int, point: Vector3):
 	return world.placement.confirm()
 func walk(actor: Node, reason: StringName = &"") -> void:
 	for step in range(12000):
-		actor.view._physics_process(0.05)
+		preload("res://tests/handling_test_step.gd").move_3d(actor,0.05)
 		if not reason.is_empty() and actor.intents.current_intent.reason_id != reason: break
 		if not actor.view.movement.is_moving(): break
 func work_minutes(world: Node, actor: Node, minutes: int) -> void:
@@ -29,6 +29,7 @@ func work_minutes(world: Node, actor: Node, minutes: int) -> void:
 		world.game_time.total_minutes += 1
 		actor.builder._on_minute(world.game_time.total_minutes)
 func construct(world: Node, actor: Node, category: int, point: Vector3):
+	world.game_time.total_minutes=420 # Each economy stage starts a fresh work window; handling consumes time.
 	var site = place(world,category,point)
 	check(site != null,"Ordinary placement creates real construction")
 	for cycle in range(site.definition.construction_work_required / Balance.BUILDER_WORK_CYCLE_MINUTES):
@@ -78,6 +79,7 @@ func run() -> void:
 	check(storage.get_amount(Resources.PLANK)==Balance.STARTER_PLANK_RESERVE,"Hut and Sawmill consume actual bootstrap stock")
 	# Hold one remaining starter unit aside: the final delivered unit must come from production.
 	check(storage.reserve_out(Resources.PLANK,1),"Isolate one starter unit with ordinary reservation")
+	world.game_time.total_minutes=420
 	var home = place(world,Types.HOME,Vector3(4,0,14))
 	check(world._request_work(builder),"New House consumes available starter remainder")
 	walk(builder)

@@ -22,7 +22,7 @@ func point(source_ref: Source) -> Variant:
 	var entity: Variant = resolve(source_ref)
 	if entity == null: return null
 	if source_ref.kind == Source.Kind.GROUND: return entity.world_position
-	return locations.get_position(entity.id) if locations != null else entity.position
+	return (locations.get_resource_position(entity.id) if locations.has_method("get_resource_position") else locations.get_position(entity.id)) if locations != null else entity.position
 func label(source_ref: Source) -> String:
 	var entity: Variant = resolve(source_ref)
 	return "земля (%s)" % source_ref.id if source_ref.kind == Source.Kind.GROUND else (entity.display_name if entity != null else String(source_ref.id))
@@ -97,11 +97,11 @@ func storage_destinations(source: Source, resource: int, origin: Vector2) -> Arr
 	for building in buildings.values():
 		if building.id==source.id or not building.is_built() or not building.definition.is_storage: continue
 		if not building.definition.allows_external_import(resource) or building.resources.get_available_free_capacity(resource)<1: continue
-		var target: Variant = locations.get_position(building.id) if locations != null else building.position
+		var target: Variant = point(Source.new(Source.Kind.CONTAINER,building.id))
 		if target is Vector2 and reachable(origin,target): result.append(building)
 	result.sort_custom(func(a,b):
-		var pa: Vector2 = locations.get_position(a.id) if locations != null else a.position
-		var pb: Vector2 = locations.get_position(b.id) if locations != null else b.position
+		var pa: Vector2 = point(Source.new(Source.Kind.CONTAINER,a.id))
+		var pb: Vector2 = point(Source.new(Source.Kind.CONTAINER,b.id))
 		var da := origin.distance_squared_to(pa)
 		var db := origin.distance_squared_to(pb)
 		return da<db or (is_equal_approx(da,db) and String(a.id)<String(b.id)))

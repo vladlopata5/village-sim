@@ -60,7 +60,10 @@ func configure_intent(intent: RefCounted, building_id: StringName, purpose: int,
 	if uses==null: return
 	intent.building_id=building_id
 	intent.slot_purpose=purpose
-	if purpose==Purpose.CONSTRUCTION:
+	if purpose==Purpose.COURIER:
+		var courier: Variant = uses.courier_position(building_id)
+		if courier is Vector3: intent.target_position=Coordinates.to_sim(courier)
+	elif purpose==Purpose.CONSTRUCTION:
 		var view = get_view(building_id)
 		if view==null: return
 		var free: Array = uses.choices(building_id,purpose,uses.resident_position(resident_id,view.global_position))
@@ -69,3 +72,8 @@ func at_action(resident_id: String, building_id: StringName, purpose: int, point
 	if uses!=null: return uses.occupied_by(building_id,resident_id,purpose)
 	var target: Variant = get_position(building_id)
 	return target is Vector2 and point.distance_to(target)<=tolerance
+
+func get_resource_position(id: StringName) -> Variant:
+	if uses==null: return get_position(id)
+	var point: Variant = uses.courier_position(id)
+	return Coordinates.to_sim(point) if point is Vector3 else null

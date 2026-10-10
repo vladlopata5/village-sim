@@ -136,9 +136,9 @@ func _run() -> void:
 	actor.assignments.cancel(task.id)
 	actor.view.global_position = Vector2.ZERO
 	actor.commands.move_to(Vector2(1000, 0))
-	actor.view._process(1)
+	preload("res://tests/handling_test_step.gd").move_2d(actor,1)
 	check(is_equal_approx(actor.view.global_position.x, actor.view.movement_speed * 1.1), "MOVE_TO uses effective movement speed")
-	actor.view._process(100)
+	preload("res://tests/handling_test_step.gd").move_2d(actor,100)
 	actor.data.fatigue = 100
 	check(actor.intents.current_intent.reason_id == &"critical_sleep" and actor.data.current_sleep_quality == Balance.OUTDOOR_SLEEP_QUALITY, "Foolish leaves forced critical fatigue unchanged")
 	actor.commands.move_to(Vector2(500, 0))
@@ -179,13 +179,13 @@ func _run() -> void:
 			"social":
 				check(actor.social.try_social_at(StringName(scene.resident_runtimes[3].data.id), 1000), "Actual social trip starts")
 		var origin: Vector2 = actor.view.global_position
-		actor.view._process(1)
+		preload("res://tests/handling_test_step.gd").move_2d(actor,1)
 		check(is_equal_approx(actor.view.global_position.distance_to(origin), actor.view.movement_speed * 1.1), "Restless modifies actual %s movement" % route)
 		check(Balance.WORK_CYCLE_MINUTES == 60 and Balance.BUILDER_WORK_CYCLE_MINUTES == 60, "Restless does not change work duration")
 		if route in ["porter", "builder"]:
-			actor.view._process(100)
+			preload("res://tests/handling_test_step.gd").move_2d(actor,100)
 			origin = actor.view.global_position
-			actor.view._process(0.5)
+			preload("res://tests/handling_test_step.gd").move_2d(actor,0.5)
 			check(is_equal_approx(actor.view.global_position.distance_to(origin), actor.view.movement_speed * 1.1 * 0.5), "Actual carried-resource leg also uses modifier")
 		scene.free()
 	# Critical eat consumes one FOOD, preserves duration/recovery and bypasses the selector.
@@ -201,7 +201,7 @@ func _run() -> void:
 	var decisions: int = actor.decision.decision_count
 	actor.data.hunger = 100
 	check(actor.intents.forced_priority == 200 and actor.decision.decision_count == decisions, "Critical hunger bypasses trait selector")
-	actor.view._process(100)
+	preload("res://tests/handling_test_step.gd").move_2d(actor,100)
 	check(actor.needs._minutes_left == 30 and scene.kitchen_data.resources.get_amount(food) == 0, "Glutton critical meal still consumes one FOOD for 30 minutes")
 	scene.game_time.debug_skip_minutes(29)
 	check(actor.data.hunger == 42 and actor.needs._meal_active, "Glutton recovery unchanged: 2 points per minute")

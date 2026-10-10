@@ -49,7 +49,7 @@ func assign_wait(scene: Node, site: RefCounted, actor: Node, at_site: bool = tru
 func walk(actor: Node, phase: int) -> void:
 	for step in range(1500):
 		if actor.builder.phase != phase: break
-		actor.view._physics_process(0.05)
+		preload("res://tests/handling_test_step.gd").move_3d(actor,0.05)
 	check(actor.builder.phase != phase, "Real NavigationGrid movement reaches access point")
 func _run() -> void:
 	var scene = scenario()

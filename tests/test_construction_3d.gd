@@ -29,7 +29,7 @@ func key(scene: Node, code: int) -> void:
 func walk_phase(actor: Node, phase: int) -> void:
 	for step in range(500):
 		if actor.builder.phase != phase: break
-		actor.view._physics_process(0.05)
+		preload("res://tests/handling_test_step.gd").move_3d(actor,0.05)
 	check(actor.builder.phase != phase, "Real grid executor reaches next builder phase")
 func _run() -> void:
 	var scene = load("res://scenes/main_3d.tscn").instantiate()
@@ -129,7 +129,7 @@ func _run() -> void:
 		walk_phase(actor,Builder.Phase.CARRYING_TO_SITE)
 	check(site.get_delivered_amount(Resources.PLANK) == 10 and scene.warehouse_data.resources.get_amount(Resources.PLANK) == starting_plank-10, "All ten units physically travel warehouse/inventory/site")
 	walk_phase(actor,Builder.Phase.GOING_TO_SITE)
-	check(actor.builder.phase == Builder.Phase.BUILDING and actor.view.get_sim_position().is_equal_approx(scene.world_locations.get_position(site.id)), "Construction work starts at shared DEFAULT ACCESS POINT")
+	check(actor.builder.phase == Builder.Phase.BUILDING and scene.world_locations.at_action(actor.data.id,site.id,4,actor.view.get_sim_position(),8.0), "Construction work starts at its occupied exterior work slot")
 	for cycle in range(3):
 		if cycle > 0:
 			actor.intents.cancel_current(actor.intents.current_intent)

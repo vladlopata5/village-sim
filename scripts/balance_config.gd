@@ -1,4 +1,6 @@
 extends RefCounted
+const RESOURCE_LOADING_MINUTES := 10
+const RESOURCE_UNLOADING_MINUTES := 10
 ## Prototype balance values; no editor settings framework.
 const ASSIGNMENT_BONUS := 3000
 const UTILITY_CANDIDATE_RATIO := 0.75

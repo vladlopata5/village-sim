@@ -92,7 +92,7 @@ func _run() -> void:
 	paused = false
 	scene.game_time.debug_next_phase()
 	check(scene.resident_runtimes[0].view.target_position == scene.world_locations.get_position(&"warehouse_01"), "07:00 delivery uses warehouse source")
-	scene.resident_runtimes[0].view._process(20.0)
+	preload("res://tests/handling_test_step.gd").move_2d(scene.resident_runtimes[0],20.0)
 	check(scene.residents[0].inventory.amount == 1 and scene.logistics.current_job.state == Job.State.GOING_TO_DESTINATION, "Arriving at warehouse picks up reserved cargo")
 	scene.free()
 	print("Logistics checks: ", "PASS" if failures == 0 else "FAIL (%d)" % failures)

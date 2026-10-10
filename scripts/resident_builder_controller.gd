@@ -41,6 +41,7 @@ var _availability_dirty := true
 var _potential_work := false
 var _waiting_resume_queued := false
 var source_search_count := 0
+var handling = preload("res://scripts/resource_handling.gd").new()
 
 func setup(data: RefCounted, clock: Node, locations: RefCounted, buildings: Array, intents: Node, decision: Node) -> void:
 	_data = data
@@ -238,12 +239,25 @@ func _set_task_intent(next: Intent) -> bool:
 	if _locations.has_method("configure_intent"):
 		if phase==Phase.GOING_TO_SOURCE:
 			if source_ref!=null and source_ref.kind==Source.Kind.CONTAINER: _locations.configure_intent(_intent,source_ref.id,Purpose.COURIER,_data.id)
-		elif site!=null: _locations.configure_intent(_intent,site.id,Purpose.CONSTRUCTION,_data.id)
+		elif site!=null: _locations.configure_intent(_intent,site.id,Purpose.COURIER if phase==Phase.CARRYING_TO_SITE else Purpose.CONSTRUCTION,_data.id)
 	var accepted: bool = _intents.submit(_intent) if previous == null else _intents.continue_intent(previous, _intent)
 	if not accepted: abort("маршрут не принят")
 	return accepted
 
 func _on_arrival(intent: Intent) -> void:
+	if intent != _intent or handling.is_active(): return
+	if phase in [Phase.GOING_TO_SOURCE,Phase.CARRYING_TO_SITE]:
+		if not _valid_site():
+			abort("стройка недоступна")
+			return
+		intent.resource_handling = &"loading" if phase==Phase.GOING_TO_SOURCE else &"unloading"
+		handling.start(intent.resource_handling,_clock.total_minutes,Balance.RESOURCE_LOADING_MINUTES if phase==Phase.GOING_TO_SOURCE else Balance.RESOURCE_UNLOADING_MINUTES)
+		_data.activity = Activity.Type.HAULING
+		if logger != null: logger.info(EventLog.LOGISTICS, "%s: %s (%d игровых минут)" % [_data.resident_name,"погрузка" if intent.resource_handling==&"loading" else "разгрузка",Balance.RESOURCE_LOADING_MINUTES if phase==Phase.GOING_TO_SOURCE else Balance.RESOURCE_UNLOADING_MINUTES])
+		return
+	_complete_arrival(intent)
+
+func _complete_arrival(intent: Intent) -> void:
 	if intent != _intent: return
 	if not _valid_site():
 		abort("стройка недоступна при прибытии")
@@ -333,9 +347,16 @@ func _on_minute(now: int) -> void:
 	if not _valid_site():
 		abort("стройка удалена или завершена")
 		return
+	if phase in [Phase.GOING_TO_SOURCE,Phase.CARRYING_TO_SITE] and (not _site_reserved or site.get_construction_reserved_in(_resource)<1):
+		abort("бронь материалов недоступна")
+		return
 	if phase == Phase.GOING_TO_SOURCE and not sources.reserved(source_ref,_resource,_source_owner()):
 		abort("источник удалён")
 		return
+	if handling.is_active() and handling.advance(now):
+		var arrived := _intent
+		_complete_arrival(arrived)
+		arrived.resource_handling = &""
 	_accrue_work(now)
 
 func _flush_work() -> void:
@@ -348,6 +369,8 @@ func _cleanup(reason: String) -> Intent:
 	_availability_dirty = true
 	_exiting = true
 	var old: Intent = _intent
+	handling.cancel()
+	if old!=null: old.resource_handling=&""
 	_intent = null
 	_flush_work()
 	if _source_reserved: sources.release(source_ref,_resource,_source_owner())
@@ -397,7 +420,7 @@ func on_profession_changed(resident_id: String) -> void:
 		_finish_task("смена профессии во время ожидания")
 
 func _on_phase(phase_name: String) -> void:
-	if phase_name != "День" and phase in [Phase.BUILDING, Phase.GOING_TO_SITE, Phase.GOING_TO_SOURCE, Phase.GOING_TO_WAIT, Phase.WAITING_FOR_MATERIALS]:
+	if phase_name != "День" and phase in [Phase.BUILDING, Phase.GOING_TO_SITE, Phase.GOING_TO_WAIT, Phase.WAITING_FOR_MATERIALS]:
 		abort("конец рабочего времени")
 	# A carried unit is delivered safely before leaving work.
 

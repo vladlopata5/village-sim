@@ -4,6 +4,7 @@ enum Type { NONE, MOVE_TO }
 
 var building_id: StringName = &""
 var slot_purpose := -1
+var resource_handling: StringName = &"" # Committed stationary resource operation.
 var type: Type
 var reason_id: StringName
 var target_position: Vector2

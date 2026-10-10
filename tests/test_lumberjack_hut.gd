@@ -17,7 +17,7 @@ func check(ok: bool, message: String) -> void:
 		push_error(message)
 func walk(actor: Node, reason: StringName = &"") -> void:
 	for step in range(1800):
-		actor.view._physics_process(0.05)
+		preload("res://tests/handling_test_step.gd").move_3d(actor,0.05)
 		if not reason.is_empty() and actor.intents.current_intent.reason_id != reason: break
 		if not actor.view.movement.is_moving(): break
 func idle(actor: Node) -> void:
@@ -169,7 +169,9 @@ func run() -> void:
 	check(worker.request_work() and worker.kind==&"COLLECT","Schedule cleanup starts local pickup")
 	scene.game_time.total_minutes = 1019
 	scene.game_time.debug_skip_minutes(1)
-	check(worker.kind.is_empty() and end_drop.reservation_owner_id.is_empty() and hut.resources.get_reserved_in(Resources.LOG)==0,"End of WORK releases local task/reservations")
+	check(worker.kind==&"COLLECT" and not end_drop.reservation_owner_id.is_empty() and hut.resources.get_reserved_in(Resources.LOG)==1,"Committed collection retains promises after WORK")
+	walk(actor)
+	check(worker.kind.is_empty() and end_drop.reservation_owner_id.is_empty() and hut.resources.get_reserved_in(Resources.LOG)==0,"Collection finishes both handling operations after WORK")
 	Fixture.clear_drops(scene)
 	idle(actor)
 	hut.resources.add(Resources.LOG,1)

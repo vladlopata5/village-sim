@@ -2057,3 +2057,28 @@ multiple entrances, rooms, furniture, queues and final art remain deferred.
 Derived DEFAULT ACCESS POINT remains only in explicit historical 3D reference
 fixtures; legacy 2D keeps its old presentation. Canonical building actions execute
 at occupied authored places rather than the old derived access point.
+
+
+## 2026-10-10 — External COURIER and resource handling
+Canonical main_3d resource operations use one authored exterior COURIER Marker3D
+per building, including construction sites. Residents physically reach this walkable
+point, acquire it at arrival and hold it during handling; competing couriers wait
+through existing slot-release events. COURIER never enters the interior or counts
+toward building transparency. WORKER/VISITOR/SLEEP keep their interior behavior;
+CONSTRUCTION remains a separate exterior work place.
+
+LOADING and UNLOADING each take 10 game minutes (balance config), independent of
+cargo size. The resource stays in the source until loading completes and in the
+inventory until unloading completes. Reservations/claims remain held throughout.
+Ground loading uses the same delay without a fictional building slot. HaulExecutor,
+Builder material transport and Lumberjack Ground collection share only a small
+game-time timer; their existing ownership, eligibility and cleanup remain separate.
+Builder unloads construction materials at COURIER using the construction ledger,
+then returns to CONSTRUCTION; delivery never contributes construction work.
+
+A committed delivery finishes even if WORK ends during approach or handling. Its
+completion returns to normal decisions; no new professional delivery starts outside
+WORK. Forced commands, critical needs and invalidated resources still interrupt.
+Before pickup cancellation releases promises and leaves the resource at source;
+after pickup it releases inbound promises and drops the carried resource. Timers
+and physical slots are cleared in both cases. XP and social boundaries are unchanged.

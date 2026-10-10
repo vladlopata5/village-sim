@@ -28,6 +28,8 @@ var _destination_reserved := false
 var _mutating := false
 var _exiting := false
 var _interrupt_pending := false
+var handling = preload("res://scripts/resource_handling.gd").new()
+const Balance = preload("res://scripts/balance_config.gd")
 
 func setup(owner: RefCounted, data: RefCounted, game_time: Node, world_locations: RefCounted, controller: Node) -> void:
 	_owner = weakref(owner)
@@ -35,14 +37,14 @@ func setup(owner: RefCounted, data: RefCounted, game_time: Node, world_locations
 	clock = game_time
 	locations = world_locations
 	intents = controller
-	clock.phase_changed.connect(_on_phase_changed)
+	clock.minute_changed.connect(_on_minute)
 	intents.forced_interrupt.connect(_on_forced_interrupt)
 	intents.intent_arrived.connect(_on_arrival)
 	intents.intent_changed.connect(_on_intent_changed)
 
 func unbind() -> void:
 	if job != null: cancel("исполнитель отключён")
-	if is_instance_valid(clock) and clock.phase_changed.is_connected(_on_phase_changed): clock.phase_changed.disconnect(_on_phase_changed)
+	if is_instance_valid(clock) and clock.minute_changed.is_connected(_on_minute): clock.minute_changed.disconnect(_on_minute)
 	if not is_instance_valid(intents): return
 	for connection in [[intents.forced_interrupt, _on_forced_interrupt], [intents.intent_arrived, _on_arrival], [intents.intent_changed, _on_intent_changed]]:
 		if connection[0].is_connected(connection[1]): connection[0].disconnect(connection[1])
@@ -58,7 +60,7 @@ func start(claimed: Job) -> bool:
 	var target: Variant = service.sources.point(claimed.source_ref)
 	if not target is Vector2: return false
 	claimed.state = Job.State.GOING_TO_SOURCE
-	_haul_intent = Intent.new(Intent.Type.MOVE_TO, &"haul_source", target, HAUL_PRIORITY, true)
+	_haul_intent = Intent.new(Intent.Type.MOVE_TO, &"haul_source", target, HAUL_PRIORITY, false)
 	if claimed.source_ref.kind==preload("res://scripts/resource_source_ref.gd").Kind.CONTAINER and locations.has_method("configure_intent"): locations.configure_intent(_haul_intent,claimed.source_ref.id,Purpose.COURIER,resident.id)
 	if not intents.submit(_haul_intent):
 		_haul_intent = null
@@ -73,7 +75,7 @@ func validate_job() -> bool:
 	if job.validation.is_valid() and not job.validation.call():
 		cancel("workflow недоступен")
 		return false
-	if not service.inbound_valid(job) or destination == null or not destination.is_built() or not destination.definition.allows_external_import(job.resource_type) or not locations.get_position(destination.id) is Vector2:
+	if not service.inbound_valid(job) or destination == null or not destination.is_built() or not destination.definition.allows_external_import(job.resource_type) or not service._point(destination) is Vector2:
 		cancel("цель доставки недоступна")
 		return false
 	if job.source_ref.kind==preload("res://scripts/resource_source_ref.gd").Kind.CONTAINER and not service.sources.export_allowed(job.source_ref,job.resource_type):
@@ -84,11 +86,6 @@ func validate_job() -> bool:
 		return false
 	return true
 
-func _on_phase_changed(phase: String) -> void:
-	if job != null and job.work_phase_only and phase != "День":
-		cancel("конец рабочего времени")
-		return
-	if phase == "Ночь" and job != null and job.state in [Job.State.ASSIGNED, Job.State.GOING_TO_SOURCE]: cancel("началась ночь")
 func _on_intent_changed(intent: Intent) -> void:
 	if job != null and job.state == Job.State.GOING_TO_SOURCE and intent != _haul_intent: cancel("действие сменилось")
 func _on_forced_interrupt(_previous: Intent) -> void:
@@ -98,6 +95,22 @@ func _on_forced_interrupt(_previous: Intent) -> void:
 		cancel("forced interrupt")
 
 func _on_arrival(intent: Intent) -> void:
+	if intent != _haul_intent or job == null or handling.is_active() or not validate_job(): return
+	var loading := job.state == Job.State.GOING_TO_SOURCE
+	intent.interruptible = false
+	intent.resource_handling = &"loading" if loading else &"unloading"
+	handling.start(intent.resource_handling,clock.total_minutes,Balance.RESOURCE_LOADING_MINUTES if loading else Balance.RESOURCE_UNLOADING_MINUTES)
+	resident.activity = Activity.Type.HAULING
+	if service.logger != null: service.logger.info(EventLog.LOGISTICS, "%s: %s (%d игровых минут)" % [resident.resident_name,"погрузка" if intent.resource_handling==&"loading" else "разгрузка",Balance.RESOURCE_LOADING_MINUTES if loading else Balance.RESOURCE_UNLOADING_MINUTES])
+
+func _on_minute(now: int) -> void:
+	if job == null or not validate_job() or not handling.is_active(): return
+	if handling.advance(now):
+		var arrived := _haul_intent
+		_complete_arrival(arrived)
+		arrived.resource_handling = &""
+
+func _complete_arrival(intent: Intent) -> void:
 	if intent != _haul_intent or job == null or not validate_job(): return
 	if job.state == Job.State.GOING_TO_SOURCE:
 		_pickup(intent)
@@ -125,7 +138,7 @@ func _pickup(intent: Intent) -> void:
 	service.changed.emit()
 	if job == null or intents.current_intent != intent: return
 	job.state = Job.State.GOING_TO_DESTINATION
-	_haul_intent = Intent.new(Intent.Type.MOVE_TO, &"haul_destination", locations.get_position(destination.id), HAUL_PRIORITY, false)
+	_haul_intent = Intent.new(Intent.Type.MOVE_TO, &"haul_destination", service._point(destination), HAUL_PRIORITY, false)
 	if locations.has_method("configure_intent"): locations.configure_intent(_haul_intent,destination.id,Purpose.COURIER,resident.id)
 	intents.continue_intent(intent, _haul_intent)
 	service.changed.emit()
@@ -162,6 +175,8 @@ func cancel(reason: String) -> bool:
 		_interrupt_pending = true
 		return true
 	_exiting = true
+	handling.cancel()
+	if _haul_intent != null: _haul_intent.resource_handling = &""
 	var cancelled := job
 	var old := _haul_intent
 	cancelled.state = Job.State.CANCELLED

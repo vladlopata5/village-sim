@@ -18,7 +18,7 @@ func walk(actor: Node, obstacle: Rect2 = Rect2()) -> bool:
 	var clear := true
 	for frame in range(180):
 		await physics_frame
-		actor.view._physics_process(0.1)
+		preload("res://tests/handling_test_step.gd").move_3d(actor,0.1)
 		if obstacle.has_area():
 			var point: Vector2 = actor.view.get_sim_position()
 			if point.distance_to(point.clamp(obstacle.position, obstacle.end)) < 10.0: clear = false
@@ -94,13 +94,13 @@ func _run() -> void:
 	var sim_speed: float = preload("res://scripts/resident_modifiers.gd").movement_speed(actor.data,120.0)
 	actor.view.global_position = Coordinates.to_world(Vector2.ZERO)
 	scene.player_control.move_to(actor.data.id,Vector2(250,0))
-	actor.view._physics_process(0.1)
+	preload("res://tests/handling_test_step.gd").move_3d(actor,0.1)
 	var x1_position: Vector2 = actor.view.get_sim_position()
 	check(is_equal_approx(x1_position.length(),sim_speed*0.1), "Real executor preserves balanced simulation speed at x1")
 	actor.view.global_position = Coordinates.to_world(Vector2.ZERO)
 	scene.game_time.set_speed(20)
 	scene.player_control.move_to(actor.data.id,Vector2(250,0))
-	actor.view._physics_process(0.005)
+	preload("res://tests/handling_test_step.gd").move_3d(actor,0.005)
 	check(actor.view.get_sim_position().is_equal_approx(x1_position), "Real executor x20 covers same simulation distance for equal game time")
 	check(scene.social_world.position_of(actor.data.id).is_equal_approx(x1_position), "Social gameplay provider still returns simulation units")
 	scene.game_time.set_speed(1)
@@ -146,7 +146,7 @@ func _run() -> void:
 	var delivered_before: int = scene.kitchen_data.resources.get_amount(Resources.FOOD)
 	for frame in range(180):
 		await physics_frame
-		actor.view._physics_process(0.1)
+		preload("res://tests/handling_test_step.gd").move_3d(actor,0.1)
 		if job.state == preload("res://scripts/haul_job.gd").State.COMPLETED: break
 	check(job.state == preload("res://scripts/haul_job.gd").State.COMPLETED, "Porter reaches both access points and completes committed HaulJob")
 	check(scene.kitchen_data.resources.get_amount(Resources.FOOD) == delivered_before+1 and actor.data.inventory.amount == 0, "Physical delivery updates unchanged containers/inventory")
@@ -182,6 +182,7 @@ func _run() -> void:
 	check(scene.navigation_debug.visible, "Navigation debug can be enabled without gameplay changes")
 	scene.navigation_debug.set_enabled(false)
 	# Sleep target and proximity use the exact same building access resolver.
+	actor.intents.abort_current(actor.intents.current_intent) # Isolate sleep routing from a newly committed haul.
 	scene.game_time.total_minutes = 1379
 	scene.game_time.advance(1)
 	check(actor.intents.current_intent.reason_id == &"night_home" and actor.intents.current_intent.target_position == scene.world_locations.get_position(house.id), "Real night schedule resolves home access, not center")
