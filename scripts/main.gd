@@ -615,7 +615,7 @@ func _refresh_porter_availability() -> void:
 	_logistics_notification_pending = false
 	for runtime in resident_runtimes:
 		if not is_instance_valid(runtime) or not is_instance_valid(runtime.decision): continue
-		if runtime.data.profession in [Profession.Type.PORTER,Profession.Type.SAWYER,Profession.Type.GATHERER,Profession.Type.LUMBERJACK] and runtime.data.activity == preload("res://scripts/resident_activity.gd").Type.IDLE and not runtime.intents.has_current_action() and _work_available(runtime):
+		if runtime.data.profession in [Profession.Type.PORTER,Profession.Type.SAWYER,Profession.Type.GATHERER,Profession.Type.LUMBERJACK] and runtime.data.activity == preload("res://scripts/resident_activity.gd").Type.IDLE and not runtime.intents.has_current_action() and (runtime.data.profession == Profession.Type.LUMBERJACK or _work_available(runtime)):
 			runtime.decision.request_decision("logistics_available")
 
 # Presentation factories preserve the same starter data and controller wiring.

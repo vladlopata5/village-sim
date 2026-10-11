@@ -35,7 +35,7 @@ func run() -> void:
 	await physics_frame
 	var actor = scene.resident_runtimes[3]
 	var worker = actor.get_node("Lumberjack")
-	check(not scene.player_control.assign_profession(actor.data.id,Profession.LUMBERJACK),"No hut means management assignment unavailable")
+	check(scene.player_control.assign_profession(actor.data.id,Profession.LUMBERJACK),"Lumberjack profession allowed without hut; workplace remains empty")
 	actor.data.profession = Profession.LUMBERJACK
 	actor.data.work_location_id = &""
 	check(not actor.decision._has_work() and not worker.has_work(),"Lumberjack without workplace has no WORK")

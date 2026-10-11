@@ -1,6 +1,6 @@
 extends Node
 const Purpose = preload("res://scripts/building_slot_purpose.gd").Type
-## Ordinary workplace WORK: collect, chop, plant, then shared container haul export.
+## Ordinary WORK: building collect/chop/plant/export, or independent-area chop.
 const Profession = preload("res://scripts/resident_profession.gd")
 const BuildingType = preload("res://scripts/building_type.gd")
 const Intent = preload("res://scripts/resident_intent.gd")
@@ -20,6 +20,8 @@ var logger: RefCounted
 var world: Node
 var tree: RefCounted
 var hut: RefCounted
+const Context = preload("res://scripts/forestry_work_context.gd")
+var committed_context: RefCounted
 const Source = preload("res://scripts/resource_source_ref.gd")
 var source_ref: Source
 var drop: RefCounted
@@ -35,6 +37,15 @@ var _incoming := false
 var _mutating := false
 var _interrupt_pending := false
 var handling = preload("res://scripts/resource_handling.gd").new()
+func _context() -> RefCounted:
+	if world == null or runtime.data.profession != Profession.Type.LUMBERJACK: return null
+	if not runtime.data.work_location_id.is_empty():
+		var building = _current_hut()
+		return Context.for_building(building) if building != null else null
+	var area = world.work_areas.get_area(runtime.data.work_area_id)
+	return Context.new(area) if area != null else null
+func _context_valid() -> bool:
+	return committed_context != null and (committed_context.mode == Context.Mode.FREE or _hut_valid())
 func setup(owner_runtime: Node, game_clock: Node, world_trees: Array, resolver: RefCounted, completion: Callable) -> void:
 	runtime = owner_runtime
 	clock = game_clock
@@ -53,15 +64,15 @@ func _current_hut() -> RefCounted:
 	return building if building != null and building.is_built() and building.type == BuildingType.Type.LUMBERJACK_HUT and world.world_locations.get_position(building.id) is Vector2 else null
 func _path(from_position: Vector2, to_position: Vector2) -> bool:
 	return not locations.navigation.find_path(Coordinates.to_world(from_position),Coordinates.to_world(to_position)).is_empty()
-func _eligible_tree(candidate: RefCounted, workplace: RefCounted) -> bool:
-	return candidate in trees and candidate.position.is_finite() and candidate.state==TreeData.State.STANDING and candidate.reservation_owner_id.is_empty() and world.forestry_area.inside(workplace,candidate.position) and workplace.resources.get_available_free_capacity(Resources.Type.LOG)>=candidate.yield_amount
+func _eligible_tree(candidate: RefCounted, context: RefCounted) -> bool:
+	return candidate in trees and candidate.position.is_finite() and candidate.state==TreeData.State.STANDING and candidate.reservation_owner_id.is_empty() and context.area.contains(candidate.position) and (context.mode == Context.Mode.FREE or context.hut.resources.get_available_free_capacity(Resources.Type.LOG)>=candidate.yield_amount)
 func best_target() -> Dictionary:
-	var workplace = _current_hut()
-	if workplace == null: return {}
-	var eligible: Array = trees.filter(func(candidate): return _eligible_tree(candidate,workplace))
+	var context = _context()
+	if context == null: return {}
+	var eligible: Array = trees.filter(func(candidate): return _eligible_tree(candidate,context))
 	eligible.sort_custom(func(a,b):
-		var first: float = workplace.position.distance_squared_to(a.position)
-		var second: float = workplace.position.distance_squared_to(b.position)
+		var first: float = context.area.center.distance_squared_to(a.position)
+		var second: float = context.area.center.distance_squared_to(b.position)
 		return String(a.id)<String(b.id) if first==second else first<second)
 	var origin: Vector2 = runtime.view.get_sim_position()
 	for candidate in eligible:
@@ -69,8 +80,10 @@ func best_target() -> Dictionary:
 		if point is Vector2: return {"kind":&"CHOP","tree":candidate,"point":point}
 	return {}
 func best_task() -> Dictionary:
-	var workplace = _current_hut()
-	if workplace == null or not is_instance_valid(runtime.view): return {}
+	var context = _context()
+	if context == null or not is_instance_valid(runtime.view): return {}
+	if context.mode == Context.Mode.FREE: return best_target()
+	var workplace = context.hut
 	var origin: Vector2 = runtime.view.get_sim_position()
 	var home: Vector2 = world.world_locations.get_position(workplace.id)
 	var best: Dictionary = {}
@@ -105,7 +118,7 @@ var _availability_frame := -1
 var _availability_minute := -1
 var _availability_revision := -1
 var _availability_origin := Vector2.ZERO
-var _availability_hut := &""
+var _availability_context: Array = []
 var _availability_drops := 0
 func has_work() -> bool:
 	_available_chop = {}
@@ -117,16 +130,16 @@ func has_work() -> bool:
 		_availability_minute = clock.total_minutes
 		_availability_revision = locations.navigation.revision
 		_availability_origin = runtime.view.get_sim_position()
-		_availability_hut = runtime.data.work_location_id
+		_availability_context = _context().identity()
 		_availability_drops = world.ground_resources.drops.size()
 	return not candidate.is_empty()
 func _take_available_chop() -> Dictionary:
 	var candidate := _available_chop
 	_available_chop = {}
-	var workplace = _current_hut()
-	if candidate.is_empty() or workplace==null or not is_instance_valid(runtime.view): return {}
-	if _availability_frame!=Engine.get_process_frames() or _availability_minute!=clock.total_minutes or _availability_revision!=locations.navigation.revision or _availability_origin!=runtime.view.get_sim_position() or _availability_hut!=workplace.id or _availability_drops!=world.ground_resources.drops.size(): return {}
-	if not _eligible_tree(candidate.tree,workplace) or not locations.is_available(candidate.point) or not locations.in_range(candidate.tree,candidate.point): return {}
+	var context = _context()
+	if candidate.is_empty() or context==null or not is_instance_valid(runtime.view): return {}
+	if _availability_frame!=Engine.get_process_frames() or _availability_minute!=clock.total_minutes or _availability_revision!=locations.navigation.revision or _availability_origin!=runtime.view.get_sim_position() or _availability_context!=context.identity() or _availability_drops!=world.ground_resources.drops.size(): return {}
+	if not _eligible_tree(candidate.tree,context) or not locations.is_available(candidate.point) or not locations.in_range(candidate.tree,candidate.point): return {}
 	return candidate
 func request_work() -> bool:
 	if clock.get_phase() != "День" or runtime.intents.has_current_action() or runtime.data.inventory.amount != 0: return false
@@ -139,7 +152,9 @@ func request_work() -> bool:
 		if world.logistics.start_claimed_job(job,runtime.data.id): return true
 		world.logistics.cancel_job(job)
 		return false
-	hut = _current_hut()
+	committed_context = _context()
+	if committed_context == null: return false
+	hut = committed_context.hut
 	kind = candidate.kind
 	target = candidate.point
 	_mutating = true
@@ -180,7 +195,7 @@ func _arrived(intent: RefCounted) -> void:
 
 func _complete_arrival(intent: RefCounted) -> void:
 	if intent != _intent: return
-	if not _hut_valid() or not (world.world_locations.at_action(runtime.data.id,hut.id,Purpose.COURIER,runtime.view.get_sim_position(),8.0) if kind==&"CARRYING" and world.world_locations.has_method("at_action") else runtime.view.get_sim_position().distance_to(target)<=8.0):
+	if not _context_valid() or not (world.world_locations.at_action(runtime.data.id,hut.id,Purpose.COURIER,runtime.view.get_sim_position(),8.0) if kind==&"CARRYING" and world.world_locations.has_method("at_action") else runtime.view.get_sim_position().distance_to(target)<=8.0):
 		abort()
 		return
 	if kind == &"COLLECT":
@@ -229,7 +244,7 @@ func _accrue(now: int) -> void:
 	elif kind==&"PLANT": work_minutes += elapsed
 func _minute(now: int) -> void:
 	if kind.is_empty(): return
-	if not _hut_valid() or (kind==&"CHOP" and not _valid()) or (kind==&"COLLECT" and drop not in world.ground_resources.drops):
+	if not _context_valid() or (kind==&"CHOP" and not _valid()) or (kind==&"COLLECT" and drop not in world.ground_resources.drops):
 		abort()
 		return
 	if kind==&"COLLECT" and not world.logistics.sources.reserved(source_ref,Resources.Type.LOG,StringName(runtime.data.id)):
@@ -269,6 +284,7 @@ func _cleanup() -> RefCounted:
 		world.ground_resources.create_drop(resource,amount,runtime.view.get_sim_position())
 	tree = null
 	hut = null
+	committed_context = null
 	drop = null
 	source_ref = null
 	kind = &""

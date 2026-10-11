@@ -6,6 +6,8 @@ static func to_world(point: Vector2, height: float = 0.0) -> Vector3:
 	return from_plane(plane, height)
 static func to_sim(point: Vector3) -> Vector2:
 	return world_plane(point) * SIM_UNITS_PER_WORLD_UNIT
+static func length_to_sim(world_length: float) -> float:
+	return world_length * SIM_UNITS_PER_WORLD_UNIT
 static func length_to_world(sim_length: float) -> float:
 	return sim_length / SIM_UNITS_PER_WORLD_UNIT
 static func world_plane(point: Vector3) -> Vector2: return Vector2(point.x, point.z)

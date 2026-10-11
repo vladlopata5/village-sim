@@ -11,6 +11,7 @@ var activity: ResidentActivity.Type = ResidentActivity.Type.IDLE:
 const Trait = preload("res://scripts/trait_type.gd")
 ## The resident exists as data, independently of any scene or renderer.
 ## The creator assigns an ID unique within the settlement.
+var work_area_id: StringName = &""
 var work_location_id: StringName = &""
 signal home_changed(previous: StringName, current: StringName)
 # Sole housing relationship. Empty/invalid references are valid homeless data.

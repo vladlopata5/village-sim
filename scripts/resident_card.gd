@@ -19,6 +19,11 @@ var _preference_targets: Array[ResidentData] = []
 @onready var relationships_label: Label = $Margin/Column/Scroll/Content/Relationships
 @onready var skills_label: Label = $Margin/Column/Scroll/Content/Skills
 @onready var assignment_list: VBoxContainer = $Margin/Column/Scroll/Content/Assignments
+signal work_area_requested(resident_id: String)
+var work_place_label: Label
+var area_button: Button
+var area_choice: OptionButton
+var clear_work_button: Button
 var profession_choice: OptionButton
 var intent_label: Label
 var summary_label: Label
@@ -50,6 +55,19 @@ func _ready() -> void:
 	$Margin/Column/Scroll/Content.add_child(profession_choice)
 	$Margin/Column/Scroll/Content.move_child(profession_choice, 3)
 	profession_choice.item_selected.connect(_on_profession_selected)
+	work_place_label = Label.new()
+	work_place_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	area_button = Button.new()
+	area_button.text = "Назначить рабочую область"
+	area_button.pressed.connect(func(): work_area_requested.emit(_selection.selected_resident.id))
+	area_choice = OptionButton.new()
+	area_choice.item_selected.connect(_choose_area)
+	clear_work_button = Button.new()
+	clear_work_button.text = "Снять место работы"
+	clear_work_button.pressed.connect(func(): _control.clear_work_assignment(_selection.selected_resident.id))
+	for control in [work_place_label,area_button,area_choice,clear_work_button]:
+		$Margin/Column/Scroll/Content.add_child(control)
+		$Margin/Column/Scroll/Content.move_child(control,profession_choice.get_index()+1+[work_place_label,area_button,area_choice,clear_work_button].find(control))
 	intent_label = Label.new()
 	intent_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	$Margin/Column/Scroll/Content.add_child(intent_label)
@@ -58,7 +76,12 @@ func _ready() -> void:
 func bind_control(control: RefCounted) -> void:
 	if _control != null and _control.home_changed.is_connected(_on_home_changed): _control.home_changed.disconnect(_on_home_changed)
 	if _control != null and _control.residents_changed.is_connected(_on_roster_changed): _control.residents_changed.disconnect(_on_roster_changed)
+	if _control != null and _control.has_signal("work_assignment_changed") and _control.work_assignment_changed.is_connected(_work_changed): _control.work_assignment_changed.disconnect(_work_changed)
+	if _control != null and _control.get("work_areas") != null and _control.get("work_areas").changed.is_connected(_areas_changed): _control.get("work_areas").changed.disconnect(_areas_changed)
 	_control = control
+	if _control.has_signal("work_assignment_changed"): _control.work_assignment_changed.connect(_work_changed)
+	if _control.get("work_areas") != null: _control.get("work_areas").changed.connect(_areas_changed)
+	_areas_changed()
 	_control.residents_changed.connect(_on_roster_changed)
 	_on_roster_changed()
 	_control.home_changed.connect(_on_home_changed)
@@ -68,6 +91,7 @@ func bind_control(control: RefCounted) -> void:
 func _on_profession_selected(index: int) -> void:
 	if _control != null and _selection != null and _selection.selected_resident != null:
 		_control.assign_profession(_selection.selected_resident.id, profession_choice.get_item_id(index))
+	_refresh_work_place()
 	_refresh()
 
 func bind_selection(selection: ResidentSelection) -> void:
@@ -150,6 +174,7 @@ func _on_selection_changed() -> void:
 	$Margin/Column/Scroll.scroll_vertical = 0
 	_refresh_assignments()
 	_refresh_home()
+	_refresh_work_place()
 	_refresh()
 
 func _refresh_assignments() -> void:
@@ -270,3 +295,32 @@ func _refresh_diary() -> void:
 			lines.append("• %s%s" % [entry.text, " (ключевая)" if entry.importance == Diary.Importance.KEY else " (временная)"])
 	if lines.size() == 1: lines.append("Записей нет")
 	$Margin/Column/Scroll/Content/Diary.text = "\n".join(lines)
+
+func _work_changed(_resident_id: String) -> void: _refresh_work_place()
+func _areas_changed() -> void:
+	if area_choice == null: return
+	area_choice.clear()
+	area_choice.add_item("Использовать созданную область…")
+	if _control != null and _control.get("work_areas") != null:
+		for area in _control.get("work_areas").all():
+			area_choice.add_item(String(area.id))
+			area_choice.set_item_metadata(area_choice.item_count-1,area.id)
+	_refresh_work_place()
+func _choose_area(index: int) -> void:
+	if index > 0 and _selection != null and _selection.selected_resident != null:
+		_control.assign_work_area(_selection.selected_resident.id,area_choice.get_item_metadata(index))
+	area_choice.select(0)
+func _refresh_work_place() -> void:
+	if work_place_label == null or _selection == null or _selection.selected_resident == null: return
+	var data = _selection.selected_resident
+	var label := "Место работы не назначено"
+	if _control != null and not data.work_location_id.is_empty():
+		var building = _control.get_building(data.work_location_id)
+		if building != null: label = "При здании: %s (%s)" % [building.display_name,building.id]
+	elif _control != null and _control.get("work_areas") != null and _control.get("work_areas").get_area(data.work_area_id) != null:
+		label = "Свободная область: " + String(data.work_area_id)
+	work_place_label.text = label
+	var enabled: bool = data.profession == Profession.Type.LUMBERJACK and _control != null and _control.get("work_areas") != null
+	area_button.visible = enabled
+	area_choice.visible = enabled
+	clear_work_button.visible = enabled

@@ -7,6 +7,8 @@ const EventLog = preload("res://scripts/game_logger.gd")
 var logger: EventLog
 signal residents_changed
 signal profession_changed(resident_id: String)
+signal work_assignment_changed(resident_id: String)
+var work_areas: RefCounted
 signal home_changed(resident_id: String, previous: StringName, current: StringName)
 var _buildings: Array = [] # Shared world collection, not a separate housing registry.
 var _residents: Dictionary = {}
@@ -84,6 +86,7 @@ func current_intent(resident_id: String):
 func assign_profession(resident_id: String, profession: Profession.Type) -> bool:
 	var resident: RefCounted = _residents.get(resident_id)
 	if resident == null or profession not in Profession.Type.values(): return false
+	if profession == Profession.Type.LUMBERJACK and resident.profession == profession and not resident.work_area_id.is_empty(): return true
 	if profession in [Profession.Type.NONE,Profession.Type.BUILDER]: return _assign(resident_id,profession,&"")
 	if resident.profession == profession and can_assign_workplace(resident_id,resident.work_location_id): return true
 	var preferred: StringName = _workplaces.get(profession,&"")
@@ -92,17 +95,20 @@ func assign_profession(resident_id: String, profession: Profession.Type) -> bool
 	ids.sort_custom(func(a,b): return String(a)<String(b))
 	for location in ids:
 		if _workplace_professions[location] == profession and can_assign_workplace(resident_id,location): return _assign(resident_id,profession,location)
+	if profession == Profession.Type.LUMBERJACK: return _assign(resident_id,profession,&"")
 	return false
 
 func _assign(resident_id: String, profession: Profession.Type, location_id: StringName) -> bool:
 	var resident: RefCounted = _residents.get(resident_id)
 	if resident == null: return false
-	if resident.profession == profession and resident.work_location_id == location_id: return true
+	if resident.profession == profession and resident.work_location_id == location_id and resident.work_area_id.is_empty(): return true
 	resident.profession = profession
 	resident.work_location_id = location_id
+	resident.work_area_id = &""
 	# No intent replacement or decision request: finish the committed operation first.
 	if logger != null: logger.info(EventLog.AI, "%s: назначение профессии — %s" % [resident.resident_name, Profession.display_name(profession)])
 	profession_changed.emit(resident_id)
+	work_assignment_changed.emit(resident_id)
 	return true
 
 
@@ -168,3 +174,18 @@ func unregister_resident(resident_id: String) -> void:
 	_residents.erase(resident_id)
 	for registry in [_intents,_commands,_assignments]: registry.erase(resident_id)
 	residents_changed.emit()
+
+func assign_work_area(resident_id: String, area_id: StringName) -> bool:
+	var resident: RefCounted = get_resident(resident_id)
+	if resident == null or resident.profession != Profession.Type.LUMBERJACK or work_areas == null or work_areas.get_area(area_id) == null: return false
+	resident.work_location_id = &""
+	resident.work_area_id = area_id
+	work_assignment_changed.emit(resident_id)
+	return true
+func clear_work_assignment(resident_id: String) -> bool:
+	var resident: RefCounted = get_resident(resident_id)
+	if resident == null: return false
+	resident.work_location_id = &""
+	resident.work_area_id = &""
+	work_assignment_changed.emit(resident_id)
+	return true

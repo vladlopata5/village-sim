@@ -17,6 +17,9 @@ var _road_button: Button
 var _road_events: Array[Dictionary] = []
 var _road_dragging := false
 var building_ghost: Node3D
+var work_areas = preload("res://scripts/work_areas.gd").new()
+var work_area_tool = preload("res://scripts/world_3d/work_area_tool_3d.gd").new()
+var area_confirm: Button
 var forestry_area = preload("res://scripts/world_3d/forestry_area_3d.gd").new()
 var _next_tree_id := 17
 var _last_growth_minute := 0
@@ -35,7 +38,18 @@ func _ready() -> void:
 	world_locations.navigation = navigation
 	building_uses.navigation = navigation
 	if not legacy_reference_setup: world_locations.uses = building_uses
+	player_control.work_areas = work_areas
 	super._ready()
+	$World.add_child(work_area_tool)
+	area_confirm = Button.new()
+	area_confirm.text = "Подтвердить область (Enter) • ПКМ/Esc: отмена"
+	area_confirm.position = Vector2(420,110)
+	area_confirm.hide()
+	area_confirm.pressed.connect(_confirm_work_area)
+	$HUD.add_child(area_confirm)
+	$HUD/ResidentCard.work_area_requested.connect(_start_work_area)
+	player_control.work_assignment_changed.connect(_work_assignment_updated)
+	work_areas.changed.connect(_work_areas_updated)
 	settlement_panel = preload("res://scripts/settlement_residents_panel.gd").new()
 	$HUD.add_child(settlement_panel)
 	settlement_panel.setup(player_control,resident_selection)
@@ -125,6 +139,7 @@ func _setup_roads() -> void:
 	_road_button.pressed.connect(_select_road_tool)
 	construction_panel.building_buttons.add_child(_road_button)
 func _select_road_tool() -> void:
+	_cancel_work_area()
 	if road_tool.active:
 		_cancel_road_tool()
 		return
@@ -139,9 +154,13 @@ func _cancel_road_tool() -> void:
 	_road_events.clear()
 	if _road_button!=null: _road_button.button_pressed=false
 func _select_building_definition(definition: BuildingDefinition) -> void:
+	_cancel_work_area()
 	_cancel_road_tool()
 	super._select_building_definition(definition)
 func _process(_delta: float) -> void:
+	if work_area_tool.active() and not work_area_tool.locked:
+		var area_hit := ground_pick(_pointer_position)
+		if area_hit.has("position"): work_area_tool.update_world(area_hit.position)
 	if not ready_for_play or not placement.is_active(): return
 	var hit := ground_pick(_pointer_position)
 	placement.has_ground_position = not hit.is_empty()
@@ -192,6 +211,14 @@ func _input(event: InputEvent) -> void:
 		_road_events.append({"end":true}) # Never interpolate across a UI-covered gap.
 func _unhandled_input(event: InputEvent) -> void:
 	if not ready_for_play: return
+	if work_area_tool.active():
+		if event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE: _cancel_work_area()
+		elif event is InputEventKey and event.pressed and event.keycode == KEY_ENTER: _confirm_work_area()
+		elif event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_RIGHT: _cancel_work_area()
+		elif event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT: _clicks.append(event)
+		else: return
+		get_viewport().set_input_as_handled()
+		return
 	if road_tool.active:
 		if event is InputEventKey and event.pressed and event.keycode==KEY_ESCAPE:
 			_cancel_road_tool()
@@ -228,7 +255,7 @@ func _physics_process(_delta: float) -> void:
 			if hit.has("position"): road_tool.paint(hit.position,event.erase)
 			else: road_tool.end_stroke()
 	_road_events.clear()
-	for event in _clicks: handle_world_click(event.button_index, ground_pick(event.position) if placement.is_active() else pick(event.position), event.position)
+	for event in _clicks: handle_world_click(event.button_index, ground_pick(event.position) if placement.is_active() or work_area_tool.active() else pick(event.position), event.position)
 	_clicks.clear()
 func pick(screen_position: Vector2) -> Dictionary:
 	var camera: Camera3D = $World/Camera3D
@@ -241,6 +268,13 @@ func pick(screen_position: Vector2) -> Dictionary:
 		if not hit.is_empty(): return hit
 	return {}
 func handle_world_click(button: int, hit: Dictionary, screen: Vector2 = Vector2.ZERO) -> void:
+	if work_area_tool.active():
+		if button == MOUSE_BUTTON_RIGHT: _cancel_work_area()
+		elif button == MOUSE_BUTTON_LEFT and hit.has("position"):
+			work_area_tool.update_world(hit.position)
+			work_area_tool.locked = true
+			area_confirm.show()
+		return
 	if road_tool.active: return
 	if placement.is_active():
 		if button == MOUSE_BUTTON_RIGHT: placement.cancel()
@@ -384,3 +418,38 @@ func _starting_home_id(index: int) -> StringName:
 	return super._starting_home_id(index) if legacy_reference_setup else &""
 func _create_starting_home(data: ResidentData, index: int) -> void:
 	if legacy_reference_setup: _create_legacy_home(data,index)
+
+func _start_work_area(resident_id: String) -> void:
+	var resident = player_control.get_resident(resident_id)
+	if resident == null or resident.profession != preload("res://scripts/resident_profession.gd").Type.LUMBERJACK: return
+	placement.cancel()
+	_cancel_road_tool()
+	interaction_menu.hide()
+	_clicks.clear()
+	area_confirm.hide()
+	work_area_tool.start(resident_id,preload("res://scripts/balance_config.gd").FREE_WORK_AREA_RADIUS)
+func _cancel_work_area() -> void:
+	work_area_tool.cancel()
+	if area_confirm != null: area_confirm.hide()
+	_clicks.clear()
+func _confirm_work_area() -> void:
+	if not work_area_tool.active() or not work_area_tool.locked: return
+	var resident = player_control.get_resident(work_area_tool.resident_id)
+	if resident == null or resident.profession != preload("res://scripts/resident_profession.gd").Type.LUMBERJACK:
+		_cancel_work_area()
+		return
+	var area = work_areas.create(work_area_tool.preview.center,work_area_tool.preview.radius)
+	if area != null and not player_control.assign_work_area(resident.id,area.id): work_areas.remove(area.id)
+	_cancel_work_area()
+var _work_updates: Dictionary = {}
+func _work_assignment_updated(id: String) -> void:
+	if _work_updates.has(id): return
+	_work_updates[id] = true
+	_flush_work_update.call_deferred(id)
+func _flush_work_update(id: String) -> void:
+	_work_updates.erase(id)
+	for runtime in resident_runtimes:
+		if runtime.data.id == id and not runtime.intents.has_current_action(): runtime.decision.request_decision("work_assignment")
+func _work_areas_updated() -> void:
+	for runtime in resident_runtimes:
+		if not runtime.data.work_area_id.is_empty(): _work_assignment_updated(runtime.data.id)

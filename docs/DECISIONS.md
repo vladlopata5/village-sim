@@ -2218,3 +2218,41 @@ preserved; continuous smoothed geometry can differ for equal-cost paths and is
 not claimed globally optimal. Search remains synchronous and broad/unreachable
 regions can still exceed one-frame budget. See PHASE_4 for same-condition timings
 and the limits of the earlier one-lumberjack benchmark.
+
+
+## 2026-10-11 — Independent work areas / free forestry
+
+LUMBERJACK may hold its profession without a built hut. With no valid workplace
+or independent area, WORK is unavailable. Existing convenience assignment to an
+available hut remains; players can explicitly replace it with a FREE area. Other
+professions retain their existing workplace requirements.
+
+WorkArea is world-owned domain geometry: stable ID, simulation-space center/radius,
+revision and contains(). Player-created circles have fixed radius 15 world units
+(375 simulation units through the 1:25 bridge). The property-based geometry can
+evolve later; no size/shape editor exists now. Shared areas contain no worker or
+resource ownership lists: ResidentData.work_area_id is the assignment reference.
+work_location_id and work_area_id are mutually exclusive, changed atomically by
+PlayerControl after validation. Failed reassignment preserves the previous choice.
+
+BUILDING keeps COLLECT -> CHOP -> PLANT -> EXPORT, buffer capacity, reservations,
+physical courier slots and handling. FREE only selects/claims/approaches/chops a
+tree and creates the existing GroundResource LOG; no collection, transport, export,
+planting or extraction speed penalty. XP, needs priorities and schedule unchanged.
+Both modes share execution, partial tree progress, completion and cleanup.
+
+A transient context is resolved at selection and captured for committed execution.
+Editing/removing an area or changing assignment affects future work, not an already
+claimed chop or delivery. Explicit/critical/movement interruptions still release
+claims; partial tree work remains, cargo cleanup follows existing rules. A missing
+hut never implicitly turns into FREE. Availability reuses one revalidated CHOP
+candidate; context identity/revision invalidate it even within one frame. Region
+A* and first-reachable ordering remain, without new navigation backend/scheduler.
+
+ResidentCard shows building/area/unassigned and offers creating an area or choosing
+an existing area ID. Creation: choose ResidentCard action, click ground to freeze
+circle preview, confirm button/Enter; RMB/Esc cancels. It excludes road/build tools
+and resident commands while allowing camera pan/zoom. Clear assignment is management,
+not cancellation of the current action. Area geometry edits/removal are domain API
+only; no full area editor, names, save/load, STONE/miner or resource stacks added.
+Ground lifetime and Porter/Builder source rules remain unchanged.
