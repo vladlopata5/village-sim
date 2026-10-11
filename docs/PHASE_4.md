@@ -1906,3 +1906,30 @@ simulation time; this is not a long unsupervised playtest. Courier pickup/delive
 is instantaneous at arrival, so its occupancy is transient; waiting/reservations
 and interruption/drop cleanup are integration-tested. Primitive captions can overlap
 at high interior population; no label/art overhaul was included.
+
+
+### 2026-10-11 — Workday forestry freeze
+Root cause: eager 24-point/tree reachability + smoothing, repeated by has_work and
+request_work. CHOP now sorts eligible trees from hut center, stops at first reachable,
+uses a single region-goal A* and consumes a revalidated decision-local candidate.
+Ordinary navigation/execution and other professions unchanged. Dedicated radius
+and forestry selection tests cover blocked-center regions, corner cutting, weighted
+routes, ownership/staleness/removal and real 07:00 activation. Existing full-cycle
+forestry tests retain 60-minute chopping, 3 LOG and timed pickup/deposit semantics.
+Benchmark details: 4 residents, 1/8/15 eligible trees, 3 runs each; phase medians
+16.23/20.45/23.62 ms (baseline 64.50/784.21/1505.45). Each phase: 4 A* searches,
+3 ordinary find_path, 1 radius query, 4 smooth calls, 0 duplicate queries. First
+physics updates still perform four normal executor raw-path/smoothing operations;
+no long-lived route cache was added. Target tree_01/tree_09/tree_09 respectively.
+
+Validation: full suite 87/87 scripts PASS; dedicated radius 22 checks, selection /
+real 07:00 / competition / full-cycle handling 32 checks PASS. Controlled actual
+D3D12 Forward+ rendered run also 32/32, with captures inspected for approach,
+chopping, two lumberjacks, Ground LOG and Hut 3/12. This is scripted rendered QA,
+with needs/other decisions isolated, not a free-running manual playtest. Existing
+canopy/label occlusion remains; no visual overhaul. Canonical project, direct
+main_3d and legacy2D headless startup exit 0, no runtime warnings/errors.
+Language-server analyzer inspected 222/222 GDScript files: zero NEW diagnostics;
+four baseline warnings remain unchanged (BuildingLocations3D ternary and three
+resource-handling test declarations), confirmed against 219/219 baseline files.
+User-local scenes/main_3d.tscn preserved byte-for-byte and excluded from this commit.

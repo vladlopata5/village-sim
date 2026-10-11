@@ -246,3 +246,18 @@ func smooth_path(raw: PackedVector3Array) -> PackedVector3Array:
 	return result
 func find_path(start: Vector3, target: Vector3) -> PackedVector3Array:
 	return smooth_path(find_raw_path(start,target))
+
+# Forestry interaction region. Ordinary point-to-point navigation stays unchanged.
+# Goals are cell centers strictly within the disk (no discretization radius bonus).
+func find_path_to_radius(start: Vector3, center: Vector3, radius: float, inner_radius: float = 0.0) -> PackedVector3Array:
+	var empty := PackedVector3Array()
+	if not is_world_walkable(start) or not center.is_finite() or not is_finite(radius) or not is_finite(inner_radius) or radius <= 0.0 or inner_radius < 0.0 or inner_radius > radius: return empty
+	center.y = 0.0 # Connectivity is X/Z; don't measure visual elevation.
+	var distance := Coordinates.world_plane(start).distance_to(Coordinates.world_plane(center))
+	if distance <= radius and distance >= inner_radius: return PackedVector3Array([start])
+	var search = preload("res://scripts/navigation_radius_search.gd").new()
+	var cells: Array[Vector2i] = search.find_cells(self,world_to_cell(start),center,radius,inner_radius)
+	if cells.is_empty(): return empty
+	var raw := PackedVector3Array([start])
+	for cell in cells: _append_point(raw,cell_to_world(cell,start.y))
+	return smooth_path(raw) # Once, only after a region goal has been reached.

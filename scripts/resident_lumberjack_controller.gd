@@ -53,22 +53,21 @@ func _current_hut() -> RefCounted:
 	return building if building != null and building.is_built() and building.type == BuildingType.Type.LUMBERJACK_HUT and world.world_locations.get_position(building.id) is Vector2 else null
 func _path(from_position: Vector2, to_position: Vector2) -> bool:
 	return not locations.navigation.find_path(Coordinates.to_world(from_position),Coordinates.to_world(to_position)).is_empty()
+func _eligible_tree(candidate: RefCounted, workplace: RefCounted) -> bool:
+	return candidate in trees and candidate.position.is_finite() and candidate.state==TreeData.State.STANDING and candidate.reservation_owner_id.is_empty() and world.forestry_area.inside(workplace,candidate.position) and workplace.resources.get_available_free_capacity(Resources.Type.LOG)>=candidate.yield_amount
 func best_target() -> Dictionary:
 	var workplace = _current_hut()
 	if workplace == null: return {}
-	var best: Dictionary = {}
-	var distance := INF
+	var eligible: Array = trees.filter(func(candidate): return _eligible_tree(candidate,workplace))
+	eligible.sort_custom(func(a,b):
+		var first: float = workplace.position.distance_squared_to(a.position)
+		var second: float = workplace.position.distance_squared_to(b.position)
+		return String(a.id)<String(b.id) if first==second else first<second)
 	var origin: Vector2 = runtime.view.get_sim_position()
-	for candidate in trees:
-		if candidate.state != TreeData.State.STANDING or not candidate.reservation_owner_id.is_empty() or not world.forestry_area.inside(workplace,candidate.position): continue
-		if workplace.resources.get_available_free_capacity(Resources.Type.LOG) < candidate.yield_amount: continue
+	for candidate in eligible:
 		var point: Variant = locations.resolve(candidate,origin)
-		if not point is Vector2: continue
-		var value := origin.distance_squared_to(candidate.position)
-		if best.is_empty() or value < distance or (value == distance and String(candidate.id) < String(best.tree.id)):
-			best = {"kind":&"CHOP","tree":candidate,"point":point}
-			distance = value
-	return best
+		if point is Vector2: return {"kind":&"CHOP","tree":candidate,"point":point}
+	return {}
 func best_task() -> Dictionary:
 	var workplace = _current_hut()
 	if workplace == null or not is_instance_valid(runtime.view): return {}
@@ -99,11 +98,40 @@ func best_task() -> Dictionary:
 			distance = value
 			best = {"kind":&"EXPORT","destination":destination}
 	return best
+# One-use availability result, only in this frame/minute and unchanged world.
+# It is never a claim and is revalidated before reservation.
+var _available_chop: Dictionary = {}
+var _availability_frame := -1
+var _availability_minute := -1
+var _availability_revision := -1
+var _availability_origin := Vector2.ZERO
+var _availability_hut := &""
+var _availability_drops := 0
 func has_work() -> bool:
-	return clock.get_phase()=="День" and not best_task().is_empty()
+	_available_chop = {}
+	if clock.get_phase()!="День": return false
+	var candidate := best_task()
+	if candidate.get("kind")==&"CHOP":
+		_available_chop = candidate
+		_availability_frame = Engine.get_process_frames()
+		_availability_minute = clock.total_minutes
+		_availability_revision = locations.navigation.revision
+		_availability_origin = runtime.view.get_sim_position()
+		_availability_hut = runtime.data.work_location_id
+		_availability_drops = world.ground_resources.drops.size()
+	return not candidate.is_empty()
+func _take_available_chop() -> Dictionary:
+	var candidate := _available_chop
+	_available_chop = {}
+	var workplace = _current_hut()
+	if candidate.is_empty() or workplace==null or not is_instance_valid(runtime.view): return {}
+	if _availability_frame!=Engine.get_process_frames() or _availability_minute!=clock.total_minutes or _availability_revision!=locations.navigation.revision or _availability_origin!=runtime.view.get_sim_position() or _availability_hut!=workplace.id or _availability_drops!=world.ground_resources.drops.size(): return {}
+	if not _eligible_tree(candidate.tree,workplace) or not locations.is_available(candidate.point) or not locations.in_range(candidate.tree,candidate.point): return {}
+	return candidate
 func request_work() -> bool:
 	if clock.get_phase() != "День" or runtime.intents.has_current_action() or runtime.data.inventory.amount != 0: return false
-	var candidate := best_task()
+	var candidate := _take_available_chop()
+	if candidate.is_empty(): candidate = best_task()
 	if candidate.is_empty(): return false
 	if candidate.kind == &"EXPORT":
 		var job = world.logistics.claim_own_export(runtime.data.id,candidate.destination)
@@ -183,7 +211,7 @@ func _complete_arrival(intent: RefCounted) -> void:
 			_finish()
 		else: abort()
 	else:
-		if kind==&"CHOP" and not _valid():
+		if kind==&"CHOP" and (not _valid() or not locations.in_range(tree,runtime.view.get_sim_position())):
 			abort()
 			return
 		chopping = kind==&"CHOP"
@@ -192,12 +220,12 @@ func _complete_arrival(intent: RefCounted) -> void:
 		runtime.data.activity = Activity.Type.WORKING
 		if logger != null: logger.info(EventLog.AI,"%s: начал %s" % [runtime.data.resident_name,"рубку" if chopping else "посадку"])
 func _valid() -> bool:
-	return tree != null and tree in trees and tree.state==TreeData.State.STANDING and tree.reservation_owner_id==StringName(runtime.data.id) and locations.is_available(target)
+	return tree != null and tree in trees and tree.state==TreeData.State.STANDING and tree.reservation_owner_id==StringName(runtime.data.id) and locations.is_available(target) and locations.in_range(tree,target)
 func _accrue(now: int) -> void:
 	if runtime.data.activity != Activity.Type.WORKING or not is_instance_valid(runtime.view) or runtime.view.get_sim_position().distance_to(target)>8: return
 	var elapsed := maxi(now-_last_minute,0)
 	_last_minute = now
-	if chopping and tree != null: tree.add_work(StringName(runtime.data.id),elapsed)
+	if chopping and tree != null and locations.in_range(tree,runtime.view.get_sim_position()): tree.add_work(StringName(runtime.data.id),elapsed)
 	elif kind==&"PLANT": work_minutes += elapsed
 func _minute(now: int) -> void:
 	if kind.is_empty(): return
@@ -224,6 +252,7 @@ func _minute(now: int) -> void:
 		world.forestry_area.complete(runtime.data.id,hut)
 		_finish()
 func _cleanup() -> RefCounted:
+	_available_chop = {}
 	_cleaning = true
 	var old = _intent
 	handling.cancel()

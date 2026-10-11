@@ -1695,11 +1695,12 @@ branches в validator. Depletion снимает slow source/placement blocker и
 
 Исторический forestry foundation: LUMBERJACK первоначально работал без workplace;
 текущая модель с хижиной описана ниже.
-На обычном daytime WORK decision выбирается ближайшее standing unreserved tree
-с reachable access point, deterministic ID tie-break. Perimeter resolver проверяет
-8 фиксированных directions / 3 outward rings через NavigationGrid и выбирает
-ближайшую доступную точку к worker. Runtime executor по-прежнему владеет WORLD
-position; domain positions и target используют scale bridge 1:25.
+На обычном daytime WORK decision eligible STANDING unreserved trees сортируются
+по squared XZ distance от logical center собственной hut, затем stable tree ID.
+Первое reachable tree выбирается без оценки всех остальных маршрутов. Forestry
+resolver делает один region-goal A* к области взаимодействия, вместо 24 perimeter
+searches. Runtime executor по-прежнему владеет WORLD position; domain positions
+и target используют scale bridge 1:25. См. исправление workday freeze ниже.
 
 После реального arrival начинается chopping: 60 actual game work-minutes/tree.
 Progress принадлежит Tree, сохраняется при schedule/critical/PlayerCommand/impossible
@@ -2149,3 +2150,43 @@ leg. Normal WORK eligibility still governs creation of the next task. Forced/cri
 interruptions retain the existing before-pickup release / after-pickup drop semantics.
 Legacy 2D executes the same game-time resource handling while retaining its original
 presentation. No inventory capacity, recipe, priority or reservation model changes.
+
+
+## 2026-10-11 — Forestry workday freeze: region-goal navigation
+
+Tree ranking is now explicitly from the hut/work-area center, squared Euclidean
+XZ distance followed by stable tree ID. Standing/claim/work radius/full-yield
+capacity eligibility and COLLECT → CHOP → PLANT → EXPORT priorities are unchanged.
+Check candidates in that order and stop at the first reachable tree.
+
+NavigationGrid.find_path_to_radius performs one A* search with any valid goal cell
+in an interaction annulus. Godot AStarGrid2D exposes only a fixed destination;
+a small NavigationRadiusSearch helper reads the SAME live grid and normalized
+entry-cell costs. It owns only a per-query heap, parents and costs, not another
+world/navigation grid. Euclidean distance to the disk is an admissible heuristic;
+diagonals require both adjacent cells walkable. Ordinary find_path/find_raw_path,
+other professions, building slots and movement execution remain unchanged.
+Only forestry approach (chopping and existing planting resolver) uses this API.
+Smoothing occurs once for the found route and preserves its endpoint.
+
+Outer radius preserves the former maximum perimeter ring:
+physical_radius + resident_radius + 0.5 + 2 * cell_size = 2.25 for a mature tree.
+Inner radius excludes trunk + resident clearance (0.75). No new work balance or
+radius expansion was introduced. Goals are walkable cell centers strictly inside
+these bounds; a start already in the valid annulus returns itself. Tiny regions
+without any valid center return unavailable. X/Z distances ignore visual Y.
+Trees still have the existing soft traversal zone, not new hard trunk obstacles;
+this change excludes trunk overlap at the interaction endpoint. Arrival and work
+also validate actual resident distance. No continuous optimal-path guarantee.
+
+Availability retains a one-use CHOP candidate for the same rendered frame/game
+minute, unchanged origin/hut/nav revision/drop count. Request consumes it and
+revalidates membership, state, ownership, capacity and approach bounds before
+claim. Stale candidates recompute normal selection; no global route cache or
+worker scheduler. Ground/plant/export claim and execution rules are unchanged.
+The executor still plans its ordinary point route on its first movement update;
+this is separate from availability/selection and handles later nav revisions.
+
+Chopping remains 60 actual work-minutes, 3 physical LOG, existing Gathering XP,
+interruption/partial-work ownership semantics and 10+10-minute resource handling.
+No needs/social/utility/schedule, courier, production or logistics balance changes.

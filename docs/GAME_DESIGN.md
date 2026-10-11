@@ -1583,11 +1583,12 @@ branches в validator. Depletion снимает slow source/placement blocker и
 
 Исторический forestry foundation: LUMBERJACK первоначально работал без workplace;
 текущая модель с хижиной описана ниже.
-На обычном daytime WORK decision выбирается ближайшее standing unreserved tree
-с reachable access point, deterministic ID tie-break. Perimeter resolver проверяет
-8 фиксированных directions / 3 outward rings через NavigationGrid и выбирает
-ближайшую доступную точку к worker. Runtime executor по-прежнему владеет WORLD
-position; domain positions и target используют scale bridge 1:25.
+На обычном daytime WORK decision eligible STANDING unreserved trees сортируются
+по squared XZ distance от logical center собственной hut, затем stable tree ID.
+Первое reachable tree выбирается без оценки всех остальных маршрутов. Forestry
+resolver делает один region-goal A* к области взаимодействия, вместо 24 perimeter
+searches. Runtime executor по-прежнему владеет WORLD position; domain positions
+и target используют scale bridge 1:25. См. исправление workday freeze ниже.
 
 После реального arrival начинается chopping: 60 actual game work-minutes/tree.
 Progress принадлежит Tree, сохраняется при schedule/critical/PlayerCommand/impossible
@@ -2082,3 +2083,13 @@ WORK. Forced commands, critical needs and invalidated resources still interrupt.
 Before pickup cancellation releases promises and leaves the resource at source;
 after pickup it releases inbound promises and drops the carried resource. Timers
 and physical slots are cleared in both cases. XP and social boundaries are unchanged.
+
+
+### 2026-10-11 — Forestry selection performance
+Eligible trees are ranked by squared distance from the assigned hut/work-area
+center and stable ID; the first reachable tree wins. One NavigationGrid region-goal
+A* replaces 24 separate approach-point queries. Approach annulus keeps the old
+maximum reach (mature tree 0.75–2.25 world units), excludes the trunk and preserves
+existing soft tree traversal. Only the found route is smoothed. Availability's
+one-use, revalidated CHOP candidate avoids repeating selection at WORK activation.
+Chop time/yield/XP, work schedule, Ground collection and courier handling unchanged.

@@ -584,11 +584,12 @@ branches в validator. Depletion снимает slow source/placement blocker и
 
 Исторический forestry foundation: LUMBERJACK первоначально работал без workplace;
 текущая модель с хижиной описана ниже.
-На обычном daytime WORK decision выбирается ближайшее standing unreserved tree
-с reachable access point, deterministic ID tie-break. Perimeter resolver проверяет
-8 фиксированных directions / 3 outward rings через NavigationGrid и выбирает
-ближайшую доступную точку к worker. Runtime executor по-прежнему владеет WORLD
-position; domain positions и target используют scale bridge 1:25.
+На обычном daytime WORK decision eligible STANDING unreserved trees сортируются
+по squared XZ distance от logical center собственной hut, затем stable tree ID.
+Первое reachable tree выбирается без оценки всех остальных маршрутов. Forestry
+resolver делает один region-goal A* к области взаимодействия, вместо 24 perimeter
+searches. Runtime executor по-прежнему владеет WORLD position; domain positions
+и target используют scale bridge 1:25. См. исправление workday freeze ниже.
 
 После реального arrival начинается chopping: 60 actual game work-minutes/tree.
 Progress принадлежит Tree, сохраняется при schedule/critical/PlayerCommand/impossible
@@ -990,3 +991,12 @@ take 10 + 10 game minutes. Builder UC deliveries use COURIER separately from
 CONSTRUCTION. Committed deliveries finish across WORK boundaries with existing
 forced interruption cleanup. Shared deadline helper, no new logistics engine.
 Crowd avoidance, queue visuals, indoor movement and cargo animations remain deferred.
+
+
+## 2026-10-11 — Forestry workday freeze fix
+Implemented hut-centered deterministic first-reachable tree choice, one region-goal
+A* per checked tree and one-use CHOP availability reuse. No global navigation/cache
+migration. Four-resident 06:59→07:00 benchmark: 1/8/15 eligible trees now need one
+forestry region query + three ordinary wander queries; phase medians 16.23/20.45/
+23.62 ms versus 64.50/784.21/1505.45 ms. Unreachable trees still require additional
+queries; no reachability rules weakened. See DECISIONS for API/discretization limits.
