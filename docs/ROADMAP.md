@@ -1049,3 +1049,29 @@ and resident commands while allowing camera pan/zoom. Clear assignment is manage
 not cancellation of the current action. Area geometry edits/removal are domain API
 only; no full area editor, names, save/load, STONE/miner or resource stacks added.
 Ground lifetime and Porter/Builder source rules remain unchanged.
+
+
+## 2026-10-11 — Shared NavigationConnectivity precheck
+
+NavigationGrid owns a derived packed component-label index over its effective solids.
+Cardinal flood-fill is equivalent to current diagonal connectivity because diagonals
+require both adjacent cells walkable. Directed/height transitions must revisit this
+assumption. Component IDs are meaningful only within their topology generation.
+
+The existing navigation revision/changed signal retains all cost/solid edits. Separate
+topology_generation advances once per completed blocker edit only when final effective
+solid bits differ; overlapping owners and identical replacement do not invalidate it.
+Costs, roads and soft tree/sapling traversal modifiers do not rebuild connectivity.
+Initial main_3d registration prepares once; later queries rebuild lazily after topology
+changes, coalescing edits with no intervening query. Direct grid callers also ensure.
+
+find_path_to_radius retains input/start checks and the continuous already-in-annulus
+fast path. It then checks exact walkable cell-center annulus goals against the start
+component, never just the object center. Disconnected rings return unavailable without
+region A*. Reachable rings use the unchanged weighted region A*, endpoint and smoothing.
+Native point navigation, forestry ordering/claims, FREE/BUILDING policies and gameplay
+balance are unchanged. This index is shared by all future region-navigation clients.
+
+This removes repeated broad negative searches, not all synchronous navigation peaks.
+A topology rebuild and distant positive paths still cost time; resumable pathfinding is
+a possible separate future stage. No asynchronous scheduler or per-tree negative cache.

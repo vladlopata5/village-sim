@@ -8,6 +8,11 @@ signal changed(revision: int)
 var bounds: Rect2
 var clearance: float
 var revision := 0
+var topology_generation := 0
+var _connectivity = preload("res://scripts/navigation_connectivity.gd").new()
+# Original effective solid bits touched during one complete blocker transaction.
+# Replacement can temporarily open a cell then close it again: compare final bits.
+var _topology_before: Dictionary = {}
 var _backend := AStarGrid2D.new()
 var _blockers: Dictionary = {} # Stable blocker ID -> occupied navigation cells.
 var _counts: Dictionary = {} # Cell -> number of independent obstacle owners.
@@ -40,10 +45,14 @@ func _init(world_bounds: Rect2 = WORLD_BOUNDS, resident_radius: float = Geometry
 	_search_speeds.fill(1.0)
 	for cell in _all_cells():
 		_set_cell_solid(cell, _outside_clearance(cell))
+	_topology_before.clear() # Initial grid has no published topology edits.
 func _cell_index(cell: Vector2i) -> int: return cell.y * _width + cell.x
 func _set_cell_solid(cell: Vector2i, solid: bool) -> void:
+	var index := _cell_index(cell)
+	if bool(_search_solids[index]) == solid: return
+	if not _topology_before.has(index): _topology_before[index] = bool(_search_solids[index])
 	_backend.set_point_solid(cell, solid)
-	_search_solids[_cell_index(cell)] = int(solid)
+	_search_solids[index] = int(solid)
 func grid_size() -> Vector2i: return _backend.region.size
 func world_to_cell(point: Vector3) -> Vector2i:
 	var local := (Coordinates.world_plane(point) - bounds.position) / CELL_SIZE
@@ -194,6 +203,11 @@ func path_travel_cost(path: PackedVector3Array) -> float:
 	for index in range(1,path.size()): cost += segment_travel_cost(path[index-1],path[index])
 	return cost
 func _publish_change() -> void:
+	for index in _topology_before:
+		if bool(_search_solids[index]) != _topology_before[index]:
+			topology_generation += 1
+			break
+	_topology_before.clear()
 	revision += 1
 	changed.emit(revision)
 func _all_cells() -> Array[Vector2i]:
@@ -278,9 +292,14 @@ func find_path_to_radius(start: Vector3, center: Vector3, radius: float, inner_r
 	center.y = 0.0 # Connectivity is X/Z; don't measure visual elevation.
 	var distance := Coordinates.world_plane(start).distance_to(Coordinates.world_plane(center))
 	if distance <= radius and distance >= inner_radius: return PackedVector3Array([start])
+	if not _connectivity.can_reach_radius(self,world_to_cell(start),center,radius,inner_radius): return empty
 	var search = preload("res://scripts/navigation_radius_search.gd").new()
 	var cells: Array[Vector2i] = search.find_cells(self,world_to_cell(start),center,radius,inner_radius)
 	if cells.is_empty(): return empty
 	var raw := PackedVector3Array([start])
 	for cell in cells: _append_point(raw,cell_to_world(cell,start.y))
 	return smooth_path(raw) # Once, only after a region goal has been reached.
+
+# Optional startup preparation. Direct callers receive the same guarantee lazily.
+func prepare_connectivity() -> void:
+	_connectivity.ensure(self)

@@ -69,6 +69,7 @@ func _ready() -> void:
 	_pointer_position = get_viewport().get_mouse_position()
 	_setup_forest()
 	_setup_roads()
+	navigation.prepare_connectivity() # Once after all initial world registration.
 	ready_for_play = true
 func _create_resident_presentation(data: ResidentData, start: Vector2) -> Node:
 	var executor = Executor.new()
