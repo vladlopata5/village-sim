@@ -320,7 +320,7 @@ func _refresh_work_place() -> void:
 	elif _control != null and _control.get("work_areas") != null and _control.get("work_areas").get_area(data.work_area_id) != null:
 		label = "Свободная область: " + String(data.work_area_id)
 	work_place_label.text = label
-	var enabled: bool = data.profession == Profession.Type.LUMBERJACK and _control != null and _control.get("work_areas") != null
+	var enabled: bool = data.profession in [Profession.Type.LUMBERJACK,Profession.Type.MINER] and _control != null and _control.get("work_areas") != null
 	area_button.visible = enabled
 	area_choice.visible = enabled
 	clear_work_button.visible = enabled

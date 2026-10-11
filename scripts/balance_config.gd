@@ -134,3 +134,9 @@ const TOWN_CENTER_STARTING_FOOD := 20
 const TOWN_CENTER_FALLBACK_CAPACITY := 10
 
 const GATHERER_WORKER_CAPACITY := 4
+
+# Finite rocks: initial free mining prototype.
+const ROCK_STONE_STOCK := 10
+const ROCK_WORK_MINUTES := 60
+const ROCK_PHYSICAL_RADIUS := 0.9
+const STORAGE_STONE_CAPACITY := 100

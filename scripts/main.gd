@@ -443,6 +443,7 @@ func _create_test_warehouse() -> void:
 	warehouse_data.resources.add(ResourceType.Type.FOOD, 10)
 	warehouse_data.resources.set_capacity(ResourceType.Type.LOG, Balance.WAREHOUSE_LOG_CAPACITY)
 	warehouse_data.resources.set_capacity(ResourceType.Type.PLANK, Balance.WAREHOUSE_PLANK_CAPACITY)
+	warehouse_data.resources.set_capacity(ResourceType.Type.STONE, Balance.STORAGE_STONE_CAPACITY)
 	var hut_cost: int = BuildingDefinition.for_type(BuildingType.Type.LUMBERJACK_HUT).construction_requirements[ResourceType.Type.PLANK]
 	var sawmill_cost: int = BuildingDefinition.for_type(BuildingType.Type.SAWMILL).construction_requirements[ResourceType.Type.PLANK]
 	warehouse_data.resources.add(ResourceType.Type.PLANK, Balance.starter_plank_amount(hut_cost, sawmill_cost))
@@ -481,7 +482,7 @@ func _update_logistics() -> void:
 	if destination != null:
 		summary = "Склад: %d/%d FOOD • зарезервировано на вывоз: %d\nКухня: %d/%d FOOD • зарезервировано под доставку: %d" % [source.get_amount(ResourceType.Type.FOOD), source.get_capacity(ResourceType.Type.FOOD), source.get_reserved_out(ResourceType.Type.FOOD), destination.get_amount(ResourceType.Type.FOOD), destination.get_capacity(ResourceType.Type.FOOD), destination.get_reserved_in(ResourceType.Type.FOOD)]
 	else:
-		summary = warehouse_data.display_name + " • FOOD %d • LOG %d • PLANK %d" % [source.get_amount(ResourceType.Type.FOOD),source.get_amount(ResourceType.Type.LOG),source.get_amount(ResourceType.Type.PLANK)]
+		summary = warehouse_data.display_name + " • FOOD %d • LOG %d • PLANK %d • STONE %d" % [source.get_amount(ResourceType.Type.FOOD),source.get_amount(ResourceType.Type.LOG),source.get_amount(ResourceType.Type.PLANK),source.get_amount(ResourceType.Type.STONE)]
 	var job = logistics.current_job
 	if job == null or not job.is_active():
 		for offered_job in logistics.jobs:
@@ -564,6 +565,7 @@ func _activate_completed_building(building: BuildingInstance) -> void:
 			building.resources.set_capacity(ResourceType.Type.FOOD, 20)
 			building.resources.set_capacity(ResourceType.Type.LOG, Balance.WAREHOUSE_LOG_CAPACITY)
 			building.resources.set_capacity(ResourceType.Type.PLANK, Balance.WAREHOUSE_PLANK_CAPACITY)
+			building.resources.set_capacity(ResourceType.Type.STONE, Balance.STORAGE_STONE_CAPACITY)
 			logistics.add_warehouse(building)
 		BuildingType.Type.FOOD:
 			if kitchen_data == null:
@@ -615,7 +617,7 @@ func _refresh_porter_availability() -> void:
 	_logistics_notification_pending = false
 	for runtime in resident_runtimes:
 		if not is_instance_valid(runtime) or not is_instance_valid(runtime.decision): continue
-		if runtime.data.profession in [Profession.Type.PORTER,Profession.Type.SAWYER,Profession.Type.GATHERER,Profession.Type.LUMBERJACK] and runtime.data.activity == preload("res://scripts/resident_activity.gd").Type.IDLE and not runtime.intents.has_current_action() and (runtime.data.profession == Profession.Type.LUMBERJACK or _work_available(runtime)):
+		if runtime.data.profession in [Profession.Type.PORTER,Profession.Type.SAWYER,Profession.Type.GATHERER,Profession.Type.LUMBERJACK,Profession.Type.MINER] and runtime.data.activity == preload("res://scripts/resident_activity.gd").Type.IDLE and not runtime.intents.has_current_action() and (runtime.data.profession in [Profession.Type.LUMBERJACK,Profession.Type.MINER] or _work_available(runtime)):
 			runtime.decision.request_decision("logistics_available")
 
 # Presentation factories preserve the same starter data and controller wiring.

@@ -53,6 +53,9 @@ func _run() -> void:
 		expected_navigation.add_blocker(building.id,footprint)
 	for tree in scene.trees:
 		check(scene._reachable_wander_target(Vector2(-24.5*25,-13.25*25),tree.position), "Wander can target a slow tree cell through the ordinary full-path validator")
+	for rock in scene.rocks:
+		var center := Coordinates.world_plane(Coordinates.to_world(rock.position))
+		expected_navigation.add_blocker(rock.id,Rect2(center-Vector2.ONE*rock.physical_radius,Vector2.ONE*rock.physical_radius*2.0))
 	check(scene.navigation.blocked_cells() == expected_navigation.blocked_cells(), "Navigation blockers match exact snapped physical footprints plus unchanged clearance")
 	for resident in scene.residents:
 		check(scene.player_control.get_home(resident.id).id == resident.home_location_id and resident.home_location_id in expected, "Original home relationship remains valid")

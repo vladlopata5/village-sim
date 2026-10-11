@@ -1075,3 +1075,30 @@ balance are unchanged. This index is shared by all future region-navigation clie
 This removes repeated broad negative searches, not all synchronous navigation peaks.
 A topology rebuild and distant positive paths still cost time; resumable pathfinding is
 a possible separate future stage. No asynchronous scheduler or per-tree negative cache.
+
+
+## 2026-10-11 — Finite rocks and FREE mining (current policy)
+
+STONE is appended after FOOD/LOG/PLANK. Storage and starter Town Center accept and
+export it, capacity 100, initial stock zero. Existing building recipes are unchanged.
+MINER (Камнедобытчик) may be assigned without a building, but requires an existing
+shared WorkArea to receive ordinary WORK. The existing area creation/reuse/clear UI
+serves MINER too; player circles remain radius 15 world units (375 simulation units).
+
+RockData owns finite stock (10), 60-minute cycle work, partial progress and exclusive
+claim. Each completion produces one uniquely numbered receipt, resets partial work,
+decrements stock and releases the claim. The world publishes exactly one Ground STONE
+per receipt at the walkable worker position. Last depletion removes view/physics/hard
+blocker; earlier cycles do not edit topology. Ground survives its source and keeps
+existing expiration/Porter/Builder rules. One completed cycle grants 1 GATHERING XP.
+
+FREE mining selects first reachable rock ordered by area-center distance and stable ID,
+uses one annulus query per tested candidate, and reuses availability once after identity/
+revision validation. Tree and rock approach geometry share a small helper; no scheduler
+or extraction hierarchy. Active claims capture source/target and survive area edits or
+removal; forced interrupts release claims while retaining elapsed partial work. No
+COLLECT/EXPORT/hauling, buffer, capacity gate, speed bonus or Quarry is implemented.
+
+Quarry remains future work: check room for 1 STONE before MINE, without reserving future
+output. Yield stays Ground, action ends into normal AI; COLLECT precedes another MINE,
+EXPORT may free room, and personal delivery is not guaranteed.

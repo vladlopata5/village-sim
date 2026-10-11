@@ -23,6 +23,10 @@ var area_confirm: Button
 var forestry_area = preload("res://scripts/world_3d/forestry_area_3d.gd").new()
 var _next_tree_id := 17
 var _last_growth_minute := 0
+var rocks: Array = []
+var rock_views: Dictionary = {}
+var _rock_receipts: Dictionary = {}
+var rock_locations = preload("res://scripts/world_3d/natural_source_locations_3d.gd").new()
 var trees: Array = []
 var tree_views: Dictionary = {}
 var tree_locations = preload("res://scripts/world_3d/tree_locations_3d.gd").new()
@@ -68,6 +72,7 @@ func _ready() -> void:
 	resident_selection.selection_changed.connect(_update_navigation_debug)
 	_pointer_position = get_viewport().get_mouse_position()
 	_setup_forest()
+	_setup_rocks()
 	_setup_roads()
 	navigation.prepare_connectivity() # Once after all initial world registration.
 	ready_for_play = true
@@ -350,13 +355,13 @@ func _deplete_tree(tree: RefCounted) -> void:
 		var offset := Vector2.from_angle(index*TAU/maxi(tree.yield_amount,1))*0.35
 		ground_resources.create_drop(tree.yield_resource_type,1,tree.position+offset*Coordinates.SIM_UNITS_PER_WORLD_UNIT)
 func _work_available(runtime: ResidentRuntime) -> bool:
-	if runtime.data.profession == Profession.Type.LUMBERJACK:
-		var controller = runtime.get_node_or_null("Lumberjack")
+	if runtime.data.profession in [Profession.Type.LUMBERJACK,Profession.Type.MINER]:
+		var controller = runtime.get_node_or_null("Miner" if runtime.data.profession == Profession.Type.MINER else "Lumberjack")
 		return controller != null and controller.has_work()
 	return super._work_available(runtime)
 func _request_work(runtime: ResidentRuntime) -> bool:
-	if runtime.data.profession == Profession.Type.LUMBERJACK:
-		var controller = runtime.get_node_or_null("Lumberjack")
+	if runtime.data.profession in [Profession.Type.LUMBERJACK,Profession.Type.MINER]:
+		var controller = runtime.get_node_or_null("Miner" if runtime.data.profession == Profession.Type.MINER else "Lumberjack")
 		return controller != null and controller.request_work()
 	return super._request_work(runtime)
 func _show_ground_resource(drop) -> void:
@@ -422,7 +427,7 @@ func _create_starting_home(data: ResidentData, index: int) -> void:
 
 func _start_work_area(resident_id: String) -> void:
 	var resident = player_control.get_resident(resident_id)
-	if resident == null or resident.profession != preload("res://scripts/resident_profession.gd").Type.LUMBERJACK: return
+	if resident == null or resident.profession not in [Profession.Type.LUMBERJACK,Profession.Type.MINER]: return
 	placement.cancel()
 	_cancel_road_tool()
 	interaction_menu.hide()
@@ -436,7 +441,7 @@ func _cancel_work_area() -> void:
 func _confirm_work_area() -> void:
 	if not work_area_tool.active() or not work_area_tool.locked: return
 	var resident = player_control.get_resident(work_area_tool.resident_id)
-	if resident == null or resident.profession != preload("res://scripts/resident_profession.gd").Type.LUMBERJACK:
+	if resident == null or resident.profession not in [Profession.Type.LUMBERJACK,Profession.Type.MINER]:
 		_cancel_work_area()
 		return
 	var area = work_areas.create(work_area_tool.preview.center,work_area_tool.preview.radius)
@@ -454,3 +459,44 @@ func _flush_work_update(id: String) -> void:
 func _work_areas_updated() -> void:
 	for runtime in resident_runtimes:
 		if not runtime.data.work_area_id.is_empty(): _work_assignment_updated(runtime.data.id)
+
+func _setup_rocks() -> void:
+	rock_locations.navigation = navigation
+	# World units; isolated from starter portal and existing forest fixtures.
+	var points := [Vector3(22.25,0,-6.25),Vector3(26.25,0,-6.25),Vector3(30.25,0,-6.25),Vector3(34.25,0,-6.25),Vector3(38.25,0,-6.25),Vector3(22.25,0,-11.25),Vector3(26.25,0,-11.25),Vector3(30.25,0,-11.25),Vector3(34.25,0,-11.25),Vector3(38.25,0,-11.25)]
+	for index in points.size():
+		_register_rock(preload("res://scripts/rock_data.gd").new(StringName("rock_%02d" % (index+1)),Coordinates.to_sim(points[index])))
+	for runtime in resident_runtimes:
+		var controller = preload("res://scripts/resident_miner_controller.gd").new()
+		controller.name = "Miner"
+		runtime.add_child(controller)
+		controller.world = self
+		controller.setup(runtime,game_time,rocks,rock_locations,_complete_rock_cycle)
+		runtime.view.tree_exiting.connect(controller.abort.bind(false))
+func _rock_world_position(rock: RefCounted) -> Vector3:
+	return Coordinates.to_world(rock.position)
+func _register_rock(rock: RefCounted) -> void:
+	rocks.append(rock)
+	var view = preload("res://scripts/world_3d/rock_view_3d.gd").new()
+	$World.add_child(view)
+	view.setup(rock)
+	rock_views[rock.id] = view
+	var center := Coordinates.world_plane(_rock_world_position(rock))
+	navigation.add_blocker(rock.id,Rect2(center-Vector2.ONE*rock.physical_radius,Vector2.ONE*rock.physical_radius*2.0))
+	runtime_placement_blockers.register_circle(rock.id,_rock_world_position.bind(rock),rock.physical_radius,true)
+func _complete_rock_cycle(rock: RefCounted, receipt: int, worker_position: Vector2) -> void:
+	var key := "%s:%d" % [rock.id,receipt]
+	if receipt <= 0 or receipt > rock.completed_cycles or _rock_receipts.has(key): return
+	# Mark before emitting Ground added/navigation signals (which can reenter).
+	_rock_receipts[key] = true
+	assert(rock_locations.is_available(worker_position),"Mining yield must be on walkable ground")
+	ground_resources.create_drop(ResourceType.Type.STONE,1,worker_position)
+	if rock.stock > 0: return
+	rocks.erase(rock)
+	var view: Node = rock_views.get(rock.id)
+	rock_views.erase(rock.id)
+	if is_instance_valid(view):
+		view.collision_layer = 0
+		view.queue_free()
+	runtime_placement_blockers.unregister(rock.id)
+	navigation.remove_blocker(rock.id)

@@ -16,6 +16,15 @@ func setup(drop: RefCounted) -> void:
 		visual.rotation.z = PI / 2.0
 		visual.position.y = 0.12
 		material.albedo_color = Color(0.42,0.24,0.1)
+	elif drop.resource_type == Resources.Type.STONE:
+		var stone := SphereMesh.new()
+		stone.radius = 0.18
+		stone.height = 0.25
+		stone.radial_segments = 6
+		stone.rings = 3
+		visual.mesh = stone
+		visual.position.y = 0.125
+		material.albedo_color = Color(0.55,0.57,0.59)
 	else:
 		var box := BoxMesh.new()
 		box.size = Vector3(0.25,0.2,0.25)

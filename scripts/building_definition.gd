@@ -29,6 +29,7 @@ const LOGISTICS_FLOW = {
 		ResourceType.Type.FOOD: {"import":true,"export":true},
 		ResourceType.Type.LOG: {"import":true,"export":true},
 		ResourceType.Type.PLANK: {"import":true,"export":true},
+		ResourceType.Type.STONE: {"import":true,"export":true},
 	},
 	BuildingType.Type.SAWMILL: {
 		ResourceType.Type.LOG: {"import":true,"export":false},
@@ -38,6 +39,7 @@ const LOGISTICS_FLOW = {
 		ResourceType.Type.FOOD: {"import":true,"export":true},
 		ResourceType.Type.LOG: {"import":true,"export":true},
 		ResourceType.Type.PLANK: {"import":true,"export":true},
+		ResourceType.Type.STONE: {"import":true,"export":true},
 	},
 	BuildingType.Type.FOOD: {ResourceType.Type.FOOD:{"import":true,"export":false}},
 	BuildingType.Type.GATHERER_HUT: {ResourceType.Type.FOOD:{"import":false,"export":true}},

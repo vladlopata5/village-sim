@@ -86,8 +86,8 @@ func current_intent(resident_id: String):
 func assign_profession(resident_id: String, profession: Profession.Type) -> bool:
 	var resident: RefCounted = _residents.get(resident_id)
 	if resident == null or profession not in Profession.Type.values(): return false
-	if profession == Profession.Type.LUMBERJACK and resident.profession == profession and not resident.work_area_id.is_empty(): return true
-	if profession in [Profession.Type.NONE,Profession.Type.BUILDER]: return _assign(resident_id,profession,&"")
+	if profession in [Profession.Type.LUMBERJACK,Profession.Type.MINER] and resident.profession == profession and not resident.work_area_id.is_empty(): return true
+	if profession in [Profession.Type.NONE,Profession.Type.BUILDER,Profession.Type.MINER]: return _assign(resident_id,profession,&"")
 	if resident.profession == profession and can_assign_workplace(resident_id,resident.work_location_id): return true
 	var preferred: StringName = _workplaces.get(profession,&"")
 	if can_assign_workplace(resident_id,preferred): return _assign(resident_id,profession,preferred)
@@ -177,7 +177,7 @@ func unregister_resident(resident_id: String) -> void:
 
 func assign_work_area(resident_id: String, area_id: StringName) -> bool:
 	var resident: RefCounted = get_resident(resident_id)
-	if resident == null or resident.profession != Profession.Type.LUMBERJACK or work_areas == null or work_areas.get_area(area_id) == null: return false
+	if resident == null or resident.profession not in [Profession.Type.LUMBERJACK,Profession.Type.MINER] or work_areas == null or work_areas.get_area(area_id) == null: return false
 	resident.work_location_id = &""
 	resident.work_area_id = area_id
 	work_assignment_changed.emit(resident_id)
