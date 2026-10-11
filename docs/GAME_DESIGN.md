@@ -2215,3 +2215,16 @@ Cancelled cargo from an interior is dropped at the walkable entrance, including
 resource/lifecycle invalidation before the executor receives intent cancellation.
 No new queue, reservation framework, transport engine or HaulExecutor rewrite.
 Legacy 2D/reference location behavior remains separate and unchanged.
+
+
+## 2026-10-11 — Generic internal delivery and worker export
+EXTERNAL keeps explicit external import policy. INTERNAL uses the same HaulJob,
+HaulExecutor, ResourceSources and inbound ledger, with job-bound captured workplace
+admission held by LogisticsController. Claim checks current assigned worker against
+definition.worker_profession and explicit internal resource policy; execution checks
+captured building identity/lifecycle/policy, not a later assignment. An internal flag
+alone grants no right. Reassignment allows an existing delivery to finish, never a new
+claim to the old workplace. Generic worker export requires own authorized workplace,
+external export policy and a reachable allowed destination with external import/room.
+Existing forestry LOG exports to Sawmill remain valid; Miner selects Storage/Town Center.
+Profession priorities remain controller-owned. No second transport engine or ledger.

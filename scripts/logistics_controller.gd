@@ -13,6 +13,7 @@ const Balance = preload("res://scripts/balance_config.gd")
 const Priority = preload("res://scripts/logistics_priority.gd")
 const Source = preload("res://scripts/resource_source_ref.gd")
 var sources = preload("res://scripts/resource_sources.gd").new()
+var _internal: Dictionary = {} # Job-bound captured authorization, never a second resource ledger.
 var _inbound: Dictionary = {} # Owned inbound reservations for committed hauls.
 const FOOD = ResourceType.Type.FOOD
 signal changed
@@ -110,10 +111,8 @@ func _eligible(resident: ResidentData) -> bool:
 	if resident == null or resident.profession != Profession.Type.PORTER or resident.inventory.amount != 0: return false
 	var workplace: BuildingInstance = _buildings.get(resident.work_location_id)
 	return workplace != null and workplace.is_built() and workplace.definition.is_storage and _point(workplace) is Vector2
-func _can_claim(resident: ResidentData, own_export: BuildingInstance = null) -> bool:
+func _can_claim(resident: ResidentData) -> bool:
 	var eligible := _eligible(resident)
-	if own_export != null:
-		eligible = resident != null and resident.profession == Profession.Type.LUMBERJACK and resident.work_location_id == own_export.id and own_export.type == BuildingType.Type.LUMBERJACK_HUT and own_export.is_built() and resident.inventory.amount == 0
 	if not eligible or jobs.any(func(job): return job.assigned_resident_id == resident.id): return false
 	var executor = _executors.get(resident.id)
 	return executor == null or executor.can_start()
@@ -184,26 +183,22 @@ func claim_best_job(resident_id: String) -> HaulJob:
 		candidates = collect_candidates(resident_id) # Bounded fresh evaluation, no stale execution.
 	return null
 func _claim_candidate(resident: ResidentData, candidate: Candidate) -> HaulJob:
-	return _claim_delivery(resident,candidate,false)
+	return _claim_delivery(resident,candidate)
 func _porter_base_valid(id: StringName) -> bool:
 	var base: BuildingInstance = _buildings.get(id)
 	return base != null and base.is_built() and base.definition.is_storage and _point(base) is Vector2
-func _claim_delivery(resident: ResidentData, candidate: Candidate, own_export: bool) -> HaulJob:
+func _claim_delivery(resident: ResidentData, candidate: Candidate) -> HaulJob:
 	if candidate.source_ref == null and candidate.source != null: candidate.source_ref = Source.new(Source.Kind.CONTAINER,candidate.source.id)
-	var own_source: BuildingInstance = candidate.source if own_export else null
-	if own_export and candidate.resource_type != ResourceType.Type.LOG: return null
-	if not own_export and (resident == null or (candidate.source_ref.kind==Source.Kind.CONTAINER and not _porter_pair(resident,candidate.source,candidate.destination)) or (candidate.source_ref.kind==Source.Kind.GROUND and candidate.destination.id!=resident.work_location_id)): return null
-	var eligibility: Callable = _can_claim.bind(resident,own_source)
-	var validation: Callable = Callable() if own_export else _porter_base_valid.bind(resident.work_location_id)
-	var job := claim_transport(resident.id,candidate.source_ref,candidate.destination,candidate.resource_type,eligibility,own_export,validation,true,candidate.porter_score)
-	if job != null: job.workplace_location_id = resident.work_location_id if not own_export else &""
+	if resident == null or candidate.source_ref==null or (candidate.source_ref.kind==Source.Kind.CONTAINER and not _porter_pair(resident,candidate.source,candidate.destination)) or (candidate.source_ref.kind==Source.Kind.GROUND and candidate.destination.id!=resident.work_location_id): return null
+	var job := claim_transport(resident.id,candidate.source_ref,candidate.destination,candidate.resource_type,_can_claim.bind(resident),false,_porter_base_valid.bind(resident.work_location_id),true,candidate.porter_score)
+	if job != null: job.workplace_location_id = resident.work_location_id
 	return job
-func claim_transport(resident_id: String, source_ref: Source, destination: BuildingInstance, resource: int, eligibility: Callable, work_phase_only: bool = true, validation: Callable = Callable(), award_xp: bool = false, score: float = 0.0) -> HaulJob:
+func claim_transport(resident_id: String, source_ref: Source, destination: BuildingInstance, resource: int, eligibility: Callable, work_phase_only: bool = true, validation: Callable = Callable(), award_xp: bool = false, score: float = 0.0, internal_workplace: BuildingInstance = null) -> HaulJob:
 	# Controllers supply gameplay eligibility. This transaction only owns reservations.
 	var resident: ResidentData = _residents.get(resident_id)
 	var executor = _executors.get(resident_id)
 	if _claiming or resident==null or (executor!=null and not executor.can_start()) or get_job(resident_id)!=null or not eligibility.call(): return null
-	if destination==null or _buildings.get(destination.id)!=destination or not destination.is_built() or not destination.definition.allows_external_import(resource) or destination.resources.get_available_free_capacity(resource)<1: return null
+	if not _admission_at_claim(resident,destination,resource,internal_workplace) or destination.resources.get_available_free_capacity(resource)<1: return null
 	var start: Variant = position_provider.call(resident_id) if position_provider.is_valid() else null
 	var end: Variant = _point(destination)
 	if not start is Vector2 or not end is Vector2 or not sources.available(source_ref,resource) or not sources.reachable(start,sources.point(source_ref)) or not sources.reachable(sources.point(source_ref),end): return null
@@ -217,7 +212,7 @@ func claim_transport(resident_id: String, source_ref: Source, destination: Build
 		_inbound[id] = {"destination":destination,"resource":resource}
 		incoming = destination.resources.reserve_in(resource,1)
 		if not incoming: _inbound.erase(id)
-	var valid: bool = incoming and eligibility.call() and (executor==null or executor.can_start()) and _buildings.get(destination.id)==destination and destination.is_built() and destination.definition.allows_external_import(resource) and sources.reserved(source_ref,resource,id) and destination.resources.get_reserved_in(resource)>=1 and _point(destination) is Vector2 and sources.point(source_ref) is Vector2
+	var valid: bool = incoming and eligibility.call() and (executor==null or executor.can_start()) and _buildings.get(destination.id)==destination and destination.is_built() and _admission_at_claim(resident,destination,resource,internal_workplace) and sources.reserved(source_ref,resource,id) and destination.resources.get_reserved_in(resource)>=1 and _point(destination) is Vector2 and sources.point(source_ref) is Vector2
 	valid = valid and (not validation.is_valid() or validation.call())
 	if valid: valid = sources.reachable(start,sources.point(source_ref)) and sources.reachable(sources.point(source_ref),_point(destination))
 	if not valid:
@@ -229,6 +224,10 @@ func claim_transport(resident_id: String, source_ref: Source, destination: Build
 		recalculate()
 		return null
 	var job := HaulJob.new(id,source_ref.id,destination.id,resource,1,resident_id,score)
+	if internal_workplace != null:
+		job.admission = HaulJob.Admission.INTERNAL
+		job.workplace_location_id = internal_workplace.id
+		_internal[id] = {"job":job,"worker":resident,"workplace":internal_workplace,"resource":resource}
 	job.source_ref = source_ref
 	job.work_phase_only = work_phase_only
 	job.validation = validation
@@ -264,6 +263,7 @@ func get_job(resident_id: String) -> HaulJob:
 		if job.assigned_resident_id == resident_id: return job
 	return null
 func finish_job(job: HaulJob) -> void:
+	_internal.erase(job.id)
 	jobs.erase(job)
 	recalculate()
 func cancel_job(job: HaulJob) -> bool:
@@ -307,14 +307,26 @@ func drop_cargo(resource: ResourceType.Type, amount: int, resident_id: String) -
 func notify_delivery() -> void:
 	delivered.emit()
 
-func claim_own_export(resident_id: String, destination: BuildingInstance) -> HaulJob:
-	if _claiming: return null
+func _worker_at(resident: ResidentData, workplace: BuildingInstance) -> bool:
+	return resident != null and workplace != null and _buildings.get(workplace.id)==workplace and workplace.is_built() and resident.work_location_id==workplace.id and resident.work_area_id.is_empty() and workplace.definition.worker_profession!=Profession.Type.NONE and resident.profession==workplace.definition.worker_profession
+func _admission_at_claim(resident: ResidentData, destination: BuildingInstance, resource: int, internal_workplace: BuildingInstance) -> bool:
+	if destination==null or _buildings.get(destination.id)!=destination or not destination.is_built() or not destination.resources.allows_resource(resource): return false
+	if internal_workplace==null: return destination.definition.allows_external_import(resource)
+	return destination==internal_workplace and _worker_at(resident,destination) and destination.definition.allows_internal_import(resource)
+func delivery_allowed(job: HaulJob) -> bool:
+	var destination: BuildingInstance = _buildings.get(job.destination_location_id)
+	if destination==null or not destination.is_built() or not destination.resources.allows_resource(job.resource_type): return false
+	if job.admission==HaulJob.Admission.EXTERNAL: return destination.definition.allows_external_import(job.resource_type)
+	var captured: Dictionary = _internal.get(job.id,{})
+	return not captured.is_empty() and captured.job==job and captured.worker.id==job.assigned_resident_id and captured.workplace==destination and captured.resource==job.resource_type and job.workplace_location_id==destination.id and destination.definition.allows_internal_import(job.resource_type)
+func claim_internal(resident_id: String, source_ref: Source, workplace: BuildingInstance, resource: int, eligibility: Callable) -> HaulJob:
+	return claim_transport(resident_id,source_ref,workplace,resource,eligibility,true,Callable(),false,0.0,workplace)
+func claim_worker_export(resident_id: String, workplace: BuildingInstance, destination: BuildingInstance, resource: int, eligibility: Callable = Callable()) -> HaulJob:
 	var resident: ResidentData = _residents.get(resident_id)
-	if resident == null: return null
-	var source: BuildingInstance = _buildings.get(resident.work_location_id)
-	if source == null: return null
-	var candidate := Candidate.new()
-	candidate.source = source
-	candidate.destination = destination
-	candidate.resource_type = ResourceType.Type.LOG
-	return _claim_delivery(resident,candidate,true)
+	if not _worker_at(resident,workplace) or destination==null or not allows_external_delivery(workplace,destination,resource): return null
+	var allowed := func(): return _worker_at(resident,workplace) and resident.inventory.amount==0 and (not eligibility.is_valid() or eligibility.call())
+	return claim_transport(resident_id,Source.new(Source.Kind.CONTAINER,workplace.id),destination,resource,allowed)
+func claim_own_export(resident_id: String, destination: BuildingInstance) -> HaulJob:
+	var resident: ResidentData = _residents.get(resident_id)
+	if resident==null: return null
+	return claim_worker_export(resident_id,_buildings.get(resident.work_location_id),destination,ResourceType.Type.LOG)

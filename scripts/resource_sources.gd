@@ -113,3 +113,16 @@ func _queue_changed() -> void:
 func _emit_changed() -> void:
 	_queued = false
 	changed.emit()
+
+func find_ground_in_area(resource: int, area: RefCounted, origin: Vector2, destination: Vector2) -> Array:
+	var result: Array = []
+	if not is_instance_valid(ground): return result
+	for drop in ground.drops:
+		if drop.resource_type!=resource or drop.amount<1 or not drop.reservation_owner_id.is_empty() or not area.contains(drop.world_position): continue
+		var source_ref := Source.new(Source.Kind.GROUND,drop.id)
+		if reachable(origin,drop.world_position) and reachable(drop.world_position,destination): result.append(source_ref)
+	result.sort_custom(func(a,b):
+		var da: float = origin.distance_to(point(a))+point(a).distance_to(destination)
+		var db: float = origin.distance_to(point(b))+point(b).distance_to(destination)
+		return da<db or (is_equal_approx(da,db) and a.stable_key()<b.stable_key()))
+	return result

@@ -2,6 +2,8 @@ extends RefCounted
 ## Successfully claimed delivery, owned by one resident from creation.
 const ResourceType = preload("res://scripts/resource_type.gd")
 enum State { ASSIGNED, GOING_TO_SOURCE, CARRYING, GOING_TO_DESTINATION, COMPLETED, CANCELLED }
+enum Admission { EXTERNAL, INTERNAL }
+var admission: Admission = Admission.EXTERNAL
 var workplace_location_id: StringName = &"" # Committed porter base; no auto reassignment.
 var work_phase_only := false # Legacy request metadata; execution now finishes committed deliveries across phases.
 var priority: float = 0.0 # Claim-time porter score snapshot; never refreshed or compared with needs.

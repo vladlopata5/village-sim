@@ -75,7 +75,7 @@ func validate_job() -> bool:
 	if job.validation.is_valid() and not job.validation.call():
 		cancel("workflow недоступен")
 		return false
-	if not service.inbound_valid(job) or destination == null or not destination.is_built() or not destination.definition.allows_external_import(job.resource_type) or not service._point(destination) is Vector2:
+	if not service.inbound_valid(job) or destination == null or not destination.is_built() or not service.delivery_allowed(job) or not service._point(destination) is Vector2:
 		cancel("цель доставки недоступна")
 		return false
 	if job.source_ref.kind==preload("res://scripts/resource_source_ref.gd").Kind.CONTAINER and not service.sources.export_allowed(job.source_ref,job.resource_type):
