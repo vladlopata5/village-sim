@@ -1,71 +1,74 @@
-[gd_scene load_steps=11 format=3]
+[gd_scene format=3 uid="uid://byaf52mpocdv8"]
 
-[ext_resource type="Script" path="res://scripts/world_3d/main_3d.gd" id="1"]
-[ext_resource type="Script" path="res://scripts/game_time.gd" id="2"]
-[ext_resource type="Script" path="res://scripts/world_3d/field_3d.gd" id="3"]
-[ext_resource type="Script" path="res://scripts/prototypes/prototype_camera_3d.gd" id="4"]
-
-[ext_resource type="Script" path="res://scripts/resident_selection.gd" id="5"]
+[ext_resource type="Script" uid="uid://crfwjlyt88s0t" path="res://scripts/world_3d/main_3d.gd" id="1"]
+[ext_resource type="Script" uid="uid://btw8hfkqy6bu1" path="res://scripts/game_time.gd" id="2"]
+[ext_resource type="Script" uid="uid://btfdjqx1ufser" path="res://scripts/world_3d/field_3d.gd" id="3"]
+[ext_resource type="Script" uid="uid://b2b3v0h8sfgbr" path="res://scripts/prototypes/prototype_camera_3d.gd" id="4"]
+[ext_resource type="Script" uid="uid://bm5jodm3hctts" path="res://scripts/resident_selection.gd" id="5"]
 [ext_resource type="PackedScene" path="res://scenes/resident_card.tscn" id="6"]
-
 [ext_resource type="PackedScene" path="res://scenes/building_card.tscn" id="7"]
 
-[sub_resource type="PlaneMesh" id="GroundMesh"]
-size = Vector2(128, 80)
-[sub_resource type="BoxShape3D" id="GroundShape"]
-size = Vector3(128, 1, 80)
 [sub_resource type="StandardMaterial3D" id="GroundMaterial"]
 albedo_color = Color(0.28, 0.43, 0.27, 1)
 
-[node name="Main" type="Node"]
+[sub_resource type="PlaneMesh" id="GroundMesh"]
+size = Vector2(128, 80)
+
+[sub_resource type="BoxShape3D" id="GroundShape"]
+size = Vector3(128, 1, 80)
+
+[node name="Main" type="Node" unique_id=595976525]
 process_mode = 3
 script = ExtResource("1")
 
-[node name="GameTime" type="Node" parent="."]
+[node name="GameTime" type="Node" parent="." unique_id=641436158]
 script = ExtResource("2")
 
-[node name="World" type="Node3D" parent="."]
+[node name="World" type="Node3D" parent="." unique_id=1044899528]
 process_mode = 1
 
-[node name="Field" type="Node" parent="World"]
+[node name="Field" type="Node" parent="World" unique_id=1087732748]
 script = ExtResource("3")
 
-[node name="Camera3D" type="Camera3D" parent="World"]
+[node name="Camera3D" type="Camera3D" parent="World" unique_id=656168221]
 process_mode = 3
-script = ExtResource("4")
-position = Vector3(30, 50.56, 30)
-rotation_degrees = Vector3(-50, 45, 0)
+transform = Transform3D(0.70710677, -0.5416752, 0.45451948, 0, 0.64278764, 0.76604444, -0.70710677, -0.5416752, 0.45451948, 30, 50.56, 30)
 projection = 1
-size = 44.0
 current = true
+size = 44.0
+script = ExtResource("4")
 movement_speed = 20.0
+zoom_step = 3.2
 min_zoom = 12.0
 max_zoom = 160.0
-zoom_step = 3.2
 
-[node name="Light" type="DirectionalLight3D" parent="World"]
-rotation_degrees = Vector3(-65, -30, 0)
+[node name="Light" type="DirectionalLight3D" parent="World" unique_id=359556534]
+transform = Transform3D(0.8660254, 0.4531539, -0.21130912, 0, 0.42261824, 0.9063078, 0.5, -0.7848856, 0.36599812, 0, 0, 0)
 light_energy = 1.2
 shadow_enabled = true
-[node name="Ground" type="StaticBody3D" parent="World"]
-collision_layer = 1
+
+[node name="Ground" type="StaticBody3D" parent="World" unique_id=462490517]
 collision_mask = 0
-[node name="Mesh" type="MeshInstance3D" parent="World/Ground"]
-mesh = SubResource("GroundMesh")
+
+[node name="Mesh" type="MeshInstance3D" parent="World/Ground" unique_id=464903918]
 material_override = SubResource("GroundMaterial")
-[node name="Collision" type="CollisionShape3D" parent="World/Ground"]
-position = Vector3(0, -0.5, 0)
+mesh = SubResource("GroundMesh")
+
+[node name="Collision" type="CollisionShape3D" parent="World/Ground" unique_id=787417739]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, 0)
 shape = SubResource("GroundShape")
-[node name="ResidentViews" type="Node3D" parent="World"]
-[node name="BuildingViews" type="Node3D" parent="World"]
 
-[node name="HUD" type="CanvasLayer" parent="."]
+[node name="ResidentViews" type="Node3D" parent="World" unique_id=1661110880]
 
-[node name="ResidentSelection" type="Node" parent="."]
+[node name="BuildingViews" type="Node3D" parent="World" unique_id=1875066576]
+
+[node name="HUD" type="CanvasLayer" parent="." unique_id=1768099913]
+
+[node name="ResidentCard" parent="HUD" unique_id=1312862614 instance=ExtResource("6")]
+
+[node name="BuildingCard" parent="HUD" unique_id=739893226 instance=ExtResource("7")]
+
+[node name="ResidentSelection" type="Node" parent="." unique_id=855663663]
 script = ExtResource("5")
 
-[node name="ResidentCard" parent="HUD" instance=ExtResource("6")]
-
-[node name="Residents" type="Node" parent="."]
-
-[node name="BuildingCard" parent="HUD" instance=ExtResource("7")]
+[node name="Residents" type="Node" parent="." unique_id=645520577]
