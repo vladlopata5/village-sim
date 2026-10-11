@@ -2190,3 +2190,31 @@ this is separate from availability/selection and handles later nav revisions.
 Chopping remains 60 actual work-minutes, 3 physical LOG, existing Gathering XP,
 interruption/partial-work ownership semantics and 10+10-minute resource handling.
 No needs/social/utility/schedule, courier, production or logistics balance changes.
+
+
+## 2026-10-11 — Navigation A* data/heap optimization
+
+Residual two-lumberjack x20 freezes came from the existing region A* inner loop,
+not repeated candidate searches. Retain the binary heap, Euclidean disk lower
+bound, normalized entry-cell weights and both-adjacent-cell diagonal rule.
+Region search now uses integer row-major IDs, packed query-local costs/parents/
+closed/goals and an indexed heap with decrease-key. A cell has at most one open
+entry; deterministic score then row-major ID ordering replaces dictionary
+comparisons. Heap operations shift IDs rather than swap dictionaries.
+
+NavigationGrid owns derived dense solid/cost/speed arrays. Every blocker and
+traversal edit updates them together with AStarGrid2D before publishing changed.
+Removing/replacing the fastest modifier recomputes all normalized weights.
+Region search reads the current arrays synchronously without a per-query copy;
+ordinary point A* remains native AStarGrid2D. Both use the SAME edited solids,
+weights and corner rules, checked against a frozen pre-change search and Dijkstra.
+No new backend, asynchronous scheduler, route cache or forestry-only cost rule.
+Movement/smoothing use current cached speeds; smoothing and public APIs unchanged.
+
+Dense data adds about 0.66 MiB for the 256x160 grid. Query scratch is about 1.02
+MiB plus its heap; fixed-size allocations remain local. This tradeoff removes
+hash/temporary dictionary work and lazy duplicate pops. Discrete optimal cost is
+preserved; continuous smoothed geometry can differ for equal-cost paths and is
+not claimed globally optimal. Search remains synchronous and broad/unreachable
+regions can still exceed one-frame budget. See PHASE_4 for same-condition timings
+and the limits of the earlier one-lumberjack benchmark.

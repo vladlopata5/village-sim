@@ -14,6 +14,12 @@ var _counts: Dictionary = {} # Cell -> number of independent obstacle owners.
 var _traversal_sources: Dictionary = {} # ID -> {cells, speed}; separate from solids.
 var _cell_speeds: Dictionary = {} # Cell -> {source ID: multiplier}.
 var _fastest_speed := 1.0
+var _width := 0
+# Derived dense data, updated together with the native backend on every edit.
+# Shared by point/region searches; no per-query snapshot or second world state.
+var _search_solids := PackedByteArray()
+var _search_costs := PackedFloat64Array()
+var _search_speeds := PackedFloat64Array()
 func _init(world_bounds: Rect2 = WORLD_BOUNDS, resident_radius: float = Geometry.RESIDENT_RADIUS) -> void:
 	bounds = world_bounds
 	clearance = resident_radius
@@ -25,8 +31,19 @@ func _init(world_bounds: Rect2 = WORLD_BOUNDS, resident_radius: float = Geometry
 	_backend.default_estimate_heuristic = AStarGrid2D.HEURISTIC_OCTILE
 	_backend.jumping_enabled = false
 	_backend.update() # Only initialization; blocker edits do not call update().
+	_width = grid_size().x
+	var count := grid_size().x * grid_size().y
+	_search_solids.resize(count)
+	_search_costs.resize(count)
+	_search_costs.fill(1.0)
+	_search_speeds.resize(count)
+	_search_speeds.fill(1.0)
 	for cell in _all_cells():
-		_backend.set_point_solid(cell, _outside_clearance(cell))
+		_set_cell_solid(cell, _outside_clearance(cell))
+func _cell_index(cell: Vector2i) -> int: return cell.y * _width + cell.x
+func _set_cell_solid(cell: Vector2i, solid: bool) -> void:
+	_backend.set_point_solid(cell, solid)
+	_search_solids[_cell_index(cell)] = int(solid)
 func grid_size() -> Vector2i: return _backend.region.size
 func world_to_cell(point: Vector3) -> Vector2i:
 	var local := (Coordinates.world_plane(point) - bounds.position) / CELL_SIZE
@@ -63,7 +80,7 @@ func add_blocker(id: StringName, occupied_area: Rect2) -> void:
 				var cell := Vector2i(x,y)
 				cells.append(cell)
 				_counts[cell] = _counts.get(cell, 0) + 1
-				_backend.set_point_solid(cell, true)
+				_set_cell_solid(cell, true)
 	_blockers[id] = cells
 	_publish_change()
 func remove_blocker(id: StringName) -> void:
@@ -75,7 +92,7 @@ func _remove_cells(id: StringName) -> void:
 		var count: int = _counts[cell] - 1
 		if count == 0: _counts.erase(cell)
 		else: _counts[cell] = count
-		_backend.set_point_solid(cell, count > 0 or _outside_clearance(cell))
+		_set_cell_solid(cell, count > 0 or _outside_clearance(cell))
 	_blockers.erase(id)
 # Modifier footprints have no resident clearance. Slow sources overlap by minimum,
 # not multiplication. Default ground applies only when no source covers the cell.
@@ -118,6 +135,8 @@ func _detach_traversal_source(id: StringName) -> Dictionary:
 	_traversal_sources.erase(id)
 	return affected
 func get_cell_speed_multiplier(cell: Vector2i) -> float:
+	return _search_speeds[cell.y * _width + cell.x] if _backend.is_in_boundsv(cell) else 1.0
+func _resolve_cell_speed(cell: Vector2i) -> float:
 	if not _cell_speeds.has(cell): return 1.0
 	var speed_multiplier := INF
 	for value in _cell_speeds[cell].values(): speed_multiplier = minf(speed_multiplier,value)
@@ -129,7 +148,7 @@ func modified_cells() -> Array[Vector2i]:
 func get_world_speed_multiplier(point: Vector3) -> float:
 	return get_cell_speed_multiplier(world_to_cell(point))
 func get_cell_traversal_cost(cell: Vector2i) -> float:
-	return _fastest_speed/get_cell_speed_multiplier(cell)
+	return _search_costs[cell.y * _width + cell.x] if _backend.is_in_boundsv(cell) else _fastest_speed
 func _update_traversal_weights(affected: Dictionary) -> void:
 	var fastest := 1.0
 	for source in _traversal_sources.values(): fastest = maxf(fastest,source.speed)
@@ -138,7 +157,11 @@ func _update_traversal_weights(affected: Dictionary) -> void:
 	_fastest_speed = fastest
 	# Common normalization leaves route ordering unchanged and weights >= 1, so
 	# the existing octile heuristic remains admissible even for future speedups.
-	for cell in cells: _backend.set_point_weight_scale(cell,get_cell_traversal_cost(cell))
+	for cell in cells:
+		var index := _cell_index(cell)
+		_search_speeds[index] = _resolve_cell_speed(cell)
+		_search_costs[index] = _fastest_speed / _search_speeds[index]
+		_backend.set_point_weight_scale(cell, _search_costs[index])
 
 # Split at every X/Z cell boundary. Both movement and smoothing integrate the
 # same distance / speed; midpoint sampling is exact within each constant cell.

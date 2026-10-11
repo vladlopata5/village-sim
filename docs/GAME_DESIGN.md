@@ -2093,3 +2093,14 @@ maximum reach (mature tree 0.75–2.25 world units), excludes the trunk and pres
 existing soft tree traversal. Only the found route is smoothed. Availability's
 one-use, revalidated CHOP candidate avoids repeating selection at WORK activation.
 Chop time/yield/XP, work schedule, Ground collection and courier handling unchanged.
+
+
+### 2026-10-11 — Navigation performance follow-up
+Navigation behavior and all gameplay balance remain unchanged. NavigationGrid
+shares current dense derived solids/costs/speeds with native point A* and the
+optimized region search; edits take effect before the next query. Region A* uses
+an indexed binary heap and packed cell data, preserving weighted routes, roads,
+corner rules and interaction bounds. No work selection/schedule/time-scale change.
+This substantially reduces the residual long-route cost but does not guarantee
+freeze-free simulation for every synchronous search; broad unreachable searches
+remain a performance limitation. See DECISIONS and PHASE_4.

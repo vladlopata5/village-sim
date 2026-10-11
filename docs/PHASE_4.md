@@ -1933,3 +1933,56 @@ Language-server analyzer inspected 222/222 GDScript files: zero NEW diagnostics;
 four baseline warnings remain unchanged (BuildingLocations3D ternary and three
 resource-handling test declarations), confirmed against 219/219 baseline files.
 User-local scenes/main_3d.tscn preserved byte-for-byte and excluded from this commit.
+
+
+### 2026-10-11 — Residual A* optimization / validation
+
+Shared live NavigationGrid solid/cost/speed arrays and indexed binary region heap.
+Frozen pre-change reference + zero-heuristic Dijkstra test oracle cover point/region
+cost optimality, roads, live edits, corners, unreachable goals and repeated searches.
+The production helper retains the same Euclidean lower bound; point A* remains native.
+
+Paired sequential cold-process runs, five per version/scenario. Four residents, two
+lumberjacks, x20, no roads, 15 eligible trees; same real main_3d setup. Far positions
+(40,0,25)/(35,0,20), huts (-20,0,-8)/(-20,0,-2). Needs and autonomous physics isolated
+to measure WORK decisions. Phase uses 419 -> 420; minute uses 600 -> 601.
+Earlier audit numbers (258.56/276.50 ms) are historical, not mixed into this comparison.
+
+| Scenario | Before median/max ms | After median/max ms | Speedup |
+|---|---:|---:|---:|
+| Phase / initial positions | 39.04 / 43.78 | 9.55 / 10.79 | 4.09x |
+| Phase / long routes | 299.25 / 300.55 | 59.10 / 61.66 | 5.06x |
+| Minute / initial positions | 38.02 / 40.04 | 10.65 / 12.31 | 3.57x |
+| Minute / long routes | 282.95 / 283.33 | 61.69 / 68.38 | 4.59x |
+
+Long cases expand the same 4413+5042 cells and select tree_09. Two region + two
+ordinary wander A* queries; no availability/request duplicate. Separate executor
+updates still plan four normal point paths. Region search stage (phase) 288.37 ->
+49.16 ms total; smoothing about 7 ms retained. Desired phase <50 ms not achieved.
+
+Microbenchmarks (same grid, five processes x five queries, flat XZ):
+- short region median/max: 0.251/0.600 -> 0.230/0.668 ms.
+- long region median/max: 293.426/375.802 -> 88.145/102.626 ms.
+- unreachable region median/max: 698.352/733.554 -> 113.205/169.397 ms.
+Point route medians remain approximately unchanged (short 0.107 -> 0.113 ms;
+long 53.296 -> 53.085 ms); no claim of a native backend speedup.
+
+Separate instrumented heap profile: 14121 -> 9455 pops; 4666 lazy stale pops -> 0;
+queue peak 842 -> 398. Expanded cells unchanged; weight reads 38427 both versions.
+Instrumentation overhead excludes these inner-operation timings from benchmark
+comparisons. Grid static allocation +696736 bytes (~0.66 MiB); measured Godot allocator
+process peak ~66.36 -> 62.59 MiB, not OS RSS or an isolated per-query peak.
+
+Validation: full suite 88 scripts; dedicated equivalence 166 checks, radius 22,
+NavigationGrid 107, weighted navigation 38. Scripted OpenGL rendered forestry 32/32:
+07:00 approach, two workers chopping distinct trees, 3 LOG, timed pickup and Hut 3/12.
+Captured images inspected. This is controlled scripted QA, not a long free-running
+manual playtest. Other workflows covered by full-suite integration tests.
+Analyzer 224/224 files: zero new diagnostics; four unchanged baseline warnings
+(BuildingLocations3D line 79; resource handling test lines 82/153/167). Import and
+canonical/direct 3D/legacy 2D startup exit 0 without runtime warnings/errors.
+User-local main_3d.tscn preserved byte-for-byte, excluded from commit.
+
+Limits: synchronous broad/unreachable searches can still exceed a frame budget;
+no cross-frame scheduling/backend migration/global cache. Work priorities, gameplay
+times, logistics/resources/XP/social behavior unchanged.

@@ -1000,3 +1000,14 @@ migration. Four-resident 06:59→07:00 benchmark: 1/8/15 eligible trees now need
 forestry region query + three ordinary wander queries; phase medians 16.23/20.45/
 23.62 ms versus 64.50/784.21/1505.45 ms. Unreachable trees still require additional
 queries; no reachability rules weakened. See DECISIONS for API/discretization limits.
+
+
+### 2026-10-11 — Residual navigation A* optimization
+Completed local region-search heap/data optimization and shared live dense grid
+data; existing native point backend, smoothing and gameplay rules retained.
+Two-lumberjack x20/no-road long-route phase median 299.25 -> 59.10 ms; minute
+decision 282.95 -> 61.69 ms in repeated paired runs. This is substantial progress,
+not a claim that all freezes are solved: the desired <50 ms target is not reached,
+and unreachable/broad searches remain synchronous. Do not solve this by slowing
+game time or changing profession rules. Further scheduling/backend changes need
+separate agreement; none are introduced here.
