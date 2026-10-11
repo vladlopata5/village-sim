@@ -198,7 +198,7 @@ func cancel_construction(id: StringName) -> bool:
 	game_logger.info(GameLogger.BUILDING, "стройка отменена — %s" % id)
 	return true
 func _drop_cargo(resource: ResourceType.Type, amount: int, runtime: ResidentRuntime) -> void:
-	ground_resources.create_drop(resource, amount, runtime.view.get_sim_position())
+	ground_resources.create_drop(resource, amount, runtime.view.get_drop_sim_position())
 func _on_movement_failed(intent: RefCounted, data: ResidentData) -> void:
 	var runtime = get_resident_runtime(data)
 	if runtime == null or runtime.intents.current_intent != intent: return

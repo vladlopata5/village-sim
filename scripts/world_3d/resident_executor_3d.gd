@@ -25,6 +25,9 @@ func setup(data: RefCounted) -> void:
 	movement.failed.connect(_failed)
 func get_world_position() -> Vector3: return global_position
 func get_sim_position() -> Vector2: return Coordinates.to_sim(get_world_position())
+# Interrupted cargo cannot be left inside a hard-blocked interior.
+func get_drop_sim_position() -> Vector2:
+	return Coordinates.to_sim(_entry_position) if _marker!=null and _marker.purpose!=Slot.Purpose.CONSTRUCTION else get_sim_position()
 func set_selected(value: bool) -> void: view.set_selected(value)
 func set_time_speed(multiplier: int) -> void: _time_speed = multiplier
 func move_to(target: Vector2) -> void:
@@ -84,7 +87,7 @@ func _exit_building() -> void:
 	var id := _building
 	_marker=null
 	_building=&""
-	if marker.purpose not in [Slot.Purpose.CONSTRUCTION,Slot.Purpose.COURIER] and is_inside_tree():
+	if marker.purpose!=Slot.Purpose.CONSTRUCTION and is_inside_tree():
 		global_position=_entry_position
 	uses.release(id,marker,resident_data.id)
 func _forced_exit(_intent: Intent) -> void: _exit_building()
@@ -94,11 +97,11 @@ func _release_finished() -> void:
 	if _intents!=null and not _intents.current_intent.resource_handling.is_empty(): return
 	if resident_data.activity not in [preload("res://scripts/resident_activity.gd").Type.WORKING,preload("res://scripts/resident_activity.gd").Type.EATING,preload("res://scripts/resident_activity.gd").Type.SLEEPING] and (_active==null or _active.type==Intent.Type.NONE): _exit_building()
 func _enter_or_wait() -> void:
-	if _active==null or _marker!=null: return
+	if _active==null or _marker!=null or _active.building_id.is_empty() or movement.is_moving(): return
 	if _active.slot_purpose==Slot.Purpose.COURIER and not uses.courier_position(_active.building_id) is Vector3:
 		_failed()
 		return
-	if _active.slot_purpose in [Slot.Purpose.CONSTRUCTION,Slot.Purpose.COURIER]:
+	if _active.slot_purpose==Slot.Purpose.CONSTRUCTION:
 		var free: Array = uses.choices(_active.building_id,_active.slot_purpose,global_position)
 		if not free.is_empty() and global_position.distance_to(free[0].global_position)>0.1:
 			movement.set_target(free[0].global_position)
@@ -122,7 +125,7 @@ func _enter_or_wait() -> void:
 	_marker=marker
 	_entry_position=global_position
 	# This transition can later animate/internal-navigate without changing actions.
-	if marker.purpose not in [Slot.Purpose.CONSTRUCTION,Slot.Purpose.COURIER]: global_position=marker.global_position
+	if marker.purpose!=Slot.Purpose.CONSTRUCTION: global_position=marker.global_position
 	_finish_arrival()
 func _slot_changed(id: StringName, purpose: int) -> void:
 	if _waiting and _active!=null and _active.building_id==id and _active.slot_purpose==purpose: call_deferred("_enter_or_wait")

@@ -281,7 +281,7 @@ func _cleanup() -> RefCounted:
 		var resource: Resources.Type = runtime.data.inventory.resource_type
 		var amount: int = runtime.data.inventory.amount
 		runtime.data.inventory.clear()
-		world.ground_resources.create_drop(resource,amount,runtime.view.get_sim_position())
+		world.ground_resources.create_drop(resource,amount,runtime.view.get_drop_sim_position() if runtime.view.has_method("get_drop_sim_position") else runtime.view.get_sim_position())
 	tree = null
 	hut = null
 	committed_context = null

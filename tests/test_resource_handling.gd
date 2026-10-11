@@ -51,8 +51,8 @@ func capture(label: String, actor: Node) -> void:
 	camera.size=18
 	await process_frame
 	await RenderingServer.frame_post_draw
-	DirAccess.make_dir_recursive_absolute("res://.godot/courier_qa")
-	world.get_viewport().get_texture().get_image().save_png("res://.godot/courier_qa/%s.png"%label)
+	DirAccess.make_dir_recursive_absolute("C:/Users/SW/Documents/Codex/outputs/stone-mining-phase1/courier_qa")
+	world.get_viewport().get_texture().get_image().save_png("C:/Users/SW/Documents/Codex/outputs/stone-mining-phase1/courier_qa/%s.png"%label)
 
 func run() -> void:
 	var timer=Handling.new()
@@ -81,8 +81,8 @@ func run() -> void:
 		var stock: int=source.resources.get_amount(R.FOOD)
 		var job=haul(actor,S.new(S.Kind.CONTAINER,source.id),kitchen,R.FOOD)
 		walk(actor)
-		check(actor.view.global_position.is_equal_approx(world.building_uses.courier_position(source.id)) and not G.footprint(source).has_point(C.world_plane(actor.view.global_position)),"Loading physically reaches exterior Courier, no teleport")
-		check(world.building_uses.occupied_by(source.id,actor.data.id,Purpose.COURIER) and world.world_locations.get_view(source.id).inside_count==0,"Courier stays occupied without interior transparency")
+		check(actor.view._marker!=null and actor.view.global_position.is_equal_approx(actor.view._marker.global_position) and G.footprint(source).has_point(C.world_plane(actor.view.global_position)),"Loading enters interior Courier after portal arrival")
+		check(world.building_uses.occupied_by(source.id,actor.data.id,Purpose.COURIER) and world.world_locations.get_view(source.id).inside_count==1,"Courier stays occupied and counts toward interior transparency")
 		if speed==1: await capture("source_loading",actor)
 		minutes(9)
 		check(source.resources.get_amount(R.FOOD)==stock and actor.data.inventory.amount==0,"9 minutes leaves stock at source")
@@ -92,6 +92,7 @@ func run() -> void:
 		paused=false
 		minutes(1)
 		check(actor.data.inventory.amount==1 and source.resources.get_amount(R.FOOD)==stock-1,"10 minutes transfers once to inventory at every speed")
+		check(actor.view.global_position.is_equal_approx(world.building_uses.entrance(source.id)),"Pickup exits through source portal before next path")
 		world.logistics._executors[actor.data.id]._on_minute(world.game_time.total_minutes)
 		check(source.resources.get_amount(R.FOOD)==stock-1,"Duplicate minute cannot repeat pickup")
 		walk(actor)
@@ -101,6 +102,7 @@ func run() -> void:
 		minutes(1)
 		check(job.state==Job.State.COMPLETED and actor.data.inventory.amount==0 and kitchen.resources.get_amount(R.FOOD)==before+1,"Unloading commits exactly once")
 		check(source.resources.get_reserved_out(R.FOOD)==0 and kitchen.resources.get_reserved_in(R.FOOD)==0 and actor.view._marker==null,"Completion releases reservations and physical slot")
+		check(actor.view.global_position.is_equal_approx(world.building_uses.entrance(kitchen.id)),"Delivery exits through destination portal")
 		reset(actor)
 	# Two genuine executors compete; the waiting job retains its resource promises.
 	var second=world.resident_runtimes[3]
@@ -120,18 +122,21 @@ func run() -> void:
 	reset(actor)
 	reset(second)
 	check(first_job.state==Job.State.CANCELLED and second_job.state==Job.State.CANCELLED and source.resources.get_reserved_out(R.FOOD)==0 and kitchen.resources.get_reserved_in(R.FOOD)==0,"Competing cancellation cleans both jobs and slot")
-	# Courier geometry remains walkable for every orientation and construction lifecycle.
+	# Interior courier layouts and exterior construction lifecycle remain separate.
 	for type in Types.values():
 		var layout=preload("res://scripts/world_3d/building_layouts_3d.gd").create(Def.for_type(type))
-		check(preload("res://scripts/world_3d/building_layouts_3d.gd").validate(layout,Def.for_type(type)),"Authored external courier geometry validated")
+		check(preload("res://scripts/world_3d/building_layouts_3d.gd").validate(layout,Def.for_type(type)),"Authored interior courier geometry validated")
 		layout.free()
 	for type in Types.values():
 		for turn in range(4):
 			var house=building(type,Vector3(-45+turn*10,0,26),false,turn)
-			check(world.building_uses.courier_position(house.id) is Vector3,"Every building type/rotation has walkable construction Courier")
-			var marker=world.building_uses.acquire(house.id,Purpose.COURIER,"courier_probe",Vector3.ZERO)
-			check(marker!=null and world.building_uses.acquire(house.id,Purpose.COURIER,"courier_probe",Vector3.ZERO)==null,"No duplicate acquisition")
-			world.building_uses.release(house.id,marker,"courier_probe")
+			check(world.building_uses.courier_position(house.id)==null,"UC never exposes interior Courier")
+			if house.definition.max_builders>0:
+				house.claim_builder_slot("courier_probe")
+				var marker=world.building_uses.acquire(house.id,Purpose.CONSTRUCTION,"courier_probe",Vector3.ZERO)
+				check(marker!=null and world.building_uses.acquire(house.id,Purpose.CONSTRUCTION,"courier_probe",Vector3.ZERO)==null,"No duplicate acquisition")
+				world.building_uses.release(house.id,marker,"courier_probe")
+			else: check(world.building_uses.acquire(house.id,Purpose.CONSTRUCTION,"courier_probe",Vector3.ZERO)==null,"Prebuilt-only type admits no builder")
 			world.cancel_construction(house.id)
 	# Ground expiration during timed loading releases inbound, creates no cargo.
 	var loose=world.ground_resources.create_drop(R.FOOD,1,C.to_sim(Vector3(-8,0,20)))
@@ -154,6 +159,7 @@ func run() -> void:
 		world.player_control.move_to(actor.data.id,C.to_sim(Vector3(0,0,-10)))
 		check(job.state==Job.State.CANCELLED and actor.view._marker==null and not world.logistics._executors[actor.data.id].handling.is_active(),"MOVE_TO cancels handling and physical occupancy")
 		check(world.ground_resources.drops.size()==drops+(1 if after_pickup else 0) and kitchen.resources.get_reserved_in(R.FOOD)==0,"Only already picked cargo becomes Ground")
+		if after_pickup: check(world.navigation.is_world_walkable(C.to_world(world.ground_resources.drops[-1].world_position)),"Cancelled interior cargo drops at walkable portal")
 		actor.commands.cancel_current()
 		reset(actor)
 	# Critical fatigue interrupts both timed stages through the normal needs pipeline.
@@ -195,7 +201,7 @@ func run() -> void:
 	check(logs.amount==1 and lumberjack.data.inventory.amount==0,"Lumberjack Ground stock remains until loading end")
 	minutes(1)
 	walk(lumberjack)
-	check(world.building_uses.occupied_by(hut.id,lumberjack.data.id,Purpose.COURIER),"Lumberjack unloads at external Hut Courier")
+	check(world.building_uses.occupied_by(hut.id,lumberjack.data.id,Purpose.COURIER),"Lumberjack unloads at interior Hut Courier")
 	await capture("hut_unloading",lumberjack)
 	minutes(9)
 	check(hut.resources.get_amount(R.LOG)==0 and lumberjack.data.inventory.amount==1,"Lumberjack keeps cargo until unloading end")
@@ -218,7 +224,7 @@ func run() -> void:
 	check(planks.amount==1 and builder.data.inventory.amount==0,"Builder waits before Ground pickup")
 	minutes(1)
 	walk(builder)
-	check(world.building_uses.occupied_by(site.id,builder.data.id,Purpose.COURIER) and not world.building_uses.occupied_by(site.id,builder.data.id,Purpose.CONSTRUCTION),"Builder unloads at Courier, not work slot")
+	check(world.building_uses.occupied_by(site.id,builder.data.id,Purpose.CONSTRUCTION) and not world.building_uses.occupied_by(site.id,builder.data.id,Purpose.COURIER),"Builder unloads outside at Construction slot")
 	await capture("construction_unloading",builder)
 	minutes(9)
 	check(site.get_delivered_amount(R.PLANK)==9 and site.construction_progress==0 and builder.data.inventory.amount==1,"Unloading does not accrue construction work")
@@ -235,11 +241,63 @@ func run() -> void:
 	walk(builder)
 	minutes(10)
 	walk(builder)
-	check(builder.data.inventory.amount==1 and world.building_uses.occupied_by(cancelled_site.id,builder.data.id,Purpose.COURIER),"Cancellation fixture reaches active construction unloading")
+	check(builder.data.inventory.amount==1 and world.building_uses.occupied_by(cancelled_site.id,builder.data.id,Purpose.CONSTRUCTION),"Cancellation fixture reaches active construction unloading")
 	var drops: int=world.ground_resources.drops.size()
 	check(world.cancel_construction(cancelled_site.id),"Construction cancellation follows existing lifecycle")
 	check(builder.data.inventory.amount==0 and not builder.builder.handling.is_active() and builder.view._marker==null and cancelled_site.get_construction_reserved_in(R.PLANK)==0,"UC cancellation clears handling, cargo, slot and construction ledger")
 	check(world.ground_resources.drops.size()==drops+1 and cancelled_site.construction_progress==0,"UC cancellation drops carried material without work contribution")
+	# A deferred slot wakeup must not enter after a replacement MOVE_TO.
+	world.game_time.total_minutes=420
+	reset(actor)
+	var occupied=world.building_uses.acquire(source.id,Purpose.COURIER,"deferred_probe",Vector3.ZERO)
+	job=haul(actor,S.new(S.Kind.CONTAINER,source.id),kitchen,R.FOOD)
+	walk(actor)
+	check(actor.view._waiting,"Deferred cancellation fixture waiting outside")
+	world.building_uses.release(source.id,occupied,"deferred_probe")
+	world.player_control.move_to(actor.data.id,C.to_sim(Vector3(0,0,-10)))
+	await process_frame
+	check(job.state==Job.State.CANCELLED and actor.view._marker==null and not actor.view._waiting,"Queued slot notification cannot enter after command replacement")
+	actor.commands.cancel_current()
+	reset(actor)
+	# Cancel before arrival leaves source stock and frees promises.
+	world.game_time.total_minutes=420
+	reset(actor)
+	var entry_stock: int=source.resources.get_amount(R.FOOD)
+	job=haul(actor,S.new(S.Kind.CONTAINER,source.id),kitchen,R.FOOD)
+	reset(actor)
+	check(job.state==Job.State.CANCELLED and source.resources.get_amount(R.FOOD)==entry_stock and kitchen.resources.get_reserved_in(R.FOOD)==0,"Cancel during approach does not enter or consume")
+	# Cancellation exactly after portal exit, before advancing the delivery route.
+	job=haul(actor,S.new(S.Kind.CONTAINER,source.id),kitchen,R.FOOD)
+	walk(actor)
+	minutes(10)
+	var exit_drops: int=world.ground_resources.drops.size()
+	check(actor.view._marker==null and actor.data.inventory.amount==1 and actor.view.global_position.is_equal_approx(world.building_uses.entrance(source.id)),"Exit edge holds actual cargo at source portal")
+	reset(actor)
+	check(job.state==Job.State.CANCELLED and world.ground_resources.drops.size()==exit_drops+1 and kitchen.resources.get_reserved_in(R.FOOD)==0,"Cancel immediately after exit conserves cargo")
+	# Different delivery orientations keep portal routing independent of yaw.
+	for turn in range(4):
+		var rotated=building(Types.FOOD,Vector3(-36+turn*12,0,17),true,turn)
+		job=haul(actor,S.new(S.Kind.CONTAINER,source.id),rotated,R.FOOD)
+		walk(actor)
+		minutes(10)
+		walk(actor)
+		check(actor.view._marker!=null and actor.view._entry_position.is_equal_approx(world.building_uses.entrance(rotated.id)),"Rotated destination reached through authored portal")
+		minutes(10)
+		check(job.state==Job.State.COMPLETED and actor.view.global_position.is_equal_approx(world.building_uses.entrance(rotated.id)),"Rotated delivery exits through real entrance")
+		reset(actor)
+	# Removing a BUILT destination during interior handling drops cargo at portal.
+	job=haul(actor,S.new(S.Kind.CONTAINER,source.id),kitchen,R.FOOD)
+	walk(actor)
+	minutes(10)
+	walk(actor)
+	check(actor.view._marker!=null and G.footprint(kitchen).has_point(C.world_plane(actor.view.global_position)),"Removal fixture inside destination")
+	var removed_entry: Vector3=world.building_uses.entrance(kitchen.id)
+	var removal_drops: int=world.ground_resources.drops.size()
+	world.buildings.erase(kitchen)
+	world.building_uses.unregister(kitchen.id)
+	world.logistics.remove_building(kitchen.id)
+	check(job.state==Job.State.CANCELLED and actor.view._marker==null and actor.view.global_position.is_equal_approx(removed_entry),"Building removal exits and cancels interior courier")
+	check(world.ground_resources.drops.size()==removal_drops+1 and world.navigation.is_world_walkable(C.to_world(world.ground_resources.drops[-1].world_position)),"Removal preserves actual cargo on walkable ground")
 	world.free()
 	print("Resource handling: %d checks, %d failures"%[checks,failures])
 	quit(1 if failures else 0)

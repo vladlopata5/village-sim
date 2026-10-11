@@ -2309,3 +2309,23 @@ COLLECT/EXPORT/hauling, buffer, capacity gate, speed bonus or Quarry is implemen
 Quarry remains future work: check room for 1 STONE before MINE, without reserving future
 output. Yield stays Ground, action ends into normal AI; COLLECT precedes another MINE,
 EXPORT may free room, and personal delivery is not guaranteed.
+
+
+## 2026-10-11 — Interior COURIER portal lifecycle (supersedes exterior courier policy)
+
+All seven authored layouts (kitchen, warehouse, gatherer_hut, home, lumberjack_hut,
+sawmill, town_center) now place COURIER inside. For BUILT buildings, resource route
+positions resolve to the walkable entrance, never the interior marker. The existing
+ResidentExecutor3D portal lifecycle acquires a free slot on arrival, waits through
+slot-release events if occupied, performs 10+10-minute handling inside, releases and
+exits through the same portal before the next path starts. COURIER counts as interior
+occupancy/transparency. Claims, inbound/outbound, policies and inventory are unchanged.
+
+UNDER_CONSTRUCTION does not admit interior COURIER. Builder material delivery resolves
+to its existing exterior CONSTRUCTION slots with active-builder ownership; unloading
+does not accrue construction work. Existing progress/material lifecycle remains.
+
+Cancelled cargo from an interior is dropped at the walkable entrance, including
+resource/lifecycle invalidation before the executor receives intent cancellation.
+No new queue, reservation framework, transport engine or HaulExecutor rewrite.
+Legacy 2D/reference location behavior remains separate and unchanged.

@@ -59,6 +59,9 @@ func unregister(id: StringName) -> void:
 func configure_intent(intent: RefCounted, building_id: StringName, purpose: int, resident_id: String) -> void:
 	if uses==null: return
 	intent.building_id=building_id
+	var presentation = get_view(building_id)
+	var building = presentation.building_data if presentation!=null else null
+	if purpose==Purpose.COURIER and building!=null and not building.is_built(): purpose=Purpose.CONSTRUCTION
 	intent.slot_purpose=purpose
 	if purpose==Purpose.COURIER:
 		var courier: Variant = uses.courier_position(building_id)
@@ -69,7 +72,11 @@ func configure_intent(intent: RefCounted, building_id: StringName, purpose: int,
 		var free: Array = uses.choices(building_id,purpose,uses.resident_position(resident_id,view.global_position))
 		if not free.is_empty(): intent.target_position=Coordinates.to_sim(free[0].global_position)
 func at_action(resident_id: String, building_id: StringName, purpose: int, point: Vector2, tolerance: float) -> bool:
-	if uses!=null: return uses.occupied_by(building_id,resident_id,purpose)
+	if uses!=null:
+		var presentation = get_view(building_id)
+		var building = presentation.building_data if presentation!=null else null
+		if purpose==Purpose.COURIER and building!=null and not building.is_built(): purpose=Purpose.CONSTRUCTION
+		return uses.occupied_by(building_id,resident_id,purpose)
 	var target: Variant = get_position(building_id)
 	return target is Vector2 and point.distance_to(target)<=tolerance
 

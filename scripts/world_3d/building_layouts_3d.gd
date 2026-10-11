@@ -19,7 +19,7 @@ static func validate(layout: Node, definition: RefCounted) -> bool:
 	var physical := Rect2(-Vector2(definition.footprint_cells)*0.25,Vector2(definition.footprint_cells)*0.5)
 	for marker in slots:
 		if marker.purpose!=Slot.Purpose.COURIER: continue
-		if physical.grow(Geometry.RESIDENT_RADIUS).has_point(Coordinates.world_plane(marker.position)): return false
+		if not physical.has_point(Coordinates.world_plane(marker.position)): return false
 		if slots.any(func(other): return other!=marker and marker.position.distance_to(other.position)<2.0*Geometry.RESIDENT_RADIUS): return false
 	var ids: Dictionary = {}
 	var counts: Dictionary = {}
