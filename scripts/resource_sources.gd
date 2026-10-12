@@ -16,8 +16,7 @@ func resolve(source_ref: Source) -> Variant:
 	if source_ref == null: return null
 	if source_ref.kind == Source.Kind.CONTAINER: return buildings.get(source_ref.id)
 	if is_instance_valid(ground):
-		for drop in ground.drops:
-			if drop.id == source_ref.id: return drop
+		return ground.get_by_id(source_ref.id)
 	return null
 func point(source_ref: Source) -> Variant:
 	var entity: Variant = resolve(source_ref)

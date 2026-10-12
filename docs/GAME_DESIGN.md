@@ -2320,3 +2320,10 @@ Every minute/phase event is retained, so deadlines never rewind. These synchrono
 debug jumps may take time with many residents; they do not simulate physical walking
 between frames. Use x1–x20 for physical work/transport tests. Release builds expose
 neither the panel nor debug-spawn/time commands. No mass deletion or state saving.
+
+## 2026-10-12 — Ground resource lookup
+GroundResources provides fast owner-managed lookup by stable ID, referencing the same
+GroundResource objects as ordered enumeration. The index does not copy quantities,
+positions, resource types or claims and supports existing quantities greater than one.
+Removal/expiration/final pickup invalidates the ID. Transport, reservations, Porter
+ranking and all production rules remain unchanged; stack merging is not implemented.

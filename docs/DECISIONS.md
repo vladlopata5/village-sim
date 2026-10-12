@@ -2434,3 +2434,13 @@ Every minute/phase event is retained, so deadlines never rewind. These synchrono
 debug jumps may take time with many residents; they do not simulate physical walking
 between frames. Use x1–x20 for physical work/transport tests. Release builds expose
 neither the panel nor debug-spawn/time commands. No mass deletion or state saving.
+
+## 2026-10-12 — Owner-managed GroundResource ID lookup
+GroundResources keeps an ID-to-object index alongside its ordered drops enumeration.
+The index contains references only: amount, type, position, lifetime and exclusive claims
+remain on the original GroundResource, including amounts greater than one. Creation,
+final pickup, expiration and explicit removal update both collections before their
+existing publication boundaries. Partial pickup/release retains the same identity;
+duplicate live IDs are rejected. ResourceSources resolves Ground through this owner API.
+Enumeration order, Porter exact score/selection, source reservations and haul rules
+are unchanged. Callers enumerate drops but register/remove through GroundResources.

@@ -1227,3 +1227,10 @@ Every minute/phase event is retained, so deadlines never rewind. These synchrono
 debug jumps may take time with many residents; they do not simulate physical walking
 between frames. Use x1–x20 for physical work/transport tests. Release builds expose
 neither the panel nor debug-spawn/time commands. No mass deletion or state saving.
+
+## 2026-10-12 — Logistics lookup optimization: Ground
+Implemented owner-managed GroundResource ID references, replacing repeated linear
+resolve scans while preserving ordered candidate enumeration and resource lifecycle.
+This does not make the entire Porter candidate search O(1). Marker reference reuse is
+the next separate optimization; COURIER broadcasts and cancellation recursion remain
+outside this step. No resource stacks, balance changes or new scheduler.

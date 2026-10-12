@@ -54,7 +54,7 @@ func add_building(f: Dictionary, id: StringName, type: int, position: Vector2):
 func drop(f: Dictionary, id: StringName, res: int, position: Vector2) -> void:
 	var d := Drop.new(res,1,position,0)
 	d.id=id
-	f.ground.drops.append(d)
+	assert(f.ground.register_drop(d))
 func compare(f: Dictionary, label: String) -> Variant:
 	var old = f.reference._best(f.reference.collect_candidates(f.worker.id))
 	var current = f.service._first_reachable(f.worker.id,f.service._cheap_candidates(f.worker.id))
@@ -118,7 +118,7 @@ func run() -> void:
 	check(compare(f,"full Ground destination").source==producer,"Full base excludes only relevant resource")
 	f.base.resources.release_in(R.LOG,1)
 	compare(f,"last free space")
-	f.ground.drops.clear()
+	for loose in f.ground.drops.duplicate(): f.ground.remove_drop(loose)
 	f.base.resources.try_take(R.FOOD,10)
 	check(f.service.has_available_job(f.worker.id),"Container availability before deletion")
 	f.service.remove_building(producer.id)
@@ -195,7 +195,7 @@ func run() -> void:
 	check(f.service.jobs.size()==4 and f.base.resources.get_reserved_in(R.LOG)==4 and f.ground.drops.all(func(d): return not d.reservation_owner_id.is_empty()),"Distinct owned cargo promises")
 	for job in f.service.jobs.duplicate(): f.service.cancel_job(job)
 	check(f.service.has_available_job(f.worker.id),"Availability before deletion")
-	f.ground.drops.clear()
+	for loose in f.ground.drops.duplicate(): f.ground.remove_drop(loose)
 	check(f.service.claim_best_job(f.worker.id)==null,"Ground deletion after availability")
 	drop(f,&"new",R.LOG,Vector2(20,0))
 	check(f.service.has_available_job(f.worker.id),"Availability before base deletion")

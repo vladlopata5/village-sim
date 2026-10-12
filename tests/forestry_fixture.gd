@@ -10,5 +10,4 @@ static func hut(scene: Node, id: StringName = &"test_hut", position: Vector3 = V
 	return building
 static func clear_drops(scene: Node) -> void:
 	for drop in scene.ground_resources.drops.duplicate():
-		scene.ground_resources.drops.erase(drop)
-		scene.ground_resources.removed.emit(drop)
+		scene.ground_resources.remove_drop(drop)
