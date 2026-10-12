@@ -55,6 +55,9 @@ func register_building(building: RefCounted) -> void:
 		BuildingType.Type.LUMBERJACK_HUT:
 			if not _workplaces.has(Profession.Type.LUMBERJACK): _workplaces[Profession.Type.LUMBERJACK] = building.id
 			_workplace_professions[building.id] = Profession.Type.LUMBERJACK
+		BuildingType.Type.QUARRY:
+			if not _workplaces.has(Profession.Type.MINER): _workplaces[Profession.Type.MINER] = building.id
+			_workplace_professions[building.id] = Profession.Type.MINER
 		BuildingType.Type.SAWMILL:
 			if not _workplaces.has(Profession.Type.SAWYER): _workplaces[Profession.Type.SAWYER] = building.id
 			_workplace_professions[building.id] = Profession.Type.SAWYER
@@ -87,7 +90,7 @@ func assign_profession(resident_id: String, profession: Profession.Type) -> bool
 	var resident: RefCounted = _residents.get(resident_id)
 	if resident == null or profession not in Profession.Type.values(): return false
 	if profession in [Profession.Type.LUMBERJACK,Profession.Type.MINER] and resident.profession == profession and not resident.work_area_id.is_empty(): return true
-	if profession in [Profession.Type.NONE,Profession.Type.BUILDER,Profession.Type.MINER]: return _assign(resident_id,profession,&"")
+	if profession in [Profession.Type.NONE,Profession.Type.BUILDER]: return _assign(resident_id,profession,&"")
 	if resident.profession == profession and can_assign_workplace(resident_id,resident.work_location_id): return true
 	var preferred: StringName = _workplaces.get(profession,&"")
 	if can_assign_workplace(resident_id,preferred): return _assign(resident_id,profession,preferred)
@@ -95,7 +98,7 @@ func assign_profession(resident_id: String, profession: Profession.Type) -> bool
 	ids.sort_custom(func(a,b): return String(a)<String(b))
 	for location in ids:
 		if _workplace_professions[location] == profession and can_assign_workplace(resident_id,location): return _assign(resident_id,profession,location)
-	if profession == Profession.Type.LUMBERJACK: return _assign(resident_id,profession,&"")
+	if profession in [Profession.Type.LUMBERJACK,Profession.Type.MINER]: return _assign(resident_id,profession,&"")
 	return false
 
 func _assign(resident_id: String, profession: Profession.Type, location_id: StringName) -> bool:

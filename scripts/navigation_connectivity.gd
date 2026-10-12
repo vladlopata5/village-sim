@@ -54,3 +54,9 @@ func can_reach_radius(grid: RefCounted, start: Vector2i, center: Vector3, radius
 			var distance: float = grid.cell_to_world(Vector2i(x,y)).distance_to(center)
 			if distance <= radius and distance >= inner_radius: return true
 	return false
+
+func can_reach_point(grid: RefCounted, start: Vector2i, target: Vector2i) -> bool:
+	ensure(grid)
+	var width: int = grid.grid_size().x
+	var owner := _labels[start.y*width+start.x]
+	return owner>=0 and owner==_labels[target.y*width+target.x]

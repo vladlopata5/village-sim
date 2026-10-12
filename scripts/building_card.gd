@@ -75,7 +75,7 @@ func _refresh() -> void:
 	id_label.text = "ID: %s" % _building.id
 	state_label.text = "Состояние: " + ("Построено" if _building.is_built() else "Строится")
 	type_label.text = "Тип: " + _type_text(_building.type)
-	if _control != null and _building.is_built() and _building.type in [Types.Type.LUMBERJACK_HUT,Types.Type.SAWMILL]:
+	if _control != null and _building.is_built() and _building.type in [Types.Type.LUMBERJACK_HUT,Types.Type.SAWMILL,Types.Type.QUARRY]:
 		var workers: Array = _control.get_workplace_workers(_building.id)
 		resource_lines.append("Работники: %d / %d" % [workers.size(),_building.definition.worker_capacity])
 		for worker in workers: resource_lines.append(worker.resident_name + " — " + preload("res://scripts/resident_profession.gd").display_name(worker.profession))
@@ -98,6 +98,7 @@ func _type_text(category: int) -> String:
 		Types.Type.FOOD: return "Кухня"
 		Types.Type.STORAGE: return "Склад"
 		Types.Type.GATHERER_HUT: return "Хижина собирателя"
+		Types.Type.QUARRY: return "Каменоломня"
 		Types.Type.LUMBERJACK_HUT: return "Хижина лесоруба"
 		Types.Type.SAWMILL: return "Лесопилка"
 		Types.Type.HOME: return "Дом"

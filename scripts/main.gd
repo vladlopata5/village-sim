@@ -492,14 +492,14 @@ func _update_logistics() -> void:
 	if job == null or not job.is_active():
 		summary += "\nЛогистика: нет активной доставки"
 	elif find_resident(job.assigned_resident_id) != null:
-		summary += "\nЛогистика: %s: доставить %d FOOD → %s" % [find_resident(job.assigned_resident_id).resident_name, job.amount, world_locations.get_location(job.destination_location_id).display_name]
+		summary += "\nЛогистика: %s: доставить %d %s → %s" % [find_resident(job.assigned_resident_id).resident_name, job.amount, ResourceType.Type.keys()[job.resource_type], world_locations.get_location(job.destination_location_id).display_name]
 		summary += " • " + preload("res://scripts/haul_job.gd").State.keys()[job.state]
 
 	for active_job in logistics.jobs:
 		if not active_job.is_active(): continue
 		var source_name: String = logistics.sources.label(active_job.source_ref)
 		var destination_name: String = world_locations.get_location(active_job.destination_location_id).display_name
-		summary += "\n%s → %s • %d FOOD • priority: %.0f" % [source_name, destination_name, active_job.amount, active_job.priority]
+		summary += "\n%s → %s • %d %s • priority: %.0f" % [source_name, destination_name, active_job.amount, ResourceType.Type.keys()[active_job.resource_type], active_job.priority]
 	logistics_label.text = summary
 
 func _drop_cargo(resource: ResourceType.Type, amount: int, runtime: ResidentRuntime) -> void:
@@ -534,7 +534,7 @@ func _setup_construction() -> void:
 	construction_panel = preload("res://scripts/construction_panel.gd").new()
 	$HUD.add_child(construction_panel)
 	var definitions: Array = []
-	for category in [BuildingType.Type.HOME, BuildingType.Type.STORAGE, BuildingType.Type.FOOD, BuildingType.Type.GATHERER_HUT, BuildingType.Type.LUMBERJACK_HUT, BuildingType.Type.SAWMILL]:
+	for category in [BuildingType.Type.HOME, BuildingType.Type.STORAGE, BuildingType.Type.FOOD, BuildingType.Type.GATHERER_HUT, BuildingType.Type.LUMBERJACK_HUT, BuildingType.Type.SAWMILL, BuildingType.Type.QUARRY]:
 		definitions.append(BuildingDefinition.for_type(category))
 	construction_panel.setup(definitions)
 	construction_panel.definition_selected.connect(_select_building_definition)
@@ -577,6 +577,10 @@ func _activate_completed_building(building: BuildingInstance) -> void:
 		BuildingType.Type.LUMBERJACK_HUT:
 			building.resources.set_allowed_resource_types([ResourceType.Type.LOG])
 			building.resources.set_capacity(ResourceType.Type.LOG,building.definition.local_resource_capacity)
+			logistics.register_building(building)
+		BuildingType.Type.QUARRY:
+			building.resources.set_allowed_resource_types([ResourceType.Type.STONE])
+			building.resources.set_capacity(ResourceType.Type.STONE,building.definition.local_resource_capacity)
 			logistics.register_building(building)
 		BuildingType.Type.SAWMILL:
 			building.resources.set_allowed_resource_types([ResourceType.Type.LOG,ResourceType.Type.PLANK])

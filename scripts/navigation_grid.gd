@@ -303,3 +303,8 @@ func find_path_to_radius(start: Vector3, center: Vector3, radius: float, inner_r
 # Optional startup preparation. Direct callers receive the same guarantee lazily.
 func prepare_connectivity() -> void:
 	_connectivity.ensure(self)
+
+func can_reach_point(start: Vector3, target: Vector3) -> bool:
+	# Flat connectivity precheck only; positive weighted route still uses existing A*.
+	if not is_world_walkable(start) or not is_world_walkable(target): return false
+	return _connectivity.can_reach_point(self,world_to_cell(start),world_to_cell(target))

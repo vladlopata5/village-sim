@@ -140,3 +140,8 @@ const ROCK_STONE_STOCK := 10
 const ROCK_WORK_MINUTES := 60
 const ROCK_PHYSICAL_RADIUS := 0.9
 const STORAGE_STONE_CAPACITY := 100
+
+# Quarry prototype balance; extraction time/yield remain the rock model.
+const QUARRY_WORKER_CAPACITY := 1
+const QUARRY_WORK_RADIUS := 15.0
+const QUARRY_STONE_CAPACITY := 12

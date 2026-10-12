@@ -7,6 +7,7 @@ var locations: RefCounted
 var ground: Node
 var route_available: Callable
 var _claims: Dictionary = {} # Container reservation ownership, not resource quantities.
+var revision := 0 # Availability generation for transient selection reuse.
 var _queued := false
 func bind_ground(value: Node) -> void:
 	ground = value
@@ -107,6 +108,7 @@ func storage_destinations(source: Source, resource: int, origin: Vector2) -> Arr
 		return da<db or (is_equal_approx(da,db) and String(a.id)<String(b.id)))
 	return result
 func _queue_changed() -> void:
+	revision += 1
 	if _queued: return
 	_queued = true
 	call_deferred("_emit_changed")
@@ -115,14 +117,17 @@ func _emit_changed() -> void:
 	changed.emit()
 
 func find_ground_in_area(resource: int, area: RefCounted, origin: Vector2, destination: Vector2) -> Array:
+	# Rank cheaply first, then stop at first reachable: same selected result, fewer paths.
 	var result: Array = []
 	if not is_instance_valid(ground): return result
 	for drop in ground.drops:
 		if drop.resource_type!=resource or drop.amount<1 or not drop.reservation_owner_id.is_empty() or not area.contains(drop.world_position): continue
-		var source_ref := Source.new(Source.Kind.GROUND,drop.id)
-		if reachable(origin,drop.world_position) and reachable(drop.world_position,destination): result.append(source_ref)
+		result.append(Source.new(Source.Kind.GROUND,drop.id))
 	result.sort_custom(func(a,b):
 		var da: float = origin.distance_to(point(a))+point(a).distance_to(destination)
 		var db: float = origin.distance_to(point(b))+point(b).distance_to(destination)
 		return da<db or (is_equal_approx(da,db) and a.stable_key()<b.stable_key()))
-	return result
+	for source_ref in result:
+		var target: Vector2 = point(source_ref)
+		if reachable(origin,target) and reachable(target,destination): return [source_ref]
+	return []

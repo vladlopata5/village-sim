@@ -321,12 +321,12 @@ func delivery_allowed(job: HaulJob) -> bool:
 	return not captured.is_empty() and captured.job==job and captured.worker.id==job.assigned_resident_id and captured.workplace==destination and captured.resource==job.resource_type and job.workplace_location_id==destination.id and destination.definition.allows_internal_import(job.resource_type)
 func claim_internal(resident_id: String, source_ref: Source, workplace: BuildingInstance, resource: int, eligibility: Callable) -> HaulJob:
 	return claim_transport(resident_id,source_ref,workplace,resource,eligibility,true,Callable(),false,0.0,workplace)
-func claim_worker_export(resident_id: String, workplace: BuildingInstance, destination: BuildingInstance, resource: int, eligibility: Callable = Callable()) -> HaulJob:
+func claim_worker_export(resident_id: String, workplace: BuildingInstance, destination: BuildingInstance, resource: int, eligibility: Callable = Callable(), award_xp: bool = false) -> HaulJob:
 	var resident: ResidentData = _residents.get(resident_id)
 	if not _worker_at(resident,workplace) or destination==null or not allows_external_delivery(workplace,destination,resource): return null
 	var allowed := func(): return _worker_at(resident,workplace) and resident.inventory.amount==0 and (not eligibility.is_valid() or eligibility.call())
-	return claim_transport(resident_id,Source.new(Source.Kind.CONTAINER,workplace.id),destination,resource,allowed)
+	return claim_transport(resident_id,Source.new(Source.Kind.CONTAINER,workplace.id),destination,resource,allowed,true,Callable(),award_xp)
 func claim_own_export(resident_id: String, destination: BuildingInstance) -> HaulJob:
 	var resident: ResidentData = _residents.get(resident_id)
 	if resident==null: return null
-	return claim_worker_export(resident_id,_buildings.get(resident.work_location_id),destination,ResourceType.Type.LOG)
+	return claim_worker_export(resident_id,_buildings.get(resident.work_location_id),destination,ResourceType.Type.LOG,Callable(),true)

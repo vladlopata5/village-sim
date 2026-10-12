@@ -2228,3 +2228,29 @@ claim to the old workplace. Generic worker export requires own authorized workpl
 external export policy and a reachable allowed destination with external import/room.
 Existing forestry LOG exports to Sawmill remain valid; Miner selects Storage/Town Center.
 Profession priorities remain controller-owned. No second transport engine or ledger.
+
+
+## 2026-10-11 — Quarry and BUILDING mining
+Quarry is a normal constructible BuildingInstance: 10 LOG + 5 STONE, 180 work
+minutes, two Builders, 12x8 build cells (6x4 world), one MINER, radius 15 world,
+buffer 12 STONE. Authored layout has one interior WORKER, one interior COURIER,
+one entrance and two exterior CONSTRUCTION places. No automatic production.
+FREE mining is unchanged. BUILDING resolves current Quarry area and chooses
+COLLECT -> MINE -> EXPORT through normal WORK decisions. COLLECT filters Ground
+STONE/unclaimed/in-area before navigation and uses generic INTERNAL HaulExecutor.
+MINE requires room for one STONE but never reserves future inbound: yield remains
+public Ground and ends into normal AI. Later pickup is not guaranteed. Full buffer
+suppresses new mining; EXPORT can free room to resume. Miner selects Storage/Town
+Center; external import to Quarry stays forbidden. Current assignments drive new
+claims, captured actions finish without redirecting cargo. Lost Quarry never implies
+FREE. Skill, schedule, existing recipes and starter stocks remain unchanged.
+
+Quarry COLLECT ranks cheap eligible Ground sources before routes and stops at the
+first reachable source, preserving Euclidean route-distance + stable-ID ordering.
+ResourceSources availability revision invalidates one-use mining selection on same-
+frame Ground claim/release/add/remove; buffer room is also revalidated. Resource route
+checks now reuse NavigationConnectivity point precheck before unchanged positive A*.
+This closes measured negative Ground-route spikes without a backend/scheduler change.
+Forestry COLLECT remains its existing specialized committed lifecycle; its EXPORT
+compatibility wrapper delegates generic export and preserves prior Logistics XP.
+Migrating COLLECT requires a separate lifecycle-focused task, not a copied miner policy.

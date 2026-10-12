@@ -120,7 +120,7 @@ func _setup_construction() -> void:
 	construction_panel = preload("res://scripts/construction_panel.gd").new()
 	$HUD.add_child(construction_panel)
 	var definitions: Array = []
-	for category in [BuildingType.Type.HOME, BuildingType.Type.STORAGE, BuildingType.Type.FOOD, BuildingType.Type.GATHERER_HUT, BuildingType.Type.LUMBERJACK_HUT, BuildingType.Type.SAWMILL]:
+	for category in [BuildingType.Type.HOME, BuildingType.Type.STORAGE, BuildingType.Type.FOOD, BuildingType.Type.GATHERER_HUT, BuildingType.Type.LUMBERJACK_HUT, BuildingType.Type.SAWMILL, BuildingType.Type.QUARRY]:
 		definitions.append(BuildingDefinition.for_type(category))
 	construction_panel.setup(definitions)
 	construction_panel.definition_selected.connect(_select_building_definition)
@@ -403,7 +403,9 @@ func _set_work_area_debug(enabled: bool) -> void:
 	for view in $World/BuildingViews.get_children(): view.set_work_area_debug(enabled)
 
 func _resource_route_available(start: Vector2, target: Vector2) -> bool:
-	return not navigation.find_path(Coordinates.to_world(start),Coordinates.to_world(target)).is_empty()
+	var from_world := Coordinates.to_world(start)
+	var to_world := Coordinates.to_world(target)
+	return navigation.can_reach_point(from_world,to_world) and not navigation.find_path(from_world,to_world).is_empty()
 
 func _create_starting_buildings() -> void:
 	if legacy_reference_setup:

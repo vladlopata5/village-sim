@@ -42,6 +42,7 @@ func construct(world: Node, actor: Node, category: int, point: Vector3):
 func run() -> void:
 	check(not preload("res://scripts/resource_type.gd").Type.has("WOOD"),"Dead WOOD resource removed")
 	for category in Definition.CONSTRUCTION_BALANCE:
+		if category==Types.QUARRY: continue # New mixed recipe tested separately.
 		var definition = Definition.for_type(category)
 		var small: bool = category in [Types.HOME,Types.GATHERER_HUT,Types.LUMBERJACK_HUT]
 		check(definition.construction_requirements == {Resources.PLANK:10 if small else 15},"Every current type uses original amount in PLANK")
