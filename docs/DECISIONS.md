@@ -2457,3 +2457,15 @@ Production layouts currently remain static after setup. Detached setup layouts g
 freed references locally. Static BuildingLayouts3D.markers remains for setup validation,
 geometry and reference comparisons. COURIER broadcasts/waits and cancellation recursion
 are unchanged; this is data access optimization, not a new occupancy manager.
+
+## 2026-10-12 — Porter availability is an existence probe
+has_available_job now scans the same cheap eligibility/scoring rules in enumeration
+order, checking both complete route predicates until the first finite-score reachable
+candidate. Boolean availability does not need ranking or a full candidate pool.
+claim_best_job still builds fresh exact scores, sorts by score/stable key and performs
+the unchanged reservation transaction, revalidation and bounded failed-claim retry.
+No candidate survives the probe; changes to sources, reservations, resident state,
+locations or navigation require no new invalidation framework. Diagnostic enumeration
+is unchanged. Probe route order differs from ranked selection, so an adverse enumeration
+can check more routes; exact claim winners and all resource rules remain unchanged.
+Recalculate validations/callbacks, cancellation recursion and COURIER wakeups are retained.

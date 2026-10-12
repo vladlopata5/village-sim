@@ -117,7 +117,8 @@ func _can_claim(resident: ResidentData) -> bool:
 	var executor = _executors.get(resident.id)
 	return executor == null or executor.can_start()
 func has_available_job(resident_id: String) -> bool:
-	return _first_reachable(resident_id,_cheap_candidates(resident_id)) != null
+	# Availability needs existence, not the best score. Nothing survives this probe.
+	return not _candidate_scan(resident_id,true).is_empty()
 func collect_candidates(resident_id: String) -> Array:
 	# Public diagnostic API still returns ALL fully reachable candidates in enumeration order.
 	var candidates := _cheap_candidates(resident_id)
@@ -139,7 +140,11 @@ func _first_reachable(resident_id: String, candidates: Array, attempted: Diction
 		if not attempted.has(candidate.stable_key()) and _routes_available(candidate,position): return candidate
 	return null
 func _cheap_candidates(resident_id: String) -> Array:
-	# Transient exact scores only; no routes, claims or retained availability state.
+	return _candidate_scan(resident_id,false)
+func _candidate_scan(resident_id: String, first_reachable_only: bool) -> Array:
+	# Shared eligibility/scoring; no claims or retained availability state.
+	# The read-only probe checks routes one candidate at a time and stops at the first.
+	# Claim still builds the full current pool and ranks it by exact score/stable key.
 	var resident: ResidentData = _residents.get(resident_id)
 	if not _can_claim(resident) or not position_provider.is_valid(): return []
 	var position: Variant = position_provider.call(resident_id)
@@ -159,7 +164,10 @@ func _cheap_candidates(resident_id: String) -> Array:
 		candidate.distance_penalty = distance_penalty(candidate.route_distance)
 		candidate.personal_modifier = _get_personal_delivery_modifier(resident, candidate)
 		candidate.porter_score = candidate.world_urgency - candidate.distance_penalty + candidate.personal_modifier
-		if is_finite(candidate.porter_score): candidates.append(candidate)
+		if not is_finite(candidate.porter_score): continue
+		if first_reachable_only:
+			if _routes_available(candidate,position): return [candidate]
+		else: candidates.append(candidate)
 	var base: BuildingInstance = _buildings.get(resident.work_location_id)
 	var base_position: Variant = _point(base) if base != null else null
 	if is_instance_valid(sources.ground) and base_position is Vector2:
@@ -175,7 +183,10 @@ func _cheap_candidates(resident_id: String) -> Array:
 			candidate.distance_penalty = distance_penalty(candidate.route_distance)
 			candidate.personal_modifier = _get_personal_delivery_modifier(resident,candidate)
 			candidate.porter_score = candidate.world_urgency-candidate.distance_penalty+candidate.personal_modifier+Balance.PORTER_GROUND_CLEANUP_BONUS
-			if is_finite(candidate.porter_score): candidates.append(candidate)
+			if not is_finite(candidate.porter_score): continue
+			if first_reachable_only:
+				if _routes_available(candidate,position): return [candidate]
+			else: candidates.append(candidate)
 	return candidates
 func distance_penalty(distance: float) -> float:
 	return pow(distance / Balance.PORTER_DISTANCE_SCALE, 2.0) * Balance.PORTER_DISTANCE_WEIGHT

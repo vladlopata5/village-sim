@@ -1241,3 +1241,12 @@ repeated authored-layout DFS. Ground ID lookup and marker references remain sepa
 owner-managed read indexes; live resource/marker state is authoritative. Normal Porter
 ranking, haul handling, navigation and schedules are unchanged. COURIER broadcast/dedup,
 deep cancellation callbacks and further candidate allocation costs remain separate work.
+
+## 2026-10-12 — Reduce repeated Porter work selection
+Completed: availability uses a short-circuit existence scan with shared cheap eligibility
+and exact scoring, avoiding full-pool allocation/sorting before the fresh ranked claim.
+Exhaustive winner equivalence and normal main_3d decision/pickup/delivery are tested.
+No scheduler, cross-decision cache, resource balance or transport policy changes.
+Separate next steps: investigate recursive recalculate cancellation, then consider AI
+decision distribution across rendered frames and repeat scaling stress tests. Existing
+COURIER broadcasts and per-claim active-job validations have not been optimized here.

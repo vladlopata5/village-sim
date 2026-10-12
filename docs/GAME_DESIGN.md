@@ -2333,3 +2333,9 @@ Each BuildingView3D retains ordered references to its authored layout markers fo
 runtime queries. The actual markers still own occupancy and current transforms;
 removal invalidates references. Entrance/slot safety, portals, capacity and COURIER
 waiting retain their existing rules. No cached availability or gameplay state is added.
+
+## 2026-10-12 — Porter work availability
+The read-only WORK probe stops at the first fully reachable eligible delivery, without
+ranking all offers. Actual claim independently ranks the full current eligible pool
+by the existing exact score and stable key. No reservations occur during availability,
+no availability cache persists, and resource/handling/priority rules are unchanged.
