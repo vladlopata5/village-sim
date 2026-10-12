@@ -1185,3 +1185,16 @@ HaulExecutor now cancels on intent replacement on either leg (including carrying
 closing an existing destination-leg orphan-job gap. Completion already committed wins
 reentrant exit/deposit callbacks; earlier interruptions retain/drop only real cargo.
 Quarry/Miner use the same unchanged INTERNAL admission; no new ledger or scheduler.
+
+
+## 2026-10-12 — Porter exact lazy selection
+Porter ranks transient cheaply eligible deliveries by unchanged geometric score DESC,
+then exact-equality lexical stable_key ASC. Both complete route predicates are checked
+in that order until the first feasible delivery; no candidate-count cutoff or resource
+cache is added. On a stable valid world this is the exhaustive feasible-pool winner.
+Availability is read-only; claim rebuilds current scores and keeps existing transactional
+reservation/revalidation/owned rollback. Failed claims retain attempted keys and finite
+retries bounded by the initial cheap pool (previously the initial feasible pool); no
+unreachable candidate is claimed. Full feasible collect_candidates stays diagnostic.
+DEBUG normal selection reports the chosen feasible candidate rather than constructing
+all routes for logging. Generic HaulExecutor, resource policies and balance are unchanged.
