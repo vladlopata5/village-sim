@@ -44,6 +44,8 @@ func run() -> void:
 	check(world.navigation.revision==nav_revision,"Ground spawn has no navigation rebuild")
 	check(not service.spawn_residents(Vector3(INF,0,0),1,P.BUILDER).ok,"Invalid coordinates")
 	check(not service.spawn_resources(Vector3.ZERO,101,R.LOG).ok,"Quantity bounds")
+	var unassigned: Dictionary=service.spawn_residents(Vector3(0,0,20),1,P.MINER)
+	check(unassigned.created==1 and unassigned.objects[0].profession==P.MINER and unassigned.objects[0].work_location_id.is_empty() and unassigned.objects[0].work_area_id.is_empty(),"Absent Quarry creates legitimate unassigned Miner, no fake area")
 	var stock: int = world.warehouse_data.resources.get_amount(R.PLANK)
 	for index in service.building_catalog().size():
 		var definition = service.building_catalog()[index]
@@ -56,10 +58,16 @@ func run() -> void:
 		check(world.navigation._blockers.has(building.id),"Navigation blocker")
 		check(world.player_control.get_building(building.id)==building,"PlayerControl registration")
 		check(world.building_uses.view(building.id)!=null,"Ordinary authored layout / uses")
+		check(preload("res://scripts/world_3d/building_layouts_3d.gd").validate(world.world_locations.get_view(building.id).layout,definition),"Real WORKER/COURIER/entrance layout capacities")
+		for resource in definition.logistics_flow: check(building.resources.get_capacity(resource)>0,"Normal resource capacity")
 		if not definition.logistics_flow.is_empty(): check(world.logistics._buildings.get(building.id)==building,"Resource container registration")
 		check(not service.spawn_building(C.to_world(building.position),definition).ok,"Overlap rejected")
 		world.resident_selection.select_building(building)
 		check(world.resident_selection.selected_building==building and world.get_node("HUD/BuildingCard")._building==building and world.get_node("HUD/BuildingCard").visible,"Normal BuildingCard selection")
+	var sawyers: Dictionary=service.spawn_residents(Vector3(0,0,-25),2,P.SAWYER)
+	check(sawyers.created==2 and not sawyers.objects[0].work_location_id.is_empty(),"Normal Sawyer assignment uses existing workplace")
+	check(sawyers.objects[1].profession==P.SAWYER and sawyers.objects[1].work_location_id.is_empty(),"Full Sawmill does not create fake assignment")
+	check(unassigned.objects[0].work_location_id.is_empty(),"New Quarry does not auto-relocate existing unassigned Miner")
 	check(world.warehouse_data.resources.get_amount(R.PLANK)==stock,"No material spending")
 	var day: int = world.game_time.total_minutes/1440
 	check(service.advance_to_time(7,0).ok and world.game_time.get_clock_text()=="07:00","Forward clock and WORK phase")

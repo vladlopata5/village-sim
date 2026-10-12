@@ -34,6 +34,9 @@ var legacy_reference_setup := false # Explicit historical integration fixture on
 var entrance_zones = preload("res://scripts/world_3d/building_entrance_zones_3d.gd").new()
 var building_uses = preload("res://scripts/world_3d/building_use_3d.gd").new()
 var settlement_panel: PanelContainer
+var debug_spawn: RefCounted
+var developer_panel: PanelContainer
+var debug_spawn_marker: MeshInstance3D
 var ready_for_play := false
 var _clicks: Array[InputEventMouseButton] = []
 var _pointer_position := Vector2.ZERO
@@ -76,6 +79,25 @@ func _ready() -> void:
 	_setup_roads()
 	navigation.prepare_connectivity() # Once after all initial world registration.
 	ready_for_play = true
+	if OS.is_debug_build():
+		debug_spawn=preload("res://scripts/debug_spawn_service.gd").new()
+		debug_spawn.world=self
+		developer_panel=preload("res://scripts/debug_panel.gd").new()
+		$HUD.add_child(developer_panel)
+		developer_panel.setup(debug_spawn)
+		developer_panel.placement_started.connect(_start_debug_placement)
+		developer_panel.placement_cancelled.connect(_clicks.clear)
+		debug_spawn_marker=MeshInstance3D.new()
+		var marker_mesh := PlaneMesh.new()
+		marker_mesh.size=Vector2(0.8,0.8)
+		debug_spawn_marker.mesh=marker_mesh
+		var marker_material := StandardMaterial3D.new()
+		marker_material.albedo_color=Color(1.0,0.8,0.1)
+		marker_material.shading_mode=BaseMaterial3D.SHADING_MODE_UNSHADED
+		debug_spawn_marker.material_override=marker_material
+		$World.add_child(debug_spawn_marker)
+		debug_spawn_marker.hide()
+		developer_panel.placement_cancelled.connect(debug_spawn_marker.hide)
 func _create_resident_presentation(data: ResidentData, start: Vector2) -> Node:
 	var executor = Executor.new()
 	executor.name = "ResidentExecutor_" + data.id
@@ -145,6 +167,7 @@ func _setup_roads() -> void:
 	_road_button.pressed.connect(_select_road_tool)
 	construction_panel.building_buttons.add_child(_road_button)
 func _select_road_tool() -> void:
+	_cancel_debug_placement()
 	_cancel_work_area()
 	if road_tool.active:
 		_cancel_road_tool()
@@ -160,10 +183,18 @@ func _cancel_road_tool() -> void:
 	_road_events.clear()
 	if _road_button!=null: _road_button.button_pressed=false
 func _select_building_definition(definition: BuildingDefinition) -> void:
+	_cancel_debug_placement()
 	_cancel_work_area()
 	_cancel_road_tool()
 	super._select_building_definition(definition)
 func _process(_delta: float) -> void:
+	if debug_spawn_marker!=null:
+		debug_spawn_marker.hide()
+		if developer_panel.active() and get_viewport().gui_get_hovered_control()==null:
+			var debug_hit := ground_pick(_pointer_position)
+			if debug_hit.has("position"):
+				debug_spawn_marker.global_position=debug_hit.position+Vector3(0,0.03,0)
+				debug_spawn_marker.show()
 	if work_area_tool.active() and not work_area_tool.locked:
 		var area_hit := ground_pick(_pointer_position)
 		if area_hit.has("position"): work_area_tool.update_world(area_hit.position)
@@ -217,6 +248,11 @@ func _input(event: InputEvent) -> void:
 		_road_events.append({"end":true}) # Never interpolate across a UI-covered gap.
 func _unhandled_input(event: InputEvent) -> void:
 	if not ready_for_play: return
+	if developer_panel!=null and developer_panel.active():
+		if event is InputEventMouseButton and event.pressed and event.button_index in [MOUSE_BUTTON_LEFT,MOUSE_BUTTON_RIGHT]:
+			_clicks.append(event)
+			get_viewport().set_input_as_handled()
+		return
 	if work_area_tool.active():
 		if event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE: _cancel_work_area()
 		elif event is InputEventKey and event.pressed and event.keycode == KEY_ENTER: _confirm_work_area()
@@ -261,7 +297,7 @@ func _physics_process(_delta: float) -> void:
 			if hit.has("position"): road_tool.paint(hit.position,event.erase)
 			else: road_tool.end_stroke()
 	_road_events.clear()
-	for event in _clicks: handle_world_click(event.button_index, ground_pick(event.position) if placement.is_active() or work_area_tool.active() else pick(event.position), event.position)
+	for event in _clicks: handle_world_click(event.button_index, ground_pick(event.position) if placement.is_active() or work_area_tool.active() or (developer_panel!=null and developer_panel.active()) else pick(event.position), event.position)
 	_clicks.clear()
 func pick(screen_position: Vector2) -> Dictionary:
 	var camera: Camera3D = $World/Camera3D
@@ -274,6 +310,13 @@ func pick(screen_position: Vector2) -> Dictionary:
 		if not hit.is_empty(): return hit
 	return {}
 func handle_world_click(button: int, hit: Dictionary, screen: Vector2 = Vector2.ZERO) -> void:
+	if developer_panel!=null and developer_panel.active():
+		if button==MOUSE_BUTTON_RIGHT: developer_panel.cancel_placement()
+		elif button==MOUSE_BUTTON_LEFT:
+			if hit.has("position"): developer_panel.confirm_world(hit.position)
+			else: developer_panel._show_result(debug_spawn.rejected("Нет попадания по земле внутри карты"))
+		if not developer_panel.active(): debug_spawn_marker.hide()
+		return
 	if work_area_tool.active():
 		if button == MOUSE_BUTTON_RIGHT: _cancel_work_area()
 		elif button == MOUSE_BUTTON_LEFT and hit.has("position"):
@@ -422,6 +465,7 @@ func _create_starting_home(data: ResidentData, index: int) -> void:
 	if legacy_reference_setup: _create_legacy_home(data,index)
 
 func _start_work_area(resident_id: String) -> void:
+	_cancel_debug_placement()
 	var resident = player_control.get_resident(resident_id)
 	if resident == null or resident.profession not in [Profession.Type.LUMBERJACK,Profession.Type.MINER]: return
 	placement.cancel()
@@ -521,3 +565,12 @@ func register_spawned_resident(data: ResidentData, point: Vector3) -> ResidentRu
 	player_control.setup(residents,buildings)
 	population_label.text="Жителей: %d" % residents.size()
 	return runtime
+
+func _start_debug_placement() -> void:
+	_cancel_work_area()
+	_cancel_road_tool()
+	placement.cancel()
+	_clicks.clear()
+	interaction_menu.hide()
+func _cancel_debug_placement() -> void:
+	if developer_panel!=null and developer_panel.active(): developer_panel.cancel_placement()

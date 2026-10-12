@@ -2291,3 +2291,32 @@ retries bounded by the initial cheap pool (previously the initial feasible pool)
 unreachable candidate is claimed. Full feasible collect_candidates stays diagnostic.
 DEBUG normal selection reports the chosen feasible candidate rather than constructing
 all routes for logging. Generic HaulExecutor, resource policies and balance are unchanged.
+
+
+## 2026-10-12 — Development Debug Panel (F10)
+Canonical main_3d has a development-only panel guarded by OS.is_debug_build(). F10
+opens/closes it. Select Residents (1–50, existing professions), Ground resources
+(1–100 individual FOOD/LOG/PLANK/STONE), or an authored buildable building, then
+Create and LMB on ground. Esc/RMB cancels; successful spawn ends placement. A yellow
+cursor marker indicates the prospective point. UI clicks do not issue world commands;
+road/build/work-area and debug placement modes exclude each other. Paused placement
+is supported. Existing resident/building cards remain the normal inspection UI.
+
+DebugSpawnService validates requests and delegates shared resident runtime registration,
+GroundResources.create_drop and _show_building/_activate_completed_building. Residents
+use normal AI/needs/social/logistics/natural controllers and PlayerControl assignment
+rules; unavailable workplace leaves the chosen profession unassigned and is reported.
+No work area is created automatically. Buildings start BUILT without filling construction
+ledgers/material cost, but retain normal layouts/entrances/slots/containers and validated
+BuildGrid/NavigationGrid/physical occupancy. Ordinary construction is unchanged.
+No alternative data/runtime/ledger/navigation/clock exists. Batch points use bounded
+local square rings; partially blocked batches report the actual created count. No path
+search or nav rebuild per Ground unit. Trees/rocks are not added to this panel version.
+
+Time tab uses existing pause/speeds and new small GameTime developer entry points
+debug_set_time_of_day/debug_next_day through the existing minute-advance pipeline. Set HH:MM advances only
+forward to its next occurrence (same time is a no-op); Next Day advances to next 00:00.
+Every minute/phase event is retained, so deadlines never rewind. These synchronous
+debug jumps may take time with many residents; they do not simulate physical walking
+between frames. Use x1–x20 for physical work/transport tests. Release builds expose
+neither the panel nor debug-spawn/time commands. No mass deletion or state saving.
