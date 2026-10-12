@@ -78,10 +78,19 @@ func run() -> void:
 	queue.decisions_per_frame = 3
 	for index in 8: queue.request(str(index), actors[index], "budget")
 	await process_frame
-	var before: int = queue.executed
+	var budget_before: int = queue.executed
 	queue._process(0)
 	queue._process(0)
-	check(queue.executed == before + 3 and queue.pending_count() == 5, "Configured budget and one drain per frame")
+	check(queue.executed == budget_before + 3 and queue.pending_count() == 5, "Configured budget and one drain per frame")
+	queue.clear()
+	queue.decisions_per_frame = 1
+	order.clear()
+	for index in 5: queue.request(str(index), actors[index], "earlier")
+	for index in 5:
+		queue.request("new%d" % index, actors[10+index], "continuous arrivals")
+		await process_frame
+		queue._process(0)
+	check(order == range(5), "Continuous new arrivals cannot displace earlier FIFO entries")
 	queue.clear()
 	check(queue.pending_count() == 0, "Teardown clear")
 	for actor in actors:

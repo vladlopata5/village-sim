@@ -2488,3 +2488,28 @@ no pass-count cutoff, deferred safety fix, scheduler or change to claim/cancel o
 Production workflow validation predicates remain read-only. A listener that creates
 endless actual state changes cannot have a finite synchronous quiescent result; such
 feedback must be fixed at that listener, not hidden by dropping pending mutations.
+
+## 2026-10-12 — Frame-budgeted ordinary AI decisions (Porter first)
+Canonical Main3D creates one AIDecisionDispatcher through runtime wiring; authored
+scenes are unchanged. A FIFO queue stores resident ID, weak receiver identity, reason
+and assignment/phase context, never candidates, jobs or reservations. Duplicate requests
+retain their queue position. Reentrant echoes of an executing/already-handled resident
+do not create another decision in the same drain. Production budget is one request per
+real process frame, including rejected stale requests; GameTime minute catchup cannot
+spend another budget. Paused trees preserve requests without processing them.
+
+Only daytime ordinary Porter decisions use this queue. Before has_work/UtilitySelector,
+requests enter the budget; deferred logistics availability no longer probes Porter work
+outside it. On execution DecisionController checks current phase, profession, workplace,
+runtime registration identity, owned haul and its existing action/critical guards, then
+runs the existing selector/provider against the current world. Player commands, critical
+needs, unsafe job cancellation, claims/rollback and active hauling stay synchronous.
+Assignment changes, commands, phase exit and runtime teardown invalidate pending work.
+Other professions and the legacy 2D runtime retain their synchronous decision paths.
+Synchronous prepare_for_work and read-only social priority checks retain their contracts.
+
+Different Porter may now compete for sources in a different order. Each individual
+decision retains exact lazy score/stable-key selection and fresh transactional claims.
+No reserve is taken on enqueue. One decision itself remains synchronous and may cause
+a residual spike; the dispatcher is not an async search or haul scheduler. Connecting
+another profession later requires auditing its synchronous contracts and guards first.

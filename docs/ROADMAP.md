@@ -1258,3 +1258,16 @@ claim rollback, no-change notification feedback, new/removed executors and real
 occupied/waiting COURIER cleanup have targeted coverage. No resource or haul-rule changes.
 Remaining separate work: AI decision distribution across real frames, COURIER broadcast
 amplification and further stress/scaling assessment. No AI time slicing is implemented.
+
+## 2026-10-12 — Ordinary AI dispatcher: initial Porter integration
+Completed: shared real-frame FIFO/dedup dispatcher, current-state revalidation, pause,
+command/critical bypass and ordinary daytime Porter wiring before expensive availability.
+Production default is one request/frame. Real Main3D tests cover mass WORK, exact fresh
+claims, notifications, schedule/assignment changes, stale runtime, physical delivery and
+synchronous safety cleanup. Benchmarks compare complete waves and limits 1/2/3, separately
+for headless and rendered runs; lower WORK boundary alone is not treated as total speedup.
+
+Other professions are not connected yet. Future integrations need their own contract
+and urgency audit. Residual single-decision cost, active-haul validation, COURIER broadcast
+amplification and synchronous developer time jumps remain separate investigations.
+No navigation, resource, handling, priority or production balance changes in this stage.

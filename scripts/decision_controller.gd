@@ -37,6 +37,19 @@ var last_selection: Dictionary = {}
 var _work_selected := false
 var work_available: Callable
 var work_request: Callable
+var queued_work_valid: Callable
+var _dispatcher: WeakRef
+
+func bind_dispatcher(dispatcher: Node) -> void:
+	_cancel_queued_decision()
+	_dispatcher = weakref(dispatcher) if is_instance_valid(dispatcher) else null
+
+func _cancel_queued_decision() -> void:
+	if _dispatcher == null or _data == null: return
+	var dispatcher: Node = _dispatcher.get_ref()
+	if is_instance_valid(dispatcher): dispatcher.cancel(_data.id, self)
+
+func _exit_tree() -> void: _cancel_queued_decision()
 
 func setup(clock: Node, data: RefCounted, intents: Node, needs: Node, schedule: Node) -> void:
 	_clock = clock
@@ -169,14 +182,32 @@ func _decision_debug_text(selected: String, unavailable: Array) -> String:
 	return text.replace("EAT priority=", "EAT hunger=%d utility=" % _data.hunger)
 
 func request_decision(_reason: String = "free") -> void:
-	if _intents.player_controlled: return
-	if _deciding: return
-	if _work_cycle_active and _data.activity == Activity.Type.WORKING: return
+	if not _can_decide(): return
+	if _data.profession == Profession.Type.PORTER and _clock.get_phase() == "День" and _dispatcher != null:
+		var dispatcher: Node = _dispatcher.get_ref()
+		if is_instance_valid(dispatcher):
+			dispatcher.request(_data.id, self, _reason, {"workplace": _data.work_location_id, "phase": _clock.get_phase()})
+			return
+	_decide_now()
+
+func execute_queued_decision(_reason: String, context: Dictionary) -> bool:
+	if _data.profession != Profession.Type.PORTER or _clock.get_phase() != context.phase or _data.work_location_id != context.workplace: return false
+	if queued_work_valid.is_valid() and not queued_work_valid.call(): return false
+	if not _can_decide(): return false
+	_decide_now()
+	return true
+
+func _can_decide() -> bool:
+	if _intents.player_controlled: return false
+	if _deciding: return false
+	if _work_cycle_active and _data.activity == Activity.Type.WORKING: return false
 	if not _intents.has_current_action() and _data.hunger == 100 and _needs.has_food_action():
 		_critical_hunger_attempted = false
 	check_critical()
-	if _intents.has_current_action() or _data.activity == Activity.Type.SLEEPING: return
-	if _clock.get_phase() != _schedule.get_phase(): return # phase_changed owns this boundary.
+	if _intents.has_current_action() or _data.activity == Activity.Type.SLEEPING: return false
+	return _clock.get_phase() == _schedule.get_phase() # phase_changed owns this boundary.
+
+func _decide_now() -> void:
 	_next_decision_at = _clock.total_minutes + IDLE_MINUTES
 	if _clock.get_phase() == "Ночь":
 		_schedule.resume_current_phase()
@@ -226,6 +257,7 @@ func get_committed_work_assignment() -> Dictionary:
 	return _work_assignment if _work_cycle_active and _data.activity == Activity.Type.WORKING else {}
 
 func _on_intent_changed(_intent: Intent) -> void:
+	if _intents.has_current_action(): _cancel_queued_decision()
 	if _data.activity != Activity.Type.WORKING: _end_work_cycle("смена действия")
 
 func capture_work_assignment(intent: Intent, resident: RefCounted) -> void:
@@ -249,6 +281,7 @@ func _on_minute(minute: int) -> void:
 		request_decision("idle_completed")
 
 func _on_phase(phase: String) -> void:
+	if phase != "День": _cancel_queued_decision()
 	if phase != "День": _end_work_cycle("смена распорядка")
 	request_decision("phase_changed")
 

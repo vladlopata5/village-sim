@@ -53,6 +53,7 @@ var interaction_menu: PanelContainer
 var _ground_ids: Dictionary = {}
 var residents: Array[ResidentData] = []
 var resident_runtimes: Array[ResidentRuntime] = []
+var decision_dispatcher: Node
 var population_label: Label
 @onready var game_time = $GameTime
 @onready var field = $World/Field
@@ -302,7 +303,7 @@ func find_resident(resident_id: String) -> ResidentData:
 
 func get_resident_runtime(data: ResidentData) -> ResidentRuntime:
 	for runtime in resident_runtimes:
-		if runtime.data == data:
+		if is_instance_valid(runtime) and runtime.data == data:
 			return runtime
 	return null
 
@@ -594,6 +595,11 @@ func _refresh_porter_availability() -> void:
 	_logistics_notification_pending = false
 	for runtime in resident_runtimes:
 		if not is_instance_valid(runtime) or not is_instance_valid(runtime.decision): continue
+		if runtime.data.profession == Profession.Type.PORTER and is_instance_valid(decision_dispatcher):
+			# Do not run a route/availability probe before entering the frame budget.
+			if runtime.data.activity == preload("res://scripts/resident_activity.gd").Type.IDLE and not runtime.intents.has_current_action():
+				runtime.decision.request_decision("logistics_available")
+			continue
 		if runtime.data.profession in [Profession.Type.PORTER,Profession.Type.SAWYER,Profession.Type.GATHERER,Profession.Type.LUMBERJACK,Profession.Type.MINER] and runtime.data.activity == preload("res://scripts/resident_activity.gd").Type.IDLE and not runtime.intents.has_current_action() and (runtime.data.profession in [Profession.Type.LUMBERJACK,Profession.Type.MINER] or _work_available(runtime)):
 			runtime.decision.request_decision("logistics_available")
 
@@ -658,6 +664,13 @@ func _bind_resident_control(runtime: ResidentRuntime) -> void:
 	runtime.decision.work_available = _work_available.bind(runtime)
 	runtime.decision.work_request = _request_work.bind(runtime)
 	runtime.schedule.work_decision = runtime.decision.request_decision
+	if is_instance_valid(decision_dispatcher):
+		runtime.decision.bind_dispatcher(decision_dispatcher)
+		runtime.decision.queued_work_valid = _queued_work_valid.bind(runtime)
+
+func _queued_work_valid(runtime: ResidentRuntime) -> bool:
+	# Registration identity and an already-owned haul are cheap guards, not a new eligibility policy.
+	return get_resident_runtime(find_resident(runtime.data.id)) == runtime and logistics.get_job(runtime.data.id) == null
 
 func _bind_resident_social(runtime: ResidentRuntime) -> void:
 	social_world.register(runtime)

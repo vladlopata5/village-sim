@@ -257,6 +257,7 @@ func integration() -> void:
 	world.game_time.total_minutes=419
 	for actor in actors: actor.decision._deciding=false
 	world.game_time.advance(1.0)
+	for frame in 4: await process_frame # Two normal Porter decisions now spend separate frame budgets.
 	var committed: Array=[]
 	for actor in actors:
 		actor.decision._deciding=true

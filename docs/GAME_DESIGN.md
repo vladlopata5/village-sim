@@ -2348,3 +2348,17 @@ resource/handling/portal cleanup is unchanged. A cancellation callback can obser
 other jobs still in cleanup; aggregate decisions use the existing deferred AI refresh.
 All jobs/reservations are consistent before the outer recalculation returns. Porter
 selection, resource priorities, schedules and COURIER service rules are unchanged.
+
+## 2026-10-12 — Ordinary Porter decision timing
+Main3D distributes ordinary daytime Porter decisions through a shared FIFO dispatcher,
+one request per real frame. Repeated availability notifications coalesce per resident.
+Pause stops the queue; x1/x4/x20 share the same frame budget. A waiting resident uses
+current schedule, assignment, needs, commands and resources when its turn arrives.
+Commands and critical needs remain immediate; current haul execution/COURIER, safety
+cancellation and resource transactions do not wait for the decision queue.
+
+This adds a small real-time delay and can change which Porter wins a particular source.
+Score formulas, resource exclusivity, quantities, utility weights and other professions
+are unchanged. Game-time delay grows with speed: a measured 30-Porter headless realtime
+wave took roughly 0.29 seconds; the last Porter waited 0/1/5 game minutes on x1/x4/x20.
+These are measurements on one machine, not timing guarantees. Legacy 2D stays synchronous.

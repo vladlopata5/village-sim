@@ -6,16 +6,18 @@ var _pending: Dictionary = {}
 var _last_frame := -1
 var _draining := false
 var _executing: Node
+var _handled_ids: Dictionary = {}
 var requests := 0
 var duplicates := 0
 var executed := 0
 var discarded := 0
+var cancelled := 0
 var peak_pending := 0
 
 func request(id: String, receiver: Node, reason: String, context: Dictionary = {}) -> bool:
 	requests += 1
 	if not is_instance_valid(receiver) or not receiver.is_inside_tree(): return false
-	if receiver == _executing:
+	if receiver == _executing or (_draining and _handled_ids.has(id)):
 		duplicates += 1
 		return false
 	if _pending.has(id):
@@ -35,6 +37,7 @@ func cancel(id: String, receiver: Node = null) -> void:
 	if receiver != null and entry.receiver.get_ref() != receiver: return
 	_pending.erase(id)
 	_queue.erase(entry)
+	cancelled += 1
 
 func pending_count() -> int: return _queue.size()
 
@@ -51,11 +54,13 @@ func _process(_delta: float) -> void:
 	if _last_frame == frame: return
 	_last_frame = frame
 	_draining = true
+	_handled_ids.clear()
 	var count := mini(maxi(1, decisions_per_frame), _queue.size())
 	for index in count:
 		if _queue.is_empty() or not is_inside_tree() or get_tree().paused: break
 		var entry: Dictionary = _queue.pop_front()
 		_pending.erase(entry.id)
+		_handled_ids[entry.id] = true
 		var receiver: Node = entry.receiver.get_ref()
 		if not is_instance_valid(receiver) or not receiver.is_inside_tree() or receiver.is_queued_for_deletion():
 			discarded += 1

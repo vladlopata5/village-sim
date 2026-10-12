@@ -41,6 +41,9 @@ var ready_for_play := false
 var _clicks: Array[InputEventMouseButton] = []
 var _pointer_position := Vector2.ZERO
 func _ready() -> void:
+	decision_dispatcher = preload("res://scripts/ai_decision_dispatcher.gd").new()
+	decision_dispatcher.name = "AIDecisionDispatcher"
+	add_child(decision_dispatcher)
 	world_locations = preload("res://scripts/world_3d/building_locations_3d.gd").new()
 	world_locations.navigation = navigation
 	building_uses.navigation = navigation
@@ -489,13 +492,14 @@ func _confirm_work_area() -> void:
 	_cancel_work_area()
 var _work_updates: Dictionary = {}
 func _work_assignment_updated(id: String) -> void:
+	decision_dispatcher.cancel(id)
 	if _work_updates.has(id): return
 	_work_updates[id] = true
 	_flush_work_update.call_deferred(id)
 func _flush_work_update(id: String) -> void:
 	_work_updates.erase(id)
 	for runtime in resident_runtimes:
-		if runtime.data.id == id and not runtime.intents.has_current_action(): runtime.decision.request_decision("work_assignment")
+		if is_instance_valid(runtime) and is_instance_valid(runtime.decision) and runtime.data.id == id and not runtime.intents.has_current_action(): runtime.decision.request_decision("work_assignment")
 func _work_areas_updated() -> void:
 	for runtime in resident_runtimes:
 		if not runtime.data.work_area_id.is_empty(): _work_assignment_updated(runtime.data.id)

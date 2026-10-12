@@ -127,6 +127,7 @@ func run() -> void:
 		var porter_actor = world.get_resident_runtime(data)
 		porter_actor.decision._deciding=false
 		porter_actor.decision.request_decision("debug_settlement")
+		for frame in 3: await process_frame # Ordinary Porter choice is frame-budgeted.
 		porter_actor.decision._deciding=true
 		var job = world.logistics.get_job(data.id)
 		check(job!=null,"Spawned Porter chooses ordinary WORK")

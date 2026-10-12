@@ -203,6 +203,8 @@ func integration() -> void:
 	actor.decision._deciding=false
 	world.game_time.total_minutes=419
 	world.game_time.advance(1.0)
+	check(world.logistics.get_job(actor.data.id)==null,"WORK request is queued before claim")
+	for frame in 3: await process_frame
 	var job=world.logistics.get_job(actor.data.id)
 	check(job!=null and job.state==Job.State.GOING_TO_SOURCE,"Normal 07:00 WORK decision starts real haul")
 	check(world.logistics.pools-pools==1,"Real decision builds full pool only for claim")
