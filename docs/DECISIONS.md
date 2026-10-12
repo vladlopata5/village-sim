@@ -2469,3 +2469,22 @@ locations or navigation require no new invalidation framework. Diagnostic enumer
 is unchanged. Probe route order differs from ranked selection, so an adverse enumeration
 can check more routes; exact claim winners and all resource rules remain unchanged.
 Recalculate validations/callbacks, cancellation recursion and COURIER wakeups are retained.
+
+## 2026-10-12 — Synchronous nonrecursive logistics recalculation
+Approved contract: job_cancelled and cargo-drop order during bulk cancellation may
+change. Each cancelled owner's cleanup precedes its notification, but listeners can
+still see other jobs/inbound awaiting cancellation. Only the outer recalculate return
+guarantees the complete synchronous drain. Main cancellation/availability subscribers
+defer AI decisions; cargo drop uses its own resident; HUD reads current active jobs.
+None requires the former reverse recursive unwinding order.
+
+Nested recalculate requests set pending rather than start another full scan. The outer
+call repeats scans synchronously, using a snapshot of executor keys and current owners/
+jobs. Claiming guards retain pending requests until the existing success/rollback flush.
+Resource/building/job events advance a local notification generation, without copying
+domain state. A no-change notification listener's request is revalidated but does not
+echo the same notification again; separate explicit refreshes still notify. There is
+no pass-count cutoff, deferred safety fix, scheduler or change to claim/cancel ownership.
+Production workflow validation predicates remain read-only. A listener that creates
+endless actual state changes cannot have a finite synchronous quiescent result; such
+feedback must be fixed at that listener, not hidden by dropping pending mutations.

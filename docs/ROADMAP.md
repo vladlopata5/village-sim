@@ -1250,3 +1250,11 @@ No scheduler, cross-decision cache, resource balance or transport policy changes
 Separate next steps: investigate recursive recalculate cancellation, then consider AI
 decision distribution across rendered frames and repeat scaling stress tests. Existing
 COURIER broadcasts and per-claim active-job validations have not been optimized here.
+
+## 2026-10-12 — Logistics recalculate reentrancy
+Completed: repeated requests are drained in synchronous pending passes, eliminating
+recursive full validation scans during mass cancellation. Approved callback ordering,
+claim rollback, no-change notification feedback, new/removed executors and real
+occupied/waiting COURIER cleanup have targeted coverage. No resource or haul-rule changes.
+Remaining separate work: AI decision distribution across real frames, COURIER broadcast
+amplification and further stress/scaling assessment. No AI time slicing is implemented.

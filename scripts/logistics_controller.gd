@@ -35,10 +35,13 @@ var _clock: Node
 var _locations: RefCounted
 var _next_id := 1
 var _claiming := false
+var _recalculating := false
+var _recalculate_pending := false
+var _recalculate_revision := 0 # Notification generation, not a copy of resource state.
 
 func setup(source: BuildingInstance, destination: BuildingInstance, resident: ResidentData) -> void:
 	sources.buildings = _buildings
-	if not sources.changed.is_connected(recalculate): sources.changed.connect(recalculate)
+	if not sources.changed.is_connected(_on_state_changed): sources.changed.connect(_on_state_changed)
 	_source = source
 	_destination = destination
 	_resident = resident
@@ -50,8 +53,8 @@ func register_building(building: BuildingInstance) -> void:
 	_buildings[building.id] = building
 	building.resources.availability_changed.connect(_on_amount_changed)
 	building.resources.reservations_changed.connect(_on_reservations_changed)
-	building.construction_changed.connect(recalculate)
-	recalculate()
+	building.construction_changed.connect(_on_state_changed)
+	_on_state_changed()
 func remove_building(id: StringName) -> void:
 	var building: BuildingInstance = _buildings.get(id)
 	if building == null: return
@@ -62,25 +65,45 @@ func remove_building(id: StringName) -> void:
 			else: cancel_job(active)
 	building.resources.availability_changed.disconnect(_on_amount_changed)
 	building.resources.reservations_changed.disconnect(_on_reservations_changed)
-	building.construction_changed.disconnect(recalculate)
+	building.construction_changed.disconnect(_on_state_changed)
 	_buildings.erase(id)
 	for executor in _executors.values(): executor.validate_job()
-	recalculate()
+	_on_state_changed()
 func add_production_source(hut: BuildingInstance) -> void: register_building(hut)
 func add_kitchen(kitchen: BuildingInstance) -> void: register_building(kitchen)
 func add_warehouse(warehouse: BuildingInstance) -> void: register_building(warehouse)
 func register_resident(resident: ResidentData) -> void: _residents[resident.id] = resident
 func _on_amount_changed(_resource: ResourceType.Type, _amount: int) -> void:
-	recalculate()
+	_on_state_changed()
 func _on_reservations_changed(_resource: ResourceType.Type) -> void:
+	_on_state_changed()
+func _on_state_changed() -> void:
+	_recalculate_revision += 1
 	recalculate()
 func recalculate() -> void:
-	# Explicit debug refresh / local events only. No clock polling or job creation.
-	if _claiming: return
-	for executor in _executors.values():
-		if executor.job != null: executor.validate_job()
-	changed.emit()
-	availability_changed.emit()
+	# Nested calls request another synchronous pass, never another full call stack.
+	_recalculate_pending = true
+	if _claiming or _recalculating: return
+	_recalculating = true
+	var notified_revision := -1
+	while _recalculate_pending:
+		_recalculate_pending = false
+		_validate_active_jobs()
+		if notified_revision != _recalculate_revision:
+			notified_revision = _recalculate_revision
+			changed.emit()
+			availability_changed.emit()
+		elif logger != null:
+			logger.debug(EventLog.LOGISTICS,"Пересчёт: повторный запрос проверен без повторного уведомления")
+		# A listener may request a refresh without changing anything. Validate it,
+		# but do not echo the same notification again and cause an endless loop.
+	_recalculating = false
+func _validate_active_jobs() -> void:
+	# Callbacks can register an executor or remove/replace a job while we iterate.
+	# Keys are a local snapshot; each owner/job is read again immediately before use.
+	for resident_id in _executors.keys():
+		var executor = _executors.get(resident_id)
+		if executor != null and executor.job != null: executor.validate_job()
 func allows_external_delivery(source: BuildingInstance, destination: BuildingInstance, resource: int) -> bool:
 	if source == null or destination == null or source == destination: return false
 	if _buildings.get(source.id) != source or _buildings.get(destination.id) != destination: return false
@@ -297,7 +320,7 @@ func get_job(resident_id: String) -> HaulJob:
 func finish_job(job: HaulJob) -> void:
 	_internal.erase(job.id)
 	jobs.erase(job)
-	recalculate()
+	_on_state_changed()
 func cancel_job(job: HaulJob) -> bool:
 	if job == null or job not in jobs or not job.is_active() or job.state in [HaulJob.State.CARRYING, HaulJob.State.GOING_TO_DESTINATION]: return false
 	var executor = _executors.get(job.assigned_resident_id)

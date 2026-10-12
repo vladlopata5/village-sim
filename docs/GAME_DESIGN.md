@@ -2339,3 +2339,12 @@ The read-only WORK probe stops at the first fully reachable eligible delivery, w
 ranking all offers. Actual claim independently ranks the full current eligible pool
 by the existing exact score and stable key. No reservations occur during availability,
 no availability cache persists, and resource/handling/priority rules are unchanged.
+
+## 2026-10-12 — Bulk logistics cancellation
+Recalculation drains invalid hauls synchronously through iterative pending passes,
+without a stack proportional to the number of cancellations. Cancellation order may
+follow current executor processing rather than reverse recursive unwinding. Per-worker
+resource/handling/portal cleanup is unchanged. A cancellation callback can observe
+other jobs still in cleanup; aggregate decisions use the existing deferred AI refresh.
+All jobs/reservations are consistent before the outer recalculation returns. Porter
+selection, resource priorities, schedules and COURIER service rules are unchanged.
