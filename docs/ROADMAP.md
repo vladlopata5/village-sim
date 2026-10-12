@@ -1234,3 +1234,10 @@ resolve scans while preserving ordered candidate enumeration and resource lifecy
 This does not make the entire Porter candidate search O(1). Marker reference reuse is
 the next separate optimization; COURIER broadcasts and cancellation recursion remain
 outside this step. No resource stacks, balance changes or new scheduler.
+
+## 2026-10-12 — Logistics lookup optimization: building markers
+Completed per-view marker reference reuse for runtime action/slot resolution, replacing
+repeated authored-layout DFS. Ground ID lookup and marker references remain separate
+owner-managed read indexes; live resource/marker state is authoritative. Normal Porter
+ranking, haul handling, navigation and schedules are unchanged. COURIER broadcast/dedup,
+deep cancellation callbacks and further candidate allocation costs remain separate work.

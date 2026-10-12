@@ -2327,3 +2327,9 @@ GroundResource objects as ordered enumeration. The index does not copy quantitie
 positions, resource types or claims and supports existing quantities greater than one.
 Removal/expiration/final pickup invalidates the ID. Transport, reservations, Porter
 ranking and all production rules remain unchanged; stack merging is not implemented.
+
+## 2026-10-12 — Building marker lookup
+Each BuildingView3D retains ordered references to its authored layout markers for
+runtime queries. The actual markers still own occupancy and current transforms;
+removal invalidates references. Entrance/slot safety, portals, capacity and COURIER
+waiting retain their existing rules. No cached availability or gameplay state is added.

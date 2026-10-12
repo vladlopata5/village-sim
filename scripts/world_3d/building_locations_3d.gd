@@ -25,7 +25,7 @@ func resolve_action_position(building: RefCounted) -> Variant:
 		if not building.is_built():
 			var target_view = uses.view(building.id)
 			if target_view==null: return null
-			for marker in preload("res://scripts/world_3d/building_layouts_3d.gd").markers(target_view.layout,preload("res://scripts/world_3d/building_slot_3d.gd")):
+			for marker in target_view.get_markers(preload("res://scripts/world_3d/building_slot_3d.gd")):
 				if marker.purpose==Purpose.CONSTRUCTION and navigation.is_world_walkable(marker.global_position): return Coordinates.to_sim(marker.global_position)
 		if entry is Vector3: return Coordinates.to_sim(entry)
 		return null

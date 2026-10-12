@@ -6,6 +6,8 @@ var indicator: MeshInstance3D
 var material: StandardMaterial3D
 var work_area: MeshInstance3D
 var layout: Node3D
+var _indexed_layout_id := 0
+var _marker_groups: Dictionary = {} # Script -> ordered node references, never occupancy.
 var inside_count := 0
 var caption: Label3D
 func setup(data: RefCounted) -> void:
@@ -49,6 +51,7 @@ func setup(data: RefCounted) -> void:
 	layout = preload("res://scripts/world_3d/building_layouts_3d.gd").create(data.definition)
 	layout.rotation.y = data.quarter_turns*PI/2.0
 	add_child(layout)
+	rebuild_marker_index()
 	_create_layout_visuals()
 	data.construction_changed.connect(_refresh)
 	_refresh()
@@ -58,6 +61,52 @@ func _refresh() -> void:
 	set_inside_count(inside_count)
 	caption.text = building_data.display_name + ("" if building_data.is_built() else " — строится")
 func set_selected(value: bool) -> void: indicator.visible = value
+
+func rebuild_marker_index() -> void:
+	_clear_marker_index()
+	if not is_instance_valid(layout): return
+	_indexed_layout_id = layout.get_instance_id()
+	_index_markers(layout)
+
+func _index_markers(node: Node) -> void:
+	# Same authored DFS order as BuildingLayouts3D.markers, discovered once per layout.
+	for child in node.get_children():
+		var marker_script: Script = child.get_script()
+		if marker_script != null:
+			if not _marker_groups.has(marker_script): _marker_groups[marker_script] = []
+			_marker_groups[marker_script].append(child)
+			var callback := _marker_exiting.bind(child,marker_script)
+			if not child.tree_exiting.is_connected(callback): child.tree_exiting.connect(callback)
+		_index_markers(child)
+
+func get_markers(marker_script: Script) -> Array:
+	if not is_instance_valid(layout):
+		_clear_marker_index()
+		return []
+	if _indexed_layout_id != layout.get_instance_id(): rebuild_marker_index()
+	var registered: Array = _marker_groups.get(marker_script,[])
+	# Detached setup/test layouts do not emit tree_exiting when a child is freed.
+	if not layout.is_inside_tree():
+		registered = registered.filter(func(marker): return is_instance_valid(marker) and layout.is_ancestor_of(marker))
+		_marker_groups[marker_script] = registered
+	# Caller owns its array; geometry/occupant still belong to the live nodes.
+	return registered.duplicate()
+
+func _marker_exiting(marker: Node, marker_script: Script) -> void:
+	var registered: Array = _marker_groups.get(marker_script,[])
+	registered.erase(marker)
+
+func _clear_marker_index() -> void:
+	for marker_script in _marker_groups:
+		for marker in _marker_groups[marker_script]:
+			if not is_instance_valid(marker): continue
+			var callback := _marker_exiting.bind(marker,marker_script)
+			if marker.tree_exiting.is_connected(callback): marker.tree_exiting.disconnect(callback)
+	_marker_groups.clear()
+	_indexed_layout_id = 0
+
+func _exit_tree() -> void:
+	_clear_marker_index()
 
 func _create_work_area(radius: float) -> void:
 	work_area = MeshInstance3D.new()
@@ -83,9 +132,8 @@ func set_inside_count(count: int) -> void:
 	color.a = 0.22 if count>0 else 1.0
 	material.albedo_color = color
 func _create_layout_visuals() -> void:
-	var layouts = preload("res://scripts/world_3d/building_layouts_3d.gd")
 	var colors := [Color("7fe889"),Color("ffe178"),Color("ec89e1"),Color("82b7ff"),Color("ff9f5c")]
-	for marker in layouts.markers(layout,preload("res://scripts/world_3d/building_slot_3d.gd")):
+	for marker in get_markers(preload("res://scripts/world_3d/building_slot_3d.gd")):
 		var mesh := BoxMesh.new()
 		mesh.size = Vector3(0.24,0.12,0.24)
 		var tint := StandardMaterial3D.new()
@@ -95,7 +143,7 @@ func _create_layout_visuals() -> void:
 		cube.mesh = mesh
 		cube.position.y = 0.06
 		marker.add_child(cube)
-	for marker in layouts.markers(layout,preload("res://scripts/world_3d/building_entrance_3d.gd")):
+	for marker in get_markers(preload("res://scripts/world_3d/building_entrance_3d.gd")):
 		var mesh := BoxMesh.new()
 		mesh.size = Vector3(marker.zone_size.x,0.08,marker.zone_size.y)
 		var tint := StandardMaterial3D.new()

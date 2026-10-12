@@ -27,7 +27,9 @@ func get_world_position() -> Vector3: return global_position
 func get_sim_position() -> Vector2: return Coordinates.to_sim(get_world_position())
 # Interrupted cargo cannot be left inside a hard-blocked interior.
 func get_drop_sim_position() -> Vector2:
-	return Coordinates.to_sim(_entry_position) if _marker!=null and _marker.purpose!=Slot.Purpose.CONSTRUCTION else get_sim_position()
+	if not is_instance_valid(_marker):
+		return Coordinates.to_sim(_entry_position) if not _building.is_empty() else get_sim_position()
+	return Coordinates.to_sim(_entry_position) if _marker.purpose!=Slot.Purpose.CONSTRUCTION else get_sim_position()
 func set_selected(value: bool) -> void: view.set_selected(value)
 func set_time_speed(multiplier: int) -> void: _time_speed = multiplier
 func move_to(target: Vector2) -> void:
@@ -82,7 +84,11 @@ func bind_building_use(service: RefCounted, intents: Node) -> void:
 	resident_data.activity_changed.connect(_check_activity)
 func _exit_building() -> void:
 	_waiting=false
-	if _marker==null: return
+	if not is_instance_valid(_marker):
+		if not _building.is_empty() and is_inside_tree(): global_position=_entry_position
+		_marker=null
+		_building=&""
+		return
 	var marker := _marker
 	var id := _building
 	_marker=null

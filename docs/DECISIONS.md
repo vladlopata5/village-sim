@@ -2444,3 +2444,16 @@ existing publication boundaries. Partial pickup/release retains the same identit
 duplicate live IDs are rejected. ResourceSources resolves Ground through this owner API.
 Enumeration order, Porter exact score/selection, source reservations and haul rules
 are unchanged. Callers enumerate drops but register/remove through GroundResources.
+
+## 2026-10-12 — Per-view building marker references
+BuildingView3D discovers scripted layout nodes once in the original authored DFS order.
+Runtime Entrance/WORKER/COURIER/CONSTRUCTION queries reuse those same references and
+return a local array. Occupancy remains marker.occupant; lifecycle, walkability and
+current transforms are still checked by their existing consumers. No cached slot
+availability, geometry result or route is added. A small tree_exiting hook removes
+departing markers; view exit clears the index. A different layout identity rebuilds
+the references, while explicit rebuild supports tooling changes to the same layout.
+Production layouts currently remain static after setup. Detached setup layouts guard
+freed references locally. Static BuildingLayouts3D.markers remains for setup validation,
+geometry and reference comparisons. COURIER broadcasts/waits and cancellation recursion
+are unchanged; this is data access optimization, not a new occupancy manager.
