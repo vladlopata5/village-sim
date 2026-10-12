@@ -88,3 +88,17 @@ func get_phase() -> String:
 	if minute_of_day >= 1020 and minute_of_day < 1380:
 		return "Вечер"
 	return "Ночь"
+
+func debug_set_time_of_day(hour: int, minute: int) -> bool:
+	if not OS.is_debug_build() or hour<0 or hour>23 or minute<0 or minute>59: return false
+	if is_processing(): _process(0.0)
+	_fractional_minutes=0.0
+	_advance_game_minutes(posmod(hour*60+minute-total_minutes%1440,1440))
+	_last_tick_usec=Time.get_ticks_usec()
+	return true
+func debug_next_day() -> void:
+	if not OS.is_debug_build(): return
+	if is_processing(): _process(0.0)
+	_fractional_minutes=0.0
+	_advance_game_minutes(1440-total_minutes%1440)
+	_last_tick_usec=Time.get_ticks_usec()

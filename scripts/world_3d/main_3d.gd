@@ -333,13 +333,7 @@ func _setup_forest() -> void:
 			var point := Vector3(-25.25-column*3.0,0,-13.25+row*3.0)
 			var tree = preload("res://scripts/tree_data.gd").new(StringName("tree_%02d" % (row*4+column+1)),Coordinates.to_sim(point))
 			_register_tree(tree)
-	for runtime in resident_runtimes:
-		var controller = preload("res://scripts/resident_lumberjack_controller.gd").new()
-		controller.name = "Lumberjack"
-		runtime.add_child(controller)
-		controller.setup(runtime,game_time,trees,tree_locations,_deplete_tree)
-		controller.world = self
-		runtime.view.tree_exiting.connect(controller.abort.bind(false))
+	for runtime in resident_runtimes: _bind_lumberjack(runtime)
 func _tree_world_position(tree: RefCounted) -> Vector3: return Coordinates.to_world(tree.position)
 func tree_footprint(tree: RefCounted) -> Rect2:
 	var point := Coordinates.world_plane(_tree_world_position(tree))
@@ -468,13 +462,7 @@ func _setup_rocks() -> void:
 	var points := [Vector3(22.25,0,-6.25),Vector3(26.25,0,-6.25),Vector3(30.25,0,-6.25),Vector3(34.25,0,-6.25),Vector3(38.25,0,-6.25),Vector3(22.25,0,-11.25),Vector3(26.25,0,-11.25),Vector3(30.25,0,-11.25),Vector3(34.25,0,-11.25),Vector3(38.25,0,-11.25)]
 	for index in points.size():
 		_register_rock(preload("res://scripts/rock_data.gd").new(StringName("rock_%02d" % (index+1)),Coordinates.to_sim(points[index])))
-	for runtime in resident_runtimes:
-		var controller = preload("res://scripts/resident_miner_controller.gd").new()
-		controller.name = "Miner"
-		runtime.add_child(controller)
-		controller.world = self
-		controller.setup(runtime,game_time,rocks,rock_locations,_complete_rock_cycle)
-		runtime.view.tree_exiting.connect(controller.abort.bind(false))
+	for runtime in resident_runtimes: _bind_miner(runtime)
 func _rock_world_position(rock: RefCounted) -> Vector3:
 	return Coordinates.to_world(rock.position)
 func _register_rock(rock: RefCounted) -> void:
@@ -502,3 +490,34 @@ func _complete_rock_cycle(rock: RefCounted, receipt: int, worker_position: Vecto
 		view.queue_free()
 	runtime_placement_blockers.unregister(rock.id)
 	navigation.remove_blocker(rock.id)
+
+func _bind_lumberjack(runtime: ResidentRuntime) -> void:
+	var controller = preload("res://scripts/resident_lumberjack_controller.gd").new()
+	controller.name = "Lumberjack"
+	runtime.add_child(controller)
+	controller.setup(runtime,game_time,trees,tree_locations,_deplete_tree)
+	controller.world = self
+	runtime.view.tree_exiting.connect(controller.abort.bind(false))
+
+func _bind_miner(runtime: ResidentRuntime) -> void:
+	var controller = preload("res://scripts/resident_miner_controller.gd").new()
+	controller.name = "Miner"
+	runtime.add_child(controller)
+	controller.world = self
+	controller.setup(runtime,game_time,rocks,rock_locations,_complete_rock_cycle)
+	runtime.view.tree_exiting.connect(controller.abort.bind(false))
+
+func register_spawned_resident(data: ResidentData, point: Vector3) -> ResidentRuntime:
+	# Same production wiring as starter residents; data owns no duplicated position.
+	if find_resident(data.id)!=null: return null
+	residents.append(data)
+	var runtime := _create_resident_runtime(data,Coordinates.to_sim(point))
+	_bind_resident_control(runtime)
+	_bind_resident_social(runtime)
+	_bind_resident_logistics(runtime)
+	_bind_lumberjack(runtime)
+	_bind_miner(runtime)
+	social_events.register(runtime)
+	player_control.setup(residents,buildings)
+	population_label.text="Жителей: %d" % residents.size()
+	return runtime

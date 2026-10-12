@@ -81,25 +81,10 @@ func _ready() -> void:
 	$HUD/BuildingCard.bind_control(player_control)
 	resident_selection.selection_changed.connect(_update_selection)
 	production.work_assignment_provider = _committed_work_assignment
-	for runtime in resident_runtimes:
-		player_control.register_intents(runtime.data.id, runtime.intents)
-		player_control.register_commands(runtime.data.id, runtime.commands)
-		player_control.register_assignments(runtime.data.id, runtime.assignments)
-		player_control.profession_changed.connect(runtime.builder.on_profession_changed)
-		runtime.decision.work_available = _work_available.bind(runtime)
-		runtime.decision.work_request = _request_work.bind(runtime)
-		runtime.schedule.work_decision = runtime.decision.request_decision
+	for runtime in resident_runtimes: _bind_resident_control(runtime)
 	add_child(social_world)
 	social_world.position_provider = _resident_position_2d
-	for runtime in resident_runtimes:
-		social_world.register(runtime)
-		runtime.recipe_work.position_provider = _production_position_2d
-		runtime.builder.position_provider = _production_position_2d
-		runtime.builder.cargo_dropped.connect(_drop_cargo.bind(runtime))
-		runtime.social.world = social_world
-		runtime.assignments.bind_social_world()
-		runtime.wander.target_provider = _wander_target_2d.bind(runtime.data.id)
-		runtime.wander.target_available = _wander_available_2d.bind(runtime.data.id)
+	for runtime in resident_runtimes: _bind_resident_social(runtime)
 	add_child(social_events)
 	social_events.logger = game_logger
 	social_events.setup(social_world, game_time, buildings)
@@ -290,15 +275,7 @@ func _create_test_residents() -> void:
 		var data = residents[index]
 		assert(find_resident(data.id) == data, "Resident IDs must be unique")
 		_create_starting_home(data,index)
-		var view = _create_resident_presentation(data, start_positions[index])
-		var runtime = ResidentRuntime.new()
-		runtime.name = data.id
-		$Residents.add_child(runtime)
-		resident_runtimes.append(runtime)
-		runtime.logger = game_logger
-		runtime.setup(data, view, game_time, world_locations, buildings, fallback_housing)
-		interactions.register_target(StringName(data.id), data.resident_name, data, _resident_interaction_position.bind(data.id), [&"resident"])
-		_register_interaction_view(StringName(data.id), view)
+		_create_resident_runtime(data,start_positions[index])
 
 func _resident_interaction_position(resident_id: String) -> Vector2:
 	return _resident_position_2d(resident_id) + Vector2(36, 0)
@@ -362,8 +339,7 @@ func _configure_logistics() -> void:
 	logistics.setup(warehouse_data, kitchen_data, null)
 	if gatherer_hut_data != null: logistics.add_production_source(gatherer_hut_data)
 	for runtime in resident_runtimes:
-		logistics.register_resident(runtime.data)
-		logistics.use_executor(runtime.data, game_time, world_locations, runtime.intents, runtime.schedule)
+		_bind_resident_logistics(runtime)
 	logistics.position_provider = _production_position_2d
 	logistics.availability_changed.connect(_queue_logistics_availability)
 	logistics.cargo_dropped.connect(_drop_executor_cargo)
@@ -372,9 +348,6 @@ func _configure_logistics() -> void:
 	logistics.bind_world(game_time, world_locations)
 	logistics.sources.bind_ground(ground_resources)
 	logistics.sources.route_available = _resource_route_available
-	for runtime in resident_runtimes:
-		runtime.builder.bind_sources(logistics.sources)
-		runtime.self_logistics.setup(runtime,self)
 	logistics.recalculate()
 
 func _resource_route_available(_start: Vector2, _target: Vector2) -> bool: return true
@@ -664,3 +637,40 @@ func _create_legacy_home(data: ResidentData, index: int) -> void:
 	var home = BuildingInstance.new(data.home_location_id,BuildingDefinition.for_type(BuildingType.Type.HOME),positions[index],BuildingInstance.State.BUILT)
 	buildings.append(home)
 	_show_building(home)
+
+func _create_resident_runtime(data: ResidentData, start: Vector2) -> ResidentRuntime:
+	var view = _create_resident_presentation(data, start)
+	var runtime = ResidentRuntime.new()
+	runtime.name = data.id
+	$Residents.add_child(runtime)
+	resident_runtimes.append(runtime)
+	runtime.logger = game_logger
+	runtime.setup(data, view, game_time, world_locations, buildings, fallback_housing)
+	interactions.register_target(StringName(data.id), data.resident_name, data, _resident_interaction_position.bind(data.id), [&"resident"])
+	_register_interaction_view(StringName(data.id), view)
+	return runtime
+
+func _bind_resident_control(runtime: ResidentRuntime) -> void:
+	player_control.register_intents(runtime.data.id, runtime.intents)
+	player_control.register_commands(runtime.data.id, runtime.commands)
+	player_control.register_assignments(runtime.data.id, runtime.assignments)
+	player_control.profession_changed.connect(runtime.builder.on_profession_changed)
+	runtime.decision.work_available = _work_available.bind(runtime)
+	runtime.decision.work_request = _request_work.bind(runtime)
+	runtime.schedule.work_decision = runtime.decision.request_decision
+
+func _bind_resident_social(runtime: ResidentRuntime) -> void:
+	social_world.register(runtime)
+	runtime.recipe_work.position_provider = _production_position_2d
+	runtime.builder.position_provider = _production_position_2d
+	runtime.builder.cargo_dropped.connect(_drop_cargo.bind(runtime))
+	runtime.social.world = social_world
+	runtime.assignments.bind_social_world()
+	runtime.wander.target_provider = _wander_target_2d.bind(runtime.data.id)
+	runtime.wander.target_available = _wander_available_2d.bind(runtime.data.id)
+
+func _bind_resident_logistics(runtime: ResidentRuntime) -> void:
+	logistics.register_resident(runtime.data)
+	logistics.use_executor(runtime.data, game_time, world_locations, runtime.intents, runtime.schedule)
+	runtime.builder.bind_sources(logistics.sources)
+	runtime.self_logistics.setup(runtime,self)

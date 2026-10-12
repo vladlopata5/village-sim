@@ -1,0 +1,92 @@
+extends RefCounted
+## Development commands only. All entities enter the normal world lifecycle.
+const Coordinates = preload("res://scripts/world_3d/world_coordinates.gd")
+const Geometry = preload("res://scripts/world_3d/world_geometry.gd")
+const Profession = preload("res://scripts/resident_profession.gd")
+const Resources = preload("res://scripts/resource_type.gd")
+const Definition = preload("res://scripts/building_definition.gd")
+const Building = preload("res://scripts/building_instance.gd")
+const Generator = preload("res://scripts/resident_generator.gd")
+var world: Node
+var generator := Generator.new(937,"debug")
+var _building_sequence := 1
+func available() -> bool: return OS.is_debug_build() and is_instance_valid(world) and world.ready_for_play
+func rejected(reason: String) -> Dictionary: return {"ok":false,"created":0,"objects":[],"reason":reason}
+func building_catalog() -> Array:
+	var result: Array = []
+	for category in preload("res://scripts/building_type.gd").Type.values():
+		var definition = Definition.for_type(category)
+		if definition.player_buildable and ResourceLoader.exists("res://scenes/building_layouts/%s.tscn" % definition.id): result.append(definition)
+	return result
+func _positions(point: Vector3, count: int, spacing: float, residents: bool) -> Array[Vector3]:
+	var result: Array[Vector3] = []
+	if not point.is_finite(): return result
+	# Deterministic bounded square rings. No A* queries or navigation edits per item.
+	for ring in range(12):
+		for z in range(-ring,ring+1):
+			for x in range(-ring,ring+1):
+				if maxi(absi(x),absi(z))!=ring: continue
+				var candidate := Coordinates.from_plane(Coordinates.world_plane(point)+Vector2(x,z)*spacing)
+				if not world.navigation.is_world_walkable(candidate): continue
+				var radius: float = Geometry.RESIDENT_RADIUS if residents else 0.05
+				var box := Rect2(Coordinates.world_plane(candidate)-Vector2.ONE*radius,Vector2.ONE*radius*2)
+				if not world.runtime_placement_blockers.first_overlap(box).is_empty(): continue
+				result.append(candidate)
+				if result.size()==count: return result
+	return result
+func spawn_residents(point: Vector3, count: int, profession: int) -> Dictionary:
+	if not available(): return rejected("Debug команды доступны только в development build")
+	if count<1 or count>50 or profession not in Profession.Type.values(): return rejected("Некорректное количество или профессия")
+	var positions := _positions(point,count,1.0,true)
+	var objects: Array = []
+	var unassigned := 0
+	for position in positions:
+		var data = generator.generate()
+		while world.find_resident(data.id)!=null: data=generator.generate()
+		data.profession=profession # Legitimate unassigned data if normal assignment fails.
+		world.register_spawned_resident(data,position)
+		world.player_control.assign_profession(data.id,profession)
+		if profession!=Profession.Type.NONE and data.work_location_id.is_empty(): unassigned+=1
+		objects.append(data)
+	return {"ok":not objects.is_empty(),"created":objects.size(),"objects":objects,"reason":"Создано жителей: %d / %d. Без места работы: %d" % [objects.size(),count,unassigned]}
+func spawn_resources(point: Vector3, count: int, resource: int) -> Dictionary:
+	if not available(): return rejected("Debug команды недоступны")
+	if count<1 or count>100 or resource not in Resources.Type.values(): return rejected("Некорректное количество или ресурс")
+	var objects: Array = []
+	for position in _positions(point,count,0.6,false): objects.append(world.ground_resources.create_drop(resource,1,Coordinates.to_sim(position)))
+	return {"ok":not objects.is_empty(),"created":objects.size(),"objects":objects,"reason":"Создано ресурсов: %d / %d" % [objects.size(),count]}
+func spawn_building(point: Vector3, definition: Definition) -> Dictionary:
+	if not available(): return rejected("Debug команды недоступны")
+	if definition==null or not definition.player_buildable or not point.is_finite(): return rejected("Недопустимый тип или координаты")
+	var layouts = preload("res://scripts/world_3d/building_layouts_3d.gd")
+	if not ResourceLoader.exists("res://scenes/building_layouts/%s.tscn" % definition.id): return rejected("Нет authored layout")
+	var layout: Node = layouts.create(definition)
+	var valid: bool = layouts.validate(layout,definition)
+	layout.free()
+	if not valid: return rejected("Некорректная геометрия layout")
+	var validator = preload("res://scripts/world_3d/building_placement_3d.gd").new()
+	validator.grid=world.build_grid
+	validator.runtime_blockers=world.runtime_placement_blockers
+	validator.entrance_zones=world.entrance_zones
+	validator.setup(world.buildings)
+	validator.select(definition)
+	validator.update_world_position(point)
+	if not validator.can_place(): return rejected(validator.validation_reason())
+	var id := StringName("debug_building_%04d" % _building_sequence)
+	while world.player_control.get_building(id)!=null:
+		_building_sequence+=1
+		id=StringName("debug_building_%04d" % _building_sequence)
+	_building_sequence+=1
+	var building := Building.new(id,definition,Coordinates.to_sim(validator.world_position),Building.State.BUILT)
+	world.buildings.append(building)
+	world._show_building(building) # Ordinary view/activation/container/grid/services hooks.
+	return {"ok":true,"created":1,"objects":[building],"reason":"Создано готовое здание: %s (%s)" % [building.display_name,id]}
+func advance_to_time(hour: int, minute: int) -> Dictionary:
+	if not available(): return rejected("Debug команды недоступны")
+	if hour<0 or hour>23 or minute<0 or minute>59: return rejected("Некорректное время")
+	world.game_time.debug_set_time_of_day(hour,minute)
+	return {"ok":true,"reason":"Время: %s (только вперёд)" % world.game_time.get_clock_text()}
+func next_day() -> Dictionary:
+	if not available(): return rejected("Debug команды недоступны")
+	world.game_time.debug_next_day()
+	return {"ok":true,"reason":"Следующий день: 00:00"}
