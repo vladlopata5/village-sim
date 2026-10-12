@@ -4,6 +4,11 @@ const Coordinates = preload("res://scripts/world_3d/world_coordinates.gd")
 const Geometry = preload("res://scripts/world_3d/world_geometry.gd")
 const CELL_SIZE: float = 0.5
 const WORLD_BOUNDS := Rect2(-64, -40, 128, 80)
+const SMOOTH_LOOKAHEAD := 4
+const SMOOTH_CHECK_BUDGET := 64
+# Diagnostics for the last call, not cached paths or navigation state.
+var last_smoothing_checks := 0
+var last_smoothing_used_raw_tail := false
 signal changed(revision: int)
 var bounds: Rect2
 var clearance: float
@@ -262,25 +267,60 @@ func find_raw_path(start: Vector3, target: Vector3) -> PackedVector3Array:
 	_append_point(result, target)
 	return result
 func _append_point(points: PackedVector3Array, point: Vector3) -> void:
-	if points.is_empty() or points[-1].distance_to(point) > 0.00001: points.append(point)
+	# Keep distinct exact endpoints, even when a goal is very close to a cell center.
+	if points.is_empty() or points[-1] != point: points.append(point)
 func smooth_path(raw: PackedVector3Array) -> PackedVector3Array:
-	var result := PackedVector3Array()
-	if raw.is_empty(): return result
-	result.append(raw[0])
+	last_smoothing_checks = 0
+	last_smoothing_used_raw_tail = false
+	var points := _compact_raw_path(raw)
+	if points.is_empty(): return points
+	if not is_world_walkable(points[0]): return PackedVector3Array()
+	var weighted := not _traversal_sources.is_empty()
 	var cumulative: Array[float] = [0.0]
-	for index in range(1,raw.size()):
-		cumulative.append(cumulative[-1]+segment_travel_cost(raw[index-1],raw[index]))
+	# Validate the fallback polyline once. Exact collinear compaction has not changed
+	# its geometry; surface cost is still the same distance/speed integral.
+	for index in range(1,points.size()):
+		if not has_line_of_sight(points[index-1],points[index]): return PackedVector3Array()
+		var cost := segment_travel_cost(points[index-1],points[index]) if weighted else points[index-1].distance_to(points[index])
+		cumulative.append(cumulative[-1]+cost)
+	if points.size() < 3: return points
+	# One long shortcut preserves direct paths on open ground. Never repeat this
+	# unbounded-distance probe at every anchor of a difficult route.
+	last_smoothing_checks += 1
+	if has_line_of_sight(points[0],points[-1]) and (not weighted or segment_travel_cost(points[0],points[-1]) <= cumulative[-1]+0.00001):
+		return PackedVector3Array([points[0],points[-1]])
+	var result := PackedVector3Array([points[0]])
 	var anchor := 0
-	while anchor < raw.size()-1:
-		var next := raw.size()-1
-		while next > anchor+1:
-			var original_cost: float = cumulative[next]-cumulative[anchor]
-			if has_line_of_sight(raw[anchor],raw[next]) and segment_travel_cost(raw[anchor],raw[next]) <= original_cost+0.00001: break
-			next -= 1
-		if not has_line_of_sight(raw[anchor],raw[next]): return PackedVector3Array()
-		result.append(raw[next])
+	while anchor < points.size()-1:
+		if last_smoothing_checks >= SMOOTH_CHECK_BUDGET:
+			last_smoothing_used_raw_tail = true
+			for index in range(anchor+1,points.size()): result.append(points[index])
+			break # Full safe tail, including the exact destination; never a partial path.
+		var next := anchor+1 # This edge has already passed fallback validation.
+		for candidate in range(mini(anchor+SMOOTH_LOOKAHEAD,points.size()-1),anchor+1,-1):
+			if last_smoothing_checks >= SMOOTH_CHECK_BUDGET: break
+			last_smoothing_checks += 1
+			if has_line_of_sight(points[anchor],points[candidate]) and (not weighted or segment_travel_cost(points[anchor],points[candidate]) <= cumulative[candidate]-cumulative[anchor]+0.00001):
+				next = candidate
+				break
+		result.append(points[next])
 		anchor = next
 	return result
+
+func _compact_raw_path(raw: PackedVector3Array) -> PackedVector3Array:
+	var points := PackedVector3Array()
+	for point in raw:
+		if points.is_empty() or point != points[-1]: points.append(point)
+	if points.size() < 3: return points
+	var compact := PackedVector3Array([points[0]])
+	for index in range(1,points.size()-1):
+		var first := points[index]-compact[-1]
+		var second := points[index+1]-points[index]
+		# Exact, forward collinearity only: no tolerance that can cut an obstacle corner.
+		if first.cross(second) == Vector3.ZERO and first.dot(second) > 0.0: continue
+		compact.append(points[index])
+	compact.append(points[-1])
+	return compact
 func find_path(start: Vector3, target: Vector3) -> PackedVector3Array:
 	return smooth_path(find_raw_path(start,target))
 

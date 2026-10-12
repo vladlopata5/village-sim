@@ -2513,3 +2513,26 @@ decision retains exact lazy score/stable-key selection and fresh transactional c
 No reserve is taken on enqueue. One decision itself remains synchronous and may cause
 a residual spike; the dispatcher is not an async search or haul scheduler. Connecting
 another profession later requires auditing its synchronous contracts and guards first.
+
+## 2026-10-12 — Bounded, cost-aware navigation smoothing
+Prefer safe, acceptable routes over exhaustive visual shortening. NavigationGrid first
+removes exact forward-collinear points and duplicates, preserving the raw polyline.
+It validates that fallback geometry with the existing conservative LOS/clearance rules.
+It then tries one direct shortcut and greedy lookahead of four compacted waypoints,
+with at most 64 optional shortcut checks per call. Mandatory fallback validation is
+linear in route geometry and is not discarded to fit that optional budget.
+
+Weighted shortcuts still integrate the same distance/speed as movement and may not
+cost more than the raw interval they replace. Ground-only routes need no terrain-cost
+queries. Budget exhaustion appends the entire validated compacted raw tail, including
+the exact target; it never marks a reachable route unavailable. Invalid raw geometry
+uses the existing path-failure flow. Distinct raw endpoints are no longer discarded
+by the former 0.00001 proximity tolerance. No A* backend, weights, clearance, revision,
+movement speed, portal or dispatcher semantics changed.
+
+On fixed weighted/obstacle fixtures, median new route length is about 0.6% longer than
+old smoothing, worst about 5.4%; worst travel-cost increase about 4.5%, still no worse
+than raw. A long-strip control grew from 2 to 336ms with the old smoother as raw points
+grew 36 to 516; bounded alternatives remained about 1 to 10ms. These are local benchmark
+measurements, not a guarantee of total frame time. Current movement already plans only
+on a new target or navigation revision; no global route cache/scheduler was added.

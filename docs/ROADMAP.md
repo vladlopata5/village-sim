@@ -1271,3 +1271,16 @@ Other professions are not connected yet. Future integrations need their own cont
 and urgency audit. Residual single-decision cost, active-haul validation, COURIER broadcast
 amplification and synchronous developer time jumps remain separate investigations.
 No navigation, resource, handling, priority or production balance changes in this stage.
+
+## 2026-10-12 — Navigation smoothing cost
+Completed: exact collinear compaction, bounded four-waypoint greedy shortening with64
+optional checks, unchanged LOS/terrain-cost rules and full safe raw-tail fallback.
+Targeted independent geometry checks cover obstacles, clearance, diagonal corners,
+rotation, long budget-exhausting routes, exact targets and movement replanning. Current
+movement does not smooth again while following an unchanged path. Long-route and real
+30Porter/200LOG x1/x20 comparisons are recorded outside the repository.
+
+Smoother routes are intentionally not guaranteed. Further work must separate raw A*,
+smoothing, movement and process/logistics/HUD costs; time slicing of path requests,
+global path caching and changes to terrain/clearance require separate decisions. The
+user's precise 942ms frame is not assumed reproduced by a different stress layout.

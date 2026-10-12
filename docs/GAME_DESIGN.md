@@ -2362,3 +2362,15 @@ Score formulas, resource exclusivity, quantities, utility weights and other prof
 are unchanged. Game-time delay grows with speed: a measured 30-Porter headless realtime
 wave took roughly 0.29 seconds; the last Porter waited 0/1/5 game minutes on x1/x4/x20.
 These are measurements on one machine, not timing guarantees. Legacy 2D stays synchronous.
+
+## 2026-10-12 — Navigation route quality/performance tradeoff
+Residents may take slightly less smooth or slightly longer routes. A* connectivity,
+physical clearance, blocked cells, road speed1.25 and existing tree/terrain speeds are
+unchanged. Smoothing only accepts safe shortcuts that do not worsen the raw interval's
+actual travel cost. It uses four-waypoint lookahead and64 optional checks; if these run
+out, the resident follows the complete validated remaining raw polyline. Exact building
+entrances and other destination points are retained, never approximated by the budget.
+
+This reduces expensive long-route shortening, not all main-thread work. Short paths and
+active logistics can still have other frame costs. No delivery, resource ownership,
+COURIER, work schedule, AI priority or movement balance changes accompany it.
