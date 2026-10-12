@@ -1,138 +1,126 @@
 extends SceneTree
-const Definition = preload("res://scripts/building_definition.gd")
-const Instance = preload("res://scripts/building_instance.gd")
-const Types = preload("res://scripts/building_type.gd").Type
-const Resources = preload("res://scripts/resource_type.gd").Type
-const Profession = preload("res://scripts/resident_profession.gd").Type
-const Builder = preload("res://scripts/resident_builder_controller.gd")
-const RecipeWork = preload("res://scripts/resident_recipe_controller.gd")
+## Real canonical extraction and construction; no debug/resource spawn.
+const Def = preload("res://scripts/building_definition.gd")
+const T = preload("res://scripts/building_type.gd").Type
+const R = preload("res://scripts/resource_type.gd").Type
+const P = preload("res://scripts/resident_profession.gd").Type
+const C = preload("res://scripts/world_3d/world_coordinates.gd")
+const Phase = preload("res://scripts/resident_builder_controller.gd").Phase
 const Balance = preload("res://scripts/balance_config.gd")
 var checks := 0
 var failures := 0
+var world: Node
 func _initialize() -> void: call_deferred("run")
-func check(ok: bool, label: String) -> void:
+func check(ok: bool, message: String) -> void:
 	checks += 1
 	if not ok:
 		failures += 1
-		push_error(label)
-func place(world: Node, category: int, point: Vector3):
-	world.placement.select(Definition.for_type(category))
-	world.placement.update_world_position(point)
-	return world.placement.confirm()
-func walk(actor: Node, reason: StringName = &"") -> void:
-	for step in range(12000):
+		push_error(message)
+func walk(actor: Node) -> void:
+	for step in range(16000):
 		preload("res://tests/handling_test_step.gd").move_3d(actor,0.05)
-		if not reason.is_empty() and actor.intents.current_intent.reason_id != reason: break
 		if not actor.view.movement.is_moving(): break
-func work_minutes(world: Node, actor: Node, minutes: int) -> void:
-	for minute in range(minutes):
-		world.game_time.total_minutes += 1
-		actor.builder._on_minute(world.game_time.total_minutes)
-func construct(world: Node, actor: Node, category: int, point: Vector3):
-	world.game_time.total_minutes=420 # Each economy stage starts a fresh work window; handling consumes time.
-	var site = place(world,category,point)
-	check(site != null,"Ordinary placement creates real construction")
-	for cycle in range(site.definition.construction_work_required / Balance.BUILDER_WORK_CYCLE_MINUTES):
-		check(world._request_work(actor),"Ordinary Builder work request")
+func window() -> void: world.game_time.total_minutes = 420
+func screenshot(label: String) -> void:
+	if not "--rendered" in OS.get_cmdline_user_args(): return
+	await process_frame
+	await RenderingServer.frame_post_draw
+	check(root.get_texture().get_image().save_png("C:/Users/SW/Documents/Codex/outputs/construction-recipes-update/" + label + ".png") == OK,"Rendered capture " + label)
+func construct(actor: Node, category: int, point: Vector3):
+	window()
+	world.placement.select(Def.for_type(category))
+	world.placement.update_world_position(point)
+	var site = world.placement.confirm()
+	check(site != null,"Normal BuildGrid placement succeeds")
+	if site == null: return null
+	world.resident_selection.select_building(site)
+	await screenshot("%s_initial" % site.definition.id)
+	for cycle in range(8):
+		if site.is_built(): break
+		window()
+		check(world._request_work(actor),"Normal Builder WORK uses physical resources")
+		for leg in range(40):
+			if actor.builder.phase not in [Phase.GOING_TO_SOURCE,Phase.CARRYING_TO_SITE]: break
+			window()
+			walk(actor)
 		walk(actor)
-		check(actor.builder.phase == Builder.Phase.BUILDING,"Physical material trips reach work phase")
-		work_minutes(world,actor,Balance.BUILDER_WORK_CYCLE_MINUTES)
-	check(site.is_built(),"Actual delivered PLANK plus actual work completes construction")
+		check(actor.builder.phase == Phase.BUILDING,"Actual delivery and access-point arrival start work")
+		world.game_time.debug_skip_minutes(10)
+		check(site.construction_progress == mini(cycle*60+10,site.definition.construction_work_required),"Incremental work unchanged")
+		await screenshot("%s_work_%d" % [site.definition.id,cycle])
+		world.game_time.debug_skip_minutes(50)
+	check(site.is_built(),"Exact actual materials plus actual work complete construction")
+	await screenshot("%s_built" % site.definition.id)
 	return site
 func run() -> void:
-	check(not preload("res://scripts/resource_type.gd").Type.has("WOOD"),"Dead WOOD resource removed")
-	for category in Definition.CONSTRUCTION_BALANCE:
-		if category==Types.QUARRY: continue # New mixed recipe tested separately.
-		var definition = Definition.for_type(category)
-		var small: bool = category in [Types.HOME,Types.GATHERER_HUT,Types.LUMBERJACK_HUT]
-		check(definition.construction_requirements == {Resources.PLANK:10 if small else 15},"Every current type uses original amount in PLANK")
-	var synthetic = Definition.for_type(Types.HOME)
-	synthetic.construction_requirements = {Resources.PLANK:2,Resources.FOOD:1}
-	var site = Instance.new(&"multi_resource",synthetic,Vector2.ZERO,Instance.State.UNDER_CONSTRUCTION)
-	check(site.reserve_construction_material(Resources.PLANK,2) and site.reserve_construction_material(Resources.FOOD,1),"Independent inbound reservations for multiple materials")
-	check(site.deliver_reserved_construction_material(Resources.PLANK,2) and not site.are_construction_materials_complete(),"First material alone cannot complete set")
-	check(site.deliver_reserved_construction_material(Resources.FOOD,1) and site.are_construction_materials_complete(),"Second material completes generic requirements")
-	site.add_construction_work(synthetic.construction_work_required)
-	check(site.complete_construction(),"Multi-resource completion uses existing lifecycle")
-	var world = preload("res://tests/legacy_starter_3d.gd").instantiate()
+	world = load("res://scenes/main_3d.tscn").instantiate()
 	root.add_child(world)
 	world.game_time.set_process(false)
-	world.game_time.total_minutes = 420
 	world.game_logger.console_enabled = false
 	world.social_events.enabled = false
 	for actor in world.resident_runtimes:
 		actor.decision._deciding = true
-		actor.schedule._phase = "День"
 		actor.intents.abort_current(actor.intents.current_intent)
 		actor.view.set_physics_process(false)
-		for need in actor.data.needs.values(): need.value = 0
-	var storage = world.warehouse_data.resources
-	var hut_cost: int = Definition.for_type(Types.LUMBERJACK_HUT).construction_requirements[Resources.PLANK]
-	var saw_cost: int = Definition.for_type(Types.SAWMILL).construction_requirements[Resources.PLANK]
-	var starting: int = Balance.starter_plank_amount(hut_cost,saw_cost)
-	check(storage.get_amount(Resources.PLANK) == starting and starting == hut_cost+saw_cost+Balance.STARTER_PLANK_RESERVE,"Bootstrap derives from current definitions and explicit reserve")
-	check(starting >= hut_cost+saw_cost and starting <= storage.get_capacity(Resources.PLANK),"Bootstrap sufficient and physically fits Storage")
-	check(storage.get_amount(Resources.FOOD)==10 and storage.get_amount(Resources.LOG)==0,"FOOD unchanged, no starter LOG")
-	var builder = world.resident_runtimes[2]
-	world.player_control.assign_profession(builder.data.id,Profession.BUILDER)
-	var hut = construct(world,builder,Types.LUMBERJACK_HUT,Vector3(-20,0,-8))
-	var saw = construct(world,builder,Types.SAWMILL,Vector3(-12,0,-14))
-	check(storage.get_amount(Resources.PLANK)==Balance.STARTER_PLANK_RESERVE,"Hut and Sawmill consume actual bootstrap stock")
-	# Hold one remaining starter unit aside: the final delivered unit must come from production.
-	check(storage.reserve_out(Resources.PLANK,1),"Isolate one starter unit with ordinary reservation")
-	world.game_time.total_minutes=420
-	var home = place(world,Types.HOME,Vector3(4,0,14))
-	check(world._request_work(builder),"New House consumes available starter remainder")
-	walk(builder)
-	check(home.get_delivered_amount(Resources.PLANK)==Balance.STARTER_PLANK_RESERVE-1 and not home.are_construction_materials_complete() and builder.builder.phase==Builder.Phase.NONE,"Nine physical deliveries stop without available tenth PLANK")
+		for need in actor.data.needs.values():
+			need.value = 0
+			need.base_weight = 0
+	await physics_frame
+	var center = world.warehouse_data
+	check(center.resources.get_amount(R.PLANK) == 60 and center.resources.get_amount(R.FOOD) == 20 and center.resources.get_amount(R.LOG) == 0 and center.resources.get_amount(R.STONE) == 0,"Canonical starter stock unchanged")
+	check(center.resources.reserve_out(R.PLANK,60),"Hold existing boards to prove manufacturing dependency")
 	var lumber = world.resident_runtimes[3]
-	var sawyer = world.resident_runtimes[1]
-	world.player_control.assign_workplace(lumber.data.id,hut.id)
-	world.player_control.assign_workplace(sawyer.data.id,saw.id)
-	check(world._request_work(lumber),"Normal WORK chooses actual tree")
-	walk(lumber)
-	world.game_time.debug_skip_minutes(60)
-	check(world.ground_resources.drops.size()==3,"Tree yields three actual LOG")
-	for trip in range(3):
-		check(world._request_work(lumber),"Normal local LOG collection")
-		walk(lumber,&"haul_source")
+	var miner = world.resident_runtimes[2]
+	var builder = world.resident_runtimes[1]
+	check(world.player_control.assign_profession(lumber.data.id,P.LUMBERJACK),"Free Lumberjack assigned through PlayerControl")
+	var forest = world.work_areas.create(C.to_sim(Vector3(-30,0,-9)),C.length_to_sim(15))
+	check(world.player_control.assign_work_area(lumber.data.id,forest.id),"Starter forest area assigned")
+	for cycle in range(5):
+		window()
+		check(world._request_work(lumber),"Normal FREE forestry WORK")
 		walk(lumber)
-	check(hut.resources.get_amount(Resources.LOG)==3,"Physical Ground LOG reaches hut")
-	world.trees.clear() # Isolate fallback export from more chopping/planting in this fixture.
-	hut.definition.target_tree_count = 0
-	check(world._request_work(lumber),"Fallback export starts through shared haul execution")
-	walk(lumber,&"haul_source")
-	walk(lumber)
-	check(saw.resources.get_amount(Resources.LOG)==1,"Physical LOG export supplies Sawmill")
-	check(world._request_work(sawyer),"Normal WORK reserves recipe input/output")
-	check(saw.resources.get_reserved_out(Resources.LOG)==1 and saw.resources.get_reserved_in(Resources.PLANK)==1,"Existing recipe reservation semantics unchanged")
-	walk(sawyer)
-	check(sawyer.recipe_work.phase==RecipeWork.Phase.WORKING,"Sawyer arrives physically before work")
-	for minute in range(30):
-		world.game_time.total_minutes += 1
-		sawyer.recipe_work._on_minute(world.game_time.total_minutes)
-	check(saw.resources.get_amount(Resources.PLANK)==1 and saw.resources.get_amount(Resources.LOG)==0,"Unchanged 1 LOG to 1 PLANK in thirty work-minutes")
-	check(storage.get_available_amount(Resources.PLANK)==0,"Storage has no available unit before Porter delivery")
-	# Keep normal Porter candidate choice focused on the produced output.
-	hut.resources.try_take(Resources.LOG,2)
-	storage.try_take(Resources.FOOD,10)
+		world.game_time.debug_skip_minutes(Balance.TREE_WORK_MINUTES)
+	check(world.ground_resources.drops.filter(func(drop): return drop.resource_type == R.LOG).size() == 15 and lumber.data.inventory.amount == 0,"Five natural trees yield fifteen Ground LOG")
+	check(world.player_control.assign_profession(miner.data.id,P.MINER),"Free Miner assigned through PlayerControl")
+	var quarry = world.work_areas.create(C.to_sim(Vector3(30,0,-9)),C.length_to_sim(15))
+	check(world.player_control.assign_work_area(miner.data.id,quarry.id),"Starter rocks area assigned")
+	for cycle in range(10):
+		window()
+		check(world._request_work(miner),"Normal FREE mining WORK")
+		walk(miner)
+		world.game_time.debug_skip_minutes(Balance.ROCK_WORK_MINUTES)
+	check(world.ground_resources.drops.filter(func(drop): return drop.resource_type == R.STONE).size() == 10 and miner.data.inventory.amount == 0,"Ten real Ground STONE from starter rock")
+	check(world.player_control.assign_profession(builder.data.id,P.BUILDER),"Builder assigned normally")
+	var saw = await construct(builder,T.SAWMILL,Vector3(-10,0,16))
+	if saw == null:
+		world.free()
+		quit(1)
+		return
+	check(saw.construction_delivered == {R.LOG:6,R.STONE:6} and center.resources.get_amount(R.PLANK) == 60,"Sawmill consumes six LOG/six STONE, no boards")
+	check(world.player_control.assign_workplace(miner.data.id,saw.id),"Sawyer assigned to physically constructed Sawmill")
+	for cycle in range(6):
+		window()
+		check(world._request_work(miner),"Sawyer normal self-supply")
+		walk(miner)
+		check(world._request_work(miner),"Sawyer normal production")
+		walk(miner)
+		world.game_time.debug_skip_minutes(Balance.SAWMILL_WORK_MINUTES)
+	check(saw.resources.get_amount(R.PLANK) == 6,"Six real LOG become six PLANK")
 	var porter = world.resident_runtimes[0]
-	check(world._request_work(porter),"Own-base Porter claims produced PLANK")
-	var job = world.logistics.get_job(porter.data.id)
-	check(job.resource_type==Resources.PLANK and job.source_location_id==saw.id and job.destination_location_id==world.warehouse_data.id,"Production output route ends at assigned Storage")
-	walk(porter,&"haul_source")
-	walk(porter)
-	check(storage.get_available_amount(Resources.PLANK)==1 and saw.resources.get_amount(Resources.PLANK)==0,"Produced unit physically reaches Storage")
-	# Start a fresh WORK window: fixture elapsed work must not become an evening request.
-	world.game_time.total_minutes = 420
-	for cycle in range(home.definition.construction_work_required / Balance.BUILDER_WORK_CYCLE_MINUTES):
-		check(world._request_work(builder),"Builder resumes ordinary House construction")
-		walk(builder)
-		check(builder.builder.phase==Builder.Phase.BUILDING,"Produced material delivery starts construction work")
-		work_minutes(world,builder,Balance.BUILDER_WORK_CYCLE_MINUTES)
-	check(home.is_built() and home.get_delivered_amount(Resources.PLANK)==10,"Last House requires and consumes physically produced PLANK")
-	check(storage.get_amount(Resources.PLANK)==1 and storage.get_reserved_out(Resources.PLANK)==1,"Held starter unit was never used for final construction delivery")
-	storage.release_out(Resources.PLANK,1)
+	for trip in range(20):
+		if center.resources.get_amount(R.PLANK) == 66: break
+		window()
+		check(world._request_work(porter),"Own Town Center Porter chooses normal Ground/output delivery")
+		walk(porter)
+	check(center.resources.get_amount(R.PLANK) == 66 and saw.resources.get_amount(R.PLANK) == 0,"Porter physically delivers all six manufactured boards to Town Center")
+	await screenshot("manufactured_boards_delivered")
+	var storage = await construct(builder,T.STORAGE,Vector3(4,0,22))
+	if storage != null:
+		check(storage.construction_delivered == {R.LOG:2,R.STONE:4,R.PLANK:6},"Storage exact mixed recipe physically delivered")
+		check(saw.resources.get_amount(R.PLANK) == 0 and center.resources.get_amount(R.PLANK) == 60 and center.resources.get_reserved_out(R.PLANK) == 60,"Storage uses manufactured boards, not starter stock")
+		check(center.resources.get_amount(R.LOG) + world.ground_resources.drops.filter(func(drop): return drop.resource_type == R.LOG).reduce(func(total,drop): return total + drop.amount,0) == 1 and center.resources.get_amount(R.STONE) + world.ground_resources.drops.filter(func(drop): return drop.resource_type == R.STONE).reduce(func(total,drop): return total + drop.amount,0) == 0,"Conservation: 15 LOG minus 6 build/6 production/2 Storage leaves one; all ten STONE used")
+		check(world.resident_runtimes.all(func(actor): return actor.data.inventory.amount == 0),"No lost/duplicated cargo")
+	center.resources.release_out(R.PLANK,60)
 	world.free()
 	print("Construction economy: %d checks, %d failures" % [checks,failures])
 	quit(1 if failures else 0)

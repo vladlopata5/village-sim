@@ -1,6 +1,7 @@
 extends PanelContainer
 ## UI state and buttons only; placement validation/creation belong to the model.
 const Definition = preload("res://scripts/building_definition.gd")
+const Resources = preload("res://scripts/resource_type.gd")
 signal definition_selected(definition: Definition)
 var collapsed := false
 var building_buttons: HBoxContainer
@@ -25,6 +26,10 @@ func setup(definitions: Array) -> void:
 	for definition in definitions:
 		var button := Button.new()
 		button.text = definition.display_name
+		var costs := PackedStringArray()
+		for resource in definition.construction_requirements:
+			costs.append("%s: %d" % [Resources.display_name(resource), definition.construction_requirements[resource]])
+		button.tooltip_text = "Материалы: " + ", ".join(costs)
 		button.focus_mode = Control.FOCUS_NONE
 		button.pressed.connect(func(): definition_selected.emit(definition))
 		building_buttons.add_child(button)

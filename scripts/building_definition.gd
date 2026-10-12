@@ -6,13 +6,13 @@ const ResourceType = preload("res://scripts/resource_type.gd")
 const BuildingType = preload("res://scripts/building_type.gd")
 const Recipe = preload("res://scripts/production_recipe.gd")
 const CONSTRUCTION_BALANCE = {
-	BuildingType.Type.QUARRY: {"requirements": {ResourceType.Type.LOG:10,ResourceType.Type.STONE:5},"minutes":180,"builders":2},
-	BuildingType.Type.SAWMILL: {"requirements": {ResourceType.Type.PLANK: 15},"minutes":240,"builders":2},
-	BuildingType.Type.LUMBERJACK_HUT: {"requirements": {ResourceType.Type.PLANK: 10},"minutes":180,"builders":2},
-	BuildingType.Type.FOOD: {"requirements": {ResourceType.Type.PLANK: 15}, "minutes": 240, "builders": 2},
-	BuildingType.Type.STORAGE: {"requirements": {ResourceType.Type.PLANK: 15}, "minutes": 240, "builders": 2},
-	BuildingType.Type.GATHERER_HUT: {"requirements": {ResourceType.Type.PLANK: 10}, "minutes": 180, "builders": 2},
-	BuildingType.Type.HOME: {"requirements": {ResourceType.Type.PLANK: 10}, "minutes": 180, "builders": 2},
+	BuildingType.Type.QUARRY: {"requirements": {ResourceType.Type.LOG:8,ResourceType.Type.STONE:4},"minutes":180,"builders":2},
+	BuildingType.Type.SAWMILL: {"requirements": {ResourceType.Type.LOG:6,ResourceType.Type.STONE:6},"minutes":240,"builders":2},
+	BuildingType.Type.LUMBERJACK_HUT: {"requirements": {ResourceType.Type.LOG:10},"minutes":180,"builders":2},
+	BuildingType.Type.FOOD: {"requirements": {ResourceType.Type.LOG:6}, "minutes": 240, "builders": 2},
+	BuildingType.Type.STORAGE: {"requirements": {ResourceType.Type.LOG:2,ResourceType.Type.STONE:4,ResourceType.Type.PLANK:6}, "minutes": 240, "builders": 2},
+	BuildingType.Type.GATHERER_HUT: {"requirements": {ResourceType.Type.LOG:6}, "minutes": 180, "builders": 2},
+	BuildingType.Type.HOME: {"requirements": {ResourceType.Type.LOG:8,ResourceType.Type.STONE:2}, "minutes": 180, "builders": 2},
 }
 # Explicit 3D physical area in build cells; legacy size remains the 2D visual footprint.
 const FOOTPRINT_CELLS = {

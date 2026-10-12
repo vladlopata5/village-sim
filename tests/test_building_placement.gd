@@ -140,7 +140,8 @@ func _run() -> void:
 	hut.production_progress = 12
 	scene.production._on_minute(400)
 	check(not scene.production.can_work(gatherer.data) and hut.production_progress == 12 and hut.resources.get_amount(FOOD) == 0, "Construction hut neither offers work nor produces even with WORKING resident")
-	hut.add_delivered_material(preload("res://scripts/resource_type.gd").Type.PLANK, hut.get_required_amount(preload("res://scripts/resource_type.gd").Type.PLANK))
+	for resource in hut.definition.construction_requirements:
+		hut.add_delivered_material(resource, hut.get_required_amount(resource))
 	hut.add_construction_work(hut.definition.construction_work_required)
 	hut.complete_construction()
 	scene.production._on_minute(401)

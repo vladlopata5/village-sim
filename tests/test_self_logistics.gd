@@ -32,7 +32,10 @@ func scene() -> Node:
 	for resource in R.values(): world.warehouse_data.resources.try_take(resource,world.warehouse_data.resources.get_amount(resource))
 	return world
 func place(world: Node, type: int, at: Vector3, built: bool = true):
-	world.placement.select(Def.for_type(type))
+	var definition = Def.for_type(type)
+	# Synthetic PLANK site isolates shared source competition and cleanup.
+	if not built: definition.construction_requirements = {R.PLANK:10}
+	world.placement.select(definition)
 	world.placement.update_world_position(at)
 	var building = world.placement.confirm()
 	check(building!=null,"Physical placement succeeds")

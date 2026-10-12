@@ -49,7 +49,8 @@ func run() -> void:
 	check(hut != null and not hut.is_built() and hut.quarter_turns==1,"Real rotated placement creates construction")
 	check(not scene.player_control.assign_workplace(actor.data.id,hut.id),"Under construction hut cannot employ")
 	check(not scene.navigation.is_world_walkable(Coordinates.to_world(hut.position)),"Construction footprint already blocks navigation")
-	hut.add_delivered_material(Resources.PLANK,10)
+	for resource in hut.definition.construction_requirements:
+		hut.add_delivered_material(resource,hut.get_required_amount(resource))
 	hut.construction_progress = 180
 	check(hut.complete_construction(),"Ordinary PLANK/work lifecycle activates same instance")
 	check(hut.resources.get_capacity(Resources.LOG)==12 and not hut.resources.allows_resource(Resources.FOOD) and not hut.resources.allows_resource(Resources.PLANK),"Built hut stores only LOG")

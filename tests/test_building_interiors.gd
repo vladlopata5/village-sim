@@ -235,8 +235,9 @@ func run() -> void:
 	for actor in population: reset(actor)
 	# Construction places are exterior, do not pass through entrance/interior.
 	var site=building(Types.HOME,Vector3(35,0,25),0,false)
-	site.reserve_construction_material(Resources.PLANK,site.get_required_amount(Resources.PLANK))
-	site.deliver_reserved_construction_material(Resources.PLANK,site.get_required_amount(Resources.PLANK))
+	for resource in site.definition.construction_requirements:
+		site.reserve_construction_material(resource,site.get_required_amount(resource))
+		site.deliver_reserved_construction_material(resource,site.get_required_amount(resource))
 	for actor in population.slice(0,2):
 		world.player_control.assign_profession(actor.data.id,Profession.BUILDER)
 		check(actor.builder.request_work(),"Builder claims existing gameplay builder capacity")

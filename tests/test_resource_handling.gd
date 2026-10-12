@@ -25,7 +25,10 @@ func walk(actor: Node) -> void:
 		if not actor.view.movement.is_moving(): break
 func minutes(amount: int) -> void: world.game_time.advance(float(amount)/world.game_time.speed_multiplier)
 func building(type: int, point: Vector3, built: bool = true, turns: int = 0):
-	var data = B.new(StringName("handling_%d"%world.buildings.size()),Def.for_type(type),C.to_sim(point),B.State.BUILT if built else B.State.UNDER_CONSTRUCTION)
+	var definition = Def.for_type(type)
+	# Synthetic final-unit fixture isolates handling and portal cancellation.
+	if not built: definition.construction_requirements = {R.PLANK:10}
+	var data = B.new(StringName("handling_%d"%world.buildings.size()),definition,C.to_sim(point),B.State.BUILT if built else B.State.UNDER_CONSTRUCTION)
 	data.quarter_turns=turns
 	world.buildings.append(data)
 	world._show_building(data)

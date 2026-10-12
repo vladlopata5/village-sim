@@ -38,7 +38,8 @@ func place(world: Node, point: Vector3 = Vector3(4,0,14)):
 	world.placement.rotate()
 	return world.placement.confirm()
 func finish(target: RefCounted) -> void:
-	target.add_delivered_material(Resources.PLANK,target.get_required_amount(Resources.PLANK))
+	for resource in target.definition.construction_requirements:
+		target.add_delivered_material(resource,target.get_required_amount(resource))
 	target.add_construction_work(target.definition.construction_work_required)
 	check(target.complete_construction(),"Existing construction completes same instance")
 func walk(actor: Node, reason: StringName = &"") -> void:
@@ -63,7 +64,7 @@ func run() -> void:
 	check(saw.definition.footprint_cells==Vector2i(12,8) and saw.quarter_turns==1,"12x8 build cells, normal quarter-turn placement")
 	check(world.build_grid.occupied_cells(saw.id).size()==96 and not world.navigation.is_world_walkable(Coordinates.to_world(saw.position)),"Construction occupies footprint and navigation immediately")
 	check(not world.player_control.assign_workplace(actor.data.id,saw.id),"UNDER_CONSTRUCTION cannot employ Sawyer")
-	check(saw.definition.worker_capacity==1 and saw.get_required_amount(Resources.PLANK)==15,"Single-worker ordinary construction PLANK balance")
+	check(saw.definition.worker_capacity==1 and saw.definition.construction_requirements=={Resources.LOG:6,Resources.STONE:6},"Single-worker Sawmill has current primary-resource construction recipe")
 	var recipe: RefCounted = saw.definition.production_recipe
 	check(recipe.inputs=={Resources.LOG:1} and recipe.outputs=={Resources.PLANK:1} and recipe.work_required==30,"Recipe is data: 1 LOG -> 1 PLANK /30 actual work-minutes")
 	finish(saw)

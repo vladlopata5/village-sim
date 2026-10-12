@@ -32,7 +32,10 @@ func scenario() -> Node:
 		for need in actor.data.needs.values(): need.value = 0
 	return scene
 func place(scene: Node, point: Vector3):
-	scene.placement.select(Definition.for_type(Types.HOME))
+	var definition = Definition.for_type(Types.HOME)
+	# Synthetic one-resource fixture isolates ownership/timing from construction balance.
+	definition.construction_requirements = {preload("res://scripts/resource_type.gd").Type.PLANK: 10}
+	scene.placement.select(definition)
 	scene.placement.update_world_position(point)
 	return scene.placement.confirm()
 func worker(scene: Node, index: int = 1) -> Node:

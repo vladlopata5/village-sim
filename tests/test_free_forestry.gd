@@ -162,10 +162,11 @@ func run() -> void:
 	scene._start_work_area(actor.data.id)
 	scene._cancel_work_area()
 	check(scene.work_areas.all().size()==count,"Cancel preview creates nothing")
-	# Builder's existing source selector respects source resource type (no recipe change).
+	# Builder source-selection fixture is deliberately single-resource.
 	var builder = scene.resident_runtimes[1].builder
 	var loose_plank = scene.ground_resources.create_drop(R.PLANK,1,C.to_sim(Vector3(-24,0,-8)))
 	var build_definition = preload("res://scripts/building_definition.gd").for_type(preload("res://scripts/building_type.gd").Type.HOME)
+	build_definition.construction_requirements = {R.PLANK:1}
 	var site = preload("res://scripts/building_instance.gd").new(&"ground_source_site",build_definition,C.to_sim(Vector3(-17,0,-16)),preload("res://scripts/building_instance.gd").State.UNDER_CONSTRUCTION)
 	scene.buildings.append(site)
 	scene._show_building(site)

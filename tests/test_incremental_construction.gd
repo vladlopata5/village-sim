@@ -26,10 +26,13 @@ func fixture() -> Node:
 		actor.intents.abort_current(actor.intents.current_intent)
 		actor.view.set_physics_process(false)
 		for need in actor.data.needs.values(): need.value=0
-	world.placement.select(Def.for_type(Types.HOME))
+	var definition = Def.for_type(Types.HOME)
+	# Fully supplied actual recipe; this test isolates work-time accrual.
+	world.placement.select(definition)
 	world.placement.update_world_position(Vector3(-12,0,14))
 	var site = world.placement.confirm()
-	site.add_delivered_material(R.PLANK,10)
+	for resource in definition.construction_requirements:
+		site.add_delivered_material(resource,site.get_required_amount(resource))
 	return world
 func target_for(world: Node): return world.buildings[-1]
 func start(world: Node, index: int = 1) -> Node:

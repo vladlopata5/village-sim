@@ -155,7 +155,10 @@ func _run() -> void:
 				scene.player_control.assign_profession(actor.data.id, preload("res://scripts/resident_profession.gd").Type.PORTER)
 				check(scene._request_haul_work(actor), "Actual porter task starts")
 			"builder":
-				scene.placement.select(Definition.for_type(HOME))
+				var definition = Definition.for_type(HOME)
+				# One-source fixture isolates movement trait from current mixed recipe.
+				definition.construction_requirements = {preload("res://scripts/resource_type.gd").Type.PLANK:1}
+				scene.placement.select(definition)
 				scene.placement.update_position(Vector2(-500, 200))
 				scene.placement.confirm()
 				scene.player_control.assign_profession(actor.data.id, preload("res://scripts/resident_profession.gd").Type.BUILDER)

@@ -17,7 +17,10 @@ func check(ok: bool, message: String) -> void:
 		failures += 1
 		push_error(message)
 func place(scene: Node, point: Vector3, turns: int = 0):
-	scene.placement.select(Definition.for_type(Types.HOME))
+	var definition = Definition.for_type(Types.HOME)
+	# Explicit synthetic PLANK supply tests the unchanged transport lifecycle.
+	definition.construction_requirements = {Resources.PLANK:10}
+	scene.placement.select(definition)
 	scene.placement.update_world_position(point)
 	for turn in range(turns): scene.placement.rotate()
 	return scene.placement.confirm()

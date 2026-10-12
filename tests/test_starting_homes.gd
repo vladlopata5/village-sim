@@ -103,7 +103,8 @@ func _run() -> void:
 	var placed = scene.placement.confirm()
 	check(placed != null and placed.state == Instance.State.UNDER_CONSTRUCTION, "Player placement still starts UNDER_CONSTRUCTION")
 	check(placed.definition.id == homes[0].definition.id and placed.definition.size == homes[0].definition.size and placed.definition.housing_capacity == 4, "One HOME definition type for starter/player buildings")
-	placed.add_delivered_material(PLANK, placed.get_required_amount(PLANK))
+	for resource in placed.definition.construction_requirements:
+		placed.add_delivered_material(resource,placed.get_required_amount(resource))
 	placed.construction_progress = placed.definition.construction_work_required
 	check(placed.complete_construction() and placed.is_built(), "Normal player construction completes")
 	var placed_view = scene.world_locations.get_view(placed.id)

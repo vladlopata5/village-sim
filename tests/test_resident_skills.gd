@@ -24,7 +24,10 @@ func scenario() -> Node:
 	scene.resident_runtimes[0].data.work_location_id = scene.warehouse_data.id
 	return scene
 func site_in(scene: Node):
-	scene.placement.select(Definition.for_type(HOME))
+	var definition = Definition.for_type(HOME)
+	# Synthetic one-resource fixture isolates ownership/timing from construction balance.
+	definition.construction_requirements = {preload("res://scripts/resource_type.gd").Type.PLANK: 10}
+	scene.placement.select(definition)
 	scene.placement.update_position(Vector2(-500, 200))
 	return scene.placement.confirm()
 func become(scene: Node, actor: Node, profession: int) -> void:

@@ -52,7 +52,7 @@ func run() -> void:
 	var miner = world.resident_runtimes[3]
 	var controller = miner.get_node("Miner")
 	var definition = Definition.for_type(BT.QUARRY)
-	check(definition.construction_requirements=={R.LOG:10,R.STONE:5} and definition.construction_work_required==180 and definition.max_builders==2,"Quarry approved mixed recipe/work/builders")
+	check(definition.construction_requirements=={R.LOG:8,R.STONE:4} and definition.construction_work_required==180 and definition.max_builders==2,"Quarry approved mixed recipe/work/builders")
 	check(definition.worker_capacity==1 and definition.work_radius==15 and definition.local_resource_capacity==12,"Quarry worker/radius/buffer")
 	check(definition.footprint_cells==Vector2i(12,8) and definition.allows_internal_import(R.STONE) and not definition.allows_external_import(R.STONE) and definition.allows_external_export(R.STONE),"Footprint and separate policies")
 	var layout = preload("res://scripts/world_3d/building_layouts_3d.gd").create(definition)
@@ -61,12 +61,12 @@ func run() -> void:
 	check(world.player_control.assign_profession(miner.data.id,P.MINER),"FREE miner profession without Quarry")
 	var area = world.work_areas.create(C.to_sim(Vector3(30,0,-9)),C.length_to_sim(15))
 	world.player_control.assign_work_area(miner.data.id,area.id)
-	for cycle in range(5):
+	for cycle in range(4):
 		decision(miner)
 		check(controller.rock!=null,"Real normal FREE WORK selects rock")
 		walk(miner)
 		world.game_time.debug_skip_minutes(60)
-	check(world.ground_resources.drops.size()==5 and miner.data.inventory.amount==0,"Five actual FREE cycles produce ground STONE")
+	check(world.ground_resources.drops.size()==4 and miner.data.inventory.amount==0,"Four actual FREE cycles produce ground STONE")
 	# Natural wood fixture: four real FREE chops, no free building materials.
 	var lumberjack = world.resident_runtimes[2]
 	world.player_control.assign_profession(lumberjack.data.id,P.LUMBERJACK)
@@ -95,7 +95,7 @@ func run() -> void:
 	for step in range(16000):
 		preload("res://tests/handling_test_step.gd").move_3d(builder,0.05)
 		if builder.builder.phase==Builder.Phase.BUILDING: break
-	check(quarry.get_delivered_amount(R.LOG)==10 and quarry.get_delivered_amount(R.STONE)==5,"Actual Ground LOG and STONE transported to site")
+	check(quarry.get_delivered_amount(R.LOG)==8 and quarry.get_delivered_amount(R.STONE)==4,"Actual Ground LOG and STONE transported to site")
 	for cycle in range(int(180.0/Balance.BUILDER_WORK_CYCLE_MINUTES)):
 		if builder.builder.phase==Builder.Phase.NONE:
 			clear(builder)
@@ -147,7 +147,7 @@ func run() -> void:
 	check(controller.best_task().kind==&"MINE","Mining resumes after freeing room")
 	world.resident_selection.select_building(quarry)
 	await capture("quarry_built_buffer")
-	check(miner.data.get_skill_xp(Skill.GATHERING)==6,"Only completed mining cycles award extraction XP")
+	check(miner.data.get_skill_xp(Skill.GATHERING)==5,"Only completed mining cycles award extraction XP")
 	world.free()
 	print("Quarry: %d checks, %d failures" % [checks,failures])
 	quit(1 if failures else 0)

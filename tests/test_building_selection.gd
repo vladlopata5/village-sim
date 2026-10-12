@@ -87,8 +87,9 @@ func _run() -> void:
 	click(screen(scene, construction.position))
 	check(selection.selected_building == construction and construction_view.selected and card.visible, "Under-construction building selects and highlights")
 	check(card.state_label.text == "Состояние: Строится" and card.construction_section.visible and not card.production_section.visible, "Construction card shows state and construction section")
-	check("Доски: 0 / 10" in card.construction_materials.text and construction.production_progress == 0 and construction.resources.get_capacity(FOOD) == 0, "Construction card uses real requirements without changing output storage")
-	construction.add_delivered_material(preload("res://scripts/resource_type.gd").Type.PLANK, 10)
+	check("Бревно: 0 / 6" in card.construction_materials.text and construction.production_progress == 0 and construction.resources.get_capacity(FOOD) == 0, "Construction card uses real requirements without changing output storage")
+	for resource in construction.definition.construction_requirements:
+		construction.add_delivered_material(resource,construction.get_required_amount(resource))
 	construction.add_construction_work(180)
 	construction.complete_construction()
 	check(card.state_label.text == "Состояние: Построено" and not card.construction_section.visible and card.production_section.visible, "Construction signal updates completed state")

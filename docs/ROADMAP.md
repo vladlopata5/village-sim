@@ -1,5 +1,8 @@
 # Village Sim — Roadmap
 
+Актуальные цены: см. «2026-10-12 — Актуальные строительные рецепты» в конце документа.
+Исторические цены ниже не являются текущим балансом.
+
 ## Текущий запуск: canonical main_3d (2026-10-09)
 
 Основная playable scene — `scenes/main_3d.tscn`; F5 / Run Project запускает её.
@@ -1284,3 +1287,40 @@ Smoother routes are intentionally not guaranteed. Further work must separate raw
 smoothing, movement and process/logistics/HUD costs; time slicing of path requests,
 global path caching and changes to terrain/clearance require separate decisions. The
 user's precise 942ms frame is not assumed reproduced by a different stress layout.
+
+## 2026-10-12 — Актуальные строительные рецепты
+
+Текущий источник цен — `BuildingDefinition.CONSTRUCTION_BALANCE`. Эта политика
+заменяет исторические рецепты PLANK-only от 2026-10-09 и Quarry 10 LOG + 5 STONE.
+
+| Тип | LOG | STONE | PLANK |
+|---|---:|---:|---:|
+| Хижина лесоруба (`lumberjack_hut`) | 10 | 0 | 0 |
+| Каменоломня (`quarry`) | 8 | 4 | 0 |
+| Хижина собирателя (`gatherer_hut`) | 6 | 0 | 0 |
+| Дом (`home`) | 8 | 2 | 0 |
+| Лесопилка (`sawmill`) | 6 | 6 | 0 |
+| Склад (`warehouse`) | 2 | 4 | 6 |
+| Общая кухня (`kitchen`) | 6 | 0 | 0 |
+
+Нулевые потребности отсутствуют в словаре и интерфейсе. Town Center, рабочее время
+180/240 минут, лимиты Builders/работников, производство, policies и стартовые
+ресурсы не изменены. Меню показывает цену в tooltip из той же definition;
+BuildingCard показывает фактически доставленные материалы и текущий progress.
+
+Builder использует все ресурсы рецепта через существующие Ground/container sources,
+резервирует по одной единице и доставляет на CONSTRUCTION access point. Материалы
+принадлежат строительному ledger `BuildingInstance`, без дополнительного контейнера.
+Porter по прежним правилам не доставляет в UNDER_CONSTRUCTION; LogisticsController
+обслуживает готовые источники/назначения и не получает новую construction-demand
+модель. Это ограничение сохранено, а не обойдено новым типом job.
+
+Лесопилка строится без досок из добытых FREE лесорубом/каменодобытчиком LOG/STONE.
+Затем Sawyer производит 1 LOG -> 1 PLANK за прежние 30 минут, Porter может отвезти
+доски в Town Center, Builder расходует шесть произведённых досок на Storage.
+Интеграционная проверка использует реальный canonical world, естественные starter
+деревья/камни, физические пути/handling и контролируемые WORK windows; без DebugSpawn
+или добавления ресурсов. Это не длительный автономный playtest потребностей/ночей.
+Канонический Town Center сохраняет 60 PLANK/20 FOOD/0 LOG/0 STONE. Legacy 2D сохраняет
+35 PLANK/10 FOOD; его исторический запас теперь явно фиксирован, а не вычисляется
+из изменившихся цен. Физическая добыча/логистика и cycle-based semantics не изменены.

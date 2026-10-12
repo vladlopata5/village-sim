@@ -26,7 +26,10 @@ func scenario() -> Node:
 	scene.game_logger.line_logged.connect(func(line, _level): lines.append(line))
 	return scene
 func place(scene: Node, category: int = Types.HOME, point: Vector2 = Vector2(-500, 200)) -> Instance:
-	scene.placement.select(Definition.for_type(category))
+	var definition = Definition.for_type(category)
+	# Synthetic one-resource fixture isolates ownership/timing from construction balance.
+	definition.construction_requirements = {preload("res://scripts/resource_type.gd").Type.PLANK: 10}
+	scene.placement.select(definition)
 	scene.placement.update_position(point)
 	return scene.placement.confirm()
 func builder(scene: Node, index: int = 1) -> Node:

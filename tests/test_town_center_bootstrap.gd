@@ -19,7 +19,10 @@ func walk(actor: Node) -> void:
 		preload("res://tests/handling_test_step.gd").move_3d(actor,0.05)
 		if not actor.view.movement.is_moving(): break
 func construct(world: Node, actor: Node, type: int, point: Vector3):
-	world.placement.select(Def.for_type(type))
+	var definition = Def.for_type(type)
+	# Historical bootstrap fixture isolates unchanged Town Center/worker/portal semantics.
+	definition.construction_requirements = {R.PLANK:10 if type in [Types.HOME,Types.LUMBERJACK_HUT,Types.GATHERER_HUT] else 15}
+	world.placement.select(definition)
 	world.placement.update_world_position(point)
 	var site = world.placement.confirm()
 	check(site != null,"Bootstrap building placed through existing BuildGrid")
