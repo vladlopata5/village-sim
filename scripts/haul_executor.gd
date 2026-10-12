@@ -6,7 +6,7 @@ const Intent = preload("res://scripts/resident_intent.gd")
 const Activity = preload("res://scripts/resident_activity.gd")
 const Skill = preload("res://scripts/skill_type.gd")
 const EventLog = preload("res://scripts/game_logger.gd")
-const HAUL_PRIORITY := 8000
+const HAUL_PRIORITY := Job.DEFAULT_EXECUTION_PRIORITY
 var _owner: WeakRef
 var service: RefCounted:
 	get: return _owner.get_ref()
@@ -60,7 +60,7 @@ func start(claimed: Job) -> bool:
 	var target: Variant = service.sources.point(claimed.source_ref)
 	if not target is Vector2: return false
 	claimed.state = Job.State.GOING_TO_SOURCE
-	_haul_intent = Intent.new(Intent.Type.MOVE_TO, &"haul_source", target, HAUL_PRIORITY, false)
+	_haul_intent = Intent.new(Intent.Type.MOVE_TO, &"haul_source", target, claimed.execution_priority, false)
 	if claimed.source_ref.kind==preload("res://scripts/resource_source_ref.gd").Kind.CONTAINER and locations.has_method("configure_intent"): locations.configure_intent(_haul_intent,claimed.source_ref.id,Purpose.COURIER,resident.id)
 	if not intents.submit(_haul_intent):
 		_haul_intent = null
@@ -87,7 +87,7 @@ func validate_job() -> bool:
 	return true
 
 func _on_intent_changed(intent: Intent) -> void:
-	if job != null and job.state == Job.State.GOING_TO_SOURCE and intent != _haul_intent: cancel("действие сменилось")
+	if job != null and _haul_intent != null and intent != _haul_intent: cancel("действие сменилось")
 func _on_forced_interrupt(_previous: Intent) -> void:
 	if _mutating:
 		_interrupt_pending = true
@@ -138,7 +138,7 @@ func _pickup(intent: Intent) -> void:
 	service.changed.emit()
 	if job == null or intents.current_intent != intent: return
 	job.state = Job.State.GOING_TO_DESTINATION
-	_haul_intent = Intent.new(Intent.Type.MOVE_TO, &"haul_destination", service._point(destination), HAUL_PRIORITY, false)
+	_haul_intent = Intent.new(Intent.Type.MOVE_TO, &"haul_destination", service._point(destination), job.execution_priority, false)
 	if locations.has_method("configure_intent"): locations.configure_intent(_haul_intent,destination.id,Purpose.COURIER,resident.id)
 	intents.continue_intent(intent, _haul_intent)
 	service.changed.emit()

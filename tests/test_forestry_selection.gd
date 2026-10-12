@@ -133,7 +133,7 @@ func run() -> void:
 	await capture("three_ground_logs",scene,actor)
 	var logs := preload("res://scripts/resource_type.gd").Type.LOG
 	for trip in range(3):
-		check(worker.request_work() and worker.kind==&"COLLECT","Existing Ground collection retains task priority")
+		check(worker.request_work() and scene.logistics.get_job(actor.data.id)!=null,"Existing Ground collection retains task priority")
 		walk(actor)
 		preload("res://tests/handling_test_step.gd").finish(actor)
 		walk(actor)

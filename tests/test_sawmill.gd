@@ -209,7 +209,7 @@ func run() -> void:
 	check(tree.state==TreeData.State.DEPLETED and world.ground_resources.drops.size()==3,"One tree yields3 Ground LOG")
 	for trip in range(3):
 		check(forestry.request_work(),"Collect LOG through own-hut workflow")
-		walk(lumber,&"collect_log")
+		walk(lumber,&"haul_source")
 		walk(lumber)
 	check(hut.resources.get_amount(Resources.LOG)==3,"Three physical ground trips reach hut")
 	world.trees.clear() # Isolate export after harvesting; no more chop/plant candidates.

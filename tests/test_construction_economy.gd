@@ -95,7 +95,7 @@ func run() -> void:
 	check(world.ground_resources.drops.size()==3,"Tree yields three actual LOG")
 	for trip in range(3):
 		check(world._request_work(lumber),"Normal local LOG collection")
-		walk(lumber,&"collect_log")
+		walk(lumber,&"haul_source")
 		walk(lumber)
 	check(hut.resources.get_amount(Resources.LOG)==3,"Physical Ground LOG reaches hut")
 	world.trees.clear() # Isolate fallback export from more chopping/planting in this fixture.

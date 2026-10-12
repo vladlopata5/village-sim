@@ -6,6 +6,8 @@ enum Admission { EXTERNAL, INTERNAL }
 var admission: Admission = Admission.EXTERNAL
 var workplace_location_id: StringName = &"" # Committed porter base; no auto reassignment.
 var work_phase_only := false # Legacy request metadata; execution now finishes committed deliveries across phases.
+const DEFAULT_EXECUTION_PRIORITY := 8000
+var execution_priority := DEFAULT_EXECUTION_PRIORITY # Committed movement priority, independent from candidate score.
 var priority: float = 0.0 # Claim-time porter score snapshot; never refreshed or compared with needs.
 var id: StringName
 var source_ref: RefCounted

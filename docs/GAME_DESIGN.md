@@ -2254,3 +2254,27 @@ This closes measured negative Ground-route spikes without a backend/scheduler ch
 Forestry COLLECT remains its existing specialized committed lifecycle; its EXPORT
 compatibility wrapper delegates generic export and preserves prior Logistics XP.
 Migrating COLLECT requires a separate lifecycle-focused task, not a copied miner policy.
+
+
+## 2026-10-12 — Forestry COLLECT uses shared INTERNAL HaulExecutor
+BUILDING forestry keeps COLLECT -> CHOP -> PLANT -> EXPORT and the unchanged 12 LOG
+buffer. COLLECT now uses ResourceSources.find_ground_in_area with the same combined
+Euclidean route-distance/stable-ID ranking, early Ground/LOG/area/claim filtering and
+first-reachable selection. One-use availability covers COLLECT and CHOP, invalidated
+by assignment/area revision, navigation, source availability and buffer room changes.
+
+LumberjackController only owns task policy and CHOP/PLANT execution. COLLECT creates
+LogisticsController.claim_internal; HaulJob/HaulExecutor own Ground claim, inbound,
+10+10-minute handling, cargo, interior COURIER/portal, completion and cleanup. No
+profession-specific pickup/CARRYING/handling/inbound/cargo-cleanup branch remains.
+Captured workplace permits committed delivery after reassignment or17:00; no new
+claim outside daytime or to an old workplace. Hut external LOG import stays closed.
+COLLECT awards no XP; existing generic EXPORT wrapper retains its previous XP and
+allowed destinations including Sawmill. FREE forestry/extraction/planting unchanged.
+
+HaulJob.execution_priority separates committed movement from candidate score; forestry
+COLLECT preserves WORK_PRIORITY=7000, other hauls keep their previous default8000.
+HaulExecutor now cancels on intent replacement on either leg (including carrying),
+closing an existing destination-leg orphan-job gap. Completion already committed wins
+reentrant exit/deposit callbacks; earlier interruptions retain/drop only real cargo.
+Quarry/Miner use the same unchanged INTERNAL admission; no new ledger or scheduler.

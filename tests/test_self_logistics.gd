@@ -157,7 +157,7 @@ func run() -> void:
 	check(world._request_work(worker),"Sawyer wins only by first successful claim")
 	check(lumber.get_node("Lumberjack").best_task().kind!=&"COLLECT" and not world.logistics.collect_candidates(world.resident_runtimes[0].data.id).any(func(row): return row.source_ref.id==drop.id),"Lumberjack and Porter respect same exclusive claim")
 	worker.commands.move_to(Vector2(0,500))
-	check(world._request_work(lumber) and lumber.get_node("Lumberjack").kind==&"COLLECT","After release Lumberjack can win same Ground")
+	check(world._request_work(lumber) and world.logistics.get_job(lumber.data.id)!=null,"After release Lumberjack can win same Ground")
 	check(not world._work_available(worker),"Sawyer cannot reserve Lumberjack's claimed source")
 	lumber.commands.move_to(Vector2(0,500))
 	var candidates: Array = world.logistics.collect_candidates(world.resident_runtimes[0].data.id)

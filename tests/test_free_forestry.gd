@@ -61,7 +61,7 @@ func run() -> void:
 	check(not scene.player_control.assign_workplace(actor.data.id,&"missing") and actor.data.work_area_id==area.id,"Failed workplace preserves area")
 	counted.queries = 0
 	check(worker.has_work(),"Area exposes CHOP")
-	var picked = worker._available_chop.tree
+	var picked = worker._available_task.tree
 	check(worker.request_work() and worker.tree==picked,"One-use availability starts same tree")
 	check(counted.queries==1,"Availability/request reuse one region query")
 	check(worker.hut==null and worker.kind==&"CHOP" and not worker.chopping,"Free claim before travel; no hut")

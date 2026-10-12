@@ -194,7 +194,7 @@ func run() -> void:
 	var logs=world.ground_resources.create_drop(R.LOG,1,C.to_sim(Vector3(28,0,-20)))
 	reset(lumberjack)
 	var collector=lumberjack.get_node("Lumberjack")
-	check(collector.request_work() and collector.kind==&"COLLECT","Lumberjack chooses Ground collection")
+	check(collector.request_work() and world.logistics.get_job(lumberjack.data.id)!=null,"Lumberjack chooses Ground collection")
 	walk(lumberjack)
 	await capture("lumberjack_ground_loading",lumberjack)
 	minutes(9)
