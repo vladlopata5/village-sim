@@ -4,7 +4,7 @@
 
 Дата: 2026-10-13. Исследованный HEAD: `dc65f4593266fafcf36cfa2fb17a924bae7c127a`. План основан на [UI_DESIGN.md](UI_DESIGN.md) и проверенном коде; технические доказательства, схема состояний, геометрия и альтернативы находятся в [UI_ARCHITECTURE_AUDIT.md](UI_ARCHITECTURE_AUDIT.md).
 
-**Архитектура согласована; E1 реализован отдельным заданием. E2–E6 остаются планом и требуют отдельных заданий.** При отклонении архитектурного варианта актуализировать план, не подменять его молча при coding.
+**Архитектура согласована; E1 и E2 реализованы отдельными заданиями. E3–E6 остаются планом и требуют отдельных заданий.** При отклонении архитектурного варианта актуализировать план, не подменять его молча при coding.
 
 Первая версия включает панели, карточки, ResidentsWindow/AssignmentDialog, существующие building/road/area controls, время, ленту и сохранение F10. Journal/unread, demolition, HP и новые gameplay systems исключены. В Info есть только видимая неактивная «Демонтировать» без callback/подтверждения.
 
@@ -407,3 +407,15 @@ A1–A3 и A5–A6 согласованы: specialized-card embedding с legacy 
 Новые `test_ui_shell` и `test_ui_input` проверяют bootstrap, реальные services, transitions, Esc, pause/speeds, mouse boundaries, scroll, focus/polling, F10 paused input. Existing tests используют card getters вместо прежних canonical NodePath. Rendered checkpoint фиксирует два разрешения, stretch и actual Control rects. Подробные результаты/скриншоты находятся вне Git в `C:/Users/SW/Documents/Codex/outputs/ui-e1-shell/REPORT.md`.
 
 E2–E6 не начинались. Collapse-cancel/repeat placement, синяя day-card, универсальный roster/assignment dialog и final feed order остаются в назначенных этапах.
+
+## 14. Checkpoint E2
+
+Canonical InfoPanel имеет DaySummary, ResidentDetails, BuildingDetails и отдельный рабочий BuildingTypePreview из Definition (без создания экземпляра). Панель владеет только expansion/tab state; ResidentSelection — единственный selected object. Прямой переход сохраняет раскрытие и совместимую вкладку; clear возвращает compact Day. Геометрия: 320×52 / 320×152 / 320×568 logical units, нижний правый край, длинные детали в ScrollContainer. Preview пока вызывается отдельно; placement/catalog/repeat wiring — E3.
+
+Существующие resident_card/building_card scripts используют embedded mode и явные unique widget bindings в новых canonical scenes; default legacy paths/scenes сохранены. Общие карточки переиспользуют реальные actions, форматирование и scoped subscriptions. Per-frame refresh сохранён для legacy, canonical fallback обновляет scalar/task fields не чаще 4 Hz, списки/tabs пересоздаются только при изменении их содержимого. Need/skills/traits/preferences/diary/resources/construction/assignment/slot signals обновляют существующие значения.
+
+Resident tabs: Био / Работа / Отношения, foldouts diary текущего дня и skills, только существующие направленные relationship records с разрешением ID при клике. Home clearing, profession, work area creation/reuse/clearing и assignment cancellation используют прежние APIs. Work показывает captured активную доставку независимо от нового назначения.
+
+Building Info разделяет назначенных producers/Porter/жильцов и временные occupied slots; имена интерактивны, освобождение назначения повторно проверяет текущую принадлежность. Disabled «Демонтировать» не имеет callback. Production показывает реальные recipe/input/output buffers и progress; natural-work progress берётся из captured controller/tree/rock context read provider, без вызова selection/path APIs. Storage только у полноценных storage types, actual amount/capacity каждого ресурса без вычитания reservations. UC→BUILT обновляет вкладки того же объекта по construction_changed.
+
+Подробные автоматические/rendered результаты и ограничения: `C:/Users/SW/Documents/Codex/outputs/ui-e2-info-panel/REPORT.md`. E3–E6 не начинались.

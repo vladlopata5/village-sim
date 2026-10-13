@@ -60,7 +60,7 @@ func run() -> void:
 	check(scene.player_control.get_workplace_workers(hut.id)==[actor.data],"Workers derived from resident relationship")
 	scene.resident_selection.select_building(hut)
 	scene.building_card_view()._refresh()
-	check("Бревно" in scene.building_card_view().resources_label.text and "Марина" in scene.building_card_view().resources_label.text,"Card exposes LOG and assigned worker")
+	check("Бревно" in scene.building_card_view().resources_label.text and scene.building_card_view().get_node("%People").get_children().any(func(row): return row is HBoxContainer and row.get_child(0).text == "Марина"),"Card exposes LOG and assigned worker")
 	scene.game_time.debug_skip_minutes(60)
 	check(worker.best_task().kind==&"CHOP","No loose LOG gives chopping")
 	var remote_drop = scene.ground_resources.create_drop(Resources.LOG,1,Coordinates.to_sim(Vector3(40,0,20)))
@@ -78,7 +78,10 @@ func run() -> void:
 	var chopped = worker.tree
 	walk(actor)
 	check(worker.chopping,"Physical arrival begins chopping")
-	scene.game_time.debug_skip_minutes(60)
+	scene.game_time.debug_skip_minutes(10)
+	scene.building_card_view()._refresh()
+	check(scene.building_card_view().get_node("%NaturalProgress").text.contains("%d / %d" % [chopped.work_done,chopped.work_required]),"Card reads actual partially worked tree, no building progress copy")
+	scene.game_time.debug_skip_minutes(50)
 	check(chopped.state==TreeData.State.DEPLETED and scene.ground_resources.drops.size()==3,"Chop yields three physical LOG")
 	for trip in range(3):
 		check(worker.best_task().kind==&"COLLECT" and worker.request_work(),"Loose logs take priority over standing trees")

@@ -604,8 +604,8 @@ func _cancel_debug_placement() -> void:
 	if developer_panel!=null and developer_panel.active(): developer_panel.cancel_placement()
 
 # Presentation hooks: canonical HUD has real time controls, no hidden telemetry.
-func resident_card_view() -> Control: return $HUD/GameUI/InfoAnchor/ResidentCard
-func building_card_view() -> Control: return $HUD/GameUI/InfoAnchor/BuildingCard
+func resident_card_view() -> Control: return game_ui.resident_card
+func building_card_view() -> Control: return game_ui.building_card
 func ui_input_context() -> RefCounted: return game_ui.input_context
 func _build_hud() -> void:
 	game_ui.time_controls.setup(game_time, _toggle_pause)
@@ -613,6 +613,8 @@ func _build_hud() -> void:
 	pause_button = game_ui.time_controls.pause_button
 	speed_buttons = game_ui.time_controls.speed_buttons
 	game_ui.mount_messages(social_feed)
+	game_ui.info_panel.setup(game_time,resident_selection,player_control,logistics.get_job,_ui_visitors,_ui_natural_progress)
+	building_uses.slots_changed.connect(_ui_slots_changed)
 func _update_clock(_minutes: int) -> void: game_ui.time_controls.refresh_clock()
 func _update_pause() -> void: game_ui.time_controls.refresh_pause()
 func _update_population() -> void: game_ui.update_population(residents.size())
@@ -636,3 +638,27 @@ func _cancel_active_world_tool() -> bool:
 	else: return false
 	_clear_world_input()
 	return true
+
+func _ui_visitors(building_id: StringName) -> Array:
+	var view = building_uses.view(building_id)
+	if view == null: return []
+	var slot = preload("res://scripts/world_3d/building_slot_3d.gd")
+	return view.get_markers(slot).filter(func(marker): return marker.purpose != slot.Purpose.CONSTRUCTION and not marker.occupant.is_empty()).map(func(marker): return {"id":marker.occupant,"purpose":marker.purpose})
+func _ui_slots_changed(id: StringName, _purpose: int) -> void:
+	if resident_selection.selected_building != null and resident_selection.selected_building.id == id: building_card_view()._refresh()
+
+func _ui_natural_progress(building_id: StringName) -> PackedStringArray:
+	# Read captured active contexts, never call work availability/path selection.
+	var lines := PackedStringArray()
+	for runtime in resident_runtimes:
+		if not is_instance_valid(runtime): continue
+		var forestry = runtime.get_node_or_null("Lumberjack")
+		if forestry != null and forestry.hut != null and forestry.hut.id == building_id:
+			if forestry.kind == &"CHOP" and forestry.tree != null:
+				lines.append("%s • рубка: %d / %d мин" % [runtime.data.resident_name,forestry.tree.work_done,forestry.tree.work_required])
+			elif forestry.kind == &"PLANT":
+				lines.append("%s • посадка: %d / %d мин" % [runtime.data.resident_name,forestry.work_minutes,Balance.TREE_PLANTING_MINUTES])
+		var miner = runtime.get_node_or_null("Miner")
+		if miner != null and miner.committed_context != null and miner.committed_context.workplace != null and miner.committed_context.workplace.id == building_id and miner.rock != null:
+			lines.append("%s • добыча: %d / %d мин" % [runtime.data.resident_name,miner.rock.work_done,miner.rock.work_required])
+	return lines

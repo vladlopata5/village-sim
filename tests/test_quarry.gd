@@ -110,6 +110,9 @@ func run() -> void:
 	world.game_time.total_minutes=420
 	decision(miner)
 	check(controller.mining or controller.rock!=null,"Normal BUILDING AI selects MINE")
+	world.resident_selection.select_building(quarry)
+	world.building_card_view()._refresh()
+	check(world.building_card_view().get_node("%NaturalProgress").text.contains("%d / %d" % [controller.rock.work_done,controller.rock.work_required]),"Quarry card reads captured active rock progress")
 	check(quarry.resources.get_reserved_in(R.STONE)==0,"MINE does not reserve future output")
 	walk(miner)
 	world.game_time.debug_skip_minutes(60)

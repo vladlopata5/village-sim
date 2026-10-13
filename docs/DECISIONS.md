@@ -2693,3 +2693,9 @@ context учитывает assignment revision; команды и critical needs
 статус unassigned и отдельные counts в BuildingCard. Полный staffing panel, выбор
 конкретного workplace в F10 и окончательный большой распределённый playtest отложены.
 DebugSpawn пользуется штатной capacity и сообщает unassigned count без bypass.
+
+## 2026-10-13 — E2 canonical InfoPanel
+
+Синяя панель владеет только раскрытием и активной вкладкой. ResidentSelection остаётся единственным selected entity; direct switches сохраняют раскрытие, full clear сбрасывает его и показывает day summary. Type preview читает Definition без BuildingInstance, подключение к новому каталогу отложено до E3.
+
+Существующие card scripts получили embedded canonical widgets с прежним legacy default. UI читает domain signals и ограниченные read providers для committed hauling/natural work/physical occupancy; не считает physical slots назначенным персоналом и не хранит отдельный resource ledger. Diary ограничен текущим днём только в canonical presentation; retention/generation не меняются. Relationships показывают только existing directed records. Demolition disabled без callback. Все игровые изменения делегируются существующим PlayerControl/assignment APIs; recipes, balance и safe hauling unchanged.

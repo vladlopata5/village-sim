@@ -124,7 +124,7 @@ func run() -> void:
 	world.resident_selection.select_building(saw)
 	var card = world.building_card_view()
 	card._refresh()
-	check("Бревно" in card.resources_label.text and "Доски" in card.resources_label.text and "Анна" in card.resources_label.text and "15 / 30" in card.production_label.text,"Existing card shows storage, Sawyer and progress")
+	check("Бревно" in card.resources_label.text and "Доски" in card.resources_label.text and card.get_node("%People").get_children().any(func(row): return row is HBoxContainer and row.get_child(0).text == "Анна") and "15 / 30" in card.production_label.text,"Existing card shows storage, Sawyer and progress")
 	world.free()
 
 	# Real event-driven normal AI, no forced WORK and no retry polling.

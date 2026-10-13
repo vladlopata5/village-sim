@@ -1,0 +1,174 @@
+[gd_scene load_steps=3 format=3]
+[ext_resource type="Script" path="res://scripts/building_card.gd" id="1"]
+[sub_resource type="StyleBoxEmpty" id="Empty"]
+[node name="Details" type="PanelContainer"]
+visible = false
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_styles/panel = SubResource("Empty")
+script = ExtResource("1")
+embedded = true
+embedded_close_path = NodePath("../../Header/Close")
+[node name="Column" type="VBoxContainer" parent="."]
+layout_mode = 2
+unique_name_in_owner = true
+
+[node name="Compact" type="VBoxContainer" parent="Column"]
+layout_mode = 2
+unique_name_in_owner = true
+theme_override_constants/separation = 1
+[node name="Scroll" type="ScrollContainer" parent="Column"]
+layout_mode = 2
+unique_name_in_owner = true
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+mouse_force_pass_scroll_events = false
+[node name="Content" type="VBoxContainer" parent="Column/Scroll"]
+layout_mode = 2
+unique_name_in_owner = true
+size_flags_horizontal = 3
+[node name="Name" type="Label" parent="Column/Compact"]
+layout_mode = 2
+unique_name_in_owner = true
+autowrap_mode = 3
+text = ""
+theme_override_font_sizes/font_size = 18
+[node name="Summary" type="Label" parent="Column/Compact"]
+layout_mode = 2
+unique_name_in_owner = true
+autowrap_mode = 3
+text = ""
+theme_override_font_sizes/font_size = 13
+[node name="StaffSummary" type="Label" parent="Column/Compact"]
+layout_mode = 2
+unique_name_in_owner = true
+autowrap_mode = 3
+text = ""
+theme_override_font_sizes/font_size = 13
+[node name="Info" type="VBoxContainer" parent="Column/Scroll/Content"]
+layout_mode = 2
+unique_name_in_owner = true
+size_flags_horizontal = 3
+[node name="ProductionTab" type="VBoxContainer" parent="Column/Scroll/Content"]
+layout_mode = 2
+unique_name_in_owner = true
+size_flags_horizontal = 3
+[node name="Storage" type="VBoxContainer" parent="Column/Scroll/Content"]
+layout_mode = 2
+unique_name_in_owner = true
+size_flags_horizontal = 3
+[node name="ID" type="Label" parent="Column/Scroll/Content/Info"]
+layout_mode = 2
+unique_name_in_owner = true
+autowrap_mode = 3
+text = ""
+
+[node name="Type" type="Label" parent="Column/Scroll/Content/Info"]
+layout_mode = 2
+unique_name_in_owner = true
+autowrap_mode = 3
+text = ""
+
+[node name="State" type="Label" parent="Column/Scroll/Content/Info"]
+layout_mode = 2
+unique_name_in_owner = true
+autowrap_mode = 3
+text = ""
+
+[node name="Characteristics" type="Label" parent="Column/Scroll/Content/Info"]
+layout_mode = 2
+unique_name_in_owner = true
+autowrap_mode = 3
+text = ""
+
+[node name="Housing" type="VBoxContainer" parent="Column/Scroll/Content/Info"]
+layout_mode = 2
+unique_name_in_owner = true
+
+[node name="HousingCount" type="Label" parent="Column/Scroll/Content/Info/Housing"]
+layout_mode = 2
+unique_name_in_owner = true
+autowrap_mode = 3
+text = ""
+
+[node name="HousingResidents" type="Label" parent="Column/Scroll/Content/Info/Housing"]
+layout_mode = 2
+unique_name_in_owner = true
+autowrap_mode = 3
+text = ""
+
+[node name="People" type="VBoxContainer" parent="Column/Scroll/Content/Info"]
+layout_mode = 2
+unique_name_in_owner = true
+
+[node name="OtherStocks" type="Label" parent="Column/Scroll/Content/Info"]
+layout_mode = 2
+unique_name_in_owner = true
+autowrap_mode = 3
+text = ""
+
+[node name="Construction" type="VBoxContainer" parent="Column/Scroll/Content/Info"]
+layout_mode = 2
+unique_name_in_owner = true
+
+[node name="Materials" type="Label" parent="Column/Scroll/Content/Info/Construction"]
+layout_mode = 2
+unique_name_in_owner = true
+autowrap_mode = 3
+text = ""
+
+[node name="Work" type="Label" parent="Column/Scroll/Content/Info/Construction"]
+layout_mode = 2
+unique_name_in_owner = true
+autowrap_mode = 3
+text = ""
+
+[node name="Builders" type="Label" parent="Column/Scroll/Content/Info/Construction"]
+layout_mode = 2
+unique_name_in_owner = true
+autowrap_mode = 3
+text = ""
+
+[node name="ManagementHint" type="Label" parent="Column/Scroll/Content/Info"]
+layout_mode = 2
+unique_name_in_owner = true
+autowrap_mode = 3
+text = "Назначение работника: выберите жителя и нажмите ПКМ по зданию."
+
+[node name="Demolish" type="Button" parent="Column/Scroll/Content/Info"]
+layout_mode = 2
+unique_name_in_owner = true
+text = "Демонтировать"
+focus_mode = 0
+disabled = true
+[node name="Recipe" type="Label" parent="Column/Scroll/Content/ProductionTab"]
+layout_mode = 2
+unique_name_in_owner = true
+autowrap_mode = 3
+text = ""
+
+[node name="Resources" type="Label" parent="Column/Scroll/Content/ProductionTab"]
+layout_mode = 2
+unique_name_in_owner = true
+autowrap_mode = 3
+text = ""
+
+[node name="Production" type="VBoxContainer" parent="Column/Scroll/Content/ProductionTab"]
+layout_mode = 2
+unique_name_in_owner = true
+
+[node name="Progress" type="Label" parent="Column/Scroll/Content/ProductionTab/Production"]
+layout_mode = 2
+unique_name_in_owner = true
+autowrap_mode = 3
+text = ""
+
+[node name="NaturalProgress" type="Label" parent="Column/Scroll/Content/ProductionTab"]
+layout_mode = 2
+unique_name_in_owner = true
+autowrap_mode = 3
+[node name="StorageAmounts" type="Label" parent="Column/Scroll/Content/Storage"]
+layout_mode = 2
+unique_name_in_owner = true
+autowrap_mode = 3
+text = ""

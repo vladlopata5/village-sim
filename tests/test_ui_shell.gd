@@ -29,7 +29,7 @@ func capture(world: Node, name: String) -> void:
 	await process_frame
 	await RenderingServer.frame_post_draw
 	var controls: Dictionary = {}
-	for path in ["MessagesAnchor", "TimeAnchor/TimeControls", "ActionsAnchor", "InfoAnchor", "InfoAnchor/ResidentCard", "InfoAnchor/BuildingCard", "Windows"]:
+	for path in ["MessagesAnchor", "TimeAnchor/TimeControls", "ActionsAnchor", "InfoAnchor", "InfoAnchor/InfoPanel/Column/Body/ResidentDetails", "InfoAnchor/InfoPanel/Column/Body/BuildingDetails", "Windows"]:
 		var node: Control = world.game_ui.get_node(path)
 		controls[path] = {"rect":str(node.get_global_rect()),"visible":node.is_visible_in_tree()}
 	controls["ConstructionPanel"] = {"rect":str(world.construction_panel.get_global_rect()),"visible":world.construction_panel.visible}
@@ -90,7 +90,7 @@ func run() -> void:
 			click(ui.time_controls.speed_buttons[0])
 			world.resident_selection.select(world.residents[0])
 			await capture(world,"shell_%d_resident" % resolution.x)
-			check(not world.resident_card_view().get_global_rect().intersects(ui.time_controls.get_global_rect()),"Time and transitional ResidentCard do not overlap")
+			check(not ui.info_panel.get_global_rect().intersects(ui.time_controls.get_global_rect()),"Time and transitional ResidentCard do not overlap")
 			check(not world.construction_panel.get_global_rect().intersects(world.resident_card_view().get_global_rect()),"Actions and card do not overlap")
 			world.resident_selection.select_building(world.warehouse_data)
 			ui.open_window(&"residents")

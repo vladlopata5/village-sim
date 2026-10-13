@@ -3,8 +3,9 @@ extends Control
 signal blocking_ui_changed
 const InputContext = preload("res://scripts/ui/ui_input_context.gd")
 var input_context = InputContext.new()
-@onready var resident_card: Control = $InfoAnchor/ResidentCard
-@onready var building_card: Control = $InfoAnchor/BuildingCard
+@onready var info_panel: PanelContainer = $InfoAnchor/InfoPanel
+@onready var resident_card: Control = info_panel.resident_details
+@onready var building_card: Control = info_panel.building_details
 @onready var time_controls: PanelContainer = $TimeAnchor/TimeControls
 var cancel_world_tool: Callable
 var context_menu: Control
@@ -17,8 +18,7 @@ var _top_dialog: Control
 var _pointer_controls: Array[Control] = []
 func _ready() -> void:
 	input_context.setup(self)
-	register_pointer_control(resident_card)
-	register_pointer_control(building_card)
+	register_pointer_control(info_panel)
 	register_pointer_control(time_controls)
 	resized.connect(_layout_actions)
 func register_pointer_control(control: Control) -> void:
@@ -72,7 +72,7 @@ func _layout_actions() -> void:
 	_construction.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_construction_scroll.visible = not _construction.collapsed
 func update_population(count: int) -> void:
-	residents_button.text = "Р–РёС‚РµР»Рё: %d" % count
+	residents_button.text = "Жители: %d" % count
 func register_window(id: StringName, window: Control) -> void:
 	assert(not _windows.has(id))
 	window.reparent($Windows)

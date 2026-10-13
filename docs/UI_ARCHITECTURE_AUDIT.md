@@ -2,7 +2,7 @@
 
 ## 1. Статус, основание и вывод
 
-Последующее обновление: A1–A6 согласованы заданием E1 (уточнение A4 — §6/§15); реализованный E1 — §16. Факты исходного аудита ниже описывают состояние до внедрения.
+Последующее обновление: A1–A6 согласованы заданием E1 (уточнение A4 — §6/§15); реализованный E1 — §16, последующий E2 — §17. Факты исходного аудита ниже описывают состояние до внедрения.
 
 Дата: 2026-10-13. Исследованный HEAD: `dc65f4593266fafcf36cfa2fb17a924bae7c127a`, ветка `main`, исходное рабочее дерево чистое. Каноническая сцена — `res://scenes/main_3d.tscn`. Единственный источник требований — [UI_DESIGN.md](UI_DESIGN.md), включая закрытые Q1–Q9. [План внедрения](UI_IMPLEMENTATION_PLAN.md) описывает шесть предлагаемых этапов.
 
@@ -376,3 +376,11 @@ Main предоставляет card getters и presentation hooks; legacy defau
 GameUI координирует реально зарегистрированные окна и верхний Control/dialog, Esc и контекстное меню. Панель строительства остаётся владельцем своего collapsed state; GameUI читает и изменяет его через адаптер. Selection и active tools читаются из существующих систем. `UIInputContext` хранит слабую ссылку на shell и отвечает на focus/pointer queries. Main3D, Camera3D и F10 используют его; default null сохраняет legacy/prototype behavior. Прозрачные hosts не блокируют пустой экран; границы видимых реальных компонентов блокируют press/release/wheel. Road release и разрыв stroke при проходе над UI наблюдаются до GUI consumption.
 
 MMB сохраняет grab-map pan, включая текущие UI-области без собственного drag. F10 остаётся отдельной developer panel; его Esc делегирует тому же stack. Закрытие world context menu внешним ЛКМ/ПКМ потребляет dismiss click только в canonical presentation. Text focus блокирует hotkeys и camera keyboard polling; математическая модель pan/zoom не меняется.
+
+## 17. Реализованная синяя панель E2
+
+InfoPanel внутри InfoAnchor стал владельцем compact/expanded/day/tab presentation. Один экземпляр каждого специализированного script получает authored canonical widgets через explicit unique names; legacy defaults не изменены. Ни selection, ни resource/staff/occupation truth не перенесены в UI. Snapshot fields используются только для дедупликации presentation refresh, не для validation/gameplay.
+
+InfoPanel разрешает unregistered selected entities через существующие PlayerControl notifications и очищает только selection. Scoped card subscriptions отключаются при смене data и exit_tree. Natural tree/rock и committed haul presentation инжектируются небольшими read providers из Main3D; они не создают jobs, не вызывают has_work/best_task/pathfinding и не меняют reservations. Нет универсального нового runtime или scheduler.
+
+Body scroll и полная синяя frame boundary подключены к E1 input context; UI transitions не меняют camera. E4 roster/assignment dialog, E3 catalogue/repeat tools и E5 styling остаются отдельными этапами. В E2 также исправлена обнаруженная при rendered inspection неверная UTF-8 подпись существующей кнопки жителей из E1; поведение кнопки не менялось.
