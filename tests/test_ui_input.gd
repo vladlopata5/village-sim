@@ -44,7 +44,7 @@ func run() -> void:
 	key(KEY_ESCAPE)
 	check(not world.settlement_panel.visible and world.placement.is_active(),"Second Esc closes only ordinary window")
 	key(KEY_ESCAPE)
-	check(not world.placement.is_active() and world.resident_selection.selected_resident==world.residents[0],"Third Esc cancels tool only; selection preserved")
+	check(not world.placement.is_active() and world.resident_selection.selected_entity==null,"Third Esc cancels tool only; E3 tile selection was cleared")
 	# Exactly one ordinary window, without constructing future production windows.
 	ui.register_window(&"test",dialog)
 	ui.open_window(&"residents")

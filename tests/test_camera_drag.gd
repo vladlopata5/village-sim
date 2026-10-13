@@ -77,6 +77,7 @@ func run() -> void:
 		world.placement.cancel()
 		if mode=="roads": world._select_road_tool()
 		if mode=="building": world._select_building_definition(Definitions.for_type(Types.HOME))
+		var selection_before = world.resident_selection.selected_entity
 		var road_count: int = world.roads.cells().size()
 		var building_count: int = world.buildings.size()
 		camera.global_position = position_before
@@ -85,7 +86,7 @@ func run() -> void:
 		drag(point,Vector2(25,15))
 		await physics_frame
 		check(not camera.global_position.is_equal_approx(position_before),"Real MMB input pans in "+mode+" mode")
-		check(world.roads.cells().size()==road_count and world.buildings.size()==building_count and actor.commands.active_command==null and world.resident_selection.selected_resident==actor.data,"MMB changes no roads/buildings/commands/selection in "+mode+" mode")
+		check(world.roads.cells().size()==road_count and world.buildings.size()==building_count and actor.commands.active_command==null and world.resident_selection.selected_entity==selection_before,"MMB changes no roads/buildings/commands/selection in "+mode+" mode")
 		var stopped := camera.global_position
 		var motion := InputEventMouseMotion.new()
 		motion.relative = Vector2(25,15)

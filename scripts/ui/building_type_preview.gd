@@ -3,8 +3,10 @@ extends VBoxContainer
 const Resources = preload("res://scripts/resource_type.gd")
 const Profession = preload("res://scripts/resident_profession.gd")
 const Grid = preload("res://scripts/build_grid.gd")
-func show_definition(definition: RefCounted) -> void:
+func show_definition(definition: RefCounted, description: String = "") -> void:
 	$Name.text = definition.display_name
+	$Description.text = description
+	$Description.visible = not description.is_empty()
 	var lines := PackedStringArray()
 	for resource in definition.construction_requirements:
 		lines.append("%s: %d" % [Resources.display_name(resource),definition.construction_requirements[resource]])

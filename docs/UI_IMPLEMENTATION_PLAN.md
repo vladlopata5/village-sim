@@ -419,3 +419,28 @@ Resident tabs: Био / Работа / Отношения, foldouts diary тек
 Building Info разделяет назначенных producers/Porter/жильцов и временные occupied slots; имена интерактивны, освобождение назначения повторно проверяет текущую принадлежность. Disabled «Демонтировать» не имеет callback. Production показывает реальные recipe/input/output buffers и progress; natural-work progress берётся из captured controller/tree/rock context read provider, без вызова selection/path APIs. Storage только у полноценных storage types, actual amount/capacity каждого ресурса без вычитания reservations. UC→BUILT обновляет вкладки того же объекта по construction_changed.
 
 Подробные автоматические/rendered результаты и ограничения: `C:/Users/SW/Documents/Codex/outputs/ui-e2-info-panel/REPORT.md`. E3–E6 не начинались.
+
+## 15. Checkpoint E3
+
+Implemented canonical ActionPanel + ConstructionCatalog with ordered TAB and
+QUICK_WINDOW registration, horizontally scrollable menu, internal category row and
+vertical tile scroll. Four categories follow approved A4: Production (Lumberjack,
+Quarry, Gatherer, Sawmill), Logistics (Storage), Settlement (Home, Kitchen), Objects
+(Dirt Road). Real Definitions supply all construction/capacity data; UI-only purpose
+text and simple SVG icons remain presentation assets. No Town Center catalogue entry.
+
+Canonical Main3D uses approved A3: one base confirm, captured definition/rotation,
+generation checks after placed callbacks, guarded rearm and existing resnap/validators.
+Invalid positions keep the tool; cancelled/replaced callbacks win. All four rotations
+persist between placements. Entity selection is cleared on building-tile selection;
+preview remains until cancellation/replacement. Legacy ConstructionPanel and base
+one-shot API are preserved. Opening Residents does not cancel placement; collapsing
+Construction cancels its building/road tool, without cancelling unrelated Area/F10.
+
+Green geometry is 720×200 expanded / 720×52 collapsed logical units, 12-unit margins;
+Blue E2 geometry and viewport/stretch are unchanged. Existing Residents window remains
+the transitional quick window; E4 replaces it separately. Automated tests cover catalogue,
+input/callback generations, rotations and tool transitions. Rendered QA includes both
+target resolutions, real GUI clicks/rays and actual Ground delivery/Builder completion.
+Detailed results and screenshots: C:/Users/SW/Documents/Codex/outputs/ui-e3-construction/REPORT.md.
+E4–E6 have not started; future journal and demolition remain out of scope.

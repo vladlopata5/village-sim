@@ -19,8 +19,10 @@ func update_world_position(point: Vector3) -> void:
 	world_position = grid.snap(point, selected_definition.footprint_cells, quarter_turns)
 	position = Coordinates.to_sim(world_position)
 func rotate() -> void:
+	set_orientation(quarter_turns + 1)
+func set_orientation(turns: int) -> void:
 	if not is_active(): return
-	quarter_turns = (quarter_turns + 1) % 4
+	quarter_turns = posmod(turns,4)
 	if has_ground_position: update_world_position(_cursor_position)
 	changed.emit()
 func proposed_cells() -> Array:

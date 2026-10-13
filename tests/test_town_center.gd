@@ -37,7 +37,7 @@ func run() -> void:
 	check(world.build_grid.occupied_cells(center.id).size()==192 and not world.navigation.is_world_walkable(Coordinates.to_world(center.position)),"Town Center uses common build/nav footprint")
 	check(world.world_locations.resolve_action_position(center) is Vector2,"Town Center has ordinary default access point")
 	check(not world.cancel_construction(center.id),"BUILT Town Center cannot be cancelled")
-	check(world.construction_panel.building_buttons.get_children().all(func(button): return button.text!="Городской центр"),"Town Center absent from construction catalog")
+	check(world.construction_panel.catalogue.tile_for_type(Types.TOWN_CENTER)==null,"Town Center absent from construction catalog")
 	world.placement.select(center.definition)
 	world.placement.update_world_position(Vector3(30,0,20))
 	check(world.placement.confirm()==null,"Town Center has no player placement recipe")

@@ -41,6 +41,8 @@ var debug_spawn_marker: MeshInstance3D
 var ready_for_play := false
 var _clicks: Array[InputEventMouseButton] = []
 var _pointer_position := Vector2.ZERO
+var _tool_generation := 0
+var _confirming_placement := false
 func _ready() -> void:
 	decision_dispatcher = preload("res://scripts/ai_decision_dispatcher.gd").new()
 	decision_dispatcher.name = "AIDecisionDispatcher"
@@ -103,7 +105,7 @@ func _ready() -> void:
 		game_ui.register_pointer_control(developer_panel)
 		game_ui.blocking_ui_changed.connect(developer_panel._paused_clicks.clear)
 		developer_panel.placement_started.connect(_start_debug_placement)
-		developer_panel.placement_cancelled.connect(_clicks.clear)
+		developer_panel.placement_cancelled.connect(_debug_input_cancelled)
 		debug_spawn_marker=MeshInstance3D.new()
 		var marker_mesh := PlaneMesh.new()
 		marker_mesh.size=Vector2(0.8,0.8)
@@ -156,19 +158,20 @@ func _setup_construction() -> void:
 	placement.setup(buildings)
 	placement.logger = game_logger
 	placement.placed.connect(_show_building)
-	construction_panel = preload("res://scripts/construction_panel.gd").new()
+	construction_panel = preload("res://scenes/ui/action_panel.tscn").instantiate()
 	$HUD.add_child(construction_panel)
-	var definitions: Array = []
-	for category in [BuildingType.Type.HOME, BuildingType.Type.STORAGE, BuildingType.Type.FOOD, BuildingType.Type.GATHERER_HUT, BuildingType.Type.LUMBERJACK_HUT, BuildingType.Type.SAWMILL, BuildingType.Type.QUARRY]:
-		definitions.append(BuildingDefinition.for_type(category))
-	construction_panel.setup(definitions)
 	construction_panel.definition_selected.connect(_select_building_definition)
+	construction_panel.road_selected.connect(_select_road_tool)
+	construction_panel.collapse_changed.connect(_construction_collapsed)
+	game_ui.info_panel.preview_close_requested.connect(_cancel_building_placement)
+	resident_selection.selection_changed.connect(_selection_tool_changed)
 	game_ui.mount_construction(construction_panel)
 	building_ghost = preload("res://scripts/world_3d/building_ghost_3d.gd").new()
 	building_ghost.name = "BuildingGhost3D"
 	$World.add_child(building_ghost)
 	building_ghost.setup(placement)
 	placement.changed.connect(building_ghost.refresh)
+	placement.changed.connect(_placement_ui_changed)
 func _setup_roads() -> void:
 	road_tool.roads=roads
 	road_tool.build_grid=build_grid
@@ -177,34 +180,68 @@ func _setup_roads() -> void:
 	$World.add_child(road_layer)
 	road_navigation.setup(roads,navigation)
 	road_layer.setup(roads)
-	_road_button=Button.new()
-	_road_button.text="Грунтовая дорога"
-	_road_button.tooltip_text="ЛКМ: рисовать • Shift+ЛКМ: стирать • ПКМ/Esc: выйти"
-	_road_button.focus_mode=Control.FOCUS_NONE
-	_road_button.toggle_mode=true
-	_road_button.pressed.connect(_select_road_tool)
-	construction_panel.building_buttons.add_child(_road_button)
+	_road_button=construction_panel.catalogue.tiles[&"dirt_road"]
+func _sync_catalogue() -> void:
+	construction_panel.catalogue.sync_tool(placement.selected_definition,road_tool.active)
+func _placement_ui_changed() -> void:
+	_sync_catalogue()
+	if not placement.is_active() and not _confirming_placement: game_ui.info_panel.clear_type_preview()
+func _construction_collapsed(collapsed: bool) -> void:
+	if collapsed and (placement.is_active() or _confirming_placement or road_tool.active): _cancel_active_world_tool()
+func _selection_tool_changed() -> void:
+	if resident_selection.selected_entity!=null: _cancel_active_world_tool()
+func _cancel_building_placement() -> void:
+	# Also records cancellation while base confirm has cleared its definition.
+	_tool_generation+=1
+	placement.cancel()
+	_clear_world_input()
+	game_ui.info_panel.clear_type_preview()
+	_sync_catalogue()
 func _select_road_tool() -> void:
-	_cancel_debug_placement()
-	_cancel_work_area()
 	if road_tool.active:
 		_cancel_road_tool()
 		return
-	placement.cancel()
-	_clicks.clear()
+	_cancel_debug_placement()
+	_cancel_work_area()
+	_cancel_building_placement()
 	interaction_menu.hide()
 	road_tool.select()
-	_road_button.button_pressed=true
+	_sync_catalogue()
 func _cancel_road_tool() -> void:
+	_tool_generation+=1
 	road_tool.cancel()
-	_road_dragging=false
-	_road_events.clear()
-	if _road_button!=null: _road_button.button_pressed=false
+	_clear_world_input()
+	_sync_catalogue()
 func _select_building_definition(definition: BuildingDefinition) -> void:
+	if placement.selected_definition==definition:
+		_cancel_building_placement()
+		return
 	_cancel_debug_placement()
 	_cancel_work_area()
 	_cancel_road_tool()
-	super._select_building_definition(definition)
+	_cancel_building_placement()
+	interaction_menu.hide()
+	resident_selection.clear()
+	placement.select(definition)
+	game_ui.info_panel.show_type_preview(definition,construction_panel.catalogue.description(definition))
+func _confirm_building_placement() -> BuildingInstance:
+	var definition: BuildingDefinition=placement.selected_definition
+	var turns: int=placement.quarter_turns
+	var point: Vector3=placement.world_position
+	var generation := _tool_generation
+	_confirming_placement=true
+	var building: BuildingInstance=placement.confirm() # Exactly one domain confirmation.
+	_confirming_placement=false
+	if building!=null and generation==_tool_generation and not placement.is_active():
+		_tool_generation+=1
+		_clear_world_input()
+		placement.select(definition)
+		placement.set_orientation(turns)
+		placement.update_world_position(point)
+		building_ghost.refresh()
+	if not placement.is_active(): game_ui.info_panel.clear_type_preview()
+	_sync_catalogue()
+	return building
 func _process(_delta: float) -> void:
 	if debug_spawn_marker!=null:
 		debug_spawn_marker.hide()
@@ -272,14 +309,14 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if developer_panel!=null and developer_panel.active():
 		if event is InputEventMouseButton and event.pressed and event.button_index in [MOUSE_BUTTON_LEFT,MOUSE_BUTTON_RIGHT]:
-			_clicks.append(event)
+			_queue_world_click(event)
 			get_viewport().set_input_as_handled()
 		return
 	if work_area_tool.active():
 		if event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE: _cancel_work_area()
 		elif event is InputEventKey and event.pressed and event.keycode == KEY_ENTER: _confirm_work_area()
 		elif event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_RIGHT: _cancel_work_area()
-		elif event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT: _clicks.append(event)
+		elif event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT: _queue_world_click(event)
 		else: return
 		get_viewport().set_input_as_handled()
 		return
@@ -303,11 +340,11 @@ func _unhandled_input(event: InputEvent) -> void:
 		placement.rotate()
 		get_viewport().set_input_as_handled()
 	elif event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
-		if placement.is_active(): placement.cancel()
+		if placement.is_active(): _cancel_building_placement()
 		else: resident_selection.clear()
 		get_viewport().set_input_as_handled()
 	elif event is InputEventMouseButton and event.pressed and event.button_index in [MOUSE_BUTTON_LEFT, MOUSE_BUTTON_RIGHT]:
-		_clicks.append(event)
+		_queue_world_click(event)
 		get_viewport().set_input_as_handled()
 func _physics_process(_delta: float) -> void:
 	if road_tool.active:
@@ -322,10 +359,16 @@ func _physics_process(_delta: float) -> void:
 			if hit.has("position"): road_tool.paint(hit.position,event.erase)
 			else: road_tool.end_stroke()
 	_road_events.clear()
-	for event in _clicks:
+	var pending := _clicks.duplicate()
+	_clicks.clear()
+	for event in pending:
+		if event.get_meta("tool_generation",-1)!=_tool_generation: continue
 		if not game_ui.input_context.pointer_blocked(event.position):
 			handle_world_click(event.button_index, ground_pick(event.position) if placement.is_active() or work_area_tool.active() or (developer_panel!=null and developer_panel.active()) else pick(event.position), event.position)
-	_clicks.clear()
+func _queue_world_click(event: InputEventMouseButton) -> void:
+	var queued: InputEventMouseButton=event.duplicate()
+	queued.set_meta("tool_generation",_tool_generation)
+	_clicks.append(queued)
 func pick(screen_position: Vector2) -> Dictionary:
 	var camera: Camera3D = $World/Camera3D
 	var origin := camera.project_ray_origin(screen_position)
@@ -353,11 +396,11 @@ func handle_world_click(button: int, hit: Dictionary, screen: Vector2 = Vector2.
 		return
 	if road_tool.active: return
 	if placement.is_active():
-		if button == MOUSE_BUTTON_RIGHT: placement.cancel()
+		if button == MOUSE_BUTTON_RIGHT: _cancel_building_placement()
 		elif button == MOUSE_BUTTON_LEFT:
 			placement.has_ground_position = hit.has("position")
 			if hit.has("position"): placement.update_world_position(hit.position)
-			placement.confirm()
+			_confirm_building_placement()
 		building_ghost.refresh()
 		return
 	var collider: Object = hit.get("collider")
@@ -495,13 +538,15 @@ func _start_work_area(resident_id: String) -> void:
 	_cancel_debug_placement()
 	var resident = player_control.get_resident(resident_id)
 	if resident == null or resident.profession not in [Profession.Type.LUMBERJACK,Profession.Type.MINER]: return
-	placement.cancel()
+	_cancel_building_placement()
 	_cancel_road_tool()
 	interaction_menu.hide()
 	_clicks.clear()
 	area_confirm.hide()
 	work_area_tool.start(resident_id,preload("res://scripts/balance_config.gd").FREE_WORK_AREA_RADIUS)
 func _cancel_work_area() -> void:
+	_tool_generation+=1
+	_clear_world_input()
 	work_area_tool.cancel()
 	if area_confirm != null: area_confirm.hide()
 	_clicks.clear()
@@ -597,9 +642,12 @@ func register_spawned_resident(data: ResidentData, point: Vector3) -> ResidentRu
 func _start_debug_placement() -> void:
 	_cancel_work_area()
 	_cancel_road_tool()
-	placement.cancel()
-	_clicks.clear()
+	_cancel_building_placement()
+	_clear_world_input()
 	interaction_menu.hide()
+func _debug_input_cancelled() -> void:
+	_tool_generation+=1
+	_clear_world_input()
 func _cancel_debug_placement() -> void:
 	if developer_panel!=null and developer_panel.active(): developer_panel.cancel_placement()
 
@@ -634,7 +682,7 @@ func _cancel_active_world_tool() -> bool:
 		_cancel_debug_placement()
 	elif work_area_tool.active(): _cancel_work_area()
 	elif road_tool.active: _cancel_road_tool()
-	elif placement.is_active(): placement.cancel()
+	elif placement.is_active() or _confirming_placement: _cancel_building_placement()
 	else: return false
 	_clear_world_input()
 	return true

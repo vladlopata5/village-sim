@@ -1,5 +1,6 @@
 extends PanelContainer
 ## Owns only presentation state. Selection and simulation objects remain external.
+signal preview_close_requested
 const TITLES = {&"bio":"Био",&"work":"Работа",&"relations":"Отношения",&"info":"Инфо",&"production":"Производство",&"storage":"Склад"}
 var selection: Node
 var clock: Node
@@ -92,11 +93,11 @@ func _layout() -> void:
 	offset_right = 0.0
 	offset_top = -height
 	offset_bottom = 0.0
-func show_type_preview(definition: RefCounted) -> bool:
+func show_type_preview(definition: RefCounted, description: String = "") -> bool:
 	# E3 supplies its authoritative placement definition; no fictitious entity.
 	if selection == null or selection.selected_entity != null or definition == null: return false
 	_preview_definition = definition
-	preview.show_definition(definition)
+	preview.show_definition(definition,description)
 	expanded = true
 	_apply()
 	return true
@@ -106,7 +107,9 @@ func clear_type_preview() -> void:
 	expanded = false
 	_apply()
 func _close() -> void:
-	if _preview_definition != null: clear_type_preview()
+	if _preview_definition != null:
+		preview_close_requested.emit()
+		clear_type_preview()
 	elif selection != null: selection.clear()
 func _minute(minutes: int) -> void:
 	var day := floori(float(minutes)/1440.0)

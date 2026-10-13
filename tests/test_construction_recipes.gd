@@ -67,12 +67,13 @@ func run() -> void:
 		for resource in R.values():
 			check(site.get_missing_amount(resource) == cost.get(resource,0),"Missing amount matches recipe")
 			check(((preload("res://scripts/resource_type.gd").display_name(resource) + ":") in card.construction_materials.text) == cost.has(resource),"Card only lists required resources")
-		var button: Button = null
-		for child in world.construction_panel.building_buttons.get_children():
-			if child.text == site.display_name: button = child
-		check(button != null,"Construction menu exposes type")
+		var button: Button = world.construction_panel.catalogue.tile_for_type(category)
+		check(button != null,"Construction catalogue exposes type")
+		world.resident_selection.clear()
+		check(world.game_ui.info_panel.show_type_preview(definition),"Read-only actual Definition preview")
 		for resource in cost:
-			check(("%s: %d" % [preload("res://scripts/resource_type.gd").display_name(resource),cost[resource]]) in button.tooltip_text,"Pre-placement cost tooltip uses actual recipe")
+			check(("%s: %d" % [preload("res://scripts/resource_type.gd").display_name(resource),cost[resource]]) in world.game_ui.info_panel.preview.get_node("Materials").text,"Visible pre-placement cost uses actual recipe")
+		world.resident_selection.select_building(site)
 		await capture("recipe_%s_initial" % definition.id)
 		check(not world.logistics.allows_external_delivery(source,site,R.LOG),"Existing Porter policy excludes unfinished destinations; Builder supplies construction")
 		var actor = world.resident_runtimes[1]

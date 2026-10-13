@@ -2699,3 +2699,26 @@ DebugSpawn пользуется штатной capacity и сообщает unas
 Синяя панель владеет только раскрытием и активной вкладкой. ResidentSelection остаётся единственным selected entity; direct switches сохраняют раскрытие, full clear сбрасывает его и показывает day summary. Type preview читает Definition без BuildingInstance, подключение к новому каталогу отложено до E3.
 
 Существующие card scripts получили embedded canonical widgets с прежним legacy default. UI читает domain signals и ограниченные read providers для committed hauling/natural work/physical occupancy; не считает physical slots назначенным персоналом и не хранит отдельный resource ledger. Diary ограничен текущим днём только в canonical presentation; retention/generation не меняются. Relationships показывают только existing directed records. Demolition disabled без callback. Все игровые изменения делегируются существующим PlayerControl/assignment APIs; recipes, balance и safe hauling unchanged.
+
+## 2026-10-14 — E3 canonical construction catalogue and repeated placement
+
+Canonical ActionPanel registers ordered TAB and QUICK_WINDOW entries. Construction
+contains Production / Logistics / Settlement / Objects; seven actual buildable
+Definitions and the existing Dirt Road tool. UI metadata contains descriptions and
+vector icons only, never recipes, geometry, capacity or resource state. Selection
+remains ResidentSelection; active tools remain the existing Main3D components.
+
+Base BuildingPlacement.confirm remains one-shot, including legacy. Main3D captures
+definition/orientation/input generation, confirms exactly once and rearms only if
+the successful placed callbacks did not cancel or replace the tool. The narrow 3D
+orientation setter resnaps using existing grid rules. Rearming invalidates pending
+copies of the prior input; switching/cancelling tools clears world queues/strokes.
+The generation is an input invalidation token, not another active-tool state.
+
+Building tile selection clears entity selection and displays the actual Definition
+in InfoPanel. Repeated tile, RMB, Esc (after dialog/window priority), or collapsing
+Construction cancel placement and type preview. Closing the type preview also
+cancels its placement. Opening the existing Residents quick window preserves the
+tool. Dirt Road uses its own unchanged validation/paint/erase path. Collapsing the
+catalogue does not cancel independent WorkArea/F10 tools. No committed worker task,
+logistics, placement validator, recipe, capacity or camera mathematics changed.

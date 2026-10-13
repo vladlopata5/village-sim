@@ -43,9 +43,9 @@ func _run() -> void:
 		actor.view.set_physics_process(false)
 		actor.intents.clear_reason(&"day_work")
 	await physics_frame
-	check(scene.construction_panel != null and not scene.construction_panel.collapsed, "Existing expanded ConstructionPanel reused in 3D")
+	check(scene.construction_panel != null and scene.construction_panel.collapsed, "Canonical ActionPanel starts collapsed")
 	scene.construction_panel.set_collapsed(true)
-	check(not scene.construction_panel.building_buttons.visible, "Existing collapse semantics preserved")
+	check(not scene.construction_panel.catalogue.visible, "Existing collapse semantics preserved")
 	scene.construction_panel.set_collapsed(false)
 	for building in scene.buildings:
 		check(not scene.build_grid.occupied_cells(building.id).is_empty(), "Every starter building registered in BuildGrid")
@@ -72,7 +72,7 @@ func _run() -> void:
 	check(not scene.placement.is_active() and actor.commands.active_command == null, "RMB cancels placement instead of issuing MOVE_TO/menu")
 	# Actual viewport UI clicks must not become world placement/selection/commands.
 	await process_frame
-	var button: Button = scene.construction_panel.building_buttons.get_child(0)
+	var button: Button = scene.construction_panel.catalogue.tile_for_type(Types.LUMBERJACK_HUT)
 	var button_click := InputEventMouseButton.new()
 	button_click.button_index = MOUSE_BUTTON_LEFT
 	button_click.pressed = true
@@ -82,7 +82,7 @@ func _run() -> void:
 	button_release.pressed = false
 	root.push_input(button_release,true)
 	await physics_frame
-	check(scene.placement.is_active() and scene.buildings.size() == count and scene.resident_selection.selected_resident == actor.data, "ConstructionPanel consumes click before world placement/selection")
+	check(scene.placement.is_active() and scene.buildings.size() == count and scene.resident_selection.selected_entity == null, "Catalogue click activates E3 preview without a world placement")
 	scene.placement.cancel()
 	var start := Vector3(-8,0,20)
 	var target := Vector3(8,0,20)

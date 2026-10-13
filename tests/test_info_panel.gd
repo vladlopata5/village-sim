@@ -37,7 +37,7 @@ func run() -> void:
 	var camera: Camera3D=world.get_node("World/Camera3D")
 	var transform_before:=camera.global_transform
 	var zoom_before:=camera.size
-	check(world.game_ui.residents_button.text=="Жители: 4","Existing residents caption uses correct UTF-8 text")
+	check(world.game_ui.residents_button.text=="↗ Жители: 4","Existing residents caption uses correct UTF-8 text")
 	check(panel.visible and panel.day_summary.visible and panel.day_summary.text=="День 1" and not panel.expanded,"Initial persistent day card")
 	selection.select(a)
 	check(resident.visible and not panel.expanded and panel.active_tab==&"bio","First selection compact with default Bio")

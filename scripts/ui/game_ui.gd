@@ -10,7 +10,6 @@ var input_context = InputContext.new()
 var cancel_world_tool: Callable
 var context_menu: Control
 var _construction: PanelContainer
-var _construction_scroll: ScrollContainer
 var residents_button: Button
 var _windows: Dictionary = {}
 var _current_window: StringName = &""
@@ -37,42 +36,28 @@ func mount_messages(feed: Control) -> void:
 	feed.size = Vector2(560, 102)
 	register_pointer_control(feed)
 func mount_construction(panel: PanelContainer) -> void:
-	_construction = panel
+	_construction=panel
 	panel.reparent($ActionsAnchor)
-	var column: Node = panel.collapse_button.get_parent()
-	var header := HBoxContainer.new()
-	column.add_child(header)
-	column.move_child(header, 0)
-	panel.collapse_button.reparent(header)
-	panel.collapse_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	residents_button = Button.new()
-	residents_button.focus_mode = Control.FOCUS_NONE
-	residents_button.pressed.connect(toggle_window.bind(&"residents"))
-	header.add_child(residents_button)
-	_construction_scroll = ScrollContainer.new()
-	_construction_scroll.custom_minimum_size.y = 38
-	_construction_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	column.add_child(_construction_scroll)
-	panel.building_buttons.reparent(_construction_scroll)
+	residents_button=panel.buttons[&"residents"]
+	panel.quick_window_requested.connect(toggle_window)
 	panel.collapse_changed.connect(_construction_changed)
 	register_pointer_control(panel)
-	call_deferred("_layout_actions")
+	_layout_actions()
 func _construction_changed(_collapsed: bool) -> void:
-	call_deferred("_layout_actions")
+	_layout_actions()
 func set_actions_expanded(expanded: bool) -> void:
 	_construction.set_collapsed(not expanded)
 func actions_expanded() -> bool:
-	return _construction != null and not _construction.collapsed
+	return _construction!=null and not _construction.collapsed
 func active_green_tab() -> StringName:
-	return &"construction" if actions_expanded() else &""
+	return _construction.active_tab if _construction!=null else &""
 func _layout_actions() -> void:
-	if _construction == null: return
-	$ActionsAnchor.offset_right = minf(912.0, size.x - 344.0)
-	$ActionsAnchor.offset_top = -68.0 if _construction.collapsed else -122.0
+	if _construction==null: return
+	$ActionsAnchor.offset_right=minf(732.0,size.x-344.0)
+	$ActionsAnchor.offset_top=-64.0 if _construction.collapsed else -212.0
 	_construction.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	_construction_scroll.visible = not _construction.collapsed
 func update_population(count: int) -> void:
-	residents_button.text = "Жители: %d" % count
+	residents_button.text = "↗ Жители: %d" % count
 func register_window(id: StringName, window: Control) -> void:
 	assert(not _windows.has(id))
 	window.reparent($Windows)
