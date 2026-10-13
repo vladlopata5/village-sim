@@ -128,7 +128,7 @@ func _run() -> void:
 	check(logistics.jobs.is_empty() and second.resources.get_reserved_out(FOOD) == 0, "Unbuilt source cannot generate logistics job")
 	var control = ControlAPI.new()
 	control.setup(scene.residents, [second])
-	check(not control.assign_workplace(actor.data.id, second.id) and not control.assign_profession(actor.data.id, Profession.Type.PORTER), "Construction storage cannot accept employment")
+	check(not control.assign_workplace(actor.data.id, second.id) and control.assign_profession(actor.data.id, Profession.Type.PORTER) and actor.data.work_location_id.is_empty() and not logistics.has_available_job(actor.data.id), "Construction storage cannot accept employment; Porter profession can remain unassigned")
 	var hut := Instance.new(scene.gatherer_hut_data.id, scene.gatherer_hut_data.definition, scene.gatherer_hut_data.position, Instance.State.UNDER_CONSTRUCTION)
 	hut.resources.set_capacity(FOOD, 5)
 	scene.production.building = hut

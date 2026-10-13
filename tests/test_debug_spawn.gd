@@ -31,9 +31,10 @@ func run() -> void:
 		check(runtime!=null and world.social_world.residents[data.id]==runtime and world.logistics._residents[data.id]==data,"All production registries")
 		check(runtime.get_node("Lumberjack")!=null and runtime.get_node("Miner")!=null,"Natural work controllers")
 		check(world.navigation.is_world_walkable(runtime.view.get_world_position()),"Outside obstacles")
-		check(data.profession==P.PORTER and data.work_location_id==world.warehouse_data.id,"Normal profession assignment")
+		check(data.profession==P.PORTER and (data.work_location_id==world.warehouse_data.id or data.work_location_id.is_empty()),"Capacity-safe profession assignment, including unassigned")
 		world.resident_selection.select(data)
 		check(world.resident_selection.selected_resident==data and world.get_node("HUD/ResidentCard")._assignment_resident==data and world.get_node("HUD/ResidentCard").visible,"Normal resident selection")
+	check(world.player_control.get_porters(world.warehouse_data.id).size()==2 and result.reason.contains("Без места работы: 9"),"Batch reports overflow without bypassing two staff places")
 	check(world.navigation.revision==nav_revision,"Residents do not edit NavigationGrid")
 	for resource in R.values():
 		result=service.spawn_resources(Vector3(-45,0,15),10,resource)

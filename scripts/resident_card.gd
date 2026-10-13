@@ -313,7 +313,7 @@ func _choose_area(index: int) -> void:
 func _refresh_work_place() -> void:
 	if work_place_label == null or _selection == null or _selection.selected_resident == null: return
 	var data = _selection.selected_resident
-	var label := "Место работы не назначено"
+	var label := "Носильщик без рабочего места" if data.profession == Profession.Type.PORTER else "Место работы не назначено"
 	if _control != null and not data.work_location_id.is_empty():
 		var building = _control.get_building(data.work_location_id)
 		if building != null: label = "При здании: %s (%s)" % [building.display_name,building.id]
@@ -323,4 +323,4 @@ func _refresh_work_place() -> void:
 	var enabled: bool = data.profession in [Profession.Type.LUMBERJACK,Profession.Type.MINER] and _control != null and _control.get("work_areas") != null
 	area_button.visible = enabled
 	area_choice.visible = enabled
-	clear_work_button.visible = enabled
+	clear_work_button.visible = enabled or data.profession == Profession.Type.PORTER

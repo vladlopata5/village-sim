@@ -55,6 +55,7 @@ var production_recipe: Recipe
 var logistics_flow: Dictionary
 var visitor_capacity := 0
 var worker_capacity := 0 # Zero keeps existing unlimited workplace semantics.
+var porter_capacity := 0 # Zero forbids logistics staffing; independent from worker slots.
 var work_radius := 0.0 # WORLD units, unrelated to visual footprint.
 var target_tree_count := 0
 var local_resource_capacity := 0
@@ -73,6 +74,7 @@ var player_buildable := true
 func _init(type_id: StringName, category: BuildingType.Type, label: String, footprint_size: Vector2, requirements: Dictionary = {}, work_minutes: int = 0, builder_limit: int = 0, resident_capacity: int = 0) -> void:
 	id = type_id
 	type = category
+	porter_capacity = 0 if category == BuildingType.Type.HOME else (2 if category in [BuildingType.Type.STORAGE,BuildingType.Type.TOWN_CENTER] else 1)
 	logistics_flow = LOGISTICS_FLOW.get(category,{}).duplicate(true)
 	footprint_cells = FOOTPRINT_CELLS[category]
 	display_name = label

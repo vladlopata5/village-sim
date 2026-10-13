@@ -1394,3 +1394,50 @@ NeedDynamics сохраняет hunger growth/clamp/fractions и получае�
 EAT через provider; вне активного оплаченного EAT новый rate не применяется.
 Outside не публикует искусственный indoor MEAL context. Source ownership,
 производство, recipes, Porter/HaulJob/dispatcher/navigation/schedule unchanged.
+
+
+## 2026-10-13 — Закреплённые Porter: отдельная вместимость и собственные endpoints
+
+Первая функциональная часть завершена. ResidentData.profession/work_location_id/
+work_area_id остаются единственным источником назначения. BuildingDefinition имеет
+отдельную porter_capacity: Town Center/Storage = 2; Lumberjack Hut, Quarry,
+Gatherer Hut, Sawmill, Kitchen = 1; Home = 0 (запрет назначения). Производственная
+worker_capacity и физические WORKER/COURIER slots не изменены. Staffing вычисляется
+по зарегистрированным жителям; active HaulJob не занимает дополнительное кадровое место.
+
+PlayerControl.assign_workplace принимает необязательную явную profession. Старые
+двухаргументные вызовы сохраняют основную роль здания: производственная профессия
+в Hut/Quarry/Sawmill, Porter в Storage/Town Center. Новый явный PORTER допустим у всех
+семи поддерживаемых BUILT types. Capacity проверяется до замены старого назначения.
+assign_profession=true означает принятую профессию; Porter может остаться без места,
+что видно в ResidentCard/DebugSpawn. Такие residents не получают новых перевозок.
+При admission/setup исторический overflow исправляется по stable resident ID:
+первые K сохраняют место, остальные остаются PORTER без workplace. Обычная попытка
+занять заполненное место отвергается и никого не вытесняет. Normalization публикует
+assignment events после исправления всей группы; production assignments не меняются.
+
+Новые Porter jobs требуют own source или own destination; Ground имеет только own
+совместимый destination, без выдуманного building owner. External policies, запрет
+Storage balancing, protected Sawmill LOG, Builder hauling и production INTERNAL/self-
+supply сохранены. Porter scan перечисляет только пары собственного здания в прежнем
+source/destination/resource порядке. Exact score, stable key, existence probe, fresh
+claim, lazy feasibility и frame budget ordinary AI остаются прежними.
+
+Claim захватывает resident/base identity, assignment revision (включая A -> B -> A),
+capacity и endpoints до callbacks. Изменение контекста до commit вызывает owned
+rollback. HaulJob.workplace_location_id устанавливается до публикации. Переназначение,
+смена профессии или увольнение после commit не перенаправляют безопасный старый рейс;
+следующий decision использует новое назначение. Resource/lifecycle invalidation по-
+прежнему отменяет unsafe job синхронно. Короткая локальная ссылка на исходный container
+позволяет очистить собственный reserve_out даже при удалении source внутри callback;
+это не новая копия resource state и не долгоживущий resource registry.
+
+Существующая регистрация/удаление очищает workplace metadata и pending AI requests.
+Resident unregister использует прежний executor.cancel/unbind и сохраняет реальный
+cargo на Ground; полноценный despawn/demolition UI не добавлен. Pending dispatcher
+context учитывает assignment revision; команды и critical needs остаются синхронными.
+
+Минимальный UI: раздельные interaction actions production/Porter, причины отказа,
+статус unassigned и отдельные counts в BuildingCard. Полный staffing panel, выбор
+конкретного workplace в F10 и окончательный большой распределённый playtest отложены.
+DebugSpawn пользуется штатной capacity и сообщает unassigned count без bypass.

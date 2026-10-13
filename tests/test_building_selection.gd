@@ -46,9 +46,9 @@ func _run() -> void:
 	check(card.visible and not resident_card.visible and kitchen_view.selected and not actor.view.selected, "Building card and outline replace resident card/highlight")
 	check(card.name_label.text == "Общая кухня" and card.id_label.text == "ID: communal_kitchen_01", "Name and concrete stable ID displayed")
 	check(card.state_label.text == "Состояние: Построено" and card.type_label.text == "Тип: Кухня", "Built state and type are readable")
-	check(card.resources_label.text == "FOOD: 0 / 20", "Empty kitchen displays configured capacity")
+	check(card.resources_label.text == "FOOD: 0 / 20\nНосильщики: 0 / 1", "Empty kitchen displays configured capacity")
 	kitchen.resources.add(FOOD, 7)
-	check(card.resources_label.text == "FOOD: 7 / 20", "Resource signal updates card immediately")
+	check(card.resources_label.text == "FOOD: 7 / 20\nНосильщики: 0 / 1", "Resource signal updates card immediately")
 	await process_frame
 	await process_frame
 	for button in [MOUSE_BUTTON_LEFT, MOUSE_BUTTON_RIGHT]:
@@ -59,7 +59,7 @@ func _run() -> void:
 	check(selection.selected_entity == null and not card.visible and not kitchen_view.selected, "Close clears selection/card/outline, keeps building")
 	click(screen(scene, warehouse.position))
 	check(selection.selected_building == warehouse and warehouse_view.selected and not kitchen_view.selected, "Warehouse selection replaces previous building outline")
-	check(card.resources_label.text == "FOOD: 10 / 20\nБревно: 0 / 20\nДоски: 35 / 35\nКамень: 0 / 100" and card.type_label.text == "Тип: Склад", "Warehouse local resources displayed")
+	check(card.resources_label.text == "FOOD: 10 / 20\nБревно: 0 / 20\nДоски: 35 / 35\nКамень: 0 / 100\nНосильщики: 0 / 2" and card.type_label.text == "Тип: Склад", "Warehouse local resources displayed")
 	click(screen(scene, hut.position))
 	check(selection.selected_building == hut and hut_view.selected and not warehouse_view.selected, "Switching building clears old highlight")
 	hut.production_progress = 17

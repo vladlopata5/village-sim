@@ -11,8 +11,18 @@ var activity: ResidentActivity.Type = ResidentActivity.Type.IDLE:
 const Trait = preload("res://scripts/trait_type.gd")
 ## The resident exists as data, independently of any scene or renderer.
 ## The creator assigns an ID unique within the settlement.
-var work_area_id: StringName = &""
-var work_location_id: StringName = &""
+# Invalidation generation only; the relationship still lives in these fields.
+var work_assignment_revision := 0
+var work_area_id: StringName = &"":
+	set(value):
+		if work_area_id == value: return
+		work_area_id = value
+		work_assignment_revision += 1
+var work_location_id: StringName = &"":
+	set(value):
+		if work_location_id == value: return
+		work_location_id = value
+		work_assignment_revision += 1
 signal home_changed(previous: StringName, current: StringName)
 # Sole housing relationship. Empty/invalid references are valid homeless data.
 var home_location_id: StringName = &"":
@@ -25,7 +35,11 @@ var id: String
 var resident_name: String
 var age: int
 const Profession = preload("res://scripts/resident_profession.gd")
-var profession: Profession.Type
+var profession: Profession.Type:
+	set(value):
+		if profession == value: return
+		profession = value
+		work_assignment_revision += 1
 const Inventory = preload("res://scripts/resident_inventory.gd")
 const Assignment = preload("res://scripts/resident_assignment.gd")
 signal assignments_changed

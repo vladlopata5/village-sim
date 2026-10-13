@@ -14,6 +14,7 @@ class ControlSpy extends RefCounted:
 	var calls: Array = []
 	var data: RefCounted
 	func get_resident(_id: String): return data
+	func workplace_assignment_error(_id: String, _location: StringName, _profession: int = -1) -> String: return ""
 	func can_assign_workplace(_id: String, _location: StringName) -> bool: return true
 	func assign_workplace(id: String, location: StringName) -> bool:
 		calls.append([id, location])
@@ -196,7 +197,7 @@ func _run() -> void:
 	var kitchen = scene.get_node("World/CommunalKitchen")
 	click(kitchen.get_global_transform_with_canvas() * Vector2.ZERO)
 	check(scene.interaction_menu.visible and resident.commands.active_command == null, "RMB on building opens menu without MOVE_TO")
-	check(scene.interaction_menu.options.map(func(option): return option.label) == ["Идти к", "Поесть здесь"] and scene.interaction_menu.options[1].enabled, "Kitchen menu: go to and queued eating assignment, no direct eating hack")
+	check(scene.interaction_menu.options.map(func(option): return option.label) == ["Идти к", "Поесть здесь", "Назначить носильщиком здесь"] and scene.interaction_menu.options[1].enabled, "Kitchen menu: go to and queued eating assignment, no direct eating hack")
 	check(scene.interaction_menu.options[0].interaction_kind == Option.Kind.PLAYER_COMMAND and scene.interaction_menu.options[1].interaction_kind == Option.Kind.RESIDENT_ASSIGNMENT, "Options distinguish command and assignment")
 	var button = scene.interaction_menu._column.get_child(0)
 	await process_frame
@@ -208,7 +209,7 @@ func _run() -> void:
 	camera.force_update_scroll()
 	var hut = scene.get_node("World/GathererHut")
 	click(hut.get_global_transform_with_canvas() * Vector2.ZERO)
-	check(scene.interaction_menu.visible and resident.commands.active_command == active and scene.interaction_menu.options[1].label == "Устроиться на работу", "New RMB updates object menu without changing active command")
+	check(scene.interaction_menu.visible and resident.commands.active_command == active and scene.interaction_menu.options[1].label == "Работать: Собиратель", "New RMB updates object menu without changing active command")
 	var spy = ControlSpy.new()
 	spy.data = resident.data
 	var real = scene.interactions.control

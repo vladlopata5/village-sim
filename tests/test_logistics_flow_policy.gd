@@ -119,6 +119,7 @@ func run() -> void:
 	walk(other)
 	check(scene.kitchen_data.resources.get_amount(Resources.FOOD)==1 and other.data.inventory.amount==0,"Kitchen receives FOOD from assigned second base")
 	for picked_up in [false,true]:
+		check(scene.player_control.assign_workplace(actor.data.id,own.id),"Explicit base assignment for invalidation case")
 		if own.resources.get_available_free_capacity(Resources.FOOD)>0: own.resources.add(Resources.FOOD,1)
 		job=scene.logistics.claim_best_job(actor.data.id)
 		check(job != null and scene.logistics.start_claimed_job(job,actor.data.id),"Active base-invalidation fixture")
@@ -129,9 +130,12 @@ func run() -> void:
 			scene.logistics.recalculate()
 		else: scene.logistics.remove_building(own.id)
 		check(scene.logistics.get_job(actor.data.id)==null and own.resources.get_reserved_out(Resources.FOOD)==0 and scene.kitchen_data.resources.get_reserved_in(Resources.FOOD)==0,"Unavailable own base cancels job and releases reservations")
-		check(actor.data.work_location_id==own.id and not scene.logistics.has_available_job(actor.data.id),"No reassignment to surviving Storage")
+		check(actor.data.work_location_id== (own.id if picked_up else &"") and not scene.logistics.has_available_job(actor.data.id),"Removed registration clears base; lost access never auto-reassigns")
 		check(own.resources.get_amount(Resources.FOOD)==original_stock and actor.data.inventory.amount==0 and scene.ground_resources.drops.size()==(1 if picked_up else 0),"After-pickup cargo drops, source is not restored")
-		if not picked_up: scene.logistics.register_building(own)
+		if not picked_up:
+			scene.buildings.append(own)
+			scene.player_control.register_building(own)
+			scene.logistics.register_building(own)
 	# Two huts, empty nearer hut must be excluded by generic policy and forestry selection.
 	var hut=preload("res://tests/forestry_fixture.gd").hut(scene,&"hut_a",Vector3(-20,0,-8))
 	var hut_b=preload("res://tests/forestry_fixture.gd").hut(scene,&"hut_b",Vector3(-20,0,-2))

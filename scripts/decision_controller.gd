@@ -186,12 +186,13 @@ func request_decision(_reason: String = "free") -> void:
 	if _data.profession == Profession.Type.PORTER and _clock.get_phase() == "День" and _dispatcher != null:
 		var dispatcher: Node = _dispatcher.get_ref()
 		if is_instance_valid(dispatcher):
-			dispatcher.request(_data.id, self, _reason, {"workplace": _data.work_location_id, "phase": _clock.get_phase()})
+			dispatcher.request(_data.id, self, _reason, {"workplace": _data.work_location_id, "phase": _clock.get_phase(), "assignment_revision": _data.work_assignment_revision})
 			return
 	_decide_now()
 
 func execute_queued_decision(_reason: String, context: Dictionary) -> bool:
 	if _data.profession != Profession.Type.PORTER or _clock.get_phase() != context.phase or _data.work_location_id != context.workplace: return false
+	if _data.work_assignment_revision != context.get("assignment_revision",_data.work_assignment_revision): return false
 	if queued_work_valid.is_valid() and not queued_work_valid.call(): return false
 	if not _can_decide(): return false
 	_decide_now()

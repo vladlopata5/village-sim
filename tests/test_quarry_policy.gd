@@ -95,7 +95,7 @@ func run() -> void:
 	world.logistics.remove_building(place.id)
 	check(job.state==5 and place.resources.get_reserved_in(R.STONE)==0 and actor.data.inventory.amount==0,"Captured destination removal cancels safely")
 	world.player_control._buildings.erase(place)
-	check(not worker.has_work() and actor.data.work_location_id==place.id and actor.data.work_area_id.is_empty(),"Lost Quarry never auto-switches FREE")
+	check(not worker.has_work() and actor.data.work_location_id.is_empty() and actor.data.work_area_id.is_empty() and actor.data.profession==P.MINER,"Lost Quarry clears assignment and never auto-switches FREE")
 	world.free()
 	print("Quarry policy: %d checks, %d failures" % [checks,failures])
 	quit(1 if failures else 0)

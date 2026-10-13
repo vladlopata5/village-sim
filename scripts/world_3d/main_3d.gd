@@ -215,7 +215,7 @@ func cancel_construction(id: StringName) -> bool:
 	# Lifecycle API for cancellation/tests; no demolition gameplay or new management UI.
 	var building: BuildingInstance = player_control.get_building(id)
 	if building == null or building.is_built(): return false
-	buildings.erase(building)
+	player_control.unregister_building(id)
 	var activation := _activate_completed_building.bind(building)
 	if building.construction_changed.is_connected(activation): building.construction_changed.disconnect(activation)
 	for runtime in resident_runtimes: runtime.builder.unregister_building(building)

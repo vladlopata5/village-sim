@@ -13,6 +13,7 @@ const Option = preload("res://scripts/interaction_option.gd")
 class ControlSpy extends RefCounted:
 	var resident: RefCounted
 	var received: Array = []
+	func workplace_assignment_error(_id: String, _place: StringName, _profession: int = -1) -> String: return "Staffing unavailable in assignment-only spy"
 	func get_resident(_id: String): return resident
 	func add_assignment(id: String, assignment: RefCounted) -> bool:
 		received.append([id, assignment])

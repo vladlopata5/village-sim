@@ -30,6 +30,7 @@ func register_building(building: RefCounted, position: Callable) -> void:
 		BuildingType.Type.GATHERER_HUT:
 			capabilities.append(&"employment")
 			profession = Profession.Type.GATHERER
+	if building.definition.porter_capacity > 0 and profession != Profession.Type.PORTER: capabilities.append(&"porter_employment")
 	register_target(building.id, building.display_name, building, position, capabilities, profession)
 func remove_target(id: StringName) -> void: _targets.erase(id)
 func get_interactions(resident_ids: Array, target_id: StringName) -> Array:
@@ -65,9 +66,12 @@ func _for_resident(resident_id: String, target_id: StringName) -> Array:
 				else:
 					var full: bool = control.get_home_occupants(target_id).size() >= target.data.definition.housing_capacity
 					options.append(Option.new(&"assign_home", "Назначить дом", Option.Kind.MANAGEMENT_ACTION, target_id, not full, "Дом заполнен" if full else ""))
-			&"employment":
-				var already: bool = data.profession == target.profession and data.work_location_id == target_id
-				options.append(Option.new(&"employment", "Устроиться на работу", Option.Kind.MANAGEMENT_ACTION, target_id, not already and control.can_assign_workplace(resident_id,target_id), "Уже работает здесь" if already else ("Рабочие места заняты" if not control.can_assign_workplace(resident_id,target_id) else "")))
+			&"employment", &"porter_employment":
+				var role: int = Profession.Type.PORTER if capability == &"porter_employment" else target.profession
+				var already: bool = data.profession == role and data.work_location_id == target_id
+				var error: String = control.workplace_assignment_error(resident_id,target_id,role)
+				var label := "Назначить носильщиком здесь" if role == Profession.Type.PORTER else "Работать: " + Profession.display_name(role)
+				options.append(Option.new(capability,label,Option.Kind.MANAGEMENT_ACTION,target_id,not already and error.is_empty(),"Уже работает здесь" if already else error))
 			&"ground_resource":
 				for action in [[&"pick_up", "Поднять"], [&"haul", "Отнести на склад"]]:
 					options.append(Option.new(action[0], action[1], Option.Kind.RESIDENT_ASSIGNMENT, target_id, false, "Поручения будут добавлены следующим этапом"))
@@ -93,5 +97,7 @@ func execute(resident_ids: Array, option: Option) -> bool:
 				if not control.clear_home(resident_id): return false
 			&"employment":
 				if not control.assign_workplace(resident_id, option.target_id): return false
+			&"porter_employment":
+				if not control.assign_workplace(resident_id,option.target_id,Profession.Type.PORTER): return false
 			_: return false
 	return true

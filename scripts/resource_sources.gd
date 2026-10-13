@@ -81,8 +81,10 @@ func pickup(source_ref: Source, resource: int, owner: StringName) -> bool:
 		return false
 	_queue_changed()
 	return true
-func release(source_ref: Source, resource: int, owner: StringName) -> void:
-	var entity: Variant = resolve(source_ref)
+func release(source_ref: Source, resource: int, owner: StringName, reserved_entity: Variant = null) -> void:
+	# A claim transaction may lose registry access inside reserve callbacks.
+	# The caller retains the original object only until owned rollback completes.
+	var entity: Variant = reserved_entity if reserved_entity != null else resolve(source_ref)
 	if source_ref == null: return
 	if source_ref.kind == Source.Kind.GROUND:
 		if entity != null: entity.release(owner)

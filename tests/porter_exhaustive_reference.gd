@@ -3,12 +3,18 @@ extends "res://scripts/logistics_controller.gd"
 func collect_candidates(resident_id: String) -> Array:
 	# Call at WORK selection (or explicit read-only debug/tests), not world updates.
 	var resident: ResidentData = _residents.get(resident_id)
-	if not _can_claim(resident) or not position_provider.is_valid(): return []
+	if resident == null or resident.profession != Profession.Type.PORTER or resident.inventory.amount != 0 or not resident.work_area_id.is_empty(): return []
+	var workplace: BuildingInstance = _buildings.get(resident.work_location_id)
+	if workplace == null or not workplace.is_built() or workplace.definition.porter_capacity <= 0 or not _point(workplace) is Vector2: return []
+	if get_job(resident_id) != null or not position_provider.is_valid(): return []
+	var executor = _executors.get(resident_id)
+	if executor != null and not executor.can_start(): return []
 	var position: Variant = position_provider.call(resident_id)
 	if not position is Vector2: return []
 	var candidates: Array = []
 	for pair in _pairs():
-		if not _porter_pair(resident,pair.source,pair.destination) or not _valid_pair(pair): continue
+		if pair.source.id != workplace.id and pair.destination.id != workplace.id: continue
+		if not _valid_pair(pair): continue
 		var candidate := Candidate.new()
 		candidate.source = pair.source
 		candidate.source_ref = Source.new(Source.Kind.CONTAINER,pair.source.id)

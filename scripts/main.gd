@@ -337,6 +337,9 @@ func _request_work(runtime: ResidentRuntime) -> bool:
 		_: return false
 
 func _configure_logistics() -> void:
+	logistics.assignment_control = player_control
+	player_control.building_unregistered.connect(logistics.remove_building)
+	player_control.resident_unregistered.connect(_on_resident_unregistered)
 	logistics.setup(warehouse_data, kitchen_data, null)
 	if gatherer_hut_data != null: logistics.add_production_source(gatherer_hut_data)
 	for runtime in resident_runtimes:
@@ -350,6 +353,10 @@ func _configure_logistics() -> void:
 	logistics.sources.bind_ground(ground_resources)
 	logistics.sources.route_available = _resource_route_available
 	logistics.recalculate()
+
+func _on_resident_unregistered(resident_id: String) -> void:
+	if is_instance_valid(decision_dispatcher): decision_dispatcher.cancel(resident_id)
+	logistics.unregister_resident(resident_id)
 
 func _resource_route_available(_start: Vector2, _target: Vector2) -> bool: return true
 
@@ -669,7 +676,7 @@ func _bind_resident_control(runtime: ResidentRuntime) -> void:
 
 func _queued_work_valid(runtime: ResidentRuntime) -> bool:
 	# Registration identity and an already-owned haul are cheap guards, not a new eligibility policy.
-	return get_resident_runtime(find_resident(runtime.data.id)) == runtime and logistics.get_job(runtime.data.id) == null
+	return player_control.get_resident(runtime.data.id) == runtime.data and get_resident_runtime(find_resident(runtime.data.id)) == runtime and logistics.get_job(runtime.data.id) == null
 
 func _bind_resident_social(runtime: ResidentRuntime) -> void:
 	social_world.register(runtime)
