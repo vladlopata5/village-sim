@@ -67,8 +67,8 @@ func _run() -> void:
 	key(KEY_8)
 	check(r.intents.current_intent == committed and scene.kitchen_data.resources.get_amount(ResourceType.Type.FOOD) == 1 and scene.kitchen_data.resources.get_reserved_out(ResourceType.Type.FOOD) == 0,"New Kitchen FOOD does not redirect committed warehouse trip")
 	r.view._process(20)
-	scene.game_time.debug_skip_minutes(30)
-	check(r.data.hunger == 20 and scene.warehouse_data.resources.get_amount(ResourceType.Type.FOOD) == 9 and scene.kitchen_data.resources.get_amount(ResourceType.Type.FOOD) == 1,"Actual warehouse arrival consumes one and grants original thirty-minute benefit")
+	scene.game_time.debug_skip_minutes(10)
+	check(r.data.hunger == 20 and scene.warehouse_data.resources.get_amount(ResourceType.Type.FOOD) == 9 and scene.kitchen_data.resources.get_amount(ResourceType.Type.FOOD) == 1,"Actual warehouse arrival consumes one and grants original ten-minute benefit")
 	r.data.hunger = 80
 	r.decision.request_decision()
 	check(r.needs._food_building == scene.kitchen_data and scene.kitchen_data.resources.get_reserved_out(ResourceType.Type.FOOD) == 1,"Next meal prefers newly stocked Kitchen")

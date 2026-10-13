@@ -96,6 +96,12 @@ func _exit_building() -> void:
 	if marker.purpose!=Slot.Purpose.CONSTRUCTION and is_inside_tree():
 		global_position=_entry_position
 	uses.release(id,marker,resident_data.id)
+func exit_for_action(intent: Intent) -> bool:
+	# Reuse the normal portal; the action stays committed across synchronous release callbacks.
+	if _intents == null or _intents.current_intent != intent or movement.is_moving() or _waiting: return false
+	_exit_building()
+	return _intents.current_intent == intent and _marker == null and _building.is_empty() and not _waiting and navigation.is_world_walkable(global_position)
+
 func _forced_exit(_intent: Intent) -> void: _exit_building()
 func _check_activity() -> void:
 	if not _reporting_arrival: _release_finished()

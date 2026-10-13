@@ -1368,3 +1368,29 @@ reserve учитывает синхронные callbacks удаления ис�
 или wakeup policy. Ground не получает выдуманную building MEAL location для social
 events; существующие building MEAL triggers и social формулы не изменены. Стопки,
 новая логистика Porter и мгновенная удалённая выдача FOOD не реализованы.
+
+
+## 2026-10-13 — Наружное питание после получения FOOD
+
+Актуальная процедура заменяет прежнее удержание COURIER на всё время еды.
+Приоритет поиска Kitchen → Other BUILT → Ground и выбор внутри tier сохранены.
+Kitchen: одна FOOD после VISITOR arrival, 30 game minutes по -2 hunger/min,
+прежние внутренние MEAL events и выход. Other: одна FOOD после входа в COURIER,
+затем штатный portal exit, освобождение COURIER и только после этого наружное
+EAT 10 game minutes по -6/min. Ground: pickup одной FOOD и наружное EAT 10мин.
+Оба режима дают 60 hunger points с прежним clamp и fixed-point rounding.
+
+Согласовано сохранение мгновенного портала ResidentExecutor3D, без walking path
+через заблокированный интерьер. Action-owned exit bridge проверяет завершённый
+выход, отсутствие marker/waiting и walkable внешнюю позицию. Общий portal и
+BuildingUse3D acquire/release/fairness не изменены. Следующий посетитель может
+войти во время наружного EAT; стоящий житель не занимает interior slot/nav cells.
+
+Transient paid guard отделяет полученную FOOD от запущенного meal timer и
+защищает pickup/exit callbacks и critical merge. До pickup cancel освобождает
+резерв; после pickup FOOD не возвращается, interruption сохраняет только уже
+полученный benefit. Личного inventory, переносимой порции или dropped meal нет.
+NeedDynamics сохраняет hunger growth/clamp/fractions и получает rate текущего
+EAT через provider; вне активного оплаченного EAT новый rate не применяется.
+Outside не публикует искусственный indoor MEAL context. Source ownership,
+производство, recipes, Porter/HaulJob/dispatcher/navigation/schedule unchanged.

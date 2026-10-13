@@ -13,6 +13,10 @@ const ResourceType = preload("res://scripts/resource_type.gd")
 const Source = preload("res://scripts/resource_source_ref.gd")
 var sources: RefCounted
 var position_provider: Callable
+var exit_building_provider: Callable
+enum MealMode { KITCHEN, OUTSIDE }
+var _meal_mode := MealMode.KITCHEN
+var _food_received := false # Paid action guard, not inventory/quantity.
 var _food_source: Source
 var _food_epoch := 0
 var _probe_key: Array = []
@@ -22,6 +26,7 @@ var food_route_checks := 0
 var food_reservation_failures := 0
 const FOOD = ResourceType.Type.FOOD
 const MEAL_MINUTES := 30
+const OUTSIDE_MEAL_MINUTES := 10
 const REST_MINUTES := 10
 const SLEEP_RECOVERY_TARGET := 20
 signal meal_begun(building_id: StringName)
@@ -73,7 +78,7 @@ func try_eat(priority: int, critical_priority: int = 0) -> bool:
 
 func _try_critical_eat(priority: int, critical_priority: int) -> bool:
 	# Paid meals survive disappearance of the consumed Ground object too.
-	if _meal_active and _active_intent == _intents.current_intent:
+	if _food_received and _active_intent == _intents.current_intent:
 		return _merge_critical_eat(critical_priority)
 	food_search_count += 1
 	var target := _select_food_source(true)
@@ -89,7 +94,7 @@ func _select_critical_eat_target() -> RefCounted:
 func is_current_eat_compatible(building: RefCounted) -> bool:
 	if building == null or _food_building != building or _active_intent == null: return false
 	if _active_intent != _intents.current_intent or _active_intent.reason_id != &"eat": return false
-	return _meal_active or (_reserved_food and _food_target_valid())
+	return _food_received or (_reserved_food and _food_target_valid())
 
 func _merge_critical_eat(critical_priority: int) -> bool:
 	if not _intents.retain_current_as_critical(_active_intent, critical_priority): return false
@@ -157,24 +162,38 @@ func try_rest(priority: int, critical_priority: int = 0) -> bool:
 	return true
 
 func _on_arrival(intent: Intent) -> void:
-	if intent != _active_intent or intent.reason_id != &"eat" or _meal_active:
+	if intent != _active_intent or intent.reason_id != &"eat" or _food_received:
 		return
 	# Consume once at the beginning: gradual benefit can never be free.
 	if not _reserved_food or not _food_target_valid():
 		_abort_unavailable()
 		return
 	intent.interruptible = false
-	_meal_active = true # Guard synchronous container/critical signals.
+	_food_received = true # Guard synchronous pickup/exit/critical signals.
 	_reserved_food = false
 	if not _consume_food():
 		_abort_unavailable()
 		return
 	if _active_intent != intent or _intents.current_intent != intent:
 		return # A critical event during consumption already replaced this action.
+	if _meal_mode == MealMode.OUTSIDE and _food_building != null:
+		# Existing world portal moves outside before releasing the original marker.
+		var exited: bool = exit_building_provider.call(intent) if exit_building_provider.is_valid() else _locations.get("uses") == null
+		if _active_intent != intent or _intents.current_intent != intent: return
+		if not exited:
+			_abort_unavailable()
+			return
+	_start_eating(intent)
+
+func _start_eating(intent: Intent) -> void:
+	if _meal_active or not _food_received or _active_intent != intent or _intents.current_intent != intent: return
+	_meal_active = true
 	_started_at = _clock.total_minutes
-	_minutes_left = MEAL_MINUTES
+	_minutes_left = MEAL_MINUTES if _meal_mode == MealMode.KITCHEN else OUTSIDE_MEAL_MINUTES
 	_data.activity = Activity.Type.EATING
+	if _active_intent != intent or _intents.current_intent != intent: return
 	meal_begun.emit(meal_location_id())
+	if _active_intent != intent or _intents.current_intent != intent: return
 	if logger != null:
 		logger.sync_activity(_data)
 		logger.info(EventLog.NEED, "%s: начал есть (HUNGER=%d, utility=%.0f)" % [_data.resident_name, _data.hunger, float(intent.priority)])
@@ -183,7 +202,7 @@ func _on_minute_changed(minute: int) -> void:
 	if _active_intent == null:
 		return
 	if _active_intent.reason_id == &"eat" and not _meal_active:
-		if not _food_target_valid():
+		if not _food_received and not _food_target_valid():
 			_abort_unavailable()
 		return
 	if minute <= _started_at:
@@ -199,6 +218,7 @@ func _finish() -> void:
 	if _meal_active and logger != null: logger.info(EventLog.NEED, "%s: закончил есть" % _data.resident_name)
 	_active_intent = null
 	_meal_active = false
+	_food_received = false
 	_minutes_left = 0
 	if completed.reason_id == &"eat":
 		var completed_source: StringName = _food_source.id
@@ -222,6 +242,7 @@ func _cancel_own_action() -> void:
 	_reserved_food = false
 	_active_intent = null
 	_meal_active = false
+	_food_received = false
 	_minutes_left = 0
 	_food_source = null
 	_food_building = null
@@ -294,8 +315,13 @@ func register_food_building(building: RefCounted) -> void:
 	_on_food_availability_changed(FOOD,building.resources.get_available_amount(FOOD))
 
 func meal_location_id() -> StringName:
-	# Ground is not an authored building/MEAL participant location.
-	return _food_source.id if _meal_active and _food_source != null and _food_source.kind == Source.Kind.CONTAINER else &""
+	# Only actual Kitchen meals have the existing indoor MEAL context.
+	return _food_source.id if _meal_active and _meal_mode == MealMode.KITCHEN and _food_source != null else &""
+
+func get_hunger_eating_rate() -> int:
+	# NeedDynamics owns fixed-point rounding/clamping; this active action supplies its rate.
+	if not _meal_active: return 0
+	return -120 if _meal_mode == MealMode.KITCHEN else -360
 
 func _has_visitor_room() -> bool:
 	return _select_food_source(false) != null
@@ -413,6 +439,7 @@ func _begin_food_source(ref: Source, priority: int, critical_priority: int, expl
 	return _start_food_intent(target,priority,critical_priority)
 func _start_food_intent(target: Vector2, priority: int, critical_priority: int) -> bool:
 	_reserved_food = true
+	_meal_mode = MealMode.KITCHEN if _food_building != null and _food_building.type == BuildingType.Type.FOOD else MealMode.OUTSIDE
 	_active_intent = Intent.new(Intent.Type.MOVE_TO,&"eat",target,priority,true)
 	if _food_building != null and _locations.has_method("configure_intent"):
 		_locations.configure_intent(_active_intent,_food_source.id,Purpose.VISITOR if _food_building.type==BuildingType.Type.FOOD else Purpose.COURIER,_data.id)

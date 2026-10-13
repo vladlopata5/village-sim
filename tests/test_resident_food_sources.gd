@@ -45,8 +45,8 @@ func meal(world: Node, actor: Node) -> void:
 	walk(actor)
 	check(actor.needs._meal_active and actor.data.activity == Activity.EATING,"Real physical arrival begins paid eating")
 	check(actor.data.hunger == 80,"No remote/arrival instant satiety")
-	world.game_time.debug_skip_minutes(30)
-	check(actor.data.hunger == 20 and not actor.needs._meal_active and actor.needs._active_intent == null,"Exactly thirty minutes reduce hunger by sixty once and complete")
+	world.game_time.debug_skip_minutes(actor.needs._minutes_left)
+	check(actor.data.hunger == 20 and not actor.needs._meal_active and actor.needs._active_intent == null,"Committed meal duration reduces hunger by sixty once and completes")
 	check(actor.view._marker == null and not actor.view._waiting,"Meal completion releases portal slot/wait")
 func capture(label: String, actor: Node) -> void:
 	if not "--rendered" in OS.get_cmdline_user_args(): return
@@ -111,7 +111,7 @@ func run() -> void:
 		check(actor.needs.try_eat(8000) and actor.needs._food_building == target,"Other compatible BUILT food container selected")
 		check(actor.intents.current_intent.slot_purpose == 1,"Other building uses existing COURIER")
 		walk(actor)
-		check(target.resources.get_amount(R.FOOD) == 0 and world.building_uses.occupied_by(target.id,actor.data.id,1),"Consume at real occupied courier slot")
+		check(target.resources.get_amount(R.FOOD) == 0 and not world.building_uses.occupied_by(target.id,actor.data.id,1) and actor.view._marker==null,"Pickup then portal exit releases courier before outside eating")
 		world.resident_selection.select(actor.data)
 		await capture("building_%d_eating" % type,actor)
 		meal(world,actor)
@@ -131,7 +131,7 @@ func run() -> void:
 	walk(second)
 	check(world.ground_resources.get_by_id(drop.id) == null and second.data.inventory.amount == 0,"Actual consumption removes last Ground without cargo/HaulJob")
 	var active = second.intents.current_intent
-	check(second.needs.try_eat(10000,200) and second.intents.current_intent == active and second.needs._minutes_left == 30,"Critical hunger merges already-paid Ground meal after source removal")
+	check(second.needs.try_eat(10000,200) and second.intents.current_intent == active and second.needs._minutes_left == 10,"Critical hunger merges already-paid Ground meal after source removal")
 	world.resident_selection.select(second.data)
 	await capture("ground_eating",second)
 	meal(world,second)
@@ -278,10 +278,10 @@ func run() -> void:
 		if drop.amount == 0: actor.data.hunger = 100
 	drop.availability_changed.connect(hunger_signal)
 	walk(actor)
-	check(actor.needs._meal_active and actor.intents.current_intent == current and actor.needs._minutes_left == 30 and actor.intents.forced_priority == 200,"Reentrant critical transition does not duplicate timer/consumption")
+	check(actor.needs._meal_active and actor.intents.current_intent == current and actor.needs._minutes_left == 10 and actor.intents.forced_priority == 200,"Reentrant critical transition does not duplicate timer/consumption")
 	check(world.ground_resources.get_by_id(drop.id) == null,"One reentrant Ground consumption only")
 	actor.decision._deciding = true
-	world.game_time.debug_skip_minutes(30)
+	world.game_time.debug_skip_minutes(10)
 	check(actor.data.hunger == 40,"Reentrant critical meal retains original recovery rate")
 	drop.availability_changed.disconnect(hunger_signal)
 	world.free()
@@ -298,7 +298,7 @@ func run() -> void:
 	porter.decision._deciding = true
 	walk(porter)
 	check(porter.needs._meal_active and world.warehouse_data.resources.get_amount(R.FOOD) == 19,"Critical Porter uses actual Town Center FOOD")
-	world.game_time.debug_skip_minutes(30)
+	world.game_time.debug_skip_minutes(10)
 	check(porter.data.hunger == 40 and porter.intents.forced_priority == 0,"Critical meal finishes without queue-driven interference")
 	world.free()
 	# New critical meal must not repeatedly choose a known-full VISITOR pool.
@@ -317,7 +317,7 @@ func run() -> void:
 	actor.decision._deciding = true
 	walk(actor)
 	check(actor.needs._meal_active,"Fallback critical meal enters real courier")
-	world.game_time.debug_skip_minutes(30)
+	world.game_time.debug_skip_minutes(10)
 	check(actor.data.hunger == 40 and kitchen.resources.get_amount(R.FOOD) == 2,"Critical fallback consumes only Other Building portion")
 	world.free()
 	# Synchronous source removal during reserve must roll back before movement starts.

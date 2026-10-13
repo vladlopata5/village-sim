@@ -24,6 +24,7 @@ const LEISURE_RATES = {
 	Activity.Type.HAULING: 60, Activity.Type.EATING: 12, Activity.Type.SLEEPING: 6,
 	Activity.Type.RESTING: 12, Activity.Type.TALKING: -30, Activity.Type.RELAXING: -180,
 }
+var eating_rate_provider: Callable # Current paid EAT parameters, no copied need state.
 var _data: Data
 var _fractions: Dictionary = {NeedType.Type.HUNGER: 0, NeedType.Type.FATIGUE: 0, NeedType.Type.SOCIAL: 0, NeedType.Type.LEISURE: 0}
 func setup(clock: Node, data: Data) -> void:
@@ -33,7 +34,8 @@ func _on_minute_changed(_minute: int) -> void:
 	var activity = _data.activity
 	var hunger_rate := HUNGER_AWAKE
 	if activity == Activity.Type.SLEEPING: hunger_rate = HUNGER_SLEEPING
-	elif activity == Activity.Type.EATING: hunger_rate = HUNGER_EATING
+	elif activity == Activity.Type.EATING:
+		hunger_rate = eating_rate_provider.call() if eating_rate_provider.is_valid() else HUNGER_EATING
 	_apply(NeedType.Type.HUNGER, hunger_rate)
 	var fatigue_rate: float = FATIGUE_RATES[activity]
 	if activity == Activity.Type.SLEEPING: fatigue_rate *= _data.current_sleep_quality

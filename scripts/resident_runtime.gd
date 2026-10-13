@@ -46,6 +46,8 @@ func setup(resident: RefCounted, presentation: Node, clock: Node, locations: Ref
 		view.building_use_unavailable.connect(_on_building_use_unavailable)
 	intents.intent_changed.connect(view.apply_intent)
 	view.apply_intent(intents.current_intent)
+	if view.has_method("exit_for_action"): needs.exit_building_provider = view.exit_for_action
+	need_dynamics.eating_rate_provider = needs.get_hunger_eating_rate
 	need_dynamics.setup(clock, data)
 	needs.setup(clock, data, buildings, locations, intents, schedule)
 	assignments.setup(data, needs, intents, social, clock)
