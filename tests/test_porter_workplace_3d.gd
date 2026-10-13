@@ -199,11 +199,11 @@ func run() -> void:
 	check(f.world.interactions.execute([f.other.data.id],porter_option) and f.other.data.profession==P.PORTER,"Real InteractionService explicit Porter action")
 	check(not f.world.interactions.execute([f.actor.data.id],porter_option),"Click-time recheck rejects stale free-place option")
 	f.world.resident_selection.select(f.other.data)
-	check(f.world.get_node("HUD/ResidentCard").work_place_label.text.contains(hut.display_name),"ResidentCard current assignment")
+	check(f.world.resident_card_view().work_place_label.text.contains(hut.display_name),"ResidentCard current assignment")
 	await capture(f,"gatherer-staff-categories",hut)
 	f.world.resident_selection.select(f.other.data)
 	f.world.player_control.clear_work_assignment(f.other.data.id)
-	check(f.world.get_node("HUD/ResidentCard").work_place_label.text.contains("Носильщик без рабочего места"),"Visible unassigned Porter status")
+	check(f.world.resident_card_view().work_place_label.text.contains("Носильщик без рабочего места"),"Visible unassigned Porter status")
 	f.world.decision_dispatcher.clear()
 	f.actor.decision._deciding=false
 	f.actor.decision.request_decision("pending")

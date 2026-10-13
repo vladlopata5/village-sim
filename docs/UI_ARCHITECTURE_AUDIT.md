@@ -2,6 +2,8 @@
 
 ## 1. Статус, основание и вывод
 
+Последующее обновление: A1–A6 согласованы заданием E1 (уточнение A4 — §6/§15); реализованный E1 — §16. Факты исходного аудита ниже описывают состояние до внедрения.
+
 Дата: 2026-10-13. Исследованный HEAD: `dc65f4593266fafcf36cfa2fb17a924bae7c127a`, ветка `main`, исходное рабочее дерево чистое. Каноническая сцена — `res://scenes/main_3d.tscn`. Единственный источник требований — [UI_DESIGN.md](UI_DESIGN.md), включая закрытые Q1–Q9. [План внедрения](UI_IMPLEMENTATION_PLAN.md) описывает шесть предлагаемых этапов.
 
 **Новый UI можно внедрить поверх существующей симуляции. Основная работа — композиция, связи с данными и обработка ввода. Переписывание logistics, production, movement или assignment lifecycle не требуется.** Нельзя просто перенести существующие панели под новые контейнеры: Main содержит жёсткие NodePath, карточки самостоятельно show/hide и обновляются в `_process`, а camera pan обходит GUI-перехват через polling.
@@ -146,7 +148,7 @@ flowchart LR
 
 Простая ordered Array описаний с `id`, `kind` (TAB/QUICK_WINDOW), `label`, `content`/Callable, optional icon и available. Регистрация нескольких секций в GameUI.setup; не Autoload/plugin loader. TAB кнопки имеют отличимое состояние активной вкладки, QUICK — отдельное оформление; кнопки не генерируются из всех будущих design headings.
 
-Первая версия: строительная вкладка, «Жители», существующий доступ к Dirt Road. Road — инструмент в содержимом строительной вкладки либо соседний зарегистрированный действующий раздел; точное место требует согласования A4. «Журнал», «Экономика», «Квесты» не регистрируются. Длинный нижний ряд: предлагается горизонтальный ScrollContainer; плитки — GridContainer внутри вертикального ScrollContainer.
+Первая версия: строительная вкладка, «Жители», существующий доступ к Dirt Road. A4 согласован: в единой вкладке «Строительство» четыре расширяемые категории — «Производство» (хижина лесоруба, каменоломня, хижина собирателя, лесопилка), «Логистика» (склад), «Поселение» (дом, кухня), «Объекты» (существующая грунтовая дорога). Это категории каталога, а не четыре кнопки основного меню. Объекты используют собственные placement adapters при необходимости. Каталог реализуется в E3; E1 сохраняет текущий ряд реально работающих инструментов. «Журнал», «Экономика», «Квесты» не регистрируются. Длинный нижний ряд: предлагается горизонтальный ScrollContainer; плитки — GridContainer внутри вертикального ScrollContainer.
 
 Каталог использует настоящие BuildingDefinition (семь player_buildable типов). Отдельное небольшое UI-описание по definition.id может хранить image/description/category, **без копии recipes, footprints или limits**. Новые цены читать из construction_requirements; размер — footprint_cells×BuildGrid.CELL_SIZE с quarter_turns, а не definition.size. Нет новых ассетов в аудите; изображения/стиль будут отдельной частью утверждённого UI-этапа, без «будущих зданий».
 
@@ -357,10 +359,20 @@ Q1–Q9 не открываются повторно. Требуют рассм�
 | A1 — композиция и legacy | Authored GameUI + существующие специализированные card scripts с widgets/embedded hooks; default legacy unchanged | Новые независимые card scripts проще initially, но дублируют formatting/actions/subscriptions. Общий presenter hierarchy сложнее необходимого |
 | A2 — stale dialogs | При смене/удалении selected building закрывать старый dialog, список сохранять | Перепривязывать открытый dialog к новой цели экономит click, но риск незаметного assignment. Modal block всей карты мешает непрерывному map selection |
 | A3 — repeat placement | Canonical adapter captures context и повторно активирует через существующий confirm; узкий rotation setter | Optional continuous flag в shared placement проще event chain, но увеличивает shared model scope и legacy surface |
-| A4 — layout/catalog | Геометрия §12, сохранить current stretch, horizontal row scroll; Dirt Road внутри construction content | Другие размеры/категории/road section допустимы после просмотра макета; fixed screen pixels требуют иной scale policy |
+| A4 — layout/catalog | Согласовано: геометрия §12 с сохранением stretch; четыре категории внутри «Строительства»: Производство / Логистика / Поселение / Объекты. Dirt Road входит в Объекты; каталог только в E3 | Объекты могут использовать разные placement adapters. Финальное оформление E5; fixed screen pixels требуют иной scale policy |
 | A5 — queries | Малые PC role/eligibility/housing error reads, no changes to assignment rules | Всё вычислять в UI — меньше domain files, но дублирует checks/разъезжается с setter; использовать mutation недопустимо |
 | A6 — input policies | Modeless bounded assignment dialog, stale close; consume dismiss click; F10 не quick window, Escape делегирует общему stack | F10 как обычное окно закроет Residents автоматически — это новый UX, спецификация его не требует. Exact outside-dismiss legacy behavior можно сохранить, но отдельно покрыть |
 
 Новая возможная неоднозначность: активный building placement и допускаемый выбор объекта на карте взаимно исключаются текущим input. Требования не требуют одновременного выбора resident при placement; предложено сохранить исключительность и сначала выйти из tool. Не расширять game selection rules для обхода этого ограничения.
 
-Ничего из A1–A6 не принято как разрешение на implementation. Полноценная схема минимальных файлов, checkpoints и приёмка каждого этапа — [UI_IMPLEMENTATION_PLAN.md](UI_IMPLEMENTATION_PLAN.md).
+A1–A3 и A5–A6 согласованы пользователем; A4 уточнён выше. Разрешён только E1 отдельным заданием. Согласование архитектуры не разрешает автоматически начинать E2–E6. Полноценная схема минимальных файлов, checkpoints и приёмка каждого этапа — [UI_IMPLEMENTATION_PLAN.md](UI_IMPLEMENTATION_PLAN.md).
+
+## 16. Реализованная основа E1
+
+Канонический HUD содержит `GameUI` с четырьмя corner hosts и `Windows`. Реальные старые карточки находятся в InfoAnchor, без дублирования selection. В ActionsAnchor смонтирован существующий ConstructionPanel с горизонтальной прокруткой и кнопкой существующего списка жителей. Это переходная компоновка: длинные старые карточки, одноразовый placement и прежний список остаются до E2–E4. Новых вкладок, каталога, day-card и диалога назначения ещё нет.
+
+Main предоставляет card getters и presentation hooks; legacy defaults сохранены. Main3D связывает реальные TimeControls с GameTime, перемещает существующий SocialFeed без изменения generation/lifetime/order. Удалённая каноническая telemetry не получает фиктивных Labels и не форматирует logistics summaries. Domain callbacks и порядок bootstrap сохранены.
+
+GameUI координирует реально зарегистрированные окна и верхний Control/dialog, Esc и контекстное меню. Панель строительства остаётся владельцем своего collapsed state; GameUI читает и изменяет его через адаптер. Selection и active tools читаются из существующих систем. `UIInputContext` хранит слабую ссылку на shell и отвечает на focus/pointer queries. Main3D, Camera3D и F10 используют его; default null сохраняет legacy/prototype behavior. Прозрачные hosts не блокируют пустой экран; границы видимых реальных компонентов блокируют press/release/wheel. Road release и разрыв stroke при проходе над UI наблюдаются до GUI consumption.
+
+MMB сохраняет grab-map pan, включая текущие UI-области без собственного drag. F10 остаётся отдельной developer panel; его Esc делегирует тому же stack. Закрытие world context menu внешним ЛКМ/ПКМ потребляет dismiss click только в canonical presentation. Text focus блокирует hotkeys и camera keyboard polling; математическая модель pan/zoom не меняется.

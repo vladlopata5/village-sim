@@ -67,9 +67,9 @@ func _run() -> void:
 	check(resident_hit.get("collider") == actor.view.view, "Real raycast picks explicit ResidentView3D")
 	scene.handle_world_click(MOUSE_BUTTON_LEFT, resident_hit)
 	check(scene.resident_selection.selected_resident == actor.data and scene.resident_selection.selected_building == null, "Resident selection stores domain data exclusively")
-	check(scene.get_node("HUD/ResidentCard").visible and scene.get_node("HUD/ResidentCard").name_label.text.contains(actor.data.resident_name), "Existing ResidentCard reads selected resident")
+	check(scene.resident_card_view().visible and scene.resident_card_view().name_label.text.contains(actor.data.resident_name), "Existing ResidentCard reads selected resident")
 	check(actor.view.view.indicator.visible, "Resident selection indicator is visible")
-	var card: Control = scene.get_node("HUD/ResidentCard")
+	var card: Control = scene.resident_card_view()
 	await process_frame
 	var ui_click := InputEventMouseButton.new()
 	ui_click.button_index = MOUSE_BUTTON_RIGHT
@@ -85,9 +85,9 @@ func _run() -> void:
 	scene.handle_world_click(MOUSE_BUTTON_LEFT, building_hit)
 	check(scene.resident_selection.selected_building == house and scene.resident_selection.selected_resident == null, "Building selection replaces resident")
 	check(house_view.indicator.visible and not actor.view.view.indicator.visible, "Unified selection switches highlights")
-	check(scene.get_node("HUD/BuildingCard").visible and not scene.get_node("HUD/ResidentCard").visible, "Existing BuildingCard replaces ResidentCard")
-	check(scene.get_node("HUD/BuildingCard").housing_count.text.contains("1 / 4"), "Existing housing query works in 3D card")
-	scene.get_node("HUD/BuildingCard").close_button.pressed.emit()
+	check(scene.building_card_view().visible and not scene.resident_card_view().visible, "Existing BuildingCard replaces ResidentCard")
+	check(scene.building_card_view().housing_count.text.contains("1 / 4"), "Existing housing query works in 3D card")
+	scene.building_card_view().close_button.pressed.emit()
 	check(scene.resident_selection.selected_entity == null and not house_view.indicator.visible, "Existing close button clears 3D highlight")
 	scene.resident_selection.select(actor.data)
 	# Physical speed scales once; domain distance/time and modifiers stay unchanged.

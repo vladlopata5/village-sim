@@ -1,0 +1,25 @@
+[gd_scene load_steps=2 format=3]
+[ext_resource type="Script" path="res://scripts/ui/time_controls.gd" id="1"]
+[node name="TimeControls" type="PanelContainer"]
+layout_mode = 0
+offset_right = 320.0
+offset_bottom = 72.0
+mouse_filter = 0
+mouse_force_pass_scroll_events = false
+script = ExtResource("1")
+[node name="Column" type="VBoxContainer" parent="."]
+layout_mode = 2
+[node name="ClockRow" type="HBoxContainer" parent="Column"]
+layout_mode = 2
+[node name="Day" type="Label" parent="Column/ClockRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+[node name="Clock" type="Label" parent="Column/ClockRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+[node name="Pause" type="Button" parent="Column/ClockRow"]
+layout_mode = 2
+focus_mode = 0
+text = "Пауза"
+[node name="Speeds" type="HBoxContainer" parent="Column"]
+layout_mode = 2

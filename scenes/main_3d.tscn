@@ -5,8 +5,7 @@
 [ext_resource type="Script" uid="uid://btfdjqx1ufser" path="res://scripts/world_3d/field_3d.gd" id="3"]
 [ext_resource type="Script" uid="uid://b2b3v0h8sfgbr" path="res://scripts/prototypes/prototype_camera_3d.gd" id="4"]
 [ext_resource type="Script" uid="uid://bm5jodm3hctts" path="res://scripts/resident_selection.gd" id="5"]
-[ext_resource type="PackedScene" path="res://scenes/resident_card.tscn" id="6"]
-[ext_resource type="PackedScene" path="res://scenes/building_card.tscn" id="7"]
+[ext_resource type="PackedScene" path="res://scenes/ui/game_ui.tscn" id="6"]
 
 [sub_resource type="StandardMaterial3D" id="GroundMaterial"]
 albedo_color = Color(0.28, 0.43, 0.27, 1)
@@ -64,9 +63,7 @@ shape = SubResource("GroundShape")
 
 [node name="HUD" type="CanvasLayer" parent="." unique_id=1768099913]
 
-[node name="ResidentCard" parent="HUD" unique_id=1312862614 instance=ExtResource("6")]
-
-[node name="BuildingCard" parent="HUD" unique_id=739893226 instance=ExtResource("7")]
+[node name="GameUI" parent="HUD" instance=ExtResource("6")]
 
 [node name="ResidentSelection" type="Node" parent="." unique_id=855663663]
 script = ExtResource("5")

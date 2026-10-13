@@ -4,7 +4,7 @@
 
 Дата: 2026-10-13. Исследованный HEAD: `dc65f4593266fafcf36cfa2fb17a924bae7c127a`. План основан на [UI_DESIGN.md](UI_DESIGN.md) и проверенном коде; технические доказательства, схема состояний, геометрия и альтернативы находятся в [UI_ARCHITECTURE_AUDIT.md](UI_ARCHITECTURE_AUDIT.md).
 
-**Это предложение для рассмотрения. Ни один этап не реализован и не разрешён к автоматическому запуску этим документом.** Сначала согласовать архитектуру и макет; затем выдавать отдельные задания на реализацию этапов. При отклонении архитектурного варианта актуализировать план, не подменять его молча при coding.
+**Архитектура согласована; E1 реализован отдельным заданием. E2–E6 остаются планом и требуют отдельных заданий.** При отклонении архитектурного варианта актуализировать план, не подменять его молча при coding.
 
 Первая версия включает панели, карточки, ResidentsWindow/AssignmentDialog, существующие building/road/area controls, время, ленту и сохранение F10. Journal/unread, demolition, HP и новые gameplay systems исключены. В Info есть только видимая неактивная «Демонтировать» без callback/подтверждения.
 
@@ -39,7 +39,7 @@ flowchart LR
 
 Подключить один canonical GameUI под CanvasLayer, разместить четыре corner hosts и координатор обычных окон/верхних диалогов. Сохранить реально работающие текущие карточки и construction actions в переходном виде. Ранняя input защита должна предшествовать появлению LineEdit и диалогов.
 
-Требуется согласование A1 (hooks/legacy), A4 (logical geometry/minimum) и A6 (F10/dismiss input). Включить только настоящие быстрые функции; Journal/fullscreen не создаются.
+A1 (hooks/legacy) и A6 (F10/dismiss input) согласованы. A4 уточнён: четыре категории внутри будущей вкладки «Строительство», current stretch и предварительная logical geometry сохранены. Включить только настоящие быстрые функции; Journal/fullscreen не создаются.
 
 ### Предполагаемые файлы
 
@@ -168,7 +168,7 @@ Legacy `construction_panel.gd` остаётся с default view. Новые из
 
 ### Функции
 
-1. TAB/QUICK button registration; toggle активной вкладки, scrolling длинного ряда.
+1. TAB/QUICK button registration; toggle активной вкладки, scrolling длинного ряда. В единой вкладке «Строительство» четыре расширяемые категории: «Производство» (хижина лесоруба, каменоломня, хижина собирателя, лесопилка), «Логистика» (склад), «Поселение» (дом, кухня), «Объекты» (Dirt Road). Объекты могут иметь собственный placement adapter; категории не становятся разделами нижнего меню.
 2. Семь существующих buildable types, исключён Town Center. Visible names, описания/стоимость в Blue без tooltip dependence.
 3. Выбор типа вызывает единый tool bridge: cancel road/area/debug, clear queued input, selection.clear, select definition.
 4. После успешного existing confirm повторно активируется та же definition с captured quarter_turns. Проверяется tool generation после callbacks; отмена в placed listener выигрывает, не повторно включается tool.
@@ -388,7 +388,7 @@ UI-specific legacy expectations сохраняются для legacy, canonical 
 
 ## 11. Решения перед началом реализации
 
-Согласовать A1–A6 из аудита: specialized-card embedding с legacy defaults; stale dialog close; canonical repeated-confirm adapter; logical geometry/минимум/catalog road placement; small read-only queries; F10 и dismissal input policy. Это не повторный выбор Q1–Q9. Не требует нового исследования всего проекта: dependencies/callers/evidence перечислены выше.
+A1–A3 и A5–A6 согласованы: specialized-card embedding с legacy defaults; stale dialog close; canonical repeated-confirm adapter; small read-only queries; F10 и dismissal input policy. A4 уточнён заданием E1: предварительная logical geometry с текущим stretch и четыре категории внутри Construction (см. §5). Каталог и его категории ещё не реализованы. Это не повторный выбор Q1–Q9; dependencies/callers/evidence перечислены выше.
 
 Утверждение отдельных этапов не разрешает автоматически соседний этап или будущие gameplay mechanics. Каждый implementation task должен ссылаться на UI_DESIGN, этот план и утверждённые альтернативы, указывать expected files и acceptance. Если реализация выявит дополнительный domain redesign, остановиться до такого redesign.
 
@@ -398,4 +398,12 @@ UI-specific legacy expectations сохраняются для legacy, canonical 
 
 Прочитан актуальный source, разобраны UI bootstrap/input/callers/signals, изучены tests. Десять existing targeted scripts — exit0/801 numbered checks + selection PASS. Headless viewport probe — exit0, measured logical1280×720/stretch1.5/1.25. Ни новая layout scene, ни UI logic не созданы. Full suite/analyzer/import/new rendered QA здесь не запускались; они являются будущими checkpoints, а не результатами исследования.
 
-Документы проверяются на полноту по требованиям, согласованность с UI_DESIGN, корректность source references и scope; `git diff --check` обязателен. Коммит этого аудита содержит только UI_ARCHITECTURE_AUDIT.md и UI_IMPLEMENTATION_PLAN.md. Новые состояния A1–A6 и геометрия остаются предложениями до review пользователя.
+Документы проверяются на полноту по требованиям, согласованность с UI_DESIGN, корректность source references и scope; `git diff --check` обязателен. Коммит этого аудита содержит только UI_ARCHITECTURE_AUDIT.md и UI_IMPLEMENTATION_PLAN.md. Это исторические результаты аудита до согласования. Последующее согласование и выполненный checkpoint E1 описаны в §§11,13.
+
+## 13. Checkpoint E1
+
+Реализован shell, реальный блок времени, перенос существующей ленты, presentation hooks и общий input context. Существующие карточки/список/строительные кнопки/дороги/области/F10 сохранены. Ширина ActionsAnchor ограничивается свободной полосой слева от карточки; старый ряд кнопок прокручивается. Старые карточки остаются длинными, их compact/expanded и day state относятся к E2. Состояние выбора принадлежит ResidentSelection; состояние tools — Main3D и его существующим инструментам.
+
+Новые `test_ui_shell` и `test_ui_input` проверяют bootstrap, реальные services, transitions, Esc, pause/speeds, mouse boundaries, scroll, focus/polling, F10 paused input. Existing tests используют card getters вместо прежних canonical NodePath. Rendered checkpoint фиксирует два разрешения, stretch и actual Control rects. Подробные результаты/скриншоты находятся вне Git в `C:/Users/SW/Documents/Codex/outputs/ui-e1-shell/REPORT.md`.
+
+E2–E6 не начинались. Collapse-cancel/repeat placement, синяя day-card, универсальный roster/assignment dialog и final feed order остаются в назначенных этапах.

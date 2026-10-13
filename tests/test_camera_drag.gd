@@ -81,7 +81,7 @@ func run() -> void:
 		var building_count: int = world.buildings.size()
 		camera.global_position = position_before
 		var point := Vector2(1000,600)
-		if mode=="UI": point=world.get_node("HUD/DebugPanel").collapse_button.get_global_rect().get_center()
+		if mode=="UI": point=world.construction_panel.collapse_button.get_global_rect().get_center()
 		drag(point,Vector2(25,15))
 		await physics_frame
 		check(not camera.global_position.is_equal_approx(position_before),"Real MMB input pans in "+mode+" mode")
@@ -97,7 +97,7 @@ func run() -> void:
 	camera.global_position = position_before
 	var wheel := InputEventMouseButton.new()
 	wheel.button_index = MOUSE_BUTTON_WHEEL_UP
-	wheel.position = Vector2(1000,600)
+	wheel.position = Vector2(700,450) # Uncovered world, not the selected card.
 	wheel.pressed = true
 	root.push_input(wheel,true)
 	check(is_equal_approx(camera.size,zoom_before-camera.zoom_step),"Real wheel zoom input unchanged")

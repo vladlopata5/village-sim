@@ -33,7 +33,7 @@ func run() -> void:
 		check(world.navigation.is_world_walkable(runtime.view.get_world_position()),"Outside obstacles")
 		check(data.profession==P.PORTER and (data.work_location_id==world.warehouse_data.id or data.work_location_id.is_empty()),"Capacity-safe profession assignment, including unassigned")
 		world.resident_selection.select(data)
-		check(world.resident_selection.selected_resident==data and world.get_node("HUD/ResidentCard")._assignment_resident==data and world.get_node("HUD/ResidentCard").visible,"Normal resident selection")
+		check(world.resident_selection.selected_resident==data and world.resident_card_view()._assignment_resident==data and world.resident_card_view().visible,"Normal resident selection")
 	check(world.player_control.get_porters(world.warehouse_data.id).size()==2 and result.reason.contains("Без места работы: 9"),"Batch reports overflow without bypassing two staff places")
 	check(world.navigation.revision==nav_revision,"Residents do not edit NavigationGrid")
 	for resource in R.values():
@@ -64,7 +64,7 @@ func run() -> void:
 		if not definition.logistics_flow.is_empty(): check(world.logistics._buildings.get(building.id)==building,"Resource container registration")
 		check(not service.spawn_building(C.to_world(building.position),definition).ok,"Overlap rejected")
 		world.resident_selection.select_building(building)
-		check(world.resident_selection.selected_building==building and world.get_node("HUD/BuildingCard")._building==building and world.get_node("HUD/BuildingCard").visible,"Normal BuildingCard selection")
+		check(world.resident_selection.selected_building==building and world.building_card_view()._building==building and world.building_card_view().visible,"Normal BuildingCard selection")
 	var sawyers: Dictionary=service.spawn_residents(Vector3(0,0,-25),2,P.SAWYER)
 	check(sawyers.created==2 and not sawyers.objects[0].work_location_id.is_empty(),"Normal Sawyer assignment uses existing workplace")
 	check(sawyers.objects[1].profession==P.SAWYER and sawyers.objects[1].work_location_id.is_empty(),"Full Sawmill does not create fake assignment")

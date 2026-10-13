@@ -148,7 +148,7 @@ func run() -> void:
 	scene.player_control.assign_workplace(scene.resident_runtimes[0].data.id,hut.id)
 	check(not scene.player_control.assign_workplace(second.data.id,hut.id) and second.data.work_area_id==area.id,"Full hut does not erase old area reference")
 	scene.resident_selection.select(actor.data)
-	var card = scene.get_node("HUD/ResidentCard")
+	var card = scene.resident_card_view()
 	card._refresh()
 	check("Свободная область" in card.work_place_label.text and card.area_choice.item_count>1,"Card shows context and reusable area")
 	# Tool confirmation/cancellation and no forced command.

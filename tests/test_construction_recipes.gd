@@ -62,7 +62,7 @@ func run() -> void:
 			world.free()
 			continue
 		check(site.definition.construction_requirements == cost and site.construction_delivered.values().all(func(amount): return amount == 0),"New site reads current definition")
-		var card = world.get_node("HUD/BuildingCard")
+		var card = world.building_card_view()
 		world.resident_selection.select_building(site)
 		for resource in R.values():
 			check(site.get_missing_amount(resource) == cost.get(resource,0),"Missing amount matches recipe")

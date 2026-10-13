@@ -37,6 +37,7 @@ var settlement_panel: PanelContainer
 var debug_spawn: RefCounted
 var developer_panel: PanelContainer
 var debug_spawn_marker: MeshInstance3D
+@onready var game_ui: Control = $HUD/GameUI
 var ready_for_play := false
 var _clicks: Array[InputEventMouseButton] = []
 var _pointer_position := Vector2.ZERO
@@ -50,20 +51,28 @@ func _ready() -> void:
 	if not legacy_reference_setup: world_locations.uses = building_uses
 	player_control.work_areas = work_areas
 	super._ready()
+	game_ui.cancel_world_tool = _cancel_active_world_tool
+	game_ui.bind_context_menu(interaction_menu)
+	interaction_menu.consume_dismiss_click = true
+	game_ui.blocking_ui_changed.connect(_clear_world_input)
+	$World/Camera3D.ui_input_context = game_ui.input_context
 	$World.add_child(work_area_tool)
 	area_confirm = Button.new()
 	area_confirm.text = "Подтвердить область (Enter) • ПКМ/Esc: отмена"
-	area_confirm.position = Vector2(420,110)
+	area_confirm.position = Vector2(12,170)
 	area_confirm.hide()
 	area_confirm.pressed.connect(_confirm_work_area)
 	$HUD.add_child(area_confirm)
-	$HUD/ResidentCard.work_area_requested.connect(_start_work_area)
+	game_ui.register_pointer_control(area_confirm)
+	resident_card_view().work_area_requested.connect(_start_work_area)
 	player_control.work_assignment_changed.connect(_work_assignment_updated)
 	work_areas.changed.connect(_work_areas_updated)
 	settlement_panel = preload("res://scripts/settlement_residents_panel.gd").new()
 	$HUD.add_child(settlement_panel)
 	settlement_panel.setup(player_control,resident_selection)
-	$HUD/BuildingCard.settlement_management_requested.connect(settlement_panel.show)
+	game_ui.register_window(&"residents", settlement_panel)
+	building_card_view().settlement_management_requested.connect(game_ui.open_window.bind(&"residents"))
+	game_ui.update_population(residents.size())
 	$World.add_child(navigation_debug)
 	navigation_debug.setup(navigation)
 	navigation.changed.connect(_on_navigation_changed)
@@ -71,10 +80,11 @@ func _ready() -> void:
 	toggle.name = "NavigationDebugToggle"
 	toggle.text = "Навигация"
 	toggle.tooltip_text = "Сетка, препятствия и маршруты жителей"
-	toggle.position = Vector2(16,590)
+	toggle.position = Vector2(12,126)
 	toggle.toggled.connect(navigation_debug.set_enabled)
 	toggle.toggled.connect(_set_work_area_debug)
 	$HUD.add_child(toggle)
+	game_ui.register_pointer_control(toggle)
 	resident_selection.selection_changed.connect(_update_navigation_debug)
 	_pointer_position = get_viewport().get_mouse_position()
 	_setup_forest()
@@ -88,6 +98,10 @@ func _ready() -> void:
 		developer_panel=preload("res://scripts/debug_panel.gd").new()
 		$HUD.add_child(developer_panel)
 		developer_panel.setup(debug_spawn)
+		developer_panel.escape_handler = game_ui.try_escape
+		developer_panel.ui_input_context = game_ui.input_context
+		game_ui.register_pointer_control(developer_panel)
+		game_ui.blocking_ui_changed.connect(developer_panel._paused_clicks.clear)
 		developer_panel.placement_started.connect(_start_debug_placement)
 		developer_panel.placement_cancelled.connect(_clicks.clear)
 		debug_spawn_marker=MeshInstance3D.new()
@@ -149,6 +163,7 @@ func _setup_construction() -> void:
 		definitions.append(BuildingDefinition.for_type(category))
 	construction_panel.setup(definitions)
 	construction_panel.definition_selected.connect(_select_building_definition)
+	game_ui.mount_construction(construction_panel)
 	building_ghost = preload("res://scripts/world_3d/building_ghost_3d.gd").new()
 	building_ghost.name = "BuildingGhost3D"
 	$World.add_child(building_ghost)
@@ -247,10 +262,14 @@ func _input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.button_index==MOUSE_BUTTON_LEFT and not event.pressed:
 		_road_dragging=false
 		_road_events.append({"end":true})
-	if event is InputEventMouseMotion and _road_dragging and get_viewport().gui_get_hovered_control()!=null:
+	if event is InputEventMouseMotion and _road_dragging and game_ui.input_context.pointer_blocked(event.position):
 		_road_events.append({"end":true}) # Never interpolate across a UI-covered gap.
 func _unhandled_input(event: InputEvent) -> void:
 	if not ready_for_play: return
+	if event is InputEventKey and game_ui.input_context.text_editing(): return
+	if event is InputEventMouse and game_ui.input_context.pointer_blocked(event.position):
+		get_viewport().set_input_as_handled()
+		return
 	if developer_panel!=null and developer_panel.active():
 		if event is InputEventMouseButton and event.pressed and event.button_index in [MOUSE_BUTTON_LEFT,MOUSE_BUTTON_RIGHT]:
 			_clicks.append(event)
@@ -296,11 +315,16 @@ func _physics_process(_delta: float) -> void:
 			if event.has("end"):
 				road_tool.end_stroke()
 				continue
+			if game_ui.input_context.pointer_blocked(event.screen):
+				road_tool.end_stroke()
+				continue
 			var hit := ground_pick(event.screen)
 			if hit.has("position"): road_tool.paint(hit.position,event.erase)
 			else: road_tool.end_stroke()
 	_road_events.clear()
-	for event in _clicks: handle_world_click(event.button_index, ground_pick(event.position) if placement.is_active() or work_area_tool.active() or (developer_panel!=null and developer_panel.active()) else pick(event.position), event.position)
+	for event in _clicks:
+		if not game_ui.input_context.pointer_blocked(event.position):
+			handle_world_click(event.button_index, ground_pick(event.position) if placement.is_active() or work_area_tool.active() or (developer_panel!=null and developer_panel.active()) else pick(event.position), event.position)
 	_clicks.clear()
 func pick(screen_position: Vector2) -> Dictionary:
 	var camera: Camera3D = $World/Camera3D
@@ -567,7 +591,7 @@ func register_spawned_resident(data: ResidentData, point: Vector3) -> ResidentRu
 	_bind_miner(runtime)
 	social_events.register(runtime)
 	player_control.setup(residents,buildings)
-	population_label.text="Жителей: %d" % residents.size()
+	_update_population()
 	return runtime
 
 func _start_debug_placement() -> void:
@@ -578,3 +602,37 @@ func _start_debug_placement() -> void:
 	interaction_menu.hide()
 func _cancel_debug_placement() -> void:
 	if developer_panel!=null and developer_panel.active(): developer_panel.cancel_placement()
+
+# Presentation hooks: canonical HUD has real time controls, no hidden telemetry.
+func resident_card_view() -> Control: return $HUD/GameUI/InfoAnchor/ResidentCard
+func building_card_view() -> Control: return $HUD/GameUI/InfoAnchor/BuildingCard
+func ui_input_context() -> RefCounted: return game_ui.input_context
+func _build_hud() -> void:
+	game_ui.time_controls.setup(game_time, _toggle_pause)
+	clock_label = game_ui.time_controls.clock_label
+	pause_button = game_ui.time_controls.pause_button
+	speed_buttons = game_ui.time_controls.speed_buttons
+	game_ui.mount_messages(social_feed)
+func _update_clock(_minutes: int) -> void: game_ui.time_controls.refresh_clock()
+func _update_pause() -> void: game_ui.time_controls.refresh_pause()
+func _update_population() -> void: game_ui.update_population(residents.size())
+func _update_phase(_phase: String) -> void: pass
+func _show_missing_kitchen() -> void: pass
+func _update_production() -> void: pass
+func _update_logistics() -> void: pass
+func _update_food(_resource: ResourceType.Type, _amount: int) -> void: pass
+func _update_warehouse_food(_resource: ResourceType.Type, _amount: int) -> void: pass
+func _clear_world_input() -> void:
+	_clicks.clear()
+	_road_events.clear()
+	_road_dragging = false
+	road_tool.end_stroke()
+func _cancel_active_world_tool() -> bool:
+	if developer_panel != null and developer_panel.active():
+		_cancel_debug_placement()
+	elif work_area_tool.active(): _cancel_work_area()
+	elif road_tool.active: _cancel_road_tool()
+	elif placement.is_active(): placement.cancel()
+	else: return false
+	_clear_world_input()
+	return true

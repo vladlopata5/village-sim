@@ -288,7 +288,7 @@ func integration() -> void:
 		if drop.resource_type==R.LOG: total+=drop.amount
 		check(world.ground_resources.get_by_id(drop.id)==drop and drop.reservation_owner_id.is_empty(),"Cargo drops registered in existing owner index")
 	check(total==6,"Pickup and cancellation preserve total LOG without duplication")
-	check(world.logistics_label.text.contains("нет активной доставки"),"HUD subscriber sees consistent final jobs")
+	check(world.logistics_label==null and (world.logistics.current_job==null or not world.logistics.current_job.is_active()),"Canonical presentation has no removed telemetry; domain reports no final job")
 	await process_frame
 	check(world.logistics.jobs.is_empty(),"Deferred AI callbacks do not resurrect invalid destination jobs")
 	world.logistics.job_cancelled.disconnect(cancel_observer)

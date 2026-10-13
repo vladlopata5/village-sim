@@ -99,12 +99,12 @@ func run() -> void:
 	actor.schedule._on_phase_changed("Ночь")
 	check(actor.schedule._fallback_id.is_empty() and actor.intents.current_intent.target_position==world.world_locations.get_position(home.id),"Normal HOME has priority over fallback housing")
 	world.resident_selection.select_building(center)
-	var card = world.get_node("HUD/BuildingCard")
+	var card = world.building_card_view()
 	check(card.management_button.visible and card.resources_label.text.contains("60"),"Town Center card exposes stock and management")
 	card.management_button.pressed.emit()
 	check(world.settlement_panel.visible and world.settlement_panel.resident_buttons.size()==4,"Settlement panel lists current residents")
 	world.settlement_panel.resident_buttons[world.residents[1].id].pressed.emit()
-	check(world.resident_selection.selected_resident==world.residents[1] and world.get_node("HUD/ResidentCard").visible,"Population list uses existing selection/card")
+	check(world.resident_selection.selected_resident==world.residents[1] and world.resident_card_view().visible,"Population list uses existing selection/card")
 	var extra = Resident.new("population_fixture","Новый житель",20)
 	extra.id="population_fixture"
 	extra.resident_name="Новый житель"

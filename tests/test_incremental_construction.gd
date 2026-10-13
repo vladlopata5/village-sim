@@ -57,7 +57,7 @@ func run() -> void:
 	var target = target_for(world)
 	var actor = start(world)
 	world.resident_selection.select_building(target)
-	var card = world.get_node("HUD/BuildingCard")
+	var card = world.building_card_view()
 	world.game_time.debug_skip_minutes(10)
 	check(target.construction_progress==10 and actor.builder.work_minutes==10,"10 minutes immediately become10 domain work")
 	check("10 / 180" in card.construction_work.text,"Existing card updates from construction_changed during cycle")

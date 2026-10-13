@@ -4,7 +4,9 @@ extends Camera3D
 @export var min_zoom: float = 8.0
 @export var max_zoom: float = 40.0
 var _mouse_panning := false
+var ui_input_context: RefCounted
 func _process(delta: float) -> void:
+	if ui_input_context != null and ui_input_context.text_editing(): return
 	var direction := Vector2.ZERO
 	if Input.is_physical_key_pressed(KEY_A) or Input.is_physical_key_pressed(KEY_LEFT): direction.x -= 1.0
 	if Input.is_physical_key_pressed(KEY_D) or Input.is_physical_key_pressed(KEY_RIGHT): direction.x += 1.0
@@ -44,6 +46,7 @@ func _notification(what: int) -> void:
 func zoom(steps: float) -> void:
 	size = clampf(size - steps * zoom_step, min_zoom, max_zoom)
 func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventMouse and ui_input_context != null and ui_input_context.pointer_blocked(event.position): return
 	if event is InputEventMouseButton and event.pressed:
 		if event.button_index == MOUSE_BUTTON_WHEEL_UP:
 			zoom(1.0)

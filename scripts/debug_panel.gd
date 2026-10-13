@@ -4,6 +4,8 @@ signal placement_started
 signal placement_cancelled
 const Profession = preload("res://scripts/resident_profession.gd")
 const Resources = preload("res://scripts/resource_type.gd")
+var escape_handler: Callable
+var ui_input_context: RefCounted
 var service: RefCounted
 var placement_kind: StringName = &""
 var _type: Variant
@@ -116,6 +118,8 @@ func _input(event: InputEvent) -> void:
 				hide()
 			else: show()
 			get_viewport().set_input_as_handled()
+		elif event.keycode == KEY_ESCAPE and escape_handler.is_valid():
+			if escape_handler.call(): get_viewport().set_input_as_handled()
 		elif event.keycode==KEY_ESCAPE and active():
 			cancel_placement()
 			get_viewport().set_input_as_handled()
@@ -147,6 +151,7 @@ func _show_result(result: Dictionary) -> void: status.text=result.reason
 
 var _paused_clicks: Array[InputEventMouseButton] = []
 func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventMouse and ui_input_context != null and ui_input_context.pointer_blocked(event.position): return
 	# Root world input pauses normally; this developer panel can still place while paused.
 	if not get_tree().paused or not active(): return
 	if event is InputEventMouseButton and event.pressed and event.button_index in [MOUSE_BUTTON_LEFT,MOUSE_BUTTON_RIGHT]:

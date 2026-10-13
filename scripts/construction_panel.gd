@@ -3,6 +3,7 @@ extends PanelContainer
 const Definition = preload("res://scripts/building_definition.gd")
 const Resources = preload("res://scripts/resource_type.gd")
 signal definition_selected(definition: Definition)
+signal collapse_changed(collapsed: bool)
 var collapsed := false
 var building_buttons: HBoxContainer
 var collapse_button: Button
@@ -40,3 +41,4 @@ func set_collapsed(value: bool) -> void:
 	collapse_button.text = "Строительство — Развернуть" if collapsed else "Строительство — Свернуть"
 	offset_top = -58 if collapsed else -110
 	call_deferred("reset_size")
+	collapse_changed.emit(collapsed)

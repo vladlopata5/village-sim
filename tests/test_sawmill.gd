@@ -122,7 +122,7 @@ func run() -> void:
 	check(actor.recipe_work.phase==RecipeWork.Phase.NONE and saw.resources.get_reserved_in(Resources.PLANK)==0 and saw.production_progress==15,"Schedule end releases task, preserves partial progress")
 	check(not actor.recipe_work.request_work(),"No production after WORK phase")
 	world.resident_selection.select_building(saw)
-	var card = world.get_node("HUD/BuildingCard")
+	var card = world.building_card_view()
 	card._refresh()
 	check("Бревно" in card.resources_label.text and "Доски" in card.resources_label.text and "Анна" in card.resources_label.text and "15 / 30" in card.production_label.text,"Existing card shows storage, Sawyer and progress")
 	world.free()

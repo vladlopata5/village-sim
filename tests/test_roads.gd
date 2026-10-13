@@ -220,7 +220,7 @@ func integration() -> void:
 	var ui_press:=InputEventMouseButton.new()
 	ui_press.button_index=MOUSE_BUTTON_LEFT
 	ui_press.pressed=true
-	ui_press.position=world.get_node("HUD/DebugPanel").collapse_button.get_global_rect().get_center()
+	ui_press.position=world.construction_panel.collapse_button.get_global_rect().get_center()
 	var ui_motion:=InputEventMouseMotion.new()
 	ui_motion.position=ui_press.position
 	root.push_input(ui_motion,true)

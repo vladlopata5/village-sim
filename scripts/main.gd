@@ -68,8 +68,8 @@ func _ready() -> void:
 	interactions.control = player_control
 	for system in [social_world, ground_resources, logistics, production]:
 		system.logger = game_logger
-	$HUD/ResidentCard.bind_selection(resident_selection)
-	$HUD/BuildingCard.bind_selection(resident_selection)
+	resident_card_view().bind_selection(resident_selection)
+	building_card_view().bind_selection(resident_selection)
 	fallback_housing.setup(buildings,world_locations)
 	_create_starting_buildings()
 	# Account for the elapsed work minute before residents choose their next action.
@@ -78,8 +78,8 @@ func _ready() -> void:
 	_create_test_residents()
 	player_control.logger = game_logger
 	player_control.setup(residents, buildings)
-	$HUD/ResidentCard.bind_control(player_control)
-	$HUD/BuildingCard.bind_control(player_control)
+	resident_card_view().bind_control(player_control)
+	building_card_view().bind_control(player_control)
 	resident_selection.selection_changed.connect(_update_selection)
 	production.work_assignment_provider = _committed_work_assignment
 	for runtime in resident_runtimes: _bind_resident_control(runtime)
@@ -116,7 +116,7 @@ func _ready() -> void:
 	if kitchen_data != null:
 		kitchen_data.resources.changed.connect(_update_food)
 		_update_food(ResourceType.Type.FOOD, kitchen_data.resources.get_amount(ResourceType.Type.FOOD))
-	else: food_label.text = "Кухня ещё не построена"
+	else: _show_missing_kitchen()
 	game_time.minute_changed.connect(_update_clock)
 	game_time.phase_changed.connect(field.show_phase)
 	game_time.phase_changed.connect(_update_phase)
@@ -126,6 +126,12 @@ func _ready() -> void:
 	field.show_phase(game_time.get_phase())
 	_update_speed(game_time.speed_multiplier)
 	_setup_construction()
+
+func resident_card_view() -> Control: return $HUD/ResidentCard
+func building_card_view() -> Control: return $HUD/BuildingCard
+func ui_input_context() -> RefCounted: return null
+func _show_missing_kitchen() -> void: food_label.text = "Кухня ещё не построена"
+func _update_population() -> void: population_label.text = "Жителей: %d" % residents.size()
 
 func _build_hud() -> void:
 	var panel = preload("res://scripts/prototype_hud.gd").new()
@@ -193,6 +199,8 @@ func _build_hud() -> void:
 	_update_pause()
 
 func _unhandled_key_input(event: InputEvent) -> void:
+	var context = ui_input_context()
+	if context != null and context.text_editing(): return
 	if not event is InputEventKey or not event.pressed or event.echo:
 		return
 	if event.physical_keycode == KEY_SPACE:

@@ -103,7 +103,7 @@ func _run() -> void:
 	check(Coordinates.to_world(access).x > 1, "90 degree orientation prefers +X access side")
 	check(not scene.placement.is_active() and not scene.building_ghost.visible, "Successful one-building placement exits mode")
 	scene.handle_world_click(MOUSE_BUTTON_LEFT,{"collider":view})
-	check(scene.resident_selection.selected_building == site and scene.get_node("HUD/BuildingCard").visible, "Selection/BuildingCard work after placement")
+	check(scene.resident_selection.selected_building == site and scene.building_card_view().visible, "Selection/BuildingCard work after placement")
 	scene.navigation.add_blocker(&"other",Geometry.footprint(site))
 	check(scene.cancel_construction(site.id), "Cancellation API removes unfinished building")
 	check(scene.build_grid.occupied_cells(site.id).is_empty() and site not in scene.buildings and scene.world_locations.get_position(site.id) == null, "Removal releases occupancy, registry and action-location cache")
