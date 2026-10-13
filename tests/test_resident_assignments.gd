@@ -37,7 +37,7 @@ func choose(runtime: Node, assignment: Assignment) -> void:
 	runtime.decision.rng.seed = Seed.for_action(actions, "ASSIGNMENT:%s" % assignment.id)
 	runtime.decision.request_decision("test")
 func _run() -> void:
-	var scene = Setup.make_scene(self)
+	var scene = assignment_scene()
 	var actor = scene.resident_runtimes[1]
 	var options: Array = scene.interactions.get_interactions([actor.data.id], scene.kitchen_data.id)
 	check(options[1].enabled and options[1].label == "Поесть здесь" and options[1].interaction_kind == Option.Kind.RESIDENT_ASSIGNMENT, "Kitchen offers enabled assignment even without FOOD")
@@ -75,7 +75,7 @@ func _run() -> void:
 	check(actor.assignments.collect_actions().size() == 1 and not scene.player_control.cancel_assignment(actor.data.id, &"missing"), "Cancelled assignment excluded; unknown ID rejected")
 	scene.free()
 	# Normal selection -> shared executor -> progressive benefit -> complete before next decision.
-	scene = Setup.make_scene(self)
+	scene = assignment_scene()
 	actor = scene.resident_runtimes[1]
 	scene.game_logger.line_logged.connect(func(line: String, _level: int): lines.append(line))
 	scene.kitchen_data.resources.add(FOOD, 1)
@@ -102,7 +102,7 @@ func _run() -> void:
 	scene.free()
 	# Player interruption before and after consumption: keep request, never refund consumed food.
 	for eating in [false, true]:
-		scene = Setup.make_scene(self)
+		scene = assignment_scene()
 		actor = scene.resident_runtimes[1]
 		scene.kitchen_data.resources.add(FOOD, 1)
 		actor.data.hunger = 80
@@ -122,7 +122,7 @@ func _run() -> void:
 			check(scene.player_control.cancel_assignment(actor.data.id, first.id), "Queued interrupted request can be manually cancelled")
 		scene.free()
 	# Event-driven restoration: one owner creates one decision, no polling retries.
-	scene = Setup.make_scene(self)
+	scene = assignment_scene()
 	actor = scene.resident_runtimes[1]
 	actor.data.hunger = 80
 	first = add(scene, actor, &"waiting")
@@ -133,7 +133,7 @@ func _run() -> void:
 	check(actor.decision.decision_count == count + 1 and actor.intents.has_current_action(), "Available FOOD triggers exactly one existing event-driven decision for idle actor")
 	scene.free()
 	# Two kitchens: assigned target is never silently substituted with available other kitchen.
-	scene = Setup.make_scene(self)
+	scene = assignment_scene()
 	actor = scene.resident_runtimes[1]
 	var kitchen = Building.new(&"other_kitchen", "Другая кухня", BuildingType.FOOD)
 	kitchen.resources.set_capacity(FOOD, 20)
@@ -159,7 +159,7 @@ func _run() -> void:
 	check(first.state == Assignment.State.CANCELLED, "Permanently removed queued target cancels request")
 	scene.free()
 	# Permanent removal during ACTIVE route also cleans ownership/reservation.
-	scene = Setup.make_scene(self)
+	scene = assignment_scene()
 	actor = scene.resident_runtimes[1]
 	scene.kitchen_data.resources.add(FOOD, 1)
 	actor.data.hunger = 80
@@ -170,7 +170,7 @@ func _run() -> void:
 	check(first.state == Assignment.State.CANCELLED and actor.assignments.active_assignment == null and scene.kitchen_data.resources.get_reserved_out(FOOD) == 0, "Removed ACTIVE target cancels assignment and releases food")
 	scene.free()
 	# Manual cancellation of ACTIVE eating stops shared executor, no food refund.
-	scene = Setup.make_scene(self)
+	scene = assignment_scene()
 	actor = scene.resident_runtimes[1]
 	scene.kitchen_data.resources.add(FOOD, 1)
 	actor.data.hunger = 80
@@ -180,7 +180,7 @@ func _run() -> void:
 	check(scene.player_control.cancel_assignment(actor.data.id, first.id) and first.state == Assignment.State.CANCELLED and actor.needs._active_intent == null and scene.kitchen_data.resources.get_amount(FOOD) == 0, "Cancel ACTIVE API uses meal cleanup and never refunds consumed FOOD")
 	scene.free()
 	# Real menu UI delegates the option to simulation API, never mutates list itself.
-	scene = Setup.make_scene(self)
+	scene = assignment_scene()
 	actor = scene.resident_runtimes[1]
 	var spy := ControlSpy.new()
 	spy.resident = actor.data
@@ -201,7 +201,7 @@ func _run() -> void:
 	check(actor.assignments.collect_actions()[0].priority == Balance.ASSIGNMENT_BONUS, "HUNGER 30 uses zero nonlinear base plus bonus")
 	scene.free()
 	# Add while WORKING: wait for a real cycle boundary, building progress retained.
-	scene = Setup.make_scene(self)
+	scene = assignment_scene()
 	actor = scene.resident_runtimes[2]
 	actor.decision.work_available = scene._work_available.bind(actor)
 	actor.decision.work_request = scene._request_work.bind(actor)
@@ -224,7 +224,7 @@ func _run() -> void:
 	check(scene.gatherer_hut_data.production_progress == progress + 1, "Last worked minute adds contribution; taking assignment never resets building progress")
 	scene.free()
 	# Existing critical bypass stays unchanged; interrupted persistent request requeues.
-	scene = Setup.make_scene(self)
+	scene = assignment_scene()
 	actor = scene.resident_runtimes[1]
 	scene.kitchen_data.resources.add(FOOD, 1)
 	actor.data.hunger = 80
@@ -234,7 +234,7 @@ func _run() -> void:
 	check(first.state == Assignment.State.QUEUED and actor.data.activity == Activity.SLEEPING and scene.kitchen_data.resources.get_reserved_out(FOOD) == 0, "Existing critical fatigue bypass requeues assignment and releases reservation")
 	scene.free()
 	# Bonus must not become a new mechanical priority above the existing night source.
-	scene = Setup.make_scene(self)
+	scene = assignment_scene()
 	actor = scene.resident_runtimes[1]
 	scene.kitchen_data.resources.add(FOOD, 1)
 	actor.data.hunger = 90
@@ -246,3 +246,10 @@ func _run() -> void:
 	scene.free()
 	print("Resident assignments: %d checks, %d failures" % [checks, failures])
 	quit(1 if failures else 0)
+
+func assignment_scene() -> Node:
+	var scene = Setup.make_scene(self)
+	# Assignment-only fixtures isolate an empty target from autonomous fallback meals.
+	for building in scene.buildings:
+		if building.type != BuildingType.FOOD: building.resources.try_take(FOOD,building.resources.get_available_amount(FOOD))
+	return scene

@@ -12,7 +12,7 @@ func check(condition: bool, message: String) -> void:
 		failures += 1
 		push_error(message)
 func _run() -> void:
-	var scene = Setup.make_scene(self)
+	var scene = starvation_scene()
 	var resident = scene.resident_runtimes[1]
 	scene.game_logger.line_logged.connect(func(line: String, _level: int): messages.append(line))
 	resident.data.hunger = 80
@@ -30,7 +30,7 @@ func _run() -> void:
 	print("Availability proof: 180 game minutes, searches=1, failure INFO=1; FOOD arrived -> searches=2 and eat intent")
 	scene.free()
 	# Critical hunger previously failed; arrival of food must still respect an existing ordinary action.
-	scene = Setup.make_scene(self)
+	scene = starvation_scene()
 	resident = scene.resident_runtimes[3]
 	resident.data.hunger = 100
 	resident.data.get_need(Type.LEISURE).value = 100
@@ -38,13 +38,15 @@ func _run() -> void:
 	check(resident.data.activity == Activity.RELAXING, "Unavailable critical food allows another concrete action")
 	var current = resident.intents.current_intent
 	count = resident.needs.food_search_count
+	var probes: int = resident.needs.food_probe_count
 	scene.kitchen_data.resources.add(FOOD, 1)
+	check(resident.needs.food_probe_count == probes, "Committed action does not run food route probes from availability notification")
 	check(resident.intents.current_intent == current and resident.data.activity == Activity.RELAXING and resident.needs.food_search_count == count, "World availability is not a forced interrupt, even with hunger 100")
 	scene.game_time.debug_skip_minutes(30)
 	check(resident.intents.current_intent.reason_id == &"eat" and resident.needs.food_search_count == count + 1, "New option considered when ordinary action finishes")
 	scene.free()
 	# The same event must not interrupt TALKING, even after a failed critical search.
-	scene = Setup.make_scene(self)
+	scene = starvation_scene()
 	resident = scene.resident_runtimes[3]
 	resident.data.hunger = 100
 	var partner = scene.resident_runtimes[1]
@@ -58,7 +60,7 @@ func _run() -> void:
 	check(resident.intents.current_intent.reason_id == &"eat", "Conversation's own recheck can end it for now-available hunger")
 	scene.free()
 	# Reservation release is also a real increase in available portions.
-	scene = Setup.make_scene(self)
+	scene = starvation_scene()
 	resident = scene.resident_runtimes[1]
 	scene.kitchen_data.resources.add(FOOD, 1)
 	scene.kitchen_data.resources.reserve_out(FOOD, 1)
@@ -69,7 +71,7 @@ func _run() -> void:
 	check(resident.intents.current_intent.reason_id == &"eat" and resident.needs.food_search_count == 2, "Freed reservation wakes idle hungry resident")
 	scene.free()
 	# Formula depends on real capacity, not kitchen-specific stock steps.
-	scene = Setup.make_scene(self)
+	scene = starvation_scene()
 	var container = scene.kitchen_data.resources
 	check(container.get_capacity(FOOD) == 20 and is_equal_approx(Priority.import_priority(container, FOOD), 11000), "Empty capacity-20 kitchen urgency")
 	container.add(FOOD, 4)
@@ -79,3 +81,10 @@ func _run() -> void:
 	scene.free()
 	print("Event-driven FOOD checks: ", "PASS" if failures == 0 else "FAIL")
 	quit(0 if failures == 0 else 1)
+
+func starvation_scene() -> Node:
+	var scene = Setup.make_scene(self)
+	for building in scene.buildings:
+		if building.type != preload("res://scripts/building_type.gd").Type.FOOD:
+			building.resources.try_take(FOOD,building.resources.get_available_amount(FOOD))
+	return scene

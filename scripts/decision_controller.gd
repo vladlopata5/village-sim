@@ -286,10 +286,10 @@ func _on_phase(phase: String) -> void:
 	request_decision("phase_changed")
 
 func _on_food_available() -> void:
-	if not _needs.has_food_action(): return
 	# A changed world is an option for the next normal boundary, not a forced event.
 	if _deciding or _intents.has_current_action() or _data.activity != Activity.Type.IDLE: return
 	if _data.get_need(NeedType.Type.HUNGER).get_priority() < NEED_ACTION_THRESHOLD: return
+	if not _needs.has_food_action(): return # Route probes only for a resident able to decide now.
 	if logger != null: logger.info(EventLog.NEED, "%s: FOOD стала доступна — новая decision point" % _data.resident_name)
 	request_decision("food_available")
 

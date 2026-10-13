@@ -124,6 +124,8 @@ func _run():
 	for data in scene.residents:
 		data.hunger = 0
 		data.fatigue = 0
+	# Last-portion competition with no alternate stocked sources.
+	for building in scene.buildings: building.resources.try_take(FOOD,building.resources.get_available_amount(FOOD))
 	scene.kitchen_data.resources.add(FOOD, 3)
 	for runtime in scene.resident_runtimes:
 		runtime.view.set_process(false)

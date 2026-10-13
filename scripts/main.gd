@@ -675,6 +675,7 @@ func _bind_resident_social(runtime: ResidentRuntime) -> void:
 	social_world.register(runtime)
 	runtime.recipe_work.position_provider = _production_position_2d
 	runtime.builder.position_provider = _production_position_2d
+	runtime.needs.position_provider = _food_position_2d
 	runtime.builder.cargo_dropped.connect(_drop_cargo.bind(runtime))
 	runtime.social.world = social_world
 	runtime.assignments.bind_social_world()
@@ -685,4 +686,11 @@ func _bind_resident_logistics(runtime: ResidentRuntime) -> void:
 	logistics.register_resident(runtime.data)
 	logistics.use_executor(runtime.data, game_time, world_locations, runtime.intents, runtime.schedule)
 	runtime.builder.bind_sources(logistics.sources)
+	runtime.needs.bind_sources(logistics.sources)
 	runtime.self_logistics.setup(runtime,self)
+
+func _food_position_2d(resident_id: String) -> Variant:
+	var runtime = get_resident_runtime(find_resident(resident_id))
+	if runtime == null: return null
+	# A new route exits an occupied interior before moving; use that same walkable origin.
+	return runtime.view.get_drop_sim_position() if runtime.view.has_method("get_drop_sim_position") else _production_position_2d(resident_id)

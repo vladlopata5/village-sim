@@ -119,8 +119,9 @@ func _run() -> void:
 			check(task.state == Assignment.State.QUEUED and not lines.any(func(line): return "поручение выполнено" in line), "Player-interrupted route/meal cannot satisfy request")
 			check(scene.kitchen_data.resources.get_amount(FOOD) == (0 if eating else 1) and scene.kitchen_data.resources.get_reserved_out(FOOD) == 0, "Reservation/consumption behavior unchanged during interrupt")
 			scene.free()
-	# Unavailable food / failed start never count as success.
+	# No FOOD in any source, not merely an empty Kitchen.
 	scene = Setup.make_scene(self)
+	for building in scene.buildings: building.resources.try_take(FOOD,building.resources.get_available_amount(FOOD))
 	actor = scene.resident_runtimes[1]
 	actor.data.hunger = 80
 	task = add(scene, actor, &"no_food")

@@ -150,7 +150,7 @@ func _run() -> void:
 
 	var hungry = scene.resident_runtimes[0]
 	hungry.data.hunger = 60
-	check(not hungry.needs.try_eat(2000) and kitchen.resources.get_reserved_out(FOOD) == 0, "Autonomous eat never reserves food in construction kitchen")
+	check(hungry.needs.try_eat(2000) and hungry.needs._food_building != kitchen and kitchen.resources.get_reserved_out(FOOD) == 0, "Autonomous eat falls back to BUILT FOOD, never construction kitchen")
 	var camera = scene.get_node("World/Camera2D")
 	camera.position = Vector2(100, 50)
 	camera.force_update_scroll()

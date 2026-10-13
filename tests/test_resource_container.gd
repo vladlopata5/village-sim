@@ -56,18 +56,25 @@ func _run() -> void:
 	scene.game_time.debug_skip_minutes(30)
 	check(r.data.hunger == 20 and stock.get_reserved_out(ResourceType.Type.FOOD) == 0, "Paid meal has gradual benefit and settled reservation")
 	scene.free()
-	# Warehouse food does not make an empty kitchen a valid meal.
-	scene = preload("res://tests/need_test_setup.gd").make_scene(self, 360, 0)
+	# Empty Kitchen falls back to real warehouse stock; later FOOD cannot retarget a trip.
+	scene = preload("res://tests/need_test_setup.gd").make_scene(self,360,0)
 	r = scene.resident_runtimes[0]
 	r.data.hunger = 80
 	r.decision.request_decision()
-	check(r.data.activity == Activity.Type.IDLE and scene.warehouse_data.resources.get_amount(ResourceType.Type.FOOD) == 10, "No local food means no kitchen trip or free hunger benefit")
+	check(r.data.activity == Activity.Type.MOVING and r.needs._food_building == scene.warehouse_data and scene.warehouse_data.resources.get_amount(ResourceType.Type.FOOD) == 10,"Other-building meal reserves real stock, no remote benefit")
+	var committed = r.intents.current_intent
 	scene.resident_selection.select(r.data)
 	key(KEY_8)
-	check(scene.kitchen_data.resources.get_amount(ResourceType.Type.FOOD) == 1 and scene.kitchen_data.resources.get_reserved_out(ResourceType.Type.FOOD) == 1, "Shift+8 adds kitchen food and permits a newly available option")
+	check(r.intents.current_intent == committed and scene.kitchen_data.resources.get_amount(ResourceType.Type.FOOD) == 1 and scene.kitchen_data.resources.get_reserved_out(ResourceType.Type.FOOD) == 0,"New Kitchen FOOD does not redirect committed warehouse trip")
 	r.view._process(20)
 	scene.game_time.debug_skip_minutes(30)
-	check(r.data.hunger == 20 and scene.kitchen_data.resources.get_amount(ResourceType.Type.FOOD) == 0, "Restocked kitchen pays for meal")
+	check(r.data.hunger == 20 and scene.warehouse_data.resources.get_amount(ResourceType.Type.FOOD) == 9 and scene.kitchen_data.resources.get_amount(ResourceType.Type.FOOD) == 1,"Actual warehouse arrival consumes one and grants original thirty-minute benefit")
+	r.data.hunger = 80
+	r.decision.request_decision()
+	check(r.needs._food_building == scene.kitchen_data and scene.kitchen_data.resources.get_reserved_out(ResourceType.Type.FOOD) == 1,"Next meal prefers newly stocked Kitchen")
+	r.view._process(20)
+	scene.game_time.debug_skip_minutes(30)
+	check(r.data.hunger == 20 and scene.kitchen_data.resources.get_amount(ResourceType.Type.FOOD) == 0 and scene.warehouse_data.resources.get_amount(ResourceType.Type.FOOD) == 9,"Kitchen meal uses only its own actual portion")
 	scene.free()
 	print("Local resource checks: ", "PASS" if failures == 0 else "FAIL")
 	quit(0 if failures == 0 else 1)

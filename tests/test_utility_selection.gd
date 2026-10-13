@@ -54,6 +54,7 @@ func _run() -> void:
 	resident.data.get_need(Type.SOCIAL).value = 100
 	var actions: Array = resident.decision.collect_actions(false)
 	check(actions.is_empty(), "EAT below minimum, SOCIAL without partner and unavailable WORK excluded")
+	for building in scene.buildings: building.resources.try_take(FOOD,building.resources.get_available_amount(FOOD))
 	resident.data.hunger = 80
 	check(resident.decision.collect_actions(false).is_empty(), "No available FOOD excludes EAT")
 	resident.data.activity = Activity.WORKING

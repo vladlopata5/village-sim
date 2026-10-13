@@ -124,7 +124,7 @@ func _run() -> void:
 		scene.game_time.debug_skip_minutes(2)
 		check(resident.commands.active_command != null and resident.intents.current_intent.reason_id == &"player_move", "Ordinary simulation does not steal command " + action)
 		scene.free()
-	# Same-point commands arrive synchronously: cleanup must precede the new decision.
+	# Same-point cleanup precedes the next ordinary decision; fallback FOOD is now valid.
 	scene = Setup.make_scene(self)
 	resident = scene.resident_runtimes[1]
 	scene.kitchen_data.resources.add(FOOD, 1)
@@ -133,7 +133,7 @@ func _run() -> void:
 	preload("res://tests/handling_test_step.gd").move_2d(resident,20)
 	count = resident.decision.decision_count
 	scene.player_control.move_to(resident.data.id, resident.view.global_position)
-	check(resident.commands.active_command == null and resident.needs._active_intent == null and not resident.needs._meal_active and scene.kitchen_data.resources.get_amount(FOOD) == 0, "Same-point command completes after cleanup without refunding consumed food")
+	check(resident.commands.active_command == null and not resident.needs._meal_active and scene.kitchen_data.resources.get_amount(FOOD) == 0 and (resident.needs._active_intent == null or (resident.needs._food_building == scene.warehouse_data and resident.needs._reserved_food)), "Same-point command cleans paid meal without refund, then may start fallback building meal")
 	check(resident.decision.decision_count == count + 1 and not resident.intents.player_controlled, "Synchronous arrival produces one decision and releases player lock")
 	scene.free()
 	# Two-person group dissolution wakes the remaining participant correctly.
