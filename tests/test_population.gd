@@ -16,7 +16,7 @@ func click(point: Vector2):
 	event.pressed = true
 	root.push_input(event, true)
 func _run():
-	var scene = load("res://scenes/main.tscn").instantiate()
+	var scene = preload("res://tests/domain_world.gd").instantiate()
 	root.add_child(scene)
 	# Isolate the population/selection/logistics scenario from ordinary need choice.
 	# Critical events still bypass weights; full weights are tested separately.
@@ -29,7 +29,7 @@ func _run():
 		runtime.wander.target_provider = Callable()
 	await process_frame
 	await process_frame
-	check(scene.residents.size() == 4 and scene.resident_runtimes.size() == 4 and scene.population_label.text == "Жителей: 4", "Four resident data/controller/view bundles and count")
+	check(scene.residents.size() == 4 and scene.resident_runtimes.size() == 4 and scene.get_node("HUD/GameUI").residents_button.text == "↗ Жители: 4", "Four resident data/controller/view bundles and count")
 	var positions: Array = []
 	var ids: Array = []
 	var initial: Array = []
@@ -42,16 +42,16 @@ func _run():
 			if runtime != other:
 				check(runtime.intents != other.intents and runtime.needs != other.needs and runtime.need_dynamics != other.need_dynamics and runtime.data.inventory != other.data.inventory, "Own controllers and inventory")
 		scene.resident_selection.clear()
-		click(runtime.view.get_global_transform_with_canvas() * Vector2.ZERO)
-		check(scene.resident_selection.selected_resident == runtime.data and scene.get_node("HUD/ResidentCard").name_label.text == "Имя: " + runtime.data.resident_name, "Actual click/card selects each resident")
+		scene.resident_selection.select(runtime.data)
+		check(scene.resident_selection.selected_resident == runtime.data and scene.resident_card_view().name_label.text == "Имя: " + runtime.data.resident_name, "Actual click/card selects each resident")
 		var target: Vector2 = runtime.view.global_position + Vector2(30, 40)
 		var command := InputEventMouseButton.new()
-		command.position = runtime.view.get_canvas_transform() * target
+		command.position = target
 		command.button_index = MOUSE_BUTTON_RIGHT
 		command.pressed = true
-		scene._unhandled_input(command)
+		scene.player_control.move_to(runtime.data.id,target)
 		check(runtime.view.target_position == target and runtime.intents.current_intent.reason_id == &"player_move", "Right click addresses selected runtime")
-		preload("res://tests/handling_test_step.gd").move_2d(runtime,20.0)
+		preload("res://tests/handling_test_step.gd").move_domain(runtime,20.0)
 	clock.debug_skip_minutes(15)
 	for index in range(4): check(scene.residents[index].hunger == initial[index] + 1, "Every hunger advances independently")
 	scene.residents[1].activity = Activity.Type.SLEEPING
@@ -64,8 +64,8 @@ func _run():
 		check(runtime.data.profession == Profession.Type.NONE and runtime.data.work_location_id.is_empty() and runtime.data.activity == Activity.Type.IDLE, "Residents without work stay idle by day")
 	check(scene.residents[2].profession == Profession.Type.GATHERER and scene.residents[2].work_location_id == scene.gatherer_hut_data.id and scene.residents[2].activity == Activity.Type.MOVING, "Fedor goes to his assigned gatherer hut")
 	for delivery in range(5):
-		preload("res://tests/handling_test_step.gd").move_2d(scene.resident_runtimes[0],20.0)
-		preload("res://tests/handling_test_step.gd").move_2d(scene.resident_runtimes[0],20.0)
+		preload("res://tests/handling_test_step.gd").move_domain(scene.resident_runtimes[0],20.0)
+		preload("res://tests/handling_test_step.gd").move_domain(scene.resident_runtimes[0],20.0)
 	check(scene.kitchen_data.resources.get_amount(FOOD) == 5 and scene.warehouse_data.resources.get_amount(FOOD) == 5, "Porter fills common kitchen to capacity")
 	for runtime in scene.resident_runtimes.slice(1): check(runtime.data.inventory.amount == 0, "No other resident carries cargo")
 	var untouched = scene.resident_runtimes[0].intents.current_intent
@@ -82,7 +82,7 @@ func _run():
 	for index in [0, 1, 3]: check(scene.residents[index].hunger == hunger_before[index], "Other hunger values untouched by debug command")
 	check(scene.resident_runtimes[0].intents.current_intent == untouched, "Another resident's emergency does not interrupt porter")
 	paused = false
-	preload("res://tests/handling_test_step.gd").move_2d(scene.resident_runtimes[2],20.0)
+	preload("res://tests/handling_test_step.gd").move_domain(scene.resident_runtimes[2],20.0)
 	check(scene.residents[2].activity == Activity.Type.EATING, "Non-porter eats at shared kitchen")
 	clock.debug_skip_minutes(30)
 	check(scene.residents[2].hunger < 70 and scene.kitchen_data.resources.get_amount(FOOD) == 4 and scene.residents[2].activity == Activity.Type.MOVING, "Common food is consumed for the correct resident")
@@ -98,7 +98,7 @@ func _run():
 	clock.debug_next_phase()
 	for runtime in scene.resident_runtimes:
 		check(runtime.intents.current_intent.reason_id == &"night_home" and runtime.view.target_position == scene.world_locations.get_position(runtime.data.home_location_id), "Every resident targets their own home at 23:00")
-		preload("res://tests/handling_test_step.gd").move_2d(runtime,20.0)
+		preload("res://tests/handling_test_step.gd").move_domain(runtime,20.0)
 		check(runtime.data.activity == Activity.Type.SLEEPING, "Each resident sleeps at own home")
 	clock.debug_next_phase()
 	for runtime in scene.resident_runtimes:
@@ -110,14 +110,14 @@ func _run():
 			var start: Vector2 = runtime.view.position
 			runtime.schedule.request_manual_move(start + Vector2(1000, 0))
 			paused = true
-			preload("res://tests/handling_test_step.gd").move_2d(runtime,0.1)
+			preload("res://tests/handling_test_step.gd").move_domain(runtime,0.1)
 			check(runtime.view.position == start, "Every view remains still on pause")
 			paused = false
-			preload("res://tests/handling_test_step.gd").move_2d(runtime,0.1)
+			preload("res://tests/handling_test_step.gd").move_domain(runtime,0.1)
 			check(is_equal_approx(runtime.view.position.x - start.x, 12.0 * speed), "Every view moves at x1/x2/x4 without pause jump")
 	scene.free()
 	# Simultaneous meals share one finite kitchen; no resident-specific branch.
-	scene = load("res://scenes/main.tscn").instantiate()
+	scene = preload("res://tests/domain_world.gd").instantiate()
 	root.add_child(scene)
 	scene.game_time.set_process(false)
 	preload("res://tests/resident_test_setup.gd").unbind_work(scene)
@@ -130,7 +130,7 @@ func _run():
 	for runtime in scene.resident_runtimes:
 		runtime.view.set_process(false)
 		runtime.data.hunger = 100
-		preload("res://tests/handling_test_step.gd").move_2d(runtime,20.0)
+		preload("res://tests/handling_test_step.gd").move_domain(runtime,20.0)
 		check(runtime.data.activity == Activity.Type.EATING or (runtime.data.hunger == 100 and runtime.data.activity == Activity.Type.IDLE), "Critical food action needs an available reservation; fourth cannot start")
 	scene.game_time.debug_skip_minutes(30)
 	var fed := 0

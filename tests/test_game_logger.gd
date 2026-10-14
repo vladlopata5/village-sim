@@ -61,7 +61,7 @@ func _run() -> void:
 	var production = preload("res://scripts/gatherer_production.gd").new()
 	root.add_child(production)
 	production.logger = event_log
-	production.setup(clock, hut, [], preload("res://scripts/world_locations_2d.gd").new(), Callable())
+	production.setup(clock, hut, [], preload("res://tests/domain_locations.gd").new(), Callable())
 	count = entries.size()
 	clock.debug_skip_minutes(20)
 	check(entries.size() == count + 1 and entries[-1].contains("контейнер заполнен"), "Full output logged once, not every minute")

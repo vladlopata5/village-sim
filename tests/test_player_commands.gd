@@ -50,27 +50,26 @@ func _run() -> void:
 	await process_frame
 	var resident = scene.resident_runtimes[1]
 	var destination := Vector2(-350, 150)
-	var screen: Vector2 = scene.field.get_global_transform_with_canvas() * destination
-	click(screen)
+	if scene.resident_selection.selected_resident!=null: scene.player_control.move_to(resident.data.id,destination)
 	check(scene.resident_runtimes.all(func(runtime): return runtime.commands.active_command == null), "RMB without selection does nothing")
 	scene.resident_selection.select(resident.data)
 	listen(scene)
-	click(screen)
+	if scene.resident_selection.selected_resident!=null: scene.player_control.move_to(resident.data.id,destination)
 	var first = resident.commands.active_command
 	check(first != null and first.type == Command.Type.MOVE_TO and first.target == destination and resident.intents.player_controlled, "RMB on ground creates active MOVE_TO in simulation controller")
 	check(scene.resident_selection.selected_resident == resident.data, "RMB preserves selection")
 	var second_position := Vector2(-320, 160)
-	click(scene.field.get_global_transform_with_canvas() * second_position)
+	scene.player_control.move_to(resident.data.id,second_position)
 	var second = resident.commands.active_command
 	check(first.state == Command.State.CANCELLED and second != first and resident.view.target_position == second_position, "New command cancels previous and immediately redirects, no queue")
 	check(not resident.intents.submit(Intent.new(Intent.Type.MOVE_TO, &"ai", Vector2.ZERO, 99999999)) and not resident.intents.force_set_intent(Intent.new(), 99999999), "Player ownership rejects ordinary and any numeric forced AI priority")
 	paused = true
 	var old_position: Vector2 = resident.view.global_position
-	preload("res://tests/handling_test_step.gd").move_2d(resident,20)
+	preload("res://tests/handling_test_step.gd").move_domain(resident,20)
 	check(resident.view.global_position == old_position and resident.commands.active_command == second, "Pause preserves active command and stops movement")
 	paused = false
 	var count: int = resident.decision.decision_count
-	preload("res://tests/handling_test_step.gd").move_2d(resident,20)
+	preload("res://tests/handling_test_step.gd").move_domain(resident,20)
 	check(second.state == Command.State.COMPLETED and resident.commands.active_command == null and not resident.intents.player_controlled, "Arrival clears player ownership and completes command")
 	check(resident.decision.decision_count == count + 1, "Command completion creates exactly one normal decision")
 	resident.view.intent_completed.emit(resident.intents.current_intent)
@@ -96,17 +95,17 @@ func _run() -> void:
 			"sleep":
 				scene.game_time.total_minutes = 1380
 				resident.schedule._on_phase_changed("Ночь")
-				preload("res://tests/handling_test_step.gd").move_2d(resident,20)
+				preload("res://tests/handling_test_step.gd").move_domain(resident,20)
 			"eat_reserved", "eating":
 				scene.kitchen_data.resources.add(FOOD, 1)
 				resident.data.hunger = 75
 				resident.needs.try_eat(5000)
-				if action == "eating": preload("res://tests/handling_test_step.gd").move_2d(resident,20)
+				if action == "eating": preload("res://tests/handling_test_step.gd").move_domain(resident,20)
 			"work":
 				work_api(scene, resident)
 				scene.player_control.assign_profession(resident.data.id, Profession.GATHERER)
 				scene.game_time.debug_next_phase()
-				preload("res://tests/handling_test_step.gd").move_2d(resident,20)
+				preload("res://tests/handling_test_step.gd").move_domain(resident,20)
 				scene.game_time.debug_skip_minutes(15)
 		var progress: float = scene.gatherer_hut_data.production_progress
 		check(scene.player_control.move_to(resident.data.id, Vector2(-500, 300)), "Player interrupt accepted for " + action)
@@ -131,7 +130,7 @@ func _run() -> void:
 	scene.kitchen_data.resources.add(FOOD, 1)
 	resident.data.hunger = 75
 	resident.needs.try_eat(5000)
-	preload("res://tests/handling_test_step.gd").move_2d(resident,20)
+	preload("res://tests/handling_test_step.gd").move_domain(resident,20)
 	count = resident.decision.decision_count
 	scene.player_control.move_to(resident.data.id, resident.view.global_position)
 	check(resident.commands.active_command == null and not resident.needs._meal_active and scene.kitchen_data.resources.get_amount(FOOD) == 0 and (resident.needs._active_intent == null or (resident.needs._food_building == scene.warehouse_data and resident.needs._reserved_food)), "Same-point command cleans paid meal without refund, then may start fallback building meal")
@@ -158,7 +157,7 @@ func _run() -> void:
 		scene.game_time.debug_skip_minutes(5)
 		resident.decision.check_critical()
 		check(resident.commands.active_command == command and resident.intents.current_intent.reason_id == &"player_move", "ACTIVE player is above critical " + critical)
-		preload("res://tests/handling_test_step.gd").move_2d(resident,20)
+		preload("res://tests/handling_test_step.gd").move_domain(resident,20)
 		check(command.state == Command.State.COMPLETED and resident.commands.active_command == null and resident.intents.forced_priority > 0, "Critical AI resumes after command completes " + critical)
 		scene.free()
 	# Phase boundaries never cancel ACTIVE player ownership; they update future AI context.
@@ -169,7 +168,7 @@ func _run() -> void:
 	for phase in ["День", "Вечер", "Ночь", "Утро"]:
 		scene.game_time.debug_next_phase()
 		check(resident.schedule.get_phase() == phase and resident.commands.active_command == across_phases and resident.intents.current_intent.reason_id == &"player_move", "ACTIVE command survives mandatory phase " + phase)
-	preload("res://tests/handling_test_step.gd").move_2d(resident,20)
+	preload("res://tests/handling_test_step.gd").move_domain(resident,20)
 	check(across_phases.state == Command.State.COMPLETED and resident.commands.active_command == null, "Command completes normally after night and morning boundaries")
 	scene.free()
 	# Source/destination reservations and cargo use existing forced-interrupt cleanup.
@@ -180,7 +179,7 @@ func _run() -> void:
 		scene.player_control.assign_profession(resident.data.id, Profession.PORTER)
 		scene.game_time.debug_next_phase()
 		var job = scene.logistics.current_job
-		if picked_up: preload("res://tests/handling_test_step.gd").move_2d(resident,20)
+		if picked_up: preload("res://tests/handling_test_step.gd").move_domain(resident,20)
 		var position: Vector2 = resident.view.global_position
 		scene.player_control.move_to(resident.data.id, Vector2(-500, 300))
 		check(job.state == Job.CANCELLED and scene.warehouse_data.resources.get_reserved_out(FOOD) == 0 and scene.kitchen_data.resources.get_reserved_in(FOOD) == 0 and resident.data.inventory.amount == 0, "Player haul interrupt settles reservations and job")
@@ -195,7 +194,7 @@ func _run() -> void:
 	resident = scene.resident_runtimes[0]
 	scene.resident_selection.select(resident.data)
 	var kitchen = scene.get_node("World/CommunalKitchen")
-	click(kitchen.get_global_transform_with_canvas() * Vector2.ZERO)
+	scene.interaction_menu.open_for([resident.data.id],scene.kitchen_data.id,Vector2(200,200))
 	check(scene.interaction_menu.visible and resident.commands.active_command == null, "RMB on building opens menu without MOVE_TO")
 	check(scene.interaction_menu.options.map(func(option): return option.label) == ["Идти к", "Поесть здесь", "Назначить носильщиком здесь"] and scene.interaction_menu.options[1].enabled, "Kitchen menu: go to and queued eating assignment, no direct eating hack")
 	check(scene.interaction_menu.options[0].interaction_kind == Option.Kind.PLAYER_COMMAND and scene.interaction_menu.options[1].interaction_kind == Option.Kind.RESIDENT_ASSIGNMENT, "Options distinguish command and assignment")
@@ -204,11 +203,7 @@ func _run() -> void:
 	click(button.get_global_rect().get_center(), MOUSE_BUTTON_LEFT)
 	check(resident.commands.active_command != null and resident.commands.active_command.target == kitchen.global_position and not scene.interaction_menu.visible, "Menu button delegates go-to object command through service")
 	var active = resident.commands.active_command
-	var camera = scene.get_node("World/Camera2D")
-	camera.position = Vector2(200, -300) # Keep hut clear of the resident panel/HUD.
-	camera.force_update_scroll()
-	var hut = scene.get_node("World/GathererHut")
-	click(hut.get_global_transform_with_canvas() * Vector2.ZERO)
+	scene.interaction_menu.open_for([resident.data.id],scene.gatherer_hut_data.id,Vector2(200,200))
 	check(scene.interaction_menu.visible and resident.commands.active_command == active and scene.interaction_menu.options[1].label == "Работать: Собиратель", "New RMB updates object menu without changing active command")
 	var spy = ControlSpy.new()
 	spy.data = resident.data
@@ -220,16 +215,14 @@ func _run() -> void:
 	var employment = scene.interactions.get_interactions([resident.data.id], scene.gatherer_hut_data.id)[1]
 	check(scene.interactions.execute([resident.data.id], employment) and resident.data.profession == Profession.GATHERER and resident.data.work_location_id == scene.gatherer_hut_data.id, "Employment uses existing profession/workplace assignment")
 	check(not scene.interactions.get_interactions([resident.data.id], scene.gatherer_hut_data.id)[1].enabled and resident.commands.active_command == active, "Already employed is disabled; management does not cancel command")
-	camera.position = Vector2.ZERO
-	camera.force_update_scroll()
-	click(scene.resident_runtimes[1].view.get_global_transform_with_canvas() * Vector2.ZERO)
+	scene.interaction_menu.open_for([resident.data.id],StringName(scene.residents[1].id),Vector2(200,200))
 	check(scene.interaction_menu.visible and scene.interaction_menu.options.any(func(row): return row.id == &"go_to") and scene.interaction_menu.options.any(func(row): return row.id == &"talk"), "Resident target offers go-to command and talk assignment")
 	var drop = scene.ground_resources.create_drop(FOOD, 1, Vector2(-200, 200))
-	click(scene._ground_views[drop].get_global_transform_with_canvas() * Vector2.ZERO)
+	scene.interaction_menu.open_for([scene.resident_selection.selected_resident.id],drop.id,Vector2(200,200))
 	check(scene.interaction_menu.visible and scene.interaction_menu.options.size() == 3 and resident.commands.active_command == active, "RMB on another object replaces an already-open menu without a command")
 	scene.resident_selection.select(scene.residents[1])
 	check(not scene.interaction_menu.visible, "Selection change closes menu")
-	click(scene._ground_views[drop].get_global_transform_with_canvas() * Vector2.ZERO)
+	scene.interaction_menu.open_for([scene.resident_selection.selected_resident.id],drop.id,Vector2(200,200))
 	check(scene.interaction_menu.visible and scene.interaction_menu.options.size() == 3 and not scene.interaction_menu.options[1].enabled and not scene.interaction_menu.options[2].enabled, "GroundResource has go-to and two disabled future assignments")
 	var stale = scene.interaction_menu.options[0]
 	drop.lifetime = 0

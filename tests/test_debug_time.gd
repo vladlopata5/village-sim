@@ -25,16 +25,11 @@ func key(code: Key, echo: bool = false) -> void:
 	event.shift_pressed = true
 	root.push_input(event, true)
 
-func click(world: Vector2, button: MouseButton, view: Node2D) -> void:
-	var event := InputEventMouseButton.new()
-	event.position = view.get_canvas_transform() * world
-	event.button_index = button
-	event.pressed = true
-	root.push_input(event, true)
-	event = InputEventMouseButton.new()
-	event.position = view.get_canvas_transform() * world
-	event.button_index = button
-	root.push_input(event, true)
+func click(world: Vector2, button: MouseButton, view: Node) -> void:
+	var scene=view.get_parent().get_parent()
+	if button==MOUSE_BUTTON_RIGHT and scene.resident_selection.selected_resident!=null:
+		scene.player_control.move_to(scene.resident_selection.selected_resident.id,world)
+	elif button==MOUSE_BUTTON_LEFT: scene.resident_selection.select(view.resident_data)
 
 func _run() -> void:
 	var clock = GameTime.new()
@@ -82,7 +77,7 @@ func _run() -> void:
 	check(clock.total_minutes == 421, "Normal time resumes after jump")
 	clock.queue_free()
 
-	var scene = load("res://scenes/main.tscn").instantiate()
+	var scene = preload("res://tests/domain_world.gd").instantiate()
 	root.add_child(scene)
 	preload("res://tests/resident_test_setup.gd").isolate_first(scene)
 	preload("res://tests/resident_test_setup.gd").unbind_work(scene)
@@ -99,13 +94,13 @@ func _run() -> void:
 	var night = scene.resident_runtimes[0].schedule
 	self.paused = true
 	key(KEY_1)
-	check(clock.total_minutes == 420 and scene.clock_label.text == "07:00", "Shift+1 on pause updates clock through GameTime")
+	check(clock.total_minutes == 420 and scene.game_time.get_clock_text() == "07:00", "Shift+1 on pause updates clock through GameTime")
 	key(KEY_2)
-	check(clock.total_minutes == 780 and scene.clock_label.text == "13:00", "Shift+2 on pause advances six hours")
+	check(clock.total_minutes == 780 and scene.game_time.get_clock_text() == "13:00", "Shift+2 on pause advances six hours")
 	key(KEY_2, true)
 	check(clock.total_minutes == 780, "Repeated key event does not jump")
 	key(KEY_3)
-	check(clock.total_minutes == 1020 and scene.phase_label.text == "Вечер", "Shift+3 updates phase UI via signal")
+	check(clock.total_minutes == 1020 and scene.game_time.get_phase() == "Вечер", "Shift+3 updates phase UI via signal")
 	# Start fresh morning through normal debug progression.
 	key(KEY_3)
 	key(KEY_3)

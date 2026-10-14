@@ -68,36 +68,36 @@ func _run() -> void:
 		for other in scene.residents: check(resident.get_opinion(StringName(other.id)) == 0, "All effective starting opinions neutral")
 	var actor = scene.resident_runtimes[1]
 	var target = scene.resident_runtimes[0]
-	var card = scene.get_node("HUD/ResidentCard")
+	var card = scene.resident_card_view()
 	card.set_process(false)
 	scene.resident_selection.select(actor.data)
-	check(card.relationships_label.text.begins_with("Отношения\n"), "Relationship section exists")
+	check(card.relationships_label.text=="Пока нет известных отношений", "Canonical sparse empty state")
 	check(not card.relationships_label.text.contains(actor.data.resident_name + ":"), "Selected resident excluded")
 	for other in scene.residents:
-		if other != actor.data: check(card.relationships_label.text.contains(other.resident_name + ": 0"), "Other current residents displayed with neutral value")
+		if other != actor.data: check(not actor.data.relationships.has(StringName(other.id)), "Unknown neutral links are not generated")
 	actor.data.set_opinion(StringName(target.data.id), 40)
 	target.data.set_opinion(StringName(actor.data.id), -10)
-	check(card.relationships_label.text.contains("Степан: +40"), "Card shows selected to other, not reverse")
+	check(relationship_text(card).contains("Степан: +40"), "Card shows selected to other, not reverse")
 	paused = true
 	actor.data.change_opinion(StringName(target.data.id), -15)
-	check(card.relationships_label.text.contains("Степан: +25"), "Signal refreshes immediately on pause")
+	check(relationship_text(card).contains("Степан: +25"), "Signal refreshes immediately on pause")
 	paused = false
 	card.relationships_label.text = "event marker"
 	card._refresh()
 	card._process(1)
 	check(card.relationships_label.text == "event marker", "Ordinary frame refresh does not poll relationships")
 	scene.resident_selection.select(target.data)
-	check(card.relationships_label.text.contains("Анна: -10"), "Reverse selection shows reverse opinion")
+	check(relationship_text(card).contains("Анна: -10"), "Reverse selection shows reverse opinion")
 	var shown: String = card.relationships_label.text
 	actor.data.change_opinion(StringName(target.data.id), 1)
 	check(card.relationships_label.text == shown, "Old resident relationship signal disconnected")
 	target.data.change_opinion(StringName(actor.data.id), 10)
-	check(card.relationships_label.text.contains("Анна: 0"), "Zero displayed without a plus sign")
+	check(relationship_text(card).contains("Анна: +0"), "Directed zero uses canonical numeric format")
 	target.data.set_opinion(&"unknown_person", -15)
-	check(not card.relationships_label.text.contains("unknown_person"), "Records for absent target not shown in current roster")
+	check(not relationship_text(card).contains("unknown_person"), "Records for absent target not shown in current roster")
 	var newcomer = Data.new("newcomer", "Иван", 24)
 	scene.player_control.setup([newcomer], scene.buildings)
-	check(card.relationships_label.text.contains("Иван: 0"), "Roster event updates card without frames")
+	check(not actor.data.relationships.has(&"ivan"), "Roster event updates card without frames")
 	scene.resident_selection.clear()
 	check(not card.visible, "Clearing selection still closes card")
 	scene.free()
@@ -146,3 +146,9 @@ func _run() -> void:
 	scene.free()
 	print("Relationship checks: %d, failures: %d" % [checks, failures])
 	quit(0 if failures == 0 else 1)
+
+func relationship_text(card: Node) -> String:
+	var lines=PackedStringArray([card.relationships_label.text])
+	for row in card.get_node("%RelationshipLinks").get_children():
+		if row is Button: lines.append(row.text)
+	return "\n".join(lines)

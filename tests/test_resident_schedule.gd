@@ -19,7 +19,7 @@ func schedule_move(scene: Node, target: Vector2) -> void:
 	# Isolate schedule arbitration. Actual RMB is now the absolute PlayerCommand layer.
 	scene.resident_runtimes[0].schedule.request_manual_move(target)
 func _run() -> void:
-	var scene = load("res://scenes/main.tscn").instantiate()
+	var scene = preload("res://tests/domain_world.gd").instantiate()
 	root.add_child(scene)
 	preload("res://tests/resident_test_setup.gd").isolate_first(scene)
 	preload("res://tests/resident_test_setup.gd").unbind_work(scene)
@@ -35,7 +35,7 @@ func _run() -> void:
 	var intents = scene.resident_runtimes[0].intents
 	var home = scene.get_node("World/home_stepan")
 	var work = scene.get_node("World/Warehouse")
-	var card = scene.get_node("HUD/ResidentCard")
+	var card = scene.resident_card_view()
 	clock.set_process(false)
 	view.set_process(false)
 	scene.resident_selection.select(data)
@@ -112,7 +112,7 @@ func _run() -> void:
 	check(data.fatigue >= 0 and data.fatigue <= 100 and data.mood == 65, "Full cycles leave mood unchanged and fatigue bounded")
 	scene.queue_free()
 	# Initial setup during a work phase also follows the schedule.
-	var day_scene = load("res://scenes/main.tscn").instantiate()
+	var day_scene = preload("res://tests/domain_world.gd").instantiate()
 	day_scene.get_node("GameTime").total_minutes = 420
 	root.add_child(day_scene)
 	preload("res://tests/resident_test_setup.gd").isolate_first(day_scene)

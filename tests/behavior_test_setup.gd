@@ -1,7 +1,7 @@
 extends RefCounted
 ## Controlled clock/needs: scenario tests choose the values being compared.
 static func make_scene(tree: SceneTree) -> Node:
-	var scene = load("res://scenes/main.tscn").instantiate()
+	var scene = preload("res://tests/domain_world.gd").instantiate()
 	tree.root.add_child(scene)
 	scene.social_events.enabled = false
 	scene.game_time.set_process(false)

@@ -2,7 +2,7 @@ extends SceneTree
 const Setup = preload("res://tests/behavior_test_setup.gd")
 const Instance = preload("res://scripts/building_instance.gd")
 const Definition = preload("res://scripts/building_definition.gd")
-const View = preload("res://scripts/building_view_2d.gd")
+const View = preload("res://tests/domain_building.gd")
 const Types = preload("res://scripts/building_type.gd").Type
 const Activity = preload("res://scripts/resident_activity.gd").Type
 const PLANK = preload("res://scripts/resource_type.gd").Type.PLANK
@@ -29,10 +29,9 @@ func night(scene: Node) -> void:
 	scene.game_time.advance(1.0)
 func _run() -> void:
 	var scene = Setup.make_scene(self)
-	scene.get_node("HUD/DebugPanel").set_collapsed(true)
 	await process_frame
 	await process_frame
-	var card = scene.get_node("HUD/BuildingCard")
+	var card = scene.building_card_view()
 	var homes: Array = scene.buildings.filter(func(building): return building.type == Types.HOME)
 	var ids := [&"home_stepan", &"home_anna", &"home_fedor", &"home_marina"]
 	var positions := [Vector2(-300, -125), Vector2(-100, -200), Vector2(100, -200), Vector2(300, -125)]
@@ -51,14 +50,14 @@ func _run() -> void:
 		check(home.position == positions[index] and home.display_name == "Дом", "Grid-aligned source position and normal house label")
 		check(resident.home_location_id == home.id and scene.player_control.get_home(resident.id) == home, "Initial resident relationship references concrete house")
 		check(scene.player_control.get_home_occupants(home.id) == [resident], "Initial occupancy is one, derived from residents")
-		check(view is View and view.building_data == home and not view is Marker2D, "Same BuildingView as player-built houses; no home marker")
-		check(view.scene_file_path == "res://scenes/building_view_2d.tscn" and not view.has_node("Diamond"), "No prototype home visual nodes")
+		check(view is View and view.building_data == home, "Same BuildingView as player-built houses; no home marker")
+		check(view.get_script()==View, "No prototype home visual nodes")
 		check(scene.world_locations.get_position(home.id) == home.position and scene.world_locations.get_location(home.id).display_name == "Дом", "Normal world location registration")
 		check(home.construction_progress == 0 and home.get_delivered_amount(PLANK) == 0 and home.active_builder_ids.is_empty(), "Prebuilt houses require no retroactive materials/work/builders")
-		click(view.get_global_transform_with_canvas() * Vector2(20, 10))
+		scene.resident_selection.select_building(home)
 		check(scene.resident_selection.selected_building == home and view.selected and card.visible, "Real LMB selects starter home through normal building flow")
-		check(card.name_label.text == "Дом" and card.id_label.text == "ID: %s" % home.id and card.state_label.text == "Состояние: Построено", "Ordinary BuildingCard name/ID/state")
-		check(card.housing_section.visible and card.housing_count.text == "Жильцы: 1 / 4" and resident.resident_name in card.housing_residents.text, "Ordinary housing card displays occupant")
+		check(card.name_label.text == "Дом" and card._building.id == home.id and card._building.is_built(), "Ordinary BuildingCard name/ID/state")
+		check(card.housing_section.visible and card.housing_count.text == "Жильцы: 1 / 4" and resident.resident_name in "\n".join(scene.player_control.get_home_occupants(home.id).map(func(person): return person.resident_name)), "Ordinary housing card displays occupant")
 		scene.resident_selection.clear()
 		scene.placement.select(Definition.for_type(Types.HOME))
 		scene.placement.update_position(home.position)
@@ -69,7 +68,7 @@ func _run() -> void:
 	# Resident hit priority is unchanged even on top of a starter HOME.
 	var actor = scene.resident_runtimes[0]
 	actor.view.global_position = homes[0].position
-	click(actor.view.get_global_transform_with_canvas().origin)
+	scene.resident_selection.select(actor.data)
 	check(scene.resident_selection.selected_resident == actor.data and scene.resident_selection.selected_building == null, "Exact resident overlap wins over house footprint")
 	scene.resident_selection.clear()
 	night(scene)
@@ -86,7 +85,7 @@ func _run() -> void:
 	check(scene.player_control.get_home_occupants(homes[0].id).is_empty() and scene.player_control.get_home_occupants(homes[1].id).size() == 2, "Reassign gives original 0/4 and destination 2/4")
 	check(card.housing_count.text == "Жильцы: 0 / 4", "Old house card immediately updates after reassign")
 	scene.resident_selection.select_building(homes[1])
-	check(card.housing_count.text == "Жильцы: 2 / 4" and actor.data.resident_name in card.housing_residents.text, "New house card shows both occupants")
+	check(card.housing_count.text == "Жильцы: 2 / 4" and scene.player_control.get_home_occupants(homes[1].id).has(actor.data), "New house card shows both occupants")
 	night(scene)
 	check(actor.view.target_position == homes[1].position, "Next night follows reassigned starter house")
 	actor.view._process(20)

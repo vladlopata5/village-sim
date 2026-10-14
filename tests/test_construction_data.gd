@@ -73,7 +73,7 @@ func _run() -> void:
 	var scene = Setup.make_scene(self)
 	for initial in scene.buildings:
 		check(initial.is_built() and initial.construction_progress == 0 and initial.get_delivered_amount(PLANK) == 0 and initial.active_builder_ids.is_empty(), "Starting BUILT buildings need no retroactive construction")
-	var card = scene.get_node("HUD/BuildingCard")
+	var card = scene.building_card_view()
 	for category in [Types.Type.HOME, Types.Type.STORAGE, Types.Type.FOOD, Types.Type.GATHERER_HUT]:
 		scene.placement.select(Definition.for_type(category))
 		scene.placement.update_position(Vector2(-1000 - int(category) * 200, 100))
@@ -94,8 +94,8 @@ func _run() -> void:
 	site.add_delivered_material(Resources.Type.LOG, 2)
 	site.add_construction_work(90)
 	site.complete_construction()
-	check(not card.construction_section.visible and card.state_label.text == "Состояние: Построено", "Completion signal hides construction section on BUILT card")
-	check(not scene.world_locations.get_view(site.id).get_node("Caption").text.ends_with("строится"), "Existing visual updates after lifecycle completion")
+	check(not card.construction_section.visible and card._building.is_built(), "Completion signal hides construction section on BUILT card")
+	check(scene.world_locations.get_view(site.id).building_data.is_built(), "Existing visual updates after lifecycle completion")
 	scene.resident_selection.select_building(scene.kitchen_data)
 	check(not card.construction_section.visible, "Starting BUILT card never shows fake construction requirements")
 	scene.free()

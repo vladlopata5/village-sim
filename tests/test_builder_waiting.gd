@@ -1,5 +1,5 @@
 extends SceneTree
-## Real main_3d controllers/executor; controlled time isolates the construction boundary.
+## Isolated domain controllers/reserves; controlled movement isolates waiting boundaries.
 const Builder = preload("res://scripts/resident_builder_controller.gd")
 const Definition = preload("res://scripts/building_definition.gd")
 const Types = preload("res://scripts/building_type.gd").Type
@@ -17,7 +17,7 @@ func check(ok: bool, message: String) -> void:
 		failures += 1
 		push_error(message)
 func scenario() -> Node:
-	var scene = preload("res://tests/legacy_starter_3d.gd").instantiate()
+	var scene = preload("res://tests/domain_world.gd").instantiate()
 	root.add_child(scene)
 	scene.game_time.set_process(false)
 	scene.game_time.total_minutes = 420
@@ -25,7 +25,7 @@ func scenario() -> Node:
 	scene.social_events.enabled = false
 	scene.game_logger.line_logged.connect(func(line, _level): lines.append(line))
 	for actor in scene.resident_runtimes:
-		actor.view.set_physics_process(false)
+		actor.view.set_process(false)
 		actor.decision._deciding = true
 		actor.schedule._phase = "День"
 		actor.intents.abort_current(actor.intents.current_intent)
@@ -36,7 +36,7 @@ func place(scene: Node, point: Vector3):
 	# Synthetic one-resource fixture isolates ownership/timing from construction balance.
 	definition.construction_requirements = {preload("res://scripts/resource_type.gd").Type.PLANK: 10}
 	scene.placement.select(definition)
-	scene.placement.update_world_position(point)
+	scene.placement.update_position(Coordinates.to_sim(point))
 	return scene.placement.confirm()
 func worker(scene: Node, index: int = 1) -> Node:
 	var actor = scene.resident_runtimes[index]
@@ -47,13 +47,13 @@ func assign_wait(scene: Node, site: RefCounted, actor: Node, at_site: bool = tru
 	# A already-committed assignment, not a new global A-vs-B choice.
 	check(site.claim_builder_slot(actor.data.id), "Existing assignment has a real builder slot")
 	actor.builder.site = site
-	if at_site: actor.view.global_position = Coordinates.to_world(scene.world_locations.get_position(site.id))
+	if at_site: actor.view.global_position = scene.world_locations.get_position(site.id)
 	check(actor.builder._continue_task(), "Committed assignment can enter waiting")
 func walk(actor: Node, phase: int) -> void:
 	for step in range(1500):
 		if actor.builder.phase != phase: break
-		preload("res://tests/handling_test_step.gd").move_3d(actor,0.05)
-	check(actor.builder.phase != phase, "Real NavigationGrid movement reaches access point")
+		preload("res://tests/handling_test_step.gd").move_domain(actor,0.05)
+	check(actor.builder.phase != phase, "Controlled executor reaches domain action point")
 func _run() -> void:
 	var scene = scenario()
 	var a = place(scene, Vector3(4,0,14))
@@ -203,5 +203,39 @@ func _run() -> void:
 		if ending == "critical": check(actor.intents.current_intent.reason_id == &"critical_sleep", "Critical fatigue retains existing forced sleep")
 		scene.free()
 	check(lines.any(func(line): return "материалы доставлены" in line) and lines.any(func(line): return "ожидаемая поставка отменена" in line), "Transition logs explain resume and loss")
+	await canonical_waiting()
 	print("Builder waiting: %d checks, %d failures" % [checks,failures])
 	quit(1 if failures else 0)
+
+func canonical_waiting() -> void:
+	# Complement isolated ownership cases with real canonical navigation/slots.
+	var world=preload("res://tests/canonical_ui_fixture.gd").make(self)
+	world.game_time.total_minutes=420
+	var actor=world.resident_runtimes[1]
+	actor.schedule._phase="День"
+	check(world.player_control.assign_profession(actor.data.id,Profession.Type.BUILDER),"Canonical Builder profession")
+	world.placement.select(Definition.for_type(Types.HOME))
+	world.placement.update_world_position(Vector3(4,0,14))
+	var target=world.placement.confirm()
+	check(target!=null,"Canonical waiting site passes validators")
+	for resource in target.definition.construction_requirements:
+		check(target.reserve_construction_material(resource,target.get_required_amount(resource)),"Incoming materials reserved by domain")
+	check(target.claim_builder_slot(actor.data.id),"Canonical domain Builder slot")
+	actor.builder.site=target
+	check(actor.builder._continue_task(),"Canonical waiter issues normal arrival intent")
+	for step in range(2000):
+		if actor.builder.phase==Builder.Phase.WAITING_FOR_MATERIALS: break
+		actor.view._physics_process(0.05)
+	check(actor.builder.phase==Builder.Phase.WAITING_FOR_MATERIALS,"Real NavigationGrid/marker arrival enters stationary wait")
+	var searches: int=actor.builder.source_search_count
+	for minute in range(5): actor.builder._on_minute(420+minute)
+	check(target.construction_progress==0 and actor.builder.source_search_count==searches,"Canonical wait neither builds nor repeats material queries")
+	for resource in target.definition.construction_requirements:
+		target.deliver_reserved_construction_material(resource,target.get_required_amount(resource))
+	await process_frame
+	await process_frame
+	for step in range(2000):
+		if actor.builder.phase==Builder.Phase.BUILDING: break
+		actor.view._physics_process(0.05)
+	check(actor.builder.phase==Builder.Phase.BUILDING and actor.builder.site==target,"Real delivery events resume same canonical site")
+	world.free()

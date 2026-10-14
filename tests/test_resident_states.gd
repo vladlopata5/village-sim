@@ -31,7 +31,7 @@ func _run() -> void:
 		check(independent.get(property) == 100, "Clamp upper bound: " + property)
 		independent.set(property, 49)
 		check(independent.get(property) == 49, "Preserve valid value: " + property)
-	var scene = load("res://scenes/main.tscn").instantiate()
+	var scene = preload("res://tests/domain_world.gd").instantiate()
 	root.add_child(scene)
 	preload("res://tests/resident_test_setup.gd").isolate_first(scene)
 	# Test this subsystem alone; need/schedule interaction has its own suite.
@@ -41,7 +41,7 @@ func _run() -> void:
 	await process_frame
 	var data = scene.residents[0]
 	var selection = scene.get_node("ResidentSelection")
-	var card = scene.get_node("HUD/ResidentCard")
+	var card = scene.resident_card_view()
 	var clock = scene.get_node("GameTime")
 	check(data.hunger == 20 and data.fatigue >= 0 and data.fatigue <= 100 and data.mood == 65, "Stepan starts with explicit test values")
 	selection.select(data)
@@ -65,6 +65,7 @@ func _run() -> void:
 	check(card.fatigue_label.text == "Усталость: 50 — Устал", "Card reads updated fatigue on pause")
 	check(card.mood_label.text == "Настроение: 0/100 — Очень плохое", "Card reads updated mood on pause")
 	card.show_state_numbers = false
+	card._process(0.25)
 	await process_frame
 	await process_frame
 	check(card.hunger_label.text == "Голод: Очень голоден", "Numbers can be hidden without changing data")
@@ -77,7 +78,7 @@ func _run() -> void:
 	selection.select(data)
 	await process_frame
 	await process_frame
-	check(card.get_global_rect().encloses(card.close_button.get_global_rect()), "Close button fits expanded card")
+	check(scene.get_node("HUD/GameUI").info_panel.get_global_rect().encloses(card.close_button.get_global_rect()), "Close button fits expanded card")
 	check(root.get_visible_rect().encloses(card.get_global_rect()), "Card fits viewport")
 	selection.clear()
 	check(not card.visible, "Card still closes")

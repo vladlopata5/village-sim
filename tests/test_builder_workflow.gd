@@ -36,7 +36,7 @@ func builder(scene: Node, index: int = 1) -> Node:
 	var runtime = scene.resident_runtimes[index]
 	scene.player_control.assign_profession(runtime.data.id, Profession.Type.BUILDER)
 	return runtime
-func arrive(runtime: Node) -> void: preload("res://tests/handling_test_step.gd").move_2d(runtime,100)
+func arrive(runtime: Node) -> void: preload("res://tests/handling_test_step.gd").move_domain(runtime,100)
 func stock(site: Instance) -> void: site.add_delivered_material(PLANK, site.get_required_amount(PLANK))
 func _run() -> void:
 	check(Profession.display_name(Profession.Type.BUILDER) == "Строитель", "BUILDER exists with display name")
@@ -44,7 +44,7 @@ func _run() -> void:
 	check(scene.warehouse_data.resources.get_amount(PLANK) == 35 and scene.warehouse_data.resources.get_amount(FOOD) == 10, "Prototype warehouse has 35 PLANK; FOOD unchanged")
 	var actor = builder(scene)
 	check(actor.data.profession == Profession.Type.BUILDER and actor.data.work_location_id.is_empty(), "Player API assigns mobile builder without fixed workplace")
-	var card = scene.get_node("HUD/ResidentCard")
+	var card = scene.resident_card_view()
 	check(card.profession_choice.get_item_index(Profession.Type.BUILDER) >= 0, "Existing profession UI exposes BUILDER")
 	var site = place(scene)
 	var far = place(scene, Types.HOME, Vector2(-900, 200))
@@ -267,7 +267,7 @@ func _run() -> void:
 		site.add_construction_work(site.definition.construction_work_required)
 		scene.resident_selection.select_building(site)
 		site.complete_construction()
-		check(scene.world_locations.get_view(site.id).building_data == site and not scene.get_node("HUD/BuildingCard").construction_section.visible, "Same visual/card reflect completed instance immediately")
+		check(scene.world_locations.get_view(site.id).building_data == site and not scene.building_card_view().construction_section.visible, "Same visual/card reflect completed instance immediately")
 		check(not scene.interactions.get_interactions([scene.residents[1].id], site.id).is_empty(), "Completed type exposes normal context interactions")
 		if category == Types.FOOD:
 			check(site.resources.get_capacity(FOOD) == 20 and scene.resident_runtimes[1].needs.get_food_target(site.id) == site and scene.logistics._buildings.has(site.id), "Completed kitchen supports eating and food logistics")

@@ -30,7 +30,6 @@ var rock_locations = preload("res://scripts/world_3d/natural_source_locations_3d
 var trees: Array = []
 var tree_views: Dictionary = {}
 var tree_locations = preload("res://scripts/world_3d/tree_locations_3d.gd").new()
-var legacy_reference_setup := false # Explicit historical integration fixture only.
 var entrance_zones = preload("res://scripts/world_3d/building_entrance_zones_3d.gd").new()
 var building_uses = preload("res://scripts/world_3d/building_use_3d.gd").new()
 var settlement_panel: PanelContainer
@@ -51,12 +50,11 @@ func _ready() -> void:
 	world_locations = preload("res://scripts/world_3d/building_locations_3d.gd").new()
 	world_locations.navigation = navigation
 	building_uses.navigation = navigation
-	if not legacy_reference_setup: world_locations.uses = building_uses
+	world_locations.uses = building_uses
 	player_control.work_areas = work_areas
 	super._ready()
 	game_ui.cancel_world_tool = _cancel_active_world_tool
 	game_ui.bind_context_menu(interaction_menu)
-	interaction_menu.consume_dismiss_click = true
 	game_ui.blocking_ui_changed.connect(_clear_world_input)
 	$World/Camera3D.ui_input_context = game_ui.input_context
 	$World.add_child(work_area_tool)
@@ -143,9 +141,8 @@ func _create_building_presentation(building: BuildingInstance) -> Node:
 	view.position = Coordinates.to_world(building.position)
 	assert(view.position.is_equal_approx(build_grid.snap(view.position, building.definition.footprint_cells, building.quarter_turns)), "Building source center must already be footprint-aligned")
 	view.setup(building)
-	if not legacy_reference_setup:
-		building_uses.register(building,view)
-		entrance_zones.register(building)
+	building_uses.register(building,view)
+	entrance_zones.register(building)
 	view.set_work_area_debug(navigation_debug.visible)
 	var cells: Array = build_grid.footprint_cells(view.position, building.definition.footprint_cells, building.quarter_turns)
 	var registered: bool = build_grid.occupy(building.id, cells)
@@ -153,12 +150,10 @@ func _create_building_presentation(building: BuildingInstance) -> Node:
 	navigation.add_blocker(building.id, Geometry.footprint(building))
 	roads.edit(cells,true) # Actual footprint only; cancellation never restores roads.
 	return view
-func _register_interaction_view(_id: StringName, _view: Node) -> void:
-	pass # Ray picking uses explicit entity references, not the 2D screen registry.
 func _setup_construction() -> void:
 	placement = preload("res://scripts/world_3d/building_placement_3d.gd").new()
 	placement.grid = build_grid
-	placement.entrance_zones = entrance_zones if not legacy_reference_setup else null
+	placement.entrance_zones = entrance_zones
 	placement.runtime_blockers = runtime_placement_blockers
 	placement.setup(buildings)
 	placement.logger = game_logger
@@ -552,11 +547,6 @@ func _resource_route_available(start: Vector2, target: Vector2) -> bool:
 	return navigation.can_reach_point(from_world,to_world) and not navigation.find_path(from_world,to_world).is_empty()
 
 func _create_starting_buildings() -> void:
-	if legacy_reference_setup:
-		_create_test_kitchen()
-		_create_test_warehouse()
-		_create_test_gatherer_hut()
-		return
 	warehouse_data = BuildingData.new(&"town_center", "Городской центр", BuildingType.Type.TOWN_CENTER)
 	warehouse_data.position = Vector2(300,237.5)
 	for resource in ResourceType.Type.values():
@@ -566,11 +556,6 @@ func _create_starting_buildings() -> void:
 	buildings.append(warehouse_data)
 	var view = _create_building_presentation(warehouse_data)
 	_register_building_location(warehouse_data,view)
-func _starting_home_id(index: int) -> StringName:
-	return super._starting_home_id(index) if legacy_reference_setup else &""
-func _create_starting_home(data: ResidentData, index: int) -> void:
-	if legacy_reference_setup: _create_legacy_home(data,index)
-
 func _start_work_area(resident_id: String) -> void:
 	_cancel_debug_placement()
 	var resident = player_control.get_resident(resident_id)
@@ -689,26 +674,12 @@ func _cancel_debug_placement() -> void:
 	if developer_panel!=null and developer_panel.active(): developer_panel.cancel_placement()
 
 # Presentation hooks: canonical HUD has real time controls, no hidden telemetry.
-func resident_card_view() -> Control: return game_ui.resident_card
-func building_card_view() -> Control: return game_ui.building_card
-func ui_input_context() -> RefCounted: return game_ui.input_context
 func _build_hud() -> void:
 	game_ui.time_controls.setup(game_time, _toggle_pause)
-	clock_label = game_ui.time_controls.clock_label
-	pause_button = game_ui.time_controls.pause_button
-	speed_buttons = game_ui.time_controls.speed_buttons
 	game_ui.mount_messages(social_feed)
 	game_ui.info_panel.setup(game_time,resident_selection,player_control,logistics.get_job,_ui_visitors,_ui_natural_progress)
 	building_uses.slots_changed.connect(_ui_slots_changed)
-func _update_clock(_minutes: int) -> void: game_ui.time_controls.request_clock_refresh()
-func _update_pause() -> void: game_ui.time_controls.refresh_pause()
 func _update_population() -> void: game_ui.update_population(residents.size())
-func _update_phase(_phase: String) -> void: pass
-func _show_missing_kitchen() -> void: pass
-func _update_production() -> void: pass
-func _update_logistics() -> void: pass
-func _update_food(_resource: ResourceType.Type, _amount: int) -> void: pass
-func _update_warehouse_food(_resource: ResourceType.Type, _amount: int) -> void: pass
 func _clear_world_input() -> void:
 	_clicks.clear()
 	_road_events.clear()

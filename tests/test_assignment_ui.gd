@@ -36,8 +36,11 @@ func _run() -> void:
 	var scene = Setup.make_scene(self)
 	var actor = scene.resident_runtimes[1]
 	var target = scene.resident_runtimes[3]
-	var card = scene.get_node("HUD/ResidentCard")
+	var card = scene.resident_card_view()
+	scene.get_node("HUD/GameUI").info_panel.set_expanded(true)
 	scene.resident_selection.select(actor.data)
+	scene.get_node("HUD/GameUI").info_panel.set_expanded(true)
+	scene.get_node("HUD/GameUI").info_panel.select_tab(&"work")
 	check(card.assignment_list.get_child(0).text == "Поручений нет", "Empty placeholder")
 	var first = add(scene, actor, &"first", Assignment.EAT_AT_TARGET, scene.kitchen_data.id)
 	var second = add(scene, actor, &"second", Assignment.EAT_AT_TARGET, scene.kitchen_data.id)
@@ -64,12 +67,14 @@ func _run() -> void:
 	scene.resident_selection.select(target.data)
 	check(card.assignment_list.get_child(0).text == "Поручений нет", "Selection isolates resident lists")
 	scene.resident_selection.select(actor.data)
+	scene.get_node("HUD/GameUI").info_panel.set_expanded(true)
+	scene.get_node("HUD/GameUI").info_panel.select_tab(&"work")
 	check(row(card, talk.id) != null and card.assignment_list.get_child_count() == 1, "Switch back restores unfinished list")
 	for i in range(20): add(scene, actor, StringName("many_%d" % i), Assignment.TALK_TO, StringName(target.data.id))
 	await process_frame
 	await process_frame
-	check(root.get_visible_rect().encloses(card.get_global_rect()) and card.get_global_rect().encloses(card.close_button.get_global_rect()), "Many assignments keep panel/close inside viewport")
-	check(card.get_node("Margin/Column/Scroll").get_v_scroll_bar().max_value > card.get_node("Margin/Column/Scroll").size.y, "Long list scrolls")
+	check(root.get_visible_rect().encloses(card.get_global_rect()) and scene.get_node("HUD/GameUI").info_panel.get_global_rect().encloses(card.close_button.get_global_rect()), "Many assignments keep panel/close inside viewport")
+	check(card.get_node("%Scroll").get_v_scroll_bar().max_value > card.get_node("%Scroll").size.y, "Long list scrolls")
 	scene.free()
 	# Exercise real UI cancellation before/after consumption and conversation arrival.
 	for type in [Assignment.EAT_AT_TARGET, Assignment.TALK_TO]:
@@ -78,13 +83,15 @@ func _run() -> void:
 				scene = Setup.make_scene(self)
 				actor = scene.resident_runtimes[1]
 				target = scene.resident_runtimes[3]
-				card = scene.get_node("HUD/ResidentCard")
+				card = scene.resident_card_view()
 				scene.kitchen_data.resources.add(FOOD, 1)
 				actor.data.hunger = 80 if type == Assignment.EAT_AT_TARGET else 0
 				actor.data.get_need(Need.SOCIAL).value = 100 if type == Assignment.TALK_TO else 0
 				target.data.get_need(Need.SOCIAL).value = 100
 				var task = add(scene, actor, &"cancel", type, scene.kitchen_data.id if type == Assignment.EAT_AT_TARGET else StringName(target.data.id))
 				scene.resident_selection.select(actor.data)
+				scene.get_node("HUD/GameUI").info_panel.set_expanded(true)
+				scene.get_node("HUD/GameUI").info_panel.select_tab(&"work")
 				if active: actor.assignments.start(task.id)
 				elif type == Assignment.EAT_AT_TARGET: actor.needs.try_eat_at(task.target, 5000)
 				else: actor.social.try_social_at(task.target, 8000)

@@ -19,7 +19,7 @@ func building(id: StringName, type: int, capacity: int):
 	data.resources.set_capacity(FOOD, capacity)
 	return data
 func make_scene():
-	var scene = load("res://scenes/main.tscn").instantiate()
+	var scene = preload("res://tests/domain_world.gd").instantiate()
 	root.add_child(scene)
 	scene.game_time.set_process(false)
 	for runtime in scene.resident_runtimes:
@@ -84,11 +84,11 @@ func _run():
 	var carrier = scene.resident_runtimes[0]
 	check(gatherer.data.profession == Profession.GATHERER and gatherer.data.work_location_id == scene.gatherer_hut_data.id, "Fedor assigned to gatherer hut")
 	scene.resident_selection.select(gatherer.data)
-	scene.get_node("HUD/ResidentCard")._refresh()
-	check(scene.get_node("HUD/ResidentCard").profession_label.text == "Профессия: Собиратель", "Fedor's card reads gatherer profession")
+	scene.resident_card_view()._refresh()
+	check(scene.resident_card_view().profession_label.text == "Профессия: Собиратель", "Fedor's card reads gatherer profession")
 	scene.game_time.debug_next_phase()
 	check(gatherer.data.activity == Activity.MOVING and scene.gatherer_hut_data.production_progress == 0, "Walking to work is not production")
-	preload("res://tests/handling_test_step.gd").move_2d(gatherer,20)
+	preload("res://tests/handling_test_step.gd").move_domain(gatherer,20)
 	check(gatherer.data.activity == Activity.WORKING, "Physical arrival starts actual WORKING")
 	carrier.decision._next_decision_at = scene.game_time.total_minutes + 60
 	scene.game_time.debug_skip_minutes(30)
@@ -99,18 +99,18 @@ func _run():
 	carrier.decision.request_decision("test_work_point")
 	var export_job = scene.logistics.current_job
 	check(export_job.source_location_id == scene.gatherer_hut_data.id and carrier.view.target_position == scene.world_locations.get_position(scene.gatherer_hut_data.id), "Porter claims hut-to-warehouse and walks to real source")
-	preload("res://tests/handling_test_step.gd").move_2d(carrier,20)
+	preload("res://tests/handling_test_step.gd").move_domain(carrier,20)
 	check(scene.gatherer_hut_data.resources.get_amount(FOOD) == 0 and carrier.data.inventory.amount == 1 and carrier.view.target_position == scene.world_locations.get_position(scene.warehouse_data.id), "FOOD moves from hut to inventory toward warehouse")
 	var warehouse_received = [false]
 	scene.warehouse_data.resources.changed.connect(func(_resource, amount):
 		if amount == 1: warehouse_received[0] = true)
 	var decisions: int = carrier.decision.decision_count
-	preload("res://tests/handling_test_step.gd").move_2d(carrier,20)
+	preload("res://tests/handling_test_step.gd").move_domain(carrier,20)
 	check(export_job.state == Job.State.COMPLETED and warehouse_received[0], "Warehouse physically receives produced FOOD")
 	check(carrier.decision.decision_count > decisions and scene.logistics.current_job.source_location_id == scene.warehouse_data.id, "After export a fresh decision chooses kitchen import")
 	# At warehouse already: next pickup may complete synchronously, without teleporting cargo.
-	if scene.logistics.current_job.state == Job.State.GOING_TO_SOURCE: preload("res://tests/handling_test_step.gd").move_2d(carrier,20)
-	preload("res://tests/handling_test_step.gd").move_2d(carrier,20)
+	if scene.logistics.current_job.state == Job.State.GOING_TO_SOURCE: preload("res://tests/handling_test_step.gd").move_domain(carrier,20)
+	preload("res://tests/handling_test_step.gd").move_domain(carrier,20)
 	check(scene.kitchen_data.resources.get_amount(FOOD) == 1 and scene.warehouse_data.resources.get_amount(FOOD) == 0 and scene.gatherer_hut_data.resources.get_amount(FOOD) == 0 and carrier.data.inventory.amount == 0, "Full chain conserves the one produced unit through hut, inventory, warehouse and kitchen")
 	print("Production chain proof: Fedor WORKING -> hut FOOD 1 -> Stepan -> warehouse received FOOD 1 -> Stepan -> kitchen FOOD 1")
 	scene.free()
@@ -121,7 +121,7 @@ func _run():
 		scene.gatherer_hut_data.resources.add(FOOD, 1)
 		scene.game_time.debug_next_phase()
 		export_job = scene.logistics.current_job
-		if picked_up: preload("res://tests/handling_test_step.gd").move_2d(carrier,20)
+		if picked_up: preload("res://tests/handling_test_step.gd").move_domain(carrier,20)
 		carrier.data.hunger = 100
 		check(export_job.state == Job.State.CANCELLED and scene.gatherer_hut_data.resources.get_reserved_out(FOOD) == 0 and scene.warehouse_data.resources.get_reserved_in(FOOD) == 0 and carrier.data.inventory.amount == 0, "Forced export cancellation clears exactly hut/warehouse reservations and inventory")
 		check(scene.ground_resources.drops.size() == (1 if picked_up else 0) and scene.gatherer_hut_data.resources.get_amount(FOOD) == (0 if picked_up else 1), "Loaded export creates ground FOOD; unloaded FOOD stays in hut")

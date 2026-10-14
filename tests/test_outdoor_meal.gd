@@ -19,8 +19,7 @@ func fixture() -> Node:
 	root.add_child(world)
 	world.game_time.set_process(false)
 	world.game_time.total_minutes = 420
-	world._update_clock(420)
-	world._update_phase(world.game_time.get_phase())
+	world.game_ui.time_controls.request_clock_refresh()
 	world.game_logger.console_enabled = false
 	world.social_events.enabled = false
 	for actor in world.resident_runtimes:

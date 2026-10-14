@@ -43,7 +43,7 @@ func fixture(service: RefCounted = Logistics.new()) -> Dictionary:
 	service.position_provider = func(_id): return Vector2(-300, 0)
 	return {"service": service, "source": source, "target": target, "worker": worker}
 func simulation():
-	var scene = load("res://scenes/main.tscn").instantiate()
+	var scene = preload("res://tests/domain_world.gd").instantiate()
 	root.add_child(scene)
 	scene.game_logger.console_enabled = false
 	scene.game_time.set_process(false)
@@ -186,14 +186,14 @@ func _run() -> void:
 	var bj = scene.logistics.get_job(b.data.id)
 	check(aj != null and bj != null and aj != bj and scene.logistics.jobs.size() == 2, "Both porters start independently at normal WORK decisions")
 	var decision_before: int = a.decision.decision_count
-	preload("res://tests/handling_test_step.gd").move_2d(a,20)
-	preload("res://tests/handling_test_step.gd").move_2d(b,20)
+	preload("res://tests/handling_test_step.gd").move_domain(a,20)
+	preload("res://tests/handling_test_step.gd").move_domain(b,20)
 	check(a.data.inventory.amount == 1 and b.data.inventory.amount == 1 and scene.warehouse_data.resources.get_amount(RT.FOOD) == 8, "Both residents physically picked up distinct units")
 	check(scene.warehouse_data.resources.get_reserved_out(RT.FOOD) == 0 and scene.kitchen_data.resources.get_reserved_in(RT.FOOD) == 2, "Only incoming reservations remain while carrying")
 	scene.player_control.assign_profession(a.data.id, Profession.NONE)
 	scene.player_control.assign_profession(b.data.id, Profession.NONE)
-	preload("res://tests/handling_test_step.gd").move_2d(a,20)
-	preload("res://tests/handling_test_step.gd").move_2d(b,20)
+	preload("res://tests/handling_test_step.gd").move_domain(a,20)
+	preload("res://tests/handling_test_step.gd").move_domain(b,20)
 	check(aj.state == Job.State.COMPLETED and bj.state == Job.State.COMPLETED and scene.logistics.jobs.is_empty(), "Both committed jobs complete after profession changes")
 	check(scene.kitchen_data.resources.get_amount(RT.FOOD) == 2 and scene.kitchen_data.resources.get_reserved_in(RT.FOOD) == 0 and a.data.inventory.amount == 0 and b.data.inventory.amount == 0, "Delivery conservation and cleanup")
 	check(a.decision.decision_count > decision_before, "Completion creates a new ordinary decision point")
@@ -208,7 +208,7 @@ func _run() -> void:
 			b = scene.resident_runtimes[1]
 			aj = scene.logistics.get_job(a.data.id)
 			bj = scene.logistics.get_job(b.data.id)
-			if picked_up: preload("res://tests/handling_test_step.gd").move_2d(b,20)
+			if picked_up: preload("res://tests/handling_test_step.gd").move_domain(b,20)
 			var drop_position: Vector2 = b.view.global_position
 			if forced_kind == "player": scene.player_control.move_to(b.data.id, Vector2(700, 400))
 			else: b.data.fatigue = 100

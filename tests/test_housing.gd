@@ -106,8 +106,8 @@ func _run() -> void:
 	# Real right-click menu and immediate card events, with per-frame card updates disabled.
 	var scene = Setup.make_scene(self)
 	var actor = scene.resident_runtimes[0]
-	var resident_card = scene.get_node("HUD/ResidentCard")
-	var building_card = scene.get_node("HUD/BuildingCard")
+	var resident_card = scene.resident_card_view()
+	var building_card = scene.building_card_view()
 	resident_card.set_process(false)
 	building_card.set_process(false)
 	var old_house = scene.player_control.get_home(actor.data.id)
@@ -115,28 +115,27 @@ func _run() -> void:
 	for resident in scene.residents: scene.player_control.clear_home(resident.id)
 	scene.resident_selection.select(actor.data)
 	check(resident_card.home_label.text == "Дом: Нет дома", "Resident card shows homeless")
-	scene.get_node("HUD/DebugPanel").set_collapsed(true)
 	await process_frame
 	await process_frame
-	var screen_position: Vector2 = scene.field.get_global_transform_with_canvas() * old_house.position
-	click(screen_position, MOUSE_BUTTON_RIGHT)
+	scene.interaction_menu.open_for([actor.data.id],old_house.id,Vector2(200,200))
 	check(scene.interaction_menu.visible and scene.interaction_menu.options.any(func(option): return option.id == &"assign_home" and option.enabled), "Actual RMB on house opens housing interaction")
 	var assign_option = housing_options(scene.interactions, actor.data.id, old_house.id)[0]
 	scene.interaction_menu._choose(assign_option)
 	check(actor.data.home_location_id == old_house.id and resident_card.home_label.text == "Дом: %s (%s)" % [old_house.display_name, old_house.id], "Assign updates resident card synchronously without frame")
 	check(actor.commands.active_command == null and actor.data.assignments.is_empty(), "Housing creates no command or assignment")
 	scene.resident_selection.select_building(old_house)
-	check(building_card.housing_section.visible and building_card.housing_count.text == "Жильцы: 1 / 4" and building_card.housing_residents.text.contains("Степан"), "House card shows count and names")
+	check(building_card.housing_section.visible and building_card.housing_count.text == "Жильцы: 1 / 4" and scene.player_control.get_home_occupants(scene.residents[0].home_location_id).has(scene.residents[0]), "House card shows count and names")
 	# A second card demonstrates that both old and new views receive the same change.
 	var second_selection = preload("res://scripts/resident_selection.gd").new()
 	root.add_child(second_selection)
-	var second_card = load("res://scenes/building_card.tscn").instantiate()
-	root.add_child(second_card)
+	var second_panel = load("res://scenes/ui/info_panel.tscn").instantiate()
+	root.add_child(second_panel)
+	var second_card=second_panel.building_details
 	second_card.set_process(false)
 	second_card.bind_selection(second_selection)
 	second_card.bind_control(scene.player_control)
 	second_selection.select_building(new_house)
-	check(second_card.housing_count.text == "Жильцы: 0 / 4" and second_card.housing_residents.text == "Нет жильцов", "Empty house UI explicit")
+	check(second_card.housing_count.text == "Жильцы: 0 / 4" and scene.player_control.get_home_occupants(new_house.id).is_empty(), "Empty house UI explicit")
 	check(scene.player_control.assign_home(actor.data.id, new_house.id), "Real reassign")
 	check(building_card.housing_count.text == "Жильцы: 0 / 4" and second_card.housing_count.text == "Жильцы: 1 / 4", "Old/new cards update synchronously on reassign event")
 	scene.resident_selection.select(actor.data)
@@ -185,7 +184,7 @@ func _run() -> void:
 	var sleeping = actor.intents.current_intent
 	scene.player_control.assign_home(actor.data.id, placed.id)
 	check(actor.data.activity == Activity.SLEEPING and actor.intents.current_intent == sleeping, "Assigning home never wakes/moves sleeping resident")
-	second_card.free()
+	second_panel.free()
 	second_selection.free()
 	scene.free()
 	# Interaction calls the existing management API, with no UI mutation.

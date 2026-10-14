@@ -113,7 +113,6 @@ const SAWMILL_INPUT_CAPACITY := 12
 const SAWMILL_OUTPUT_CAPACITY := 12
 const SAWMILL_WORKER_CAPACITY := 1
 # Historical 2D/reference starting stock, independent of current construction costs.
-const LEGACY_STARTING_PLANK := 35
 # Per-resource capacity; FOOD/LOG capacities are independent.
 const WAREHOUSE_PLANK_CAPACITY := 35
 const STARTER_PLANK_RESERVE := 10

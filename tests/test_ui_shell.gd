@@ -50,7 +50,7 @@ func run() -> void:
 	check(world.resident_selection==world.get_node("ResidentSelection") and world.residents.size()==4 and world.resident_runtimes.size()==4,"Single selection; no duplicate population bootstrap")
 	check(world.resident_card_view()._selection==world.resident_selection,"ResidentCard shares existing selection")
 	check(world.social_feed.get_parent()==ui.get_node("MessagesAnchor") and world.construction_panel.get_parent()==ui.get_node("ActionsAnchor"),"Actual feed and construction panel mounted")
-	check(not world.has_node("HUD/DebugPanel") and world.population_label==null and world.production_label==null and world.logistics_label==null,"No hidden compatibility telemetry")
+	check(not world.has_node("HUD/DebugPanel"),"No hidden compatibility telemetry")
 	check(ui.time_controls.speed_buttons.size()==3,"Player UI contains x1/x2/x4")
 	for i in range(3):
 		ui.time_controls.speed_buttons[i].pressed.emit()
@@ -63,7 +63,7 @@ func run() -> void:
 	world.game_time.total_minutes=1505
 	world.game_time.minute_changed.emit(1505)
 	await process_frame # E5 coalesces clock paint after domain listeners.
-	check(ui.info_panel.day_summary.text=="День 2" and not ui.time_controls.has_node("Column/ClockRow/Day") and world.clock_label.text=="01:05","Day/time come from simulation clock")
+	check(ui.info_panel.day_summary.text=="День 2" and not ui.time_controls.has_node("Column/ClockRow/Day") and world.game_ui.time_controls.clock_label.text=="01:05","Day/time come from simulation clock")
 	var before := snapshot(world)
 	world.resident_selection.select(world.residents[0])
 	ui.open_window(&"residents")
@@ -101,10 +101,5 @@ func run() -> void:
 		var file := FileAccess.open(OUT+"rendered-measurements.json",FileAccess.WRITE)
 		file.store_string(JSON.stringify(measurements,"\t"))
 	world.free()
-	var legacy = load("res://scenes/main.tscn").instantiate()
-	root.add_child(legacy)
-	legacy.game_time.set_process(false)
-	check(legacy.has_node("HUD/DebugPanel") and legacy.resident_card_view()==legacy.get_node("HUD/ResidentCard") and legacy.ui_input_context()==null,"Legacy real HUD and default hooks unchanged")
-	legacy.free()
 	print("E1 UI shell: %d checks, %d failures" % [checks,failures])
 	quit(1 if failures else 0)

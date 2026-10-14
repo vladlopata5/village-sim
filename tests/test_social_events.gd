@@ -275,18 +275,18 @@ func _runtime_tests() -> void:
 		if child is Timer: child.timeout.emit()
 	check(scene.social_feed.messages.is_empty(),"Timers of evicted/freed labels expire safely")
 
-	var card=scene.get_node("HUD/ResidentCard")
+	var card=scene.resident_card_view()
 	scene.resident_selection.select(actor.data)
 	actor.data.diary_entries.clear()
 	actor.data.add_diary_entry(Diary.new("today",Diary.Importance.TEMPORARY,scene.game_time.total_minutes))
 	actor.data.add_diary_entry(Diary.new("key",Diary.Importance.KEY,scene.game_time.total_minutes))
-	check(card.get_node("Margin/Column/Scroll/Content/Diary").text.contains("today"),"Diary signal updates ResidentCard")
+	check(card.get_node("%Diary").text.contains("today"),"Diary signal updates ResidentCard")
 	service._on_phase_changed("День")
 	check(actor.data.diary_entries.size()==2,"Other phases do not expire history")
 	scene.game_time.total_minutes+=1440
 	service._on_phase_changed("Утро")
 	check(actor.data.diary_entries.size()==1 and actor.data.diary_entries[0].text=="key","Next morning expiry signal updates diary")
-	check(not card.get_node("Margin/Column/Scroll/Content/Diary").text.contains("today"),"Card reflects expiry")
+	check(not card.get_node("%Diary").text.contains("today"),"Card reflects expiry")
 	passer=scene.resident_runtimes[2]
 	passer.free()
 	service._on_phase_changed("Утро")

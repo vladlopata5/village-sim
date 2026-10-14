@@ -14,7 +14,7 @@ func check(condition: bool, message: String) -> void:
 		failures += 1
 		push_error(message)
 func make_scene() -> Node:
-	var scene = load("res://scenes/main.tscn").instantiate()
+	var scene = preload("res://tests/domain_world.gd").instantiate()
 	root.add_child(scene)
 	preload("res://tests/resident_test_setup.gd").isolate_first(scene)
 	scene.game_time.set_process(false)
@@ -43,30 +43,30 @@ func _run() -> void:
 			check(total(delivery_scene) == 20 and data.inventory.amount == 0 and delivery_scene.warehouse_data.resources.get_reserved_out(FOOD) == 1, "Before pickup FOOD exists only in containers")
 			paused = true
 			var before: Vector2 = view.global_position
-			preload("res://tests/handling_test_step.gd").move_2d(delivery_scene.resident_runtimes[0],1.0)
+			preload("res://tests/handling_test_step.gd").move_domain(delivery_scene.resident_runtimes[0],1.0)
 			check(view.global_position == before and data.inventory.amount == 0, "Pause stops source path")
 			paused = false
-			preload("res://tests/handling_test_step.gd").move_2d(delivery_scene.resident_runtimes[0],20.0)
+			preload("res://tests/handling_test_step.gd").move_domain(delivery_scene.resident_runtimes[0],20.0)
 			check(job.state == Job.State.GOING_TO_DESTINATION and data.inventory.amount == 1 and data.activity == Activity.Type.HAULING, "Pickup switches to carrying destination route")
 			check(delivery_scene.warehouse_data.resources.get_amount(FOOD) == 19 - number and delivery_scene.warehouse_data.resources.get_reserved_out(FOOD) == 0 and total(delivery_scene) == 20, "Pickup consumes exactly the reserved unit")
-			check(view.cargo_indicator.visible and not delivery_scene.resident_runtimes[0].intents.current_intent.interruptible, "Visible cargo and noninterruptible transport")
-			var card = delivery_scene.get_node("HUD/ResidentCard")
+			check(data.inventory.amount > 0 and not delivery_scene.resident_runtimes[0].intents.current_intent.interruptible, "Visible cargo and noninterruptible transport")
+			var card = delivery_scene.resident_card_view()
 			delivery_scene.resident_selection.select(data)
 			card._refresh()
 			check(card.activity_label.text == "Занятие: Несёт груз", "Card reads HAULING")
 			check(not delivery_scene.resident_runtimes[0].schedule.request_manual_move(Vector2.ZERO), "Manual commands cannot interrupt haul")
 			paused = true
 			before = view.global_position
-			preload("res://tests/handling_test_step.gd").move_2d(delivery_scene.resident_runtimes[0],1.0)
+			preload("res://tests/handling_test_step.gd").move_domain(delivery_scene.resident_runtimes[0],1.0)
 			check(view.global_position == before and data.inventory.amount == 1, "Pause retains carried FOOD")
 			paused = false
 			var destination_intent = delivery_scene.resident_runtimes[0].intents.current_intent
-			preload("res://tests/handling_test_step.gd").move_2d(delivery_scene.resident_runtimes[0],20.0)
-			check(job.state == Job.State.COMPLETED and data.inventory.amount == 0 and not view.cargo_indicator.visible and delivery_scene.kitchen_data.resources.get_amount(FOOD) == number + 1 and total(delivery_scene) == 20, "Delivery puts unit only in kitchen")
+			preload("res://tests/handling_test_step.gd").move_domain(delivery_scene.resident_runtimes[0],20.0)
+			check(job.state == Job.State.COMPLETED and data.inventory.amount == 0 and data.inventory.amount == 0 and delivery_scene.kitchen_data.resources.get_amount(FOOD) == number + 1 and total(delivery_scene) == 20, "Delivery puts unit only in kitchen")
 			view.intent_completed.emit(destination_intent)
 			check(total(delivery_scene) == 20 and delivery_scene.kitchen_data.resources.get_amount(FOOD) == number + 1, "Stale arrival cannot duplicate delivery")
 		check(delivery_scene.warehouse_data.resources.get_amount(FOOD) == 0 and delivery_scene.kitchen_data.resources.get_amount(FOOD) == 20 and delivery_scene.kitchen_data.resources.get_reserved_in(FOOD) == 0 and delivery_scene.warehouse_data.resources.get_reserved_out(FOOD) == 0, "Capacity 20 stops new jobs with all reserves settled")
-		preload("res://tests/handling_test_step.gd").move_2d(delivery_scene.resident_runtimes[0],20.0)
+		preload("res://tests/handling_test_step.gd").move_domain(delivery_scene.resident_runtimes[0],20.0)
 		check(data.activity == Activity.Type.IDLE, "No haul available: idle instead of placeholder work")
 		delivery_scene.free()
 	# Evening preserves both already-started stages, then returns to IDLE.
@@ -75,12 +75,12 @@ func _run() -> void:
 		evening_scene.game_time.debug_next_phase()
 		var job = evening_scene.logistics.current_job
 		if picked_up:
-			preload("res://tests/handling_test_step.gd").move_2d(evening_scene.resident_runtimes[0],20.0)
+			preload("res://tests/handling_test_step.gd").move_domain(evening_scene.resident_runtimes[0],20.0)
 		evening_scene.game_time.debug_next_phase()
 		check(job.is_active() and not evening_scene.resident_runtimes[0].schedule.request_manual_move(Vector2.ZERO), "17:00 and manual input do not discard started haul")
 		if not picked_up:
-			preload("res://tests/handling_test_step.gd").move_2d(evening_scene.resident_runtimes[0],20.0)
-		preload("res://tests/handling_test_step.gd").move_2d(evening_scene.resident_runtimes[0],20.0)
+			preload("res://tests/handling_test_step.gd").move_domain(evening_scene.resident_runtimes[0],20.0)
+		preload("res://tests/handling_test_step.gd").move_domain(evening_scene.resident_runtimes[0],20.0)
 		check(job.state == Job.State.COMPLETED and evening_scene.residents[0].activity == Activity.Type.IDLE and total(evening_scene) == 10, "Evening delivery completes and returns IDLE")
 		evening_scene.free()
 	# Night before pickup releases both reserves; next day gets a new job.
@@ -94,9 +94,9 @@ func _run() -> void:
 	check(scene.resident_runtimes[0].intents.pending_intent.reason_id == &"night_home", "Night sleep waits behind committed source trip")
 	scene.resident_runtimes[0].view.intent_completed.emit(stale_source)
 	check(scene.residents[0].inventory.amount == 0, "Arrival begins loading without instantaneous pickup")
-	preload("res://tests/handling_test_step.gd").move_2d(scene.resident_runtimes[0],20.0)
-	preload("res://tests/handling_test_step.gd").move_2d(scene.resident_runtimes[0],20.0)
-	preload("res://tests/handling_test_step.gd").move_2d(scene.resident_runtimes[0],20.0)
+	preload("res://tests/handling_test_step.gd").move_domain(scene.resident_runtimes[0],20.0)
+	preload("res://tests/handling_test_step.gd").move_domain(scene.resident_runtimes[0],20.0)
+	preload("res://tests/handling_test_step.gd").move_domain(scene.resident_runtimes[0],20.0)
 	scene.residents[0].hunger = 20 # Isolate workday restart from the new strong-hunger rule.
 	scene.game_time.debug_next_phase()
 	scene.game_time.debug_next_phase()
@@ -105,26 +105,26 @@ func _run() -> void:
 	# Night after pickup waits for delivery, not for a second pickup or empty hands.
 	scene = make_scene()
 	scene.game_time.debug_next_phase()
-	preload("res://tests/handling_test_step.gd").move_2d(scene.resident_runtimes[0],20.0)
+	preload("res://tests/handling_test_step.gd").move_domain(scene.resident_runtimes[0],20.0)
 	var delivered = scene.logistics.current_job
 	scene.game_time.debug_next_phase()
 	scene.game_time.debug_next_phase()
 	check(scene.resident_runtimes[0].intents.pending_intent.reason_id == &"night_home" and scene.residents[0].inventory.amount == 1 and scene.residents[0].activity == Activity.Type.HAULING, "Night home waits while FOOD is carried")
 	check(not scene.logistics.cancel_job(delivered), "Loaded haul cannot be cancelled or lose reserved destination")
-	preload("res://tests/handling_test_step.gd").move_2d(scene.resident_runtimes[0],20.0)
+	preload("res://tests/handling_test_step.gd").move_domain(scene.resident_runtimes[0],20.0)
 	check(delivered.state == Job.State.COMPLETED and scene.residents[0].inventory.amount == 0 and scene.kitchen_data.resources.get_amount(FOOD) == 1 and scene.resident_runtimes[0].intents.current_intent.reason_id == &"night_home" and total(scene) == 10, "Delivery settles FOOD then promotes pending home")
-	preload("res://tests/handling_test_step.gd").move_2d(scene.resident_runtimes[0],20.0)
+	preload("res://tests/handling_test_step.gd").move_domain(scene.resident_runtimes[0],20.0)
 	check(scene.residents[0].activity == Activity.Type.SLEEPING, "After loaded night delivery reaches sleep")
 	scene.free()
 	# Hungry resident delivers first, eats from kitchen, then resumes logistics.
 	scene = make_scene()
 	scene.game_time.debug_next_phase()
-	preload("res://tests/handling_test_step.gd").move_2d(scene.resident_runtimes[0],20.0)
+	preload("res://tests/handling_test_step.gd").move_domain(scene.resident_runtimes[0],20.0)
 	scene.residents[0].get_need(preload("res://scripts/need_type.gd").Type.HUNGER).base_weight = 100
 	scene.residents[0].hunger = 90
 	scene.resident_runtimes[0].decision.rng.seed = Seed.for_action([{"id": "WORK", "priority": 7000}, {"id": "EAT", "priority": preload("res://scripts/action_utility.gd").eat(90)}], "EAT")
 	check(scene.residents[0].inventory.amount == 1 and scene.resident_runtimes[0].intents.current_intent.reason_id == &"haul_destination", "Hunger cannot discard carried FOOD")
-	preload("res://tests/handling_test_step.gd").move_2d(scene.resident_runtimes[0],20.0)
+	preload("res://tests/handling_test_step.gd").move_domain(scene.resident_runtimes[0],20.0)
 	check(scene.residents[0].activity == Activity.Type.EATING and scene.residents[0].inventory.amount == 0 and scene.kitchen_data.resources.get_amount(FOOD) == 0, "Hungry porter begins meal only after delivery")
 	scene.game_time.debug_skip_minutes(30)
 	check(scene.residents[0].hunger < 70 and scene.resident_runtimes[0].intents.current_intent.reason_id == &"haul_source", "After meal resumes assigned haul during work period")

@@ -155,11 +155,6 @@ func run() -> void:
 	timer.start(0.05)
 	await create_timer(0.08,true).timeout
 	check(feed.messages.size()==3 and feed._column.get_child(0).text=="Сообщение 8","Real timeout removes its original message")
-	var legacy_feed=preload("res://scripts/social_feed.gd").new()
-	root.add_child(legacy_feed)
-	legacy_feed.add_message("Первое");legacy_feed.add_message("Второе")
-	check(not legacy_feed.newest_first and legacy_feed._column.get_child(0).text=="Первое","Legacy ordering/layout defaults retained")
-	legacy_feed.free()
 	world.free()
 	print("E5 UI updates: %d checks, %d failures" % [checks,failures])
 	quit(1 if failures else 0)

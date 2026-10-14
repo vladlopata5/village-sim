@@ -82,3 +82,12 @@ If a technical decision affects future development, record it in `docs/DECISIONS
 
 Do not invent major game mechanics that are not described in the design documentation. Ask or leave a note when requirements are unclear.
 
+
+
+## Current playable scene
+
+Only `res://scenes/main_3d.tscn` is supported. Legacy 2D and its standalone HUD were
+removed on 2026-10-14; do not restore legacy compatibility or require legacy startup.
+Keep shared simulation/domain systems. `scripts/main.gd` assembles simulation for
+Main3D; it is not a retired 2D controller. The independent 2.5D prototype is a tested
+camera/navigation bench. Run all remaining `tests/test_*.gd` after shared changes.

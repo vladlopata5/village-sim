@@ -1,6 +1,6 @@
 extends SceneTree
 const Location = preload("res://scripts/world_location.gd")
-const Locations = preload("res://scripts/world_locations_2d.gd")
+const Locations = preload("res://tests/domain_locations.gd")
 const Activity = preload("res://scripts/resident_activity.gd")
 var failures := 0
 func _initialize() -> void:
@@ -30,7 +30,7 @@ func _run() -> void:
 	mapping.register(location, replacement)
 	check(mapping.get_position(location.id) == replacement.global_position, "Replacement view reuses the same ID")
 	replacement.queue_free()
-	var scene = load("res://scenes/main.tscn").instantiate()
+	var scene = preload("res://tests/domain_world.gd").instantiate()
 	root.add_child(scene)
 	preload("res://tests/resident_test_setup.gd").isolate_first(scene)
 	preload("res://tests/resident_test_setup.gd").unbind_work(scene)
@@ -46,7 +46,7 @@ func _run() -> void:
 	clock.set_process(false)
 	view.set_process(false)
 	check(data.home_location_id == &"home_stepan" and home.building_data == scene.player_control.get_home(data.id), "Resident and view refer to same HOME BuildingInstance")
-	check(home.building_data.display_name == "Дом" and home.get_node("Caption").text == home.building_data.display_name, "House caption comes from ordinary BuildingInstance")
+	check(home.building_data.display_name == "Дом" and scene.world_locations.get_location(home.building_data.id).display_name == home.building_data.display_name, "House caption comes from ordinary BuildingInstance")
 	home.position = Vector2(-450, 160)
 	while clock.get_phase() != "Ночь":
 		clock.debug_next_phase()

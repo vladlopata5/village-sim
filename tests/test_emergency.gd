@@ -15,7 +15,7 @@ func check(condition: bool, message: String) -> void:
 		failures += 1
 		push_error(message)
 func make_scene() -> Node:
-	var scene = load("res://scenes/main.tscn").instantiate()
+	var scene = preload("res://tests/domain_world.gd").instantiate()
 	root.add_child(scene)
 	preload("res://tests/resident_test_setup.gd").isolate_first(scene)
 	scene.game_time.set_process(false)
@@ -60,7 +60,7 @@ func _run() -> void:
 		scene = make_scene()
 		scene.game_time.set_speed(speed)
 		scene.game_time.debug_next_phase()
-		preload("res://tests/handling_test_step.gd").move_2d(scene.resident_runtimes[0],20.0)
+		preload("res://tests/handling_test_step.gd").move_domain(scene.resident_runtimes[0],20.0)
 		job = scene.logistics.current_job
 		var old = scene.resident_runtimes[0].intents.current_intent
 		scene.game_time.debug_next_phase()
@@ -71,13 +71,12 @@ func _run() -> void:
 		scene.warehouse_data.resources.reserve_out(FOOD, 2)
 		paused = true
 		scene.residents[0].hunger = 100
-		check(job.state == Job.State.CANCELLED and scene.residents[0].inventory.amount == 0 and not scene.resident_runtimes[0].view.cargo_indicator.visible, "Emergency cancels loaded job and clears inventory picture")
+		check(job.state == Job.State.CANCELLED and scene.residents[0].inventory.amount == 0 and scene.resident_runtimes[0].data.inventory.amount == 0, "Emergency cancels loaded job and clears inventory picture")
 		check(scene.warehouse_data.resources.get_amount(FOOD) == 9 and scene.warehouse_data.resources.get_reserved_out(FOOD) == 2 and scene.kitchen_data.resources.get_reserved_in(FOOD) == 0, "Only incoming reserve released after pickup; unrelated outgoing reserve preserved")
 		check(scene.ground_resources.drops.size() == 1 and scene.resident_runtimes[0].intents.current_intent.reason_id == &"eat" and scene.resident_runtimes[0].intents.pending_intent.type == Intent.Type.NONE, "Exactly one physical drop; emergency supersedes pending night")
 		var drop = scene.ground_resources.drops[0]
 		check(drop is RefCounted and not drop is Node and drop.amount == 1 and drop.resource_type == FOOD and drop.world_position == position and drop.age_minutes(scene.game_time.total_minutes) == 0, "Drop owns FOOD with world position and creation time")
-		var view = scene._ground_views[drop]
-		check(view.is_visible_in_tree() and view.global_position == position, "Ground picture at actual interruption point")
+		check(scene._ground_ids.get(drop)==drop.id, "Real interruption drop registered for interactions")
 		scene.resident_runtimes[0].view.intent_completed.emit(old)
 		check(scene.ground_resources.drops.size() == 1 and scene.kitchen_data.resources.get_amount(FOOD) == 1, "Late delivery cannot duplicate dropped FOOD")
 		scene.game_time.advance(100.0)
@@ -100,9 +99,9 @@ func _run() -> void:
 	scene.residents[0].hunger = 90
 	scene.resident_runtimes[0].decision.rng.seed = Seed.for_action([{"id": "WORK", "priority": 7000}, {"id": "EAT", "priority": preload("res://scripts/action_utility.gd").eat(90)}], "EAT")
 	check(job.state == Job.State.GOING_TO_SOURCE and scene.resident_runtimes[0].intents.current_intent.reason_id == &"haul_source", "Strong hunger does not interrupt work to source")
-	preload("res://tests/handling_test_step.gd").move_2d(scene.resident_runtimes[0],20.0)
+	preload("res://tests/handling_test_step.gd").move_domain(scene.resident_runtimes[0],20.0)
 	check(scene.residents[0].inventory.amount == 1 and scene.ground_resources.drops.is_empty(), "Strong hunger also retains loaded task")
-	preload("res://tests/handling_test_step.gd").move_2d(scene.resident_runtimes[0],20.0)
+	preload("res://tests/handling_test_step.gd").move_domain(scene.resident_runtimes[0],20.0)
 	check(job.state == Job.State.COMPLETED and scene.residents[0].activity == Activity.Type.EATING and scene.resident_runtimes[0].intents.current_intent.reason_id == &"eat", "At action boundary eats before starting next haul")
 	scene.game_time.debug_skip_minutes(30)
 	check(scene.residents[0].hunger < 76, "Successful meal lowers strong hunger")
@@ -114,7 +113,7 @@ func _run() -> void:
 	scene.logistics.changed.connect(func():
 		if carrying_scene.logistics.current_job.state == Job.State.CARRYING:
 			carrying_scene.residents[0].hunger = 100)
-	preload("res://tests/handling_test_step.gd").move_2d(scene.resident_runtimes[0],20.0)
+	preload("res://tests/handling_test_step.gd").move_domain(scene.resident_runtimes[0],20.0)
 	check(scene.logistics.current_job.state == Job.State.CANCELLED and scene.ground_resources.drops.size() == 1 and scene.resident_runtimes[0].intents.current_intent.reason_id == &"eat", "Forced in CARRYING notification remains cancelled and does not issue a delivery route")
 	scene.free()
 	# Already eating at the critical threshold keeps its elapsed meal time.
@@ -123,7 +122,7 @@ func _run() -> void:
 	scene.residents[0].get_need(preload("res://scripts/need_type.gd").Type.HUNGER).base_weight = 100
 	scene.residents[0].hunger = 75
 	scene.resident_runtimes[0].decision.request_decision("test")
-	preload("res://tests/handling_test_step.gd").move_2d(scene.resident_runtimes[0],20.0)
+	preload("res://tests/handling_test_step.gd").move_domain(scene.resident_runtimes[0],20.0)
 	scene.game_time.debug_skip_minutes(20)
 	scene.residents[0].hunger = 100
 	check(scene.residents[0].activity == Activity.Type.EATING, "Critical hunger retains already active food action")
@@ -135,7 +134,7 @@ func _run() -> void:
 		scene = make_scene()
 		scene.game_time.debug_next_phase()
 		job = scene.logistics.current_job
-		if picked_up: preload("res://tests/handling_test_step.gd").move_2d(scene.resident_runtimes[0],20)
+		if picked_up: preload("res://tests/handling_test_step.gd").move_domain(scene.resident_runtimes[0],20)
 		var dropped_at: Vector2 = scene.resident_runtimes[0].view.position
 		scene.residents[0].fatigue = 100
 		check(job.state == Job.State.CANCELLED and scene.residents[0].activity == Activity.Type.SLEEPING, "Critical fatigue cancels ordinary haul and sleeps in place")

@@ -32,7 +32,7 @@ func site_in(scene: Node):
 	return scene.placement.confirm()
 func become(scene: Node, actor: Node, profession: int) -> void:
 	scene.player_control.assign_profession(actor.data.id, profession)
-func arrive(actor: Node) -> void: preload("res://tests/handling_test_step.gd").move_2d(actor,100)
+func arrive(actor: Node) -> void: preload("res://tests/handling_test_step.gd").move_domain(actor,100)
 func start_gathering(scene: Node, actor: Node) -> void:
 	actor.data.work_location_id = scene.gatherer_hut_data.id
 	actor.decision.work_available = scene.production.can_work.bind(actor.data)
@@ -154,7 +154,7 @@ func _run() -> void:
 
 	scene = scenario()
 	actor = scene.resident_runtimes[1]
-	var card = scene.get_node("HUD/ResidentCard")
+	var card = scene.resident_card_view()
 	card.set_process(false)
 	scene.resident_selection.select(actor.data)
 	for skill in Skill.Type.values(): check(card.skills_label.text.contains("%s: ур. 0 (0 XP)" % Skill.display_name(skill)), "Selected card shows every skill")

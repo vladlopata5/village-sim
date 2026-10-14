@@ -1,62 +1,36 @@
 extends SceneTree
-const BuildingData = preload("res://scripts/building_data.gd")
-const BuildingType = preload("res://scripts/building_type.gd")
-const WorldLocation = preload("res://scripts/world_location.gd")
-const Activity = preload("res://scripts/resident_activity.gd")
+const Fixture = preload("res://tests/canonical_ui_fixture.gd")
+const Coordinates = preload("res://scripts/world_3d/world_coordinates.gd")
 var failures := 0
-func _initialize() -> void:
-	call_deferred("_run")
-func check(condition: bool, message: String) -> void:
-	if not condition:
-		failures += 1
+var checks := 0
+func _initialize() -> void: call_deferred("run")
+func check(ok: bool, message: String) -> void:
+	checks+=1
+	if not ok:
+		failures+=1
 		push_error(message)
-func _run() -> void:
-	var scene = load("res://scenes/main.tscn").instantiate()
-	root.add_child(scene)
-	preload("res://tests/resident_test_setup.gd").isolate_first(scene)
-	scene.resident_runtimes[0].decision.free()
-	scene.resident_runtimes[0].needs.free()
-	await process_frame
-	await process_frame
-	scene.game_time.set_process(false)
-	scene.resident_runtimes[0].view.set_process(false)
-	var building = scene.kitchen_data
-	var view = scene.get_node("World/CommunalKitchen")
-	var mapping = scene.world_locations
-	var place = mapping.get_location(building.id)
-	check(building is BuildingData and not building is Node, "Building exists as nonvisual game data")
-	check(building.id == &"communal_kitchen_01" and building.display_name == "Общая кухня" and building.type == BuildingType.Type.FOOD, "Kitchen identity, name and category")
-	check(place is WorldLocation and not place is BuildingData, "Place and building are distinct objects")
-	check(place.id == building.id and place.display_name == building.display_name, "Building and world place linked by stable ID")
-	check(view.building_data == building and view.get_node("Caption").text == building.display_name, "View reads original building data")
-	check(view.is_visible_in_tree() and mapping.get_position(place.id) == view.global_position, "Kitchen visible and registered in existing coordinate mapping")
-	var screen_rect := Rect2(view.get_global_transform_with_canvas() * Vector2(-72, -78), Vector2(144, 126))
-	check(root.get_visible_rect().encloses(screen_rect), "Kitchen and caption fit starting viewport")
-	view.position += Vector2(40, -20)
-	check(mapping.get_position(place.id) == view.global_position, "World resolves moved kitchen without a separate coordinate copy")
-	var data = scene.residents[0]
-	var hunger_before: int = data.hunger
-	check(scene.resident_runtimes[0].schedule.request_manual_move(mapping.get_position(place.id)), "Morning manual movement can target kitchen normally")
-	scene.resident_runtimes[0].view._process(20.0)
-	check(data.hunger == hunger_before and data.activity == Activity.Type.IDLE, "Arriving at kitchen does not eat or reduce hunger")
-	scene.game_time.advance(15.0)
-	check(data.hunger == hunger_before + 1 and data.fatigue >= 0 and data.fatigue <= 100 and data.mood == 65, "Kitchen does not change normal hunger growth or other states")
-	# No building selection or interaction UI is introduced.
-	check(view.get_node("Caption").mouse_filter == Control.MOUSE_FILTER_IGNORE, "Caption does not intercept world input")
+func run() -> void:
+	var world=Fixture.make(self)
+	var building=world.warehouse_data
+	var view=world.world_locations.get_view(building.id)
+	var place=world.world_locations.get_location(building.id)
+	check(building is RefCounted and not building is Node,"Building data is nonvisual")
+	check(place.id==building.id and place.display_name==building.display_name,"Location links stable identity")
+	check(view.building_data==building and view.is_visible_in_tree(),"Canonical view uses original data")
+	check(view.global_position==Coordinates.to_world(building.position),"World conversion at registered center")
+	var point: Variant=world.world_locations.get_position(building.id)
+	check(point is Vector2 and not building.footprint().has_point(point),"Authored entrance is real walkable action location")
+	check(world.get_node("World/BuildingViews").get_child_count()==world.buildings.size(),"One canonical view per building")
 	view.free()
-	check(scene.kitchen_data == building and mapping.get_location(place.id) == place, "Building and place survive removal of representation")
-	check(mapping.get_position(place.id) == null, "Removed view leaves no fake world position")
-	var replacement = load("res://scenes/building_view_2d.tscn").instantiate()
+	check(is_instance_valid(building) and world.world_locations.get_location(building.id)==place,"Removing view preserves data/location")
+	check(world.world_locations.get_position(building.id)==null,"Missing view leaves no fake action coordinate")
+	var replacement=preload("res://scripts/world_3d/building_view_3d.gd").new()
+	world.get_node("World/BuildingViews").add_child(replacement)
+	replacement.position=Coordinates.to_world(building.position)
 	replacement.setup(building)
-	replacement.position = Vector2(-280, 240)
-	scene.get_node("World").add_child(replacement)
-	mapping.register(place, replacement)
-	check(replacement.building_data == building and mapping.get_position(place.id) == replacement.global_position, "Replacement representation reuses data and world identity")
-	var building_count := 0
-	for child in scene.get_node("World").get_children():
-		if child.get_script() == preload("res://scripts/building_view_2d.gd"):
-			building_count += 1
-	check(building_count == scene.buildings.size(), "Every starting building, including houses, has an ordinary BuildingView")
-	scene.queue_free()
-	print("Building checks: ", "PASS" if failures == 0 else "FAIL (%d)" % failures)
-	quit(0 if failures == 0 else 1)
+	world.building_uses.register(building,replacement)
+	world.world_locations.register(place,replacement)
+	check(world.world_locations.get_view(building.id)==replacement and replacement.building_data==building,"Replacement reuses original identity")
+	world.free()
+	print("building: %d checks, %d failures" % [checks,failures])
+	quit(1 if failures else 0)

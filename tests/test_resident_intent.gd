@@ -45,7 +45,7 @@ func _run() -> void:
 	check(controller.current_intent.type == ResidentIntent.Type.NONE, "Expired home is not activated after completion")
 	controller.queue_free()
 
-	var scene = load("res://scenes/main.tscn").instantiate()
+	var scene = preload("res://tests/domain_world.gd").instantiate()
 	root.add_child(scene)
 	preload("res://tests/resident_test_setup.gd").isolate_first(scene)
 	preload("res://tests/resident_test_setup.gd").unbind_work(scene)

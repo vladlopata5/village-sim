@@ -1,13 +1,11 @@
 extends PanelContainer
 # Presentation counters for focused UI diagnostics; never used by simulation.
 var refresh_count := 0
-@export var embedded := false
-@export var embedded_close_path: NodePath
+@export var close_path: NodePath
 var clock: Node
 var _refresh_elapsed := 0.0
-func _widget(id: String, legacy_path: String) -> Node:
-	if not embedded: return get_node(legacy_path)
-	return get_node(embedded_close_path) if id == "Close" else get_node("%" + id)
+func _widget(id: String) -> Node:
+	return get_node(close_path) if id == "Close" else get_node("%" + id)
 
 const Diary = preload("res://scripts/diary_entry.gd")
 ## The card reads the selection's data; it keeps no copy of resident fields.
@@ -24,11 +22,10 @@ const StateText = preload("res://scripts/resident_state_text.gd")
 var _selection: ResidentSelection
 var _control: RefCounted
 var _assignment_resident: ResidentData
-var _preference_targets: Array[ResidentData] = []
-@onready var preferences_label: Label = _widget("Preferences", "Margin/Column/Scroll/Content/Preferences")
-@onready var relationships_label: Label = _widget("Relationships", "Margin/Column/Scroll/Content/Relationships")
-@onready var skills_label: Label = _widget("Skills", "Margin/Column/Scroll/Content/Skills")
-@onready var assignment_list: VBoxContainer = _widget("Assignments", "Margin/Column/Scroll/Content/Assignments")
+@onready var preferences_label: Label = _widget("Preferences")
+@onready var relationships_label: Label = _widget("Relationships")
+@onready var skills_label: Label = _widget("Skills")
+@onready var assignment_list: VBoxContainer = _widget("Assignments")
 signal work_area_requested(resident_id: String)
 var work_place_label: Label
 var area_button: Button
@@ -37,34 +34,29 @@ var clear_work_button: Button
 var profession_choice: OptionButton
 var intent_label: Label
 var summary_label: Label
-@onready var home_label: Label = _widget("Home", "Margin/Column/Scroll/Content/Home")
-@onready var name_label: Label = _widget("Name", "Margin/Column/Scroll/Content/Name")
-@onready var age_label: Label = _widget("Age", "Margin/Column/Scroll/Content/Metadata/Age")
-@onready var profession_label: Label = _widget("Profession", "Margin/Column/Scroll/Content/Profession")
-@onready var id_label: Label = _widget("ID", "Margin/Column/Scroll/Content/Metadata/ID")
-@onready var traits_label: Label = _widget("Traits", "Margin/Column/Scroll/Content/Traits")
-@onready var hunger_label: Label = _widget("Hunger", "Margin/Column/Scroll/Content/Hunger")
-@onready var fatigue_label: Label = _widget("Fatigue", "Margin/Column/Scroll/Content/Fatigue")
-@onready var social_label: Label = _widget("Social", "Margin/Column/Scroll/Content/Social")
-@onready var leisure_label: Label = _widget("Leisure", "Margin/Column/Scroll/Content/Leisure")
-@onready var mood_label: Label = _widget("Mood", "Margin/Column/Scroll/Content/Mood")
-@onready var activity_label: Label = _widget("Activity", "Margin/Column/Scroll/Content/Activity")
-@onready var close_button: Button = _widget("Close", "Margin/Column/Close")
+@onready var home_label: Label = _widget("Home")
+@onready var name_label: Label = _widget("Name")
+@onready var age_label: Label = _widget("Age")
+@onready var profession_label: Label = _widget("Profession")
+@onready var id_label: Label = _widget("ID")
+@onready var traits_label: Label = _widget("Traits")
+@onready var hunger_label: Label = _widget("Hunger")
+@onready var fatigue_label: Label = _widget("Fatigue")
+@onready var social_label: Label = _widget("Social")
+@onready var leisure_label: Label = _widget("Leisure")
+@onready var mood_label: Label = _widget("Mood")
+@onready var activity_label: Label = _widget("Activity")
+@onready var close_button: Button = _widget("Close")
 
 func _ready() -> void:
 	hide()
-	if not embedded: close_button.pressed.connect(_close)
-	summary_label = _widget("Summary", "") if embedded else Label.new()
+	summary_label = _widget("Summary")
 	summary_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	if not embedded:
-		$Margin/Column/Scroll/Content.add_child(summary_label)
-		$Margin/Column/Scroll/Content.move_child(summary_label, 1)
 	profession_choice = OptionButton.new()
 	profession_choice.focus_mode = Control.FOCUS_NONE
 	for profession in Profession.Type.values():
 		profession_choice.add_item(Profession.display_name(profession), profession)
 	_work_body().add_child(profession_choice)
-	if not embedded: $Margin/Column/Scroll/Content.move_child(profession_choice, 3)
 	profession_choice.item_selected.connect(_on_profession_selected)
 	work_place_label = Label.new()
 	work_place_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -78,15 +70,12 @@ func _ready() -> void:
 	clear_work_button.pressed.connect(func(): _control.clear_work_assignment(_selection.selected_resident.id))
 	for control in [work_place_label,area_button,area_choice,clear_work_button]:
 		_work_body().add_child(control)
-		if not embedded: $Margin/Column/Scroll/Content.move_child(control,profession_choice.get_index()+1+[work_place_label,area_button,area_choice,clear_work_button].find(control))
 	intent_label = Label.new()
 	intent_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_work_body().add_child(intent_label)
-	if not embedded: $Margin/Column/Scroll/Content.move_child(intent_label, mood_label.get_index() + 1)
-	else:
-		get_node("%SkillsToggle").toggled.connect(skills_label.set_visible)
-		get_node("%DiaryToggle").toggled.connect(_widget("Diary", "").set_visible)
-		get_node("%ClearHome").pressed.connect(_clear_home)
+	get_node("%SkillsToggle").toggled.connect(skills_label.set_visible)
+	get_node("%DiaryToggle").toggled.connect(_widget("Diary").set_visible)
+	get_node("%ClearHome").pressed.connect(_clear_home)
 
 func bind_control(control: RefCounted) -> void:
 	if _control != null and _control.home_changed.is_connected(_on_home_changed): _control.home_changed.disconnect(_on_home_changed)
@@ -117,23 +106,20 @@ func bind_selection(selection: ResidentSelection) -> void:
 
 func _process(delta: float) -> void:
 	if not is_visible_in_tree(): return
-	if embedded:
-		_refresh_elapsed += delta
-		if _refresh_elapsed < 0.25: return
-		_refresh_elapsed = 0.0
+	_refresh_elapsed += delta
+	if _refresh_elapsed < 0.25: return
+	_refresh_elapsed = 0.0
 	_refresh()
-	if embedded:
-		_refresh_home()
-		_refresh_work_place()
-		if get_node("%Relations").is_visible_in_tree(): _refresh_known_relationships()
+	_refresh_home()
+	_refresh_work_place()
+	if get_node("%Relations").is_visible_in_tree(): _refresh_known_relationships()
 
 func _refresh() -> void:
 	refresh_count += 1
 	if _selection == null or _selection.selected_resident == null:
-		if not embedded: hide()
 		return
 	var data = _selection.selected_resident
-	summary_label.text = Profession.display_name(data.profession) if embedded else "%s • %s" % [Profession.display_name(data.profession), _activity_text(data.activity)]
+	summary_label.text = Profession.display_name(data.profession)
 	activity_label.text = "Занятие: " + _activity_text(data.activity)
 	name_label.text = "Имя: " + data.resident_name
 	age_label.text = "Возраст: %d" % data.age
@@ -152,12 +138,7 @@ func _refresh() -> void:
 	leisure_label.text = _state_line("Досуг", data.get_need(NeedType.Type.LEISURE).value, "Хочет развлечься" if data.get_need(NeedType.Type.LEISURE).value >= 25 else "Достаточно досуга")
 	mood_label.text = "Настроение: %d/100 — %s" % [data.mood, StateText.mood_description(data.mood)] if show_state_numbers else "Настроение: " + StateText.mood_description(data.mood)
 
-	if embedded: refresh_work_task()
-	else: show()
-
-func _close() -> void:
-	if _selection != null:
-		_selection.clear()
+	refresh_work_task()
 
 func _state_line(title: String, value: int, description: String) -> String:
 	if show_state_numbers:
@@ -200,7 +181,7 @@ func _on_selection_changed() -> void:
 	_refresh_preferences()
 	_refresh_diary()
 	_on_roster_changed()
-	_widget("Scroll", "Margin/Column/Scroll").scroll_vertical = 0
+	_widget("Scroll").scroll_vertical = 0
 	_refresh_assignments()
 	_refresh_home()
 	_refresh_work_place()
@@ -260,7 +241,7 @@ func _on_home_changed(resident_id: String, _previous: StringName, _current: Stri
 func _refresh_home() -> void:
 	var home: RefCounted = _control.get_home(_selection.selected_resident.id) if _control != null and _selection != null and _selection.selected_resident != null else null
 	home_label.text = "Дом: %s (%s)" % [home.display_name, home.id] if home != null else "Дом: Нет дома"
-	if embedded: get_node("%ClearHome").visible = home != null
+	get_node("%ClearHome").visible = home != null
 
 func _on_skill_changed(_skill: int, _amount: int, _previous_level: int) -> void:
 	_refresh_skills()
@@ -282,20 +263,7 @@ func _refresh_traits() -> void:
 func _on_relationship_changed(_other_id: StringName) -> void:
 	_refresh_relationships()
 func _refresh_relationships() -> void:
-	if embedded:
-		_refresh_known_relationships()
-		return
-	var lines := PackedStringArray(["Отношения"])
-	if _assignment_resident != null and _control != null:
-		for other in _control.get_residents():
-			if other.id == _assignment_resident.id: continue
-			var opinion: int = _assignment_resident.get_opinion(StringName(other.id))
-			var number := "%+d" % opinion if opinion > 0 else "%d" % opinion
-			var preference: int = _assignment_resident.get_trait_preference_score(other)
-			var preference_number := "%+d" % preference if preference > 0 else "%d" % preference
-			lines.append("%s: %s • Предпочтение: %s" % [other.resident_name, number, preference_number])
-	if lines.size() == 1: lines.append("Нет других жителей")
-	relationships_label.text = "\n".join(lines)
+	_refresh_known_relationships()
 
 func _on_preferences_changed() -> void:
 	_refresh_preferences()
@@ -312,13 +280,6 @@ func _preference_names(list: Array[Trait.Type]) -> String:
 	for trait_type in list: names.append(Trait.display_name(trait_type))
 	return ", ".join(names) if not names.is_empty() else "Нет"
 func _on_roster_changed() -> void:
-	for other in _preference_targets: other.traits_changed.disconnect(_refresh_relationships)
-	_preference_targets.clear()
-	if not embedded and _assignment_resident != null and _control != null:
-		for other in _control.get_residents():
-			if other.id == _assignment_resident.id: continue
-			_preference_targets.append(other)
-			other.traits_changed.connect(_refresh_relationships)
 	_refresh_relationships()
 
 
@@ -326,10 +287,10 @@ func _refresh_diary() -> void:
 	var lines := PackedStringArray(["Дневник"])
 	if _assignment_resident != null:
 		for entry in _assignment_resident.diary_entries:
-			if embedded and (clock == null or floori(float(entry.created_minute)/1440.0) != floori(float(clock.total_minutes)/1440.0)): continue
+			if (clock == null or floori(float(entry.created_minute)/1440.0) != floori(float(clock.total_minutes)/1440.0)): continue
 			lines.append("• %s%s" % [entry.text, " (ключевая)" if entry.importance == Diary.Importance.KEY else " (временная)"])
-	if lines.size() == 1: lines.append("За текущий день записей нет" if embedded else "Записей нет")
-	_widget("Diary", "Margin/Column/Scroll/Content/Diary").text = "\n".join(lines)
+	if lines.size() == 1: lines.append("За текущий день записей нет")
+	_widget("Diary").text = "\n".join(lines)
 
 func _work_changed(_resident_id: String) -> void: _refresh_work_place()
 func _areas_changed() -> void:
@@ -358,7 +319,7 @@ func _refresh_work_place() -> void:
 	var enabled: bool = data.profession in [Profession.Type.LUMBERJACK,Profession.Type.MINER] and _control != null and _control.get("work_areas") != null
 	area_button.visible = enabled
 	area_choice.visible = enabled
-	clear_work_button.visible = enabled or data.profession == Profession.Type.PORTER or (embedded and (not data.work_location_id.is_empty() or not data.work_area_id.is_empty()))
+	clear_work_button.visible = enabled or data.profession == Profession.Type.PORTER or ((not data.work_location_id.is_empty() or not data.work_area_id.is_empty()))
 
 var job_provider: Callable
 var _needs_connected: Array = []
@@ -366,7 +327,7 @@ var _relationship_snapshot: Array = [null]
 var relationship_rebuild_count := 0
 var assignment_rebuild_count := 0
 func _work_body() -> VBoxContainer:
-	return get_node("%WorkBody") if embedded else $Margin/Column/Scroll/Content
+	return get_node("%WorkBody")
 func apply_presentation(expanded: bool, tab: StringName) -> void:
 	get_node("%Scroll").visible = expanded
 	get_node("%Bio").visible = tab == &"bio"
@@ -376,7 +337,6 @@ func _clear_home() -> void:
 	if _control != null and _selection.selected_resident != null:
 		_control.clear_home(_selection.selected_resident.id)
 func _connect_need_signals() -> void:
-	if not embedded: return
 	_assignment_resident.activity_changed.connect(_refresh)
 	for need in _assignment_resident.needs.values():
 		need.changed.connect(_refresh)
@@ -385,7 +345,7 @@ func _disconnect_need_signals() -> void:
 	for need in _needs_connected:
 		if need.changed.is_connected(_refresh): need.changed.disconnect(_refresh)
 	_needs_connected.clear()
-	if embedded and _assignment_resident != null and _assignment_resident.activity_changed.is_connected(_refresh): _assignment_resident.activity_changed.disconnect(_refresh)
+	if _assignment_resident != null and _assignment_resident.activity_changed.is_connected(_refresh): _assignment_resident.activity_changed.disconnect(_refresh)
 func _refresh_known_relationships() -> void:
 	var snapshot: Array = []
 	if _assignment_resident != null and _control != null:
@@ -416,7 +376,7 @@ func _select_related(id: String) -> void:
 	var current = _control.get_resident(id) if _control != null else null
 	if current != null: _selection.select(current)
 func refresh_work_task() -> void:
-	if not embedded or _assignment_resident == null or _control == null: return
+	if _assignment_resident == null or _control == null: return
 	var intent = _control.current_intent(_assignment_resident.id)
 	var reason: String = String(intent.reason_id) if intent != null else ""
 	var job = job_provider.call(_assignment_resident.id) if job_provider.is_valid() else null
@@ -435,8 +395,6 @@ func _exit_tree() -> void:
 	if _assignment_resident != null:
 		for pair in [["assignments_changed",_refresh_assignments],["skill_changed",_on_skill_changed],["traits_changed",_refresh_traits],["relationship_changed",_on_relationship_changed],["diary_changed",_refresh_diary],["trait_preferences_changed",_on_preferences_changed]]:
 			if _assignment_resident.is_connected(pair[0],pair[1]): _assignment_resident.disconnect(pair[0],pair[1])
-	for other in _preference_targets:
-		if other.traits_changed.is_connected(_refresh_relationships): other.traits_changed.disconnect(_refresh_relationships)
 	if _control != null:
 		for pair in [["home_changed",_on_home_changed],["residents_changed",_on_roster_changed],["work_assignment_changed",_work_changed]]:
 			if _control.is_connected(pair[0],pair[1]): _control.disconnect(pair[0],pair[1])

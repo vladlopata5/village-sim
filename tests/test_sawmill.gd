@@ -17,7 +17,7 @@ func check(ok: bool, text: String) -> void:
 		failures += 1
 		push_error(text)
 func scene() -> Node:
-	var world = preload("res://tests/legacy_starter_3d.gd").instantiate()
+	var world = preload("res://tests/settlement_3d_fixture.gd").instantiate()
 	root.add_child(world)
 	world.game_time.set_process(false)
 	# Isolate recipe/logistics expectations from construction bootstrap stock.

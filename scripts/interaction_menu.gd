@@ -1,6 +1,5 @@
 extends PanelContainer
 ## Renders options and delegates execution. No knowledge of buildings, needs or jobs.
-var consume_dismiss_click := false # Canonical shell; legacy keeps its previous behavior.
 var service: RefCounted
 var resident_ids: Array = []
 var options: Array = []
@@ -34,6 +33,6 @@ func _choose(option: RefCounted) -> void:
 	service.execute(resident_ids, option)
 func _input(event: InputEvent) -> void:
 	if visible and event is InputEventMouseButton and event.pressed and not get_global_rect().has_point(event.position):
-		if consume_dismiss_click and event.button_index not in [MOUSE_BUTTON_LEFT, MOUSE_BUTTON_RIGHT]: return
+		if event.button_index not in [MOUSE_BUTTON_LEFT, MOUSE_BUTTON_RIGHT]: return
 		hide()
-		if consume_dismiss_click: get_viewport().set_input_as_handled()
+		get_viewport().set_input_as_handled()

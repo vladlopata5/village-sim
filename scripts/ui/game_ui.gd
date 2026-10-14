@@ -34,7 +34,6 @@ func mount_messages(feed: Control) -> void:
 	feed.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
 	feed.position = Vector2.ZERO
 	feed.size = Vector2(560, 110)
-	feed.newest_first = true
 	# Decorative messages do not own pointer input. All children already IGNORE.
 func mount_construction(panel: PanelContainer) -> void:
 	_construction=panel

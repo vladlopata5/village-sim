@@ -27,6 +27,9 @@ func setup(time: Node, pause_action: Callable) -> void:
 	timer.timeout.connect(refresh_pause)
 	add_child(timer)
 	timer.start()
+	clock.minute_changed.connect(func(_minute): request_clock_refresh())
+	clock.speed_changed.connect(refresh_speed)
+	refresh_speed(clock.speed_multiplier)
 	refresh_clock()
 	refresh_pause()
 func request_clock_refresh() -> void:
@@ -41,3 +44,7 @@ func refresh_clock() -> void:
 	clock_label.text = clock.get_clock_text()
 func refresh_pause() -> void:
 	pause_button.text = "▶" if get_tree().paused else "⏸"
+
+func refresh_speed(multiplier: int) -> void:
+	for index in range(speed_buttons.size()):
+		speed_buttons[index].set_pressed_no_signal([1,2,4][index]==multiplier)

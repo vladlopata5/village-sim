@@ -93,7 +93,7 @@ func run() -> void:
 	check(second_job.destination_location_id==b.id,"Porter B claims its own B after release")
 	service.cancel_job(second_job)
 	# Actual main_3d executors, resource reservations and command cleanup.
-	var scene=preload("res://tests/legacy_starter_3d.gd").instantiate()
+	var scene=preload("res://tests/settlement_3d_fixture.gd").instantiate()
 	root.add_child(scene)
 	scene.game_time.set_process(false)
 	for actor in scene.resident_runtimes:
@@ -127,6 +127,7 @@ func run() -> void:
 		var original_stock: int=own.resources.get_amount(Resources.FOOD)
 		if picked_up:
 			scene.world_locations.unregister(own.id)
+			scene.building_uses.unregister(own.id)
 			scene.logistics.recalculate()
 		else: scene.logistics.remove_building(own.id)
 		check(scene.logistics.get_job(actor.data.id)==null and own.resources.get_reserved_out(Resources.FOOD)==0 and scene.kitchen_data.resources.get_reserved_in(Resources.FOOD)==0,"Unavailable own base cancels job and releases reservations")

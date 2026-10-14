@@ -115,7 +115,7 @@ func run() -> void:
 	print("Dirt roads: %d checks, %d failures" % [checks,failures])
 	quit(1 if failures else 0)
 func integration() -> void:
-	var world=preload("res://tests/legacy_starter_3d.gd").instantiate()
+	var world=preload("res://tests/settlement_3d_fixture.gd").instantiate()
 	root.add_child(world)
 	world.game_time.set_process(false)
 	world.social_events.enabled=false

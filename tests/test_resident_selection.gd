@@ -1,81 +1,56 @@
 extends SceneTree
-var failures: int = 0
-
-func _initialize() -> void:
-	call_deferred("_run")
-
-func check(condition: bool, message: String) -> void:
-	if not condition:
-		failures += 1
+const Fixture = preload("res://tests/canonical_ui_fixture.gd")
+const Coordinates = preload("res://scripts/world_3d/world_coordinates.gd")
+var failures := 0
+var checks := 0
+func _initialize() -> void: call_deferred("run")
+func check(ok: bool, message: String) -> void:
+	checks+=1
+	if not ok:
+		failures+=1
 		push_error(message)
-
-func click_at(point: Vector2) -> void:
-	var motion := InputEventMouseMotion.new()
-	motion.position = point
-	root.push_input(motion, true)
-	for pressed in [true, false]:
-		var event := InputEventMouseButton.new()
-		event.position = point
-		event.button_index = MOUSE_BUTTON_LEFT
-		event.pressed = pressed
-		root.push_input(event, true)
-
-func _run() -> void:
-	var scene = load("res://scenes/main.tscn").instantiate()
-	root.add_child(scene)
-	preload("res://tests/resident_test_setup.gd").isolate_first(scene)
+func run() -> void:
+	var world=Fixture.make(self)
+	var actor=world.resident_runtimes[0]
+	var card=world.resident_card_view()
+	var selection=world.resident_selection
+	await physics_frame
+	await physics_frame
 	await process_frame
+	check(selection.selected_entity==null and not card.visible,"No selection/card initially")
+	var camera=world.get_node("World/Camera3D")
+	Fixture.click(self,camera.unproject_position(actor.view.global_position+Vector3(0,0.72,0)))
+	await physics_frame
+	await physics_frame
+	check(selection.selected_resident==actor.data and card.visible,"Real perspective ray selects original resident")
+	check(card.name_label.text=="Имя: Степан" and card.age_label.text=="Возраст: 30","Resident name/age")
+	check(card.profession_label.text=="Профессия: Носильщик","Profession")
+	actor.data.resident_name="Проверка"
+	actor.data.age=31
+	card._process(0.25)
+	check(card.name_label.text=="Имя: Проверка" and card.age_label.text=="Возраст: 31","Visible polling reads live fields")
+	Fixture.click(self,card.name_label.get_global_rect().get_center())
+	await physics_frame
+	await physics_frame
+	check(selection.selected_resident==actor.data,"Card click consumes input")
+	paused=true
+	Fixture.click(self,card.close_button.get_global_rect().get_center())
 	await process_frame
-	var selection = scene.get_node("ResidentSelection")
-	var view = scene.resident_runtimes[0].view
-	var card = scene.get_node("HUD/ResidentCard")
-	var camera: Camera2D = scene.get_node("World/Camera2D")
-	var field: Node2D = scene.get_node("World/Field")
-	check(selection.selected_resident == null and not card.visible, "Initially no selection or card")
-	var resident_point: Vector2 = view.get_global_transform_with_canvas() * Vector2.ZERO
-	click_at(resident_point)
-	check(selection.selected_resident == scene.residents[0], "Click selects the original data")
-	check(card.visible, "Card opens on click")
-	check(card.name_label.text == "Имя: Степан", "Card name")
-	check(card.age_label.text == "Возраст: 30", "Card age")
-	check(card.profession_label.text == "Профессия: Носильщик", "Card profession")
-	check(card.id_label.text == "ID: resident_001", "Card ID")
-	# UI must read live data, rather than keeping a resident snapshot.
-	scene.residents[0].resident_name = "Проверка"
-	scene.residents[0].age = 31
-	scene.residents[0].profession = preload("res://scripts/resident_profession.gd").Type.NONE
-	scene.residents[0].id = "test_id"
-	await process_frame
-	await process_frame
-	check(card.name_label.text == "Имя: Проверка" and card.age_label.text == "Возраст: 31", "Card reads current name and age")
-	check(card.profession_label.text == "Профессия: Без профессии" and card.id_label.text == "ID: test_id", "Card reads current profession and ID")
-	await process_frame
-	click_at(card.name_label.get_global_rect().get_center())
-	check(selection.selected_resident == scene.residents[0] and card.visible, "Click on card does not clear selection")
-	click_at(scene.pause_button.get_global_rect().get_center())
-	check(paused and card.visible, "HUD click preserves selection and pauses")
-	click_at(card.close_button.get_global_rect().get_center())
-	check(selection.selected_resident == null and not card.visible, "Close button clears selection on pause")
-	click_at(resident_point)
-	check(selection.selected_resident == scene.residents[0] and card.visible, "Resident selectable on pause")
-	var empty_point: Vector2 = field.get_global_transform_with_canvas() * Vector2(-150, 150)
-	click_at(empty_point)
-	check(selection.selected_resident == null and not card.visible, "Empty field clears selection on pause")
-	paused = false
-	camera.position = Vector2(200, 100)
-	camera.force_update_scroll()
-	await process_frame
-	resident_point = view.get_global_transform_with_canvas() * Vector2(0, -22)
-	click_at(resident_point)
-	check(selection.selected_resident == scene.residents[0], "Head selectable after camera movement")
-	empty_point = field.get_global_transform_with_canvas() * Vector2(-150, 150)
-	click_at(empty_point)
-	check(selection.selected_resident == null and not card.visible, "Empty field clears selection after camera movement")
-	# Selection keeps data independently of the representation's lifetime.
-	click_at(resident_point)
-	view.free()
-	check(selection.selected_resident == scene.residents[0] and card.visible, "Selection survives visual replacement")
+	check(selection.selected_entity==null and not card.visible,"Close clears selection on pause")
+	selection.select(actor.data)
+	Fixture.click(self,Fixture.screen(world,Vector2(-650,400)))
+	await physics_frame
+	await physics_frame
+	check(selection.selected_entity==null,"Empty ground clears on pause")
+	paused=false
+	camera.pan(Vector2.RIGHT,0.5)
+	Fixture.click(self,camera.unproject_position(actor.view.global_position+Vector3(0,0.72,0)))
+	await physics_frame
+	await physics_frame
+	check(selection.selected_resident==actor.data,"Resident selected after perspective camera pan")
+	actor.view.free()
+	check(selection.selected_resident==actor.data and is_instance_valid(actor.data),"Data selection independent of presentation lifetime")
 	selection.clear()
-	scene.queue_free()
-	print("Selection checks: ", "PASS" if failures == 0 else "FAIL (%d)" % failures)
-	quit(0 if failures == 0 else 1)
+	world.free()
+	print("resident_selection: %d checks, %d failures" % [checks,failures])
+	quit(1 if failures else 0)

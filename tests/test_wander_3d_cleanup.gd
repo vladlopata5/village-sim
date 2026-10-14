@@ -18,7 +18,7 @@ func reject(_origin: Vector2, _target: Vector2) -> bool:
 	attempts += 1
 	return false
 func _run() -> void:
-	var scene = preload("res://tests/legacy_starter_3d.gd").instantiate()
+	var scene = preload("res://tests/settlement_3d_fixture.gd").instantiate()
 	root.add_child(scene)
 	scene.game_time.set_process(false)
 	scene.set_process(false)

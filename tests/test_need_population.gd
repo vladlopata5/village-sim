@@ -13,7 +13,7 @@ func check(value: bool, message: String):
 		push_error(message)
 func _run():
 	var critical_recovery: float = -float(Dynamics.FATIGUE_RATES[Activity.Type.SLEEPING]) / Dynamics.UNITS_PER_POINT * Balance.OUTDOOR_SLEEP_QUALITY
-	var scene = load("res://scenes/main.tscn").instantiate()
+	var scene = preload("res://tests/domain_world.gd").instantiate()
 	root.add_child(scene)
 	scene.game_time.set_process(false)
 	for r in scene.resident_runtimes:
@@ -48,8 +48,8 @@ func _run():
 	scene.game_time.debug_skip_minutes(10)
 	check(residents[0].data.hunger == 60 and residents[2].data.hunger == 80 and residents[3].data.fatigue == 100 - int(10 * critical_recovery), "Game time evolves each action independently")
 	scene.resident_selection.select(residents[1].data)
-	scene.get_node("HUD/ResidentCard")._refresh()
-	check(scene.get_node("HUD/ResidentCard").activity_label.text == "Занятие: Отдыхает", "Card displays resident's RESTING activity")
+	scene.resident_card_view()._refresh()
+	check(scene.resident_card_view().activity_label.text == "Занятие: Отдыхает", "Card displays resident's RESTING activity")
 	check(residents[1].data.fatigue < 90 and residents[1].data.fatigue > 85, "Rest is slower than sleeping")
 	scene.game_time.debug_skip_minutes(20)
 	check(residents[2].data.activity == Activity.Type.SLEEPING and residents[2].intents.forced_priority == 100, "Critical food finishes before deferred exhaustion")

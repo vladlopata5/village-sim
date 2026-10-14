@@ -71,7 +71,7 @@ func _run() -> void:
 	rollback.position_provider = func(_id): return Vector2.ZERO
 	rollback.claim_best_job(resident.id)
 	check(rollback.current_job == null and source.resources.get_reserved_out(FOOD) == 2 and destination.resources.get_reserved_in(FOOD) == 0, "Second reservation failure rolls back only this attempt, no job")
-	var scene = load("res://scenes/main.tscn").instantiate()
+	var scene = preload("res://tests/domain_world.gd").instantiate()
 	root.add_child(scene)
 	preload("res://tests/resident_test_setup.gd").isolate_first(scene)
 	scene.game_time.set_process(false)
@@ -88,11 +88,11 @@ func _run() -> void:
 		event.pressed = pressed
 		root.push_input(event, true)
 	check(scene.resident_runtimes[0].view.global_position == position and scene.resident_runtimes[0].intents.current_intent == intent and scene.warehouse_data.resources.get_amount(FOOD) == 10 and scene.kitchen_data.resources.get_amount(FOOD) == 0, "Shift+9 on pause makes no movement, intent or transfer")
-	check(scene.logistics_label.text.contains("зарезервировано на вывоз: 0") and scene.logistics_label.text.contains("зарезервировано под доставку: 0") and scene.logistics_label.text.contains("нет активной доставки"), "UI shows actual job and both reserves")
+	check(scene.warehouse_data.resources.get_reserved_out(FOOD)==0 and scene.kitchen_data.resources.get_reserved_in(FOOD)==0, "Actual reserves released")
 	paused = false
 	scene.game_time.debug_next_phase()
 	check(scene.resident_runtimes[0].view.target_position == scene.world_locations.get_position(&"warehouse_01"), "07:00 delivery uses warehouse source")
-	preload("res://tests/handling_test_step.gd").move_2d(scene.resident_runtimes[0],20.0)
+	preload("res://tests/handling_test_step.gd").move_domain(scene.resident_runtimes[0],20.0)
 	check(scene.residents[0].inventory.amount == 1 and scene.logistics.current_job.state == Job.State.GOING_TO_DESTINATION, "Arriving at warehouse picks up reserved cargo")
 	scene.free()
 	print("Logistics checks: ", "PASS" if failures == 0 else "FAIL (%d)" % failures)

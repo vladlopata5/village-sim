@@ -1,5 +1,7 @@
 # VillageSim — план внедрения нового UI
 
+> Актуализация 2026-10-14: Legacy 2D удалена отдельным согласованным изменением после E6/P1. Требования сохранения `main.tscn`, legacy startup, standalone cards и старых UI defaults ниже относятся только к историческим этапам и больше не действуют. Поддерживается только `main_3d.tscn`; общие domain API сохранены. История аудита/checkpoints не переписана. Полезные 2D domain fixtures заменены изолированными fixtures без renderer, а presentation assertions проверяют canonical UI.
+
 ## 1. Статус и область плана
 
 Дата: 2026-10-13. Исследованный HEAD: `dc65f4593266fafcf36cfa2fb17a924bae7c127a`. План основан на [UI_DESIGN.md](UI_DESIGN.md) и проверенном коде; технические доказательства, схема состояний, геометрия и альтернативы находятся в [UI_ARCHITECTURE_AUDIT.md](UI_ARCHITECTURE_AUDIT.md).

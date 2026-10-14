@@ -15,7 +15,7 @@ func check(ok: bool, message: String) -> void:
 		failures+=1
 		push_error(message)
 func fixture() -> Node:
-	var world = preload("res://tests/legacy_starter_3d.gd").instantiate()
+	var world = preload("res://tests/settlement_3d_fixture.gd").instantiate()
 	root.add_child(world)
 	world.game_time.set_process(false)
 	world.game_time.total_minutes=420
@@ -66,10 +66,15 @@ func run() -> void:
 	actor.builder._on_minute(world.game_time.total_minutes)
 	check(target.construction_progress==30,"Duplicate same-minute update cannot double apply")
 	var actual_position: Vector3 = actor.view.global_position
+	actor.view._exit_building()
 	actor.view.global_position+=Vector3(10,0,0)
 	world.game_time.debug_skip_minutes(5)
 	check(target.construction_progress==30,"Remote worker cannot contribute or bank catch-up time")
 	actor.view.global_position=actual_position
+	actor.view.apply_intent(actor.intents.current_intent)
+	for step in range(2000):
+		actor.view._physics_process(0.05)
+		if world.building_uses.occupied_by(target.id,actor.data.id,preload("res://scripts/building_slot_purpose.gd").Type.CONSTRUCTION): break
 	world.game_time.debug_skip_minutes(1)
 	check(target.construction_progress==31,"Return credits only the next actual working minute")
 	check(world.cancel_construction(target.id) and target.construction_progress==31 and actor.builder.phase==B.Phase.NONE,"Cancellation preserves applied work and cleans assignment")

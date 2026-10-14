@@ -1,7 +1,7 @@
 extends RefCounted
 const FOOD = preload("res://scripts/resource_type.gd").Type.FOOD
 static func make_scene(tree: SceneTree, minute: int = 360, food: int = 2) -> Node:
-	var scene = load("res://scenes/main.tscn").instantiate()
+	var scene = preload("res://tests/domain_world.gd").instantiate()
 	scene.get_node("GameTime").total_minutes = minute
 	tree.root.add_child(scene)
 	preload("res://tests/resident_test_setup.gd").isolate_first(scene)

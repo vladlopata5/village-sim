@@ -41,7 +41,7 @@ var _availability_dirty := true
 var _potential_work := false
 var _waiting_resume_queued := false
 var source_search_count := 0
-# Canonical 3D adapters; legacy keeps its original query and movement defaults.
+# Optional navigation query providers; isolated domain fixtures use generic source queries.
 var material_planner: Callable
 var material_lower_bound: Callable
 var material_path_current: Callable

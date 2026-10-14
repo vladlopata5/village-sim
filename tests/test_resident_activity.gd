@@ -12,7 +12,7 @@ func check(condition: bool, message: String) -> void:
 		push_error(message)
 
 func _run() -> void:
-	var scene = load("res://scenes/main.tscn").instantiate()
+	var scene = preload("res://tests/domain_world.gd").instantiate()
 	root.add_child(scene)
 	preload("res://tests/resident_test_setup.gd").isolate_first(scene)
 	preload("res://tests/resident_test_setup.gd").unbind_work(scene)
@@ -26,7 +26,7 @@ func _run() -> void:
 	var intents = scene.resident_runtimes[0].intents
 	var night = scene.resident_runtimes[0].schedule
 	var clock = scene.game_time
-	var card = scene.get_node("HUD/ResidentCard")
+	var card = scene.resident_card_view()
 	clock.set_process(false)
 	view.set_process(false)
 	scene.resident_selection.select(data)

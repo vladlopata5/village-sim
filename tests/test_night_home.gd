@@ -15,11 +15,10 @@ func check(condition: bool, message: String) -> void:
 
 func schedule_move(point: Vector2) -> void:
 	# This suite isolates the old low-priority schedule source. RMB is tested separately.
-	var scene = root.get_node("Main")
+	var scene = root.get_node("DomainWorld")
 	var selected = scene.resident_selection.selected_resident
 	if selected != null:
-		var field = scene.get_node("World/Field")
-		var world_point: Vector2 = field.to_global(field.get_global_transform_with_canvas().affine_inverse() * point)
+		var world_point: Vector2 = point
 		scene.get_resident_runtime(selected).schedule.request_manual_move(world_point)
 func _run() -> void:
 	# The time reaction also works without Main, a renderer, selection or UI.
@@ -36,7 +35,7 @@ func _run() -> void:
 	var data_without_ui = load("res://scripts/resident_data.gd").new("test", "Test", 30)
 	data_without_ui.home_location_id = &"home_stepan"
 	intents_without_ui.setup(data_without_ui)
-	var locations = load("res://scripts/world_locations_2d.gd").new()
+	var locations = preload("res://tests/domain_locations.gd").new()
 	var marker := Node2D.new()
 	root.add_child(marker)
 	marker.position = Vector2(100, 200)
@@ -53,7 +52,7 @@ func _run() -> void:
 	intents_without_ui.queue_free()
 	marker.queue_free()
 
-	var scene = load("res://scenes/main.tscn").instantiate()
+	var scene = preload("res://tests/domain_world.gd").instantiate()
 	root.add_child(scene)
 	preload("res://tests/resident_test_setup.gd").isolate_first(scene)
 	preload("res://tests/resident_test_setup.gd").unbind_work(scene)
@@ -66,8 +65,7 @@ func _run() -> void:
 	var controller = scene.resident_runtimes[0].schedule
 	var intents = scene.resident_runtimes[0].intents
 	var view = scene.resident_runtimes[0].view
-	var home: Node2D = scene.get_node("World/home_stepan")
-	var field: Node2D = scene.get_node("World/Field")
+	var home: Node = scene.get_node("World/home_stepan")
 	var selection = scene.get_node("ResidentSelection")
 	clock.set_process(false)
 	view.set_process(false)
@@ -81,8 +79,8 @@ func _run() -> void:
 			clock.advance(1.0)
 		selection.select(scene.residents[0])
 		var manual_target := Vector2(-100, 180)
-		schedule_move(field.get_global_transform_with_canvas() * manual_target)
-		check(view.target_position.is_equal_approx(field.to_global(manual_target)), "Low-priority move routes through controller")
+		schedule_move(manual_target)
+		check(view.target_position.is_equal_approx(manual_target), "Low-priority move routes through controller")
 		selection.clear()
 		view.global_position = start
 		clock.total_minutes = 1379
@@ -94,12 +92,12 @@ func _run() -> void:
 		var expected: Vector2 = start.move_toward(home.global_position, 15.0 * multiplier)
 		check(view.global_position.is_equal_approx(expected), "Home movement speed x%d" % multiplier)
 		selection.select(scene.residents[0])
-		schedule_move(field.get_global_transform_with_canvas() * manual_target)
+		schedule_move(manual_target)
 		check(view.target_position == home.global_position, "Night low-priority move cannot override home")
 		view._process(30.0)
 		check(view.global_position == home.global_position and not view.has_movement_target, "Stops at home")
 		check(intents.current_intent.type == ResidentIntent.Type.NONE, "Home arrival clears intent")
-		schedule_move(field.get_global_transform_with_canvas() * manual_target)
+		schedule_move(manual_target)
 		check(view.global_position == home.global_position and not view.has_movement_target, "Night low-priority move cannot send resident away after arrival")
 		clock.total_minutes = 1439
 		clock.advance(1.0 / multiplier)
@@ -121,7 +119,7 @@ func _run() -> void:
 	clock.advance(1000.0)
 	check(clock.get_clock_text() == "23:00", "Clock does not leave night on pause")
 	clock.set_speed(4)
-	schedule_move(field.get_global_transform_with_canvas() * Vector2(-100, 180))
+	schedule_move(Vector2(-100, 180))
 	check(view.target_position == home.global_position, "Night priority holds on pause")
 	clock.toggle_pause()
 	view._process(0.125)
@@ -129,7 +127,7 @@ func _run() -> void:
 	clock.set_speed(1)
 	clock.total_minutes = 1799
 	clock.advance(1.0)
-	schedule_move(field.get_global_transform_with_canvas() * Vector2(-100, 180))
+	schedule_move(Vector2(-100, 180))
 	check(not controller.is_night and view.target_position.is_equal_approx(Vector2(-100, 180)), "Morning restores manual commands")
 	var data = scene.residents[0]
 	check(data.fatigue >= 0 and data.fatigue <= 100 and data.mood == 65 and data.traits.is_empty(), "Night reaction keeps fatigue bounded and preserves mood/traits")

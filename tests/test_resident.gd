@@ -1,43 +1,31 @@
 extends SceneTree
-const ResidentData = preload("res://scripts/resident_data.gd")
-var failures: int = 0
-
-func _initialize() -> void:
-	call_deferred("_run")
-
-func check(condition: bool, message: String) -> void:
-	if not condition:
-		failures += 1
+const Fixture = preload("res://tests/canonical_ui_fixture.gd")
+const Coordinates = preload("res://scripts/world_3d/world_coordinates.gd")
+var failures := 0
+var checks := 0
+func _initialize() -> void: call_deferred("run")
+func check(ok: bool, message: String) -> void:
+	checks+=1
+	if not ok:
+		failures+=1
 		push_error(message)
-
-func _run() -> void:
-	var scene = load("res://scenes/main.tscn").instantiate()
-	root.add_child(scene)
-	preload("res://tests/resident_test_setup.gd").isolate_first(scene)
-	var data = scene.residents[0]
-	var view = scene.resident_runtimes[0].view
-	check(data is RefCounted and not data is Node, "Resident data exists outside the scene tree")
-	check(data.id == "resident_001", "Resident ID")
-	check(data.resident_name == "Степан" and data.age == 30 and data.profession == preload("res://scripts/resident_profession.gd").Type.PORTER, "Test resident fields")
-	check(view.resident_data == data, "View receives the original data reference")
-	check(view.is_visible_in_tree(), "Placeholder visible in the world")
-	var original_position: Vector2 = view.position
+func run() -> void:
+	var world=Fixture.make(self)
+	var actor=world.resident_runtimes[0]
+	var data=actor.data
+	check(data is RefCounted and not data is Node,"Data exists outside SceneTree")
+	check(data.id=="resident_001" and data.resident_name=="Степан" and data.age==30,"Stable starter fields")
+	check(actor.view.resident_data==data and actor.view.view.resident_data==data,"Executor/view share real domain data")
+	check(actor.view.view.is_visible_in_tree(),"Canonical presentation visible")
+	var point=actor.view.global_position
 	await process_frame
-	await process_frame
-	check(view.position == original_position, "Resident remains stationary")
-	# Removing the representation must not remove the resident's data.
-	view.free()
-	check(is_instance_valid(scene.residents[0]) and scene.residents[0] == data, "Data survives removal of the view")
-	# The same data can be passed to a replacement representation.
-	var replacement = load("res://scenes/resident_view_2d.tscn").instantiate()
+	check(actor.view.global_position==point,"Isolated resident stationary")
+	actor.view.view.free()
+	check(is_instance_valid(data) and data==world.player_control.get_resident(data.id),"Removing visual preserves registry")
+	var replacement=preload("res://scripts/world_3d/resident_view_3d.gd").new()
+	actor.view.add_child(replacement)
 	replacement.setup(data)
-	scene.get_node("World").add_child(replacement)
-	check(replacement.resident_data == data, "Replacement view reuses existing resident")
-	var view_count: int = 0
-	for child in scene.get_node("World").get_children():
-		if child.get_script() == preload("res://scripts/resident_view_2d.gd"):
-			view_count += 1
-	check(view_count == 1, "Exactly one resident representation")
-	scene.queue_free()
-	print("Resident checks: ", "PASS" if failures == 0 else "FAIL (%d)" % failures)
-	quit(0 if failures == 0 else 1)
+	check(replacement.resident_data==data,"Replacement reuses same data")
+	world.free()
+	print("resident: %d checks, %d failures" % [checks,failures])
+	quit(1 if failures else 0)

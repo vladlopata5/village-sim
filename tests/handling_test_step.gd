@@ -6,7 +6,7 @@ static func finish(actor: Node) -> void:
 	var clock: Node = actor.needs._clock
 	var duration: int = preload("res://scripts/balance_config.gd").RESOURCE_LOADING_MINUTES if actor.intents.current_intent.resource_handling==&"loading" else preload("res://scripts/balance_config.gd").RESOURCE_UNLOADING_MINUTES
 	clock.debug_skip_minutes(duration)
-static func move_2d(actor: Node, delta: float) -> void:
+static func move_domain(actor: Node, delta: float) -> void:
 	actor.view._process(delta)
 	finish(actor)
 static func move_3d(actor: Node, delta: float) -> void:

@@ -26,7 +26,7 @@ func walk(actor: Node, obstacle: Rect2 = Rect2()) -> bool:
 	check(not actor.view.movement.is_moving(), "Navigation action terminates in bounded steps")
 	return clear
 func _run() -> void:
-	var old = load("res://scenes/main.tscn").instantiate()
+	var old = preload("res://tests/domain_world.gd").instantiate()
 	root.add_child(old)
 	old.game_time.set_process(false)
 	var residents: Array = []
@@ -34,7 +34,7 @@ func _run() -> void:
 	for data in old.residents: residents.append([data.id, data.resident_name, data.profession, data.home_location_id])
 	for data in old.buildings: buildings.append([data.id, data.type, data.position, data.state, data.resources.get_amount(Resources.FOOD), data.resources.get_amount(Resources.PLANK)])
 	old.free()
-	var scene = preload("res://tests/legacy_starter_3d.gd").instantiate()
+	var scene = preload("res://tests/settlement_3d_fixture.gd").instantiate()
 	root.add_child(scene)
 	for frame in range(120):
 		await physics_frame
@@ -46,13 +46,13 @@ func _run() -> void:
 	check(scene.get_node("World/ResidentViews").get_child_count() == 4 and scene.get_node("World/BuildingViews").get_child_count() == 7, "All domain entities have 3D presentations")
 	for i in range(4):
 		var data = scene.residents[i]
-		check([data.id, data.resident_name, data.profession, data.home_location_id] == residents[i], "Resident identity, profession and home match 2D starter")
+		check([data.id, data.resident_name, data.profession, data.home_location_id] == residents[i], "Resident identity, profession and home match deterministic fixture seed")
 		var runtime = scene.resident_runtimes[i]
 		check(runtime.view.resident_data == data and runtime.view.view.resident_data == data, "Executor and child view reference the same domain resident")
 		check(runtime.view.view.position == Vector3.ZERO and runtime.view.get_sim_position() == Coordinates.to_sim(runtime.view.global_position), "Executor owns physical position; view has zero local offset")
 	for i in range(7):
 		var data = scene.buildings[i]
-		check([data.id, data.type, data.position, data.state, data.resources.get_amount(Resources.FOOD), data.resources.get_amount(Resources.PLANK)] == buildings[i], "Building state/resources/location match 2D starter")
+		check([data.id, data.type, data.position, data.state, data.resources.get_amount(Resources.FOOD), data.resources.get_amount(Resources.PLANK)] == buildings[i], "Building state/resources/location match deterministic fixture seed")
 		var view = scene.world_locations.get_view(data.id)
 		check(view.building_data == data and view.global_position == Coordinates.to_world(data.position), "Building view uses domain ID and logical center")
 		var point: Variant = scene.world_locations.get_position(data.id)

@@ -1,14 +1,11 @@
 extends PanelContainer
 # Presentation counters for focused UI diagnostics; never used by simulation.
 var refresh_count := 0
-@export var embedded := false
-@export var embedded_close_path: NodePath
+@export var close_path: NodePath
 var clock: Node
 var _refresh_elapsed := 0.0
-func _widget(id: String, legacy_path: String) -> Node:
-	if not embedded: return get_node(legacy_path)
-	if id in ["ID","State","Type","HousingResidents"]: return null
-	return get_node(embedded_close_path) if id == "Close" else get_node("%" + id)
+func _widget(id: String) -> Node:
+	return get_node(close_path) if id == "Close" else get_node("%" + id)
 
 ## Reads the selected instance. Only presentation is updated; there are no management rules.
 const Selection = preload("res://scripts/resident_selection.gd")
@@ -18,9 +15,8 @@ const ResourceType = preload("res://scripts/resource_type.gd")
 const Balance = preload("res://scripts/balance_config.gd")
 const FOOD = ResourceType.Type.FOOD
 var _control: RefCounted
-@onready var housing_section: VBoxContainer = _widget("Housing", "Margin/Column/Scroll/Content/Housing")
-@onready var housing_count: Label = _widget("HousingCount", "Margin/Column/Scroll/Content/Housing/Count")
-@onready var housing_residents: Label = _widget("HousingResidents", "Margin/Column/Scroll/Content/Housing/Residents")
+@onready var housing_section: VBoxContainer = _widget("Housing")
+@onready var housing_count: Label = _widget("HousingCount")
 var _selection: Selection
 var _building: Instance
 var _last_snapshot: Array = []
@@ -28,27 +24,22 @@ signal settlement_management_requested
 signal staffing_requested(profession: int)
 var staffing_buttons: Dictionary = {}
 var management_button: Button
-@onready var name_label: Label = _widget("Name", "Margin/Column/Scroll/Content/Name")
-@onready var id_label: Label = _widget("ID", "Margin/Column/Scroll/Content/ID")
-@onready var state_label: Label = _widget("State", "Margin/Column/Scroll/Content/State")
-@onready var type_label: Label = _widget("Type", "Margin/Column/Scroll/Content/Type")
-@onready var resources_label: Label = _widget("Resources", "Margin/Column/Scroll/Content/Resources")
-@onready var production_section: VBoxContainer = _widget("Production", "Margin/Column/Scroll/Content/Production")
-@onready var production_label: Label = _widget("Progress", "Margin/Column/Scroll/Content/Production/Progress")
-@onready var construction_section: VBoxContainer = _widget("Construction", "Margin/Column/Scroll/Content/Construction")
-@onready var construction_materials: Label = _widget("Materials", "Margin/Column/Scroll/Content/Construction/Materials")
-@onready var construction_work: Label = _widget("Work", "Margin/Column/Scroll/Content/Construction/Work")
-@onready var construction_builders: Label = _widget("Builders", "Margin/Column/Scroll/Content/Construction/Builders")
-@onready var close_button: Button = _widget("Close", "Margin/Column/Close")
+@onready var name_label: Label = _widget("Name")
+@onready var resources_label: Label = _widget("Resources")
+@onready var production_section: VBoxContainer = _widget("Production")
+@onready var production_label: Label = _widget("Progress")
+@onready var construction_section: VBoxContainer = _widget("Construction")
+@onready var construction_materials: Label = _widget("Materials")
+@onready var construction_work: Label = _widget("Work")
+@onready var construction_builders: Label = _widget("Builders")
+@onready var close_button: Button = _widget("Close")
 func _ready() -> void:
 	hide()
 	management_button = Button.new()
 	management_button.text = "Управление поселением"
 	_info_body().add_child(management_button)
-	if not embedded: $Margin/Column/Scroll/Content.move_child(management_button,4)
-	else: _info_body().move_child(management_button,get_node("%Demolish").get_index())
+	_info_body().move_child(management_button,get_node("%Demolish").get_index())
 	management_button.pressed.connect(func(): settlement_management_requested.emit())
-	if not embedded: close_button.pressed.connect(_close)
 func bind_selection(selection: Selection) -> void:
 	if _selection != null and _selection.selection_changed.is_connected(_on_selection_changed): _selection.selection_changed.disconnect(_on_selection_changed)
 	_selection = selection
@@ -65,22 +56,20 @@ func _on_selection_changed() -> void:
 	if _building != null: _building.construction_changed.connect(_refresh)
 	if _building != null and _building.resources != null:
 		_building.resources.changed.connect(_on_resources_changed)
-	_widget("Scroll", "Margin/Column/Scroll").scroll_vertical = 0
+	_widget("Scroll").scroll_vertical = 0
 	_refresh()
 func _on_resources_changed(_resource: ResourceType.Type, _amount: int) -> void: _refresh()
 func _process(delta: float) -> void:
 	# Same live-data pattern as ResidentCard; no node/list rebuilding per frame.
 	if not is_visible_in_tree(): return
-	if embedded:
-		_refresh_elapsed += delta
-		if _refresh_elapsed < 0.25: return
-		_refresh_elapsed = 0.0
+	_refresh_elapsed += delta
+	if _refresh_elapsed < 0.25: return
+	_refresh_elapsed = 0.0
 	_refresh()
 func _refresh() -> void:
 	refresh_count += 1
 	if management_button != null: management_button.visible = _building != null and _building.is_built() and _building.type == Types.Type.TOWN_CENTER
 	if _building == null:
-		if not embedded: hide()
 		return
 	var amount: int = _building.resources.get_amount(FOOD) if _building.resources != null else 0
 	var capacity: int = _building.resources.get_capacity(FOOD) if _building.resources != null else 0
@@ -92,22 +81,15 @@ func _refresh() -> void:
 	var workers_snapshot: Array = _control.get_workplace_workers(_building.id).map(func(worker): return worker.id) if _control != null else []
 	var porter_snapshot: Array = _control.get_porters(_building.id).map(func(worker): return worker.id) if _control != null else []
 	var snapshot: Array = [workers_snapshot,porter_snapshot,_building.definition.porter_capacity,_building.definition.worker_capacity,_building.definition.housing_capacity,_building.display_name, _building.id, _building.state, _building.type, amount, capacity, _building.production_progress, _building.construction_delivered, _building.construction_progress, _building.active_builder_ids, _building.definition.construction_requirements.duplicate(), _building.definition.construction_work_required, _building.definition.max_builders, resource_lines]
-	if embedded: _refresh_embedded(resource_lines)
+	_refresh_details(resource_lines)
 	if snapshot == _last_snapshot: return
 	_last_snapshot = snapshot
 	name_label.text = _building.display_name
-	if not embedded:
-		id_label.text = "ID: %s" % _building.id
-		state_label.text = "Состояние: " + ("Построено" if _building.is_built() else "Строится")
-		type_label.text = "Тип: " + _type_text(_building.type)
 	if _control != null and _building.is_built() and _building.definition.worker_profession != preload("res://scripts/resident_profession.gd").Type.NONE:
 		var workers: Array = _control.get_workplace_workers(_building.id)
 		resource_lines.append("Работники производства: %d / %d" % [workers.size(),_building.definition.worker_capacity])
-		if not embedded:
-			for worker in workers: resource_lines.append(worker.resident_name + " — " + preload("res://scripts/resident_profession.gd").display_name(worker.profession))
 	if _control != null and _building.is_built() and _building.definition.porter_capacity > 0:
 		resource_lines.append("Носильщики: %d / %d" % [porter_snapshot.size(),_building.definition.porter_capacity])
-	if not embedded: resources_label.text = "\n".join(resource_lines) if not resource_lines.is_empty() else "Ресурсов нет"
 	production_section.visible = _building.is_built() and (_building.type == Types.Type.GATHERER_HUT or _building.definition.production_recipe != null)
 	production_label.text = "FOOD • прогресс: %d / %d рабочих минут" % [_building.production_progress, Balance.GATHERER_WORK_MINUTES_PER_FOOD]
 	if _building.definition.production_recipe != null:
@@ -120,27 +102,10 @@ func _refresh() -> void:
 	construction_materials.text = "Материалы:\n" + ("\n".join(materials) if not materials.is_empty() else "Не требуются")
 	construction_work.text = "Прогресс: %d / %d мин\n%.0f%%" % [_building.construction_progress, _building.definition.construction_work_required, _building.get_construction_progress_ratio() * 100.0]
 	construction_builders.text = "Строители: %d / %d" % [_building.active_builder_ids.size(), _building.definition.max_builders]
-	if embedded:
-		var tabs := available_tabs()
-		if tabs != _presented_tabs:
-			_presented_tabs = tabs
-			presentation_changed.emit()
-	else: show()
-func _type_text(category: int) -> String:
-	match category:
-		Types.Type.FOOD: return "Кухня"
-		Types.Type.STORAGE: return "Склад"
-		Types.Type.GATHERER_HUT: return "Хижина собирателя"
-		Types.Type.QUARRY: return "Каменоломня"
-		Types.Type.LUMBERJACK_HUT: return "Хижина лесоруба"
-		Types.Type.SAWMILL: return "Лесопилка"
-		Types.Type.HOME: return "Дом"
-		Types.Type.TOWN_CENTER: return "Городской центр"
-		_: return "Здание"
-func _close() -> void:
-	if _selection != null and _selection.selected_building != null: _selection.clear()
-
-
+	var tabs := available_tabs()
+	if tabs != _presented_tabs:
+		_presented_tabs = tabs
+		presentation_changed.emit()
 func bind_control(control: RefCounted) -> void:
 	if _control != null and _control.home_changed.is_connected(_on_home_changed): _control.home_changed.disconnect(_on_home_changed)
 	_control = control
@@ -150,16 +115,13 @@ func bind_control(control: RefCounted) -> void:
 func _on_home_changed(_resident_id: String, previous: StringName, current: StringName) -> void:
 	if _building != null and _building.id in [previous, current]:
 		_refresh_housing()
-		if embedded: _refresh()
+		_refresh()
 
 func _refresh_housing() -> void:
 	housing_section.visible = _control != null and _control.is_housing_target(_building)
 	if not housing_section.visible: return
 	var occupants: Array = _control.get_home_occupants(_building.id)
 	housing_count.text = "Жильцы: %d / %d" % [occupants.size(), _building.definition.housing_capacity]
-	var names := PackedStringArray()
-	for resident in occupants: names.append("• " + resident.resident_name)
-	if not embedded: housing_residents.text = "\n".join(names) if not names.is_empty() else "Нет жильцов"
 
 signal presentation_changed
 var _presented_tabs: Array[StringName] = []
@@ -170,7 +132,7 @@ var people_rebuild_count := 0
 var _presentation_expanded := false
 var _image_type := -1
 func _info_body() -> VBoxContainer:
-	return get_node("%Info") if embedded else $Margin/Column/Scroll/Content
+	return get_node("%Info")
 func available_tabs() -> Array[StringName]:
 	var result: Array[StringName] = [&"info"]
 	if _building != null and _building.is_built():
@@ -184,7 +146,7 @@ func apply_presentation(expanded: bool, tab: StringName) -> void:
 	get_node("%Info").visible = tab == &"info"
 	get_node("%ProductionTab").visible = tab == &"production"
 	get_node("%Storage").visible = tab == &"storage"
-func _refresh_embedded(resource_lines: PackedStringArray) -> void:
+func _refresh_details(resource_lines: PackedStringArray) -> void:
 	var profession = preload("res://scripts/resident_profession.gd")
 	var producers: Array = _control.get_production_workers(_building.id) if _control != null else []
 	var porters: Array = _control.get_porters(_building.id) if _control != null else []

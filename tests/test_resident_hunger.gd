@@ -66,7 +66,7 @@ func _run() -> void:
 	check(data.hunger == 100, "Hunger saturates at 100")
 	clock.queue_free()
 	hunger.queue_free()
-	var scene = load("res://scenes/main.tscn").instantiate()
+	var scene = preload("res://tests/domain_world.gd").instantiate()
 	root.add_child(scene)
 	preload("res://tests/resident_test_setup.gd").isolate_first(scene)
 	preload("res://tests/resident_test_setup.gd").unbind_work(scene)
@@ -81,7 +81,7 @@ func _run() -> void:
 	var view = scene.resident_runtimes[0].view
 	view.set_process(false)
 	data = scene.residents[0]
-	var card = scene.get_node("HUD/ResidentCard")
+	var card = scene.resident_card_view()
 	key(KEY_4)
 	check(data.hunger == 20, "Shift+4 without selection does nothing")
 	scene.resident_selection.select(data)

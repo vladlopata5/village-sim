@@ -49,7 +49,7 @@ func _run():
 	destination.resources.add(FOOD, 2)
 	check(is_equal_approx(logistics.collect_candidates(worker.id)[0].world_urgency, 6600), "Smaller current deficit reduces urgency")
 	# Real game: job execution happens only through the decision point.
-	var scene = load("res://scenes/main.tscn").instantiate()
+	var scene = preload("res://tests/domain_world.gd").instantiate()
 	root.add_child(scene)
 	preload("res://tests/resident_test_setup.gd").isolate_first(scene)
 	scene.game_time.set_process(false)
@@ -62,20 +62,20 @@ func _run():
 	check(offered.state == Job.State.GOING_TO_SOURCE and offered.assigned_resident_id == r.data.id, "At daytime decision porter claims and executes")
 	r.data.hunger = 90
 	check(r.intents.current_intent.reason_id == &"haul_source" and offered.state == Job.State.GOING_TO_SOURCE, "Ordinary hunger 90 does not interrupt already-started source route")
-	preload("res://tests/handling_test_step.gd").move_2d(r,20)
+	preload("res://tests/handling_test_step.gd").move_domain(r,20)
 	check(offered.state == Job.State.GOING_TO_DESTINATION, "Pickup continues same job")
 	r.decision.rng.seed = Seed.for_action([{"id": "WORK", "priority": 7000}, {"id": "EAT", "priority": preload("res://scripts/action_utility.gd").eat(90)}], "EAT")
-	preload("res://tests/handling_test_step.gd").move_2d(r,20)
+	preload("res://tests/handling_test_step.gd").move_domain(r,20)
 	check(offered.state == Job.State.COMPLETED and r.data.activity == Activity.EATING, "At delivery boundary seeded selector chooses hunger before next work")
 	check(scene.logistics.jobs.is_empty() and offered.state == Job.State.COMPLETED, "Next delivery remains unclaimed while eating")
 	print("Decision proof: ordinary hunger preserves current haul; after delivery hunger >7000 wins before next claim")
 	scene.game_time.debug_skip_minutes(30)
 	check(r.intents.current_intent.reason_id == &"haul_source", "After eating a new decision claims next job")
 	# No task means personal need below 7000 or an idle segment, never fake work.
-	preload("res://tests/handling_test_step.gd").move_2d(r,20)
-	preload("res://tests/handling_test_step.gd").move_2d(r,20)
-	preload("res://tests/handling_test_step.gd").move_2d(r,20)
-	preload("res://tests/handling_test_step.gd").move_2d(r,20)
+	preload("res://tests/handling_test_step.gd").move_domain(r,20)
+	preload("res://tests/handling_test_step.gd").move_domain(r,20)
+	preload("res://tests/handling_test_step.gd").move_domain(r,20)
+	preload("res://tests/handling_test_step.gd").move_domain(r,20)
 	for need in r.data.needs.values(): need.value = 0
 	r.intents.cancel_current(r.intents.current_intent)
 	var availability = r.decision.work_available
@@ -93,7 +93,7 @@ func _run():
 	check(r.data.activity == Activity.RELAXING, "No job permits a personal need below 7000")
 	scene.free()
 	# Cancellation releases promises before the worker receives a new decision.
-	scene = load("res://scenes/main.tscn").instantiate()
+	scene = preload("res://tests/domain_world.gd").instantiate()
 	root.add_child(scene)
 	preload("res://tests/resident_test_setup.gd").isolate_first(scene)
 	scene.game_time.set_process(false)
@@ -108,7 +108,7 @@ func _run():
 	check(r.decision.decision_count > count and scene.logistics.current_job != cancelled and scene.logistics.current_job.state == Job.State.GOING_TO_SOURCE, "Cancelled job gives worker a fresh decision before another claim")
 	scene.free()
 	# A critical change inside a synchronous claim callback must win after cleanup.
-	scene = load("res://scenes/main.tscn").instantiate()
+	scene = preload("res://tests/domain_world.gd").instantiate()
 	root.add_child(scene)
 	preload("res://tests/resident_test_setup.gd").isolate_first(scene)
 	scene.game_time.set_process(false)

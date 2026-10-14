@@ -3,18 +3,16 @@
 Актуальные цены: см. «2026-10-12 — Актуальные строительные рецепты» в конце документа.
 Исторические цены ниже не являются текущим балансом.
 
-## Текущий запуск: canonical main_3d (2026-10-09)
+## Единственная поддерживаемая игровая сцена (2026-10-14)
 
-Основная playable scene — `scenes/main_3d.tscn`; F5 / Run Project запускает её.
-Основной foundation перехода 2D → 3D/2.5D завершён. `scenes/main.tscn` сохранена
-как legacy/reference presentation/runtime и запускается отдельно (F6 / direct
-scene startup), включая существующие integration tests. Simulation/Domain остаётся
-общей активной архитектурой, не legacy. Новые gameplay/world features развиваются
-прежде всего в main_3d; параллельное развитие 2D требует отдельной причины.
-Исторические записи ниже о F5/2D default описывают прошлые этапы и заменены этим
-статусом. Это завершение foundation, не реализация отложенных cargo visuals, terrain,
-crowd avoidance или полноценной interaction-point system.
-
+VillageSim запускается только через `res://scenes/main_3d.tscn` (F5 / Run Project).
+Legacy 2D окончательно выведена из эксплуатации и удалена. Совместимость со старым
+HUD и legacy startup больше не являются требованиями. Simulation/Domain остаётся
+общей действующей системой; Vector2 в ней обозначает логические координаты мира,
+а не поддержку 2D-рендеринга. Независимый ортографический 2.5D-прототип сохранён
+как тестовый стенд камеры/навигации; он не является альтернативной игровой сценой.
+Исторические записи о старой сцене описывают завершённые этапы и не служат
+инструкцией запуска. Каноническая камера перспективная; результаты E6 и P1 сохранены.
 
 ## 2026-10-04
 
@@ -2915,3 +2913,18 @@ AI scheduler, new ledger, threading or resource mutation during availability was
 Legacy Builder still uses the original ResourceSources.find and movement defaults.
 Generic find, Porter/self-logistics, food, social events, UI and camera are untouched.
 Measurements and acceptance: C:/Users/SW/Documents/Codex/outputs/performance-optimization-p1/REPORT.md.
+
+## 2026-10-14 — Remove legacy 2D scene and compatibility code
+
+Единственная поддерживаемая игровая сцена VillageSim — `res://scenes/main_3d.tscn`.
+Legacy 2D окончательно выведена из эксплуатации и удалена по решению пользователя.
+Предыдущие требования сохранять `main.tscn`, standalone UI и legacy startup отменены.
+
+- `scripts/main.gd` сохранён как общая сборка симуляции, поскольку Main3D наследует её. Удалены старые renderer factories, HUD telemetry, Camera2D input, screen registry и prebuilt legacy starter из production.
+- Специализированные ResidentCard/BuildingCard обслуживают только композицию InfoPanel; standalone bindings и режим `embedded` удалены. TimeControls подписан напрямую на прежние minute/speed signals, без старых Main relays. Лента и меню сохраняют согласованный canonical UX.
+- Полезные старые проверки ресурсов, резервов, AI, расписания и назначений перенесены на изолированные domain fixtures с детерминированным executor без rendering/input. Реальные GUI/raycast/movement assertions используют main_3d. Prebuilt settlement seed существует только в tests; в игровом Main3D нет переключателя legacy setup.
+- Независимый ортографический прототип оставлен: его используют camera/navigation tests и основа perspective controller. Это тестовый стенд, не игровой fallback.
+- NavigationGrid, BuildingPlacement, ResourceSources/P1, AI/логистика и игровые формулы не заменены. Одноразовый base confirm остаётся domain API, canonical adapter продолжает последовательное размещение.
+- Vector2/Rect2 в domain и build/navigation calculations остаются логическими координатами плоскости, а не legacy presentation.
+
+Подробные результаты и артефакты: `C:/Users/SW/Documents/Codex/outputs/legacy-removal/REPORT.md`.

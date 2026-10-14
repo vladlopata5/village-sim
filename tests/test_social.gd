@@ -10,7 +10,7 @@ func check(value: bool, message: String):
 		failures += 1
 		push_error(message)
 func make_scene():
-	var scene = load("res://scenes/main.tscn").instantiate()
+	var scene = preload("res://tests/domain_world.gd").instantiate()
 	root.add_child(scene)
 	scene.game_time.set_process(false)
 	scene.logistics.cancel_job(scene.logistics.current_job)
@@ -65,7 +65,7 @@ func _run():
 	check(world.groups.values()[0].participants.size() == 4, "Conversation is not restricted to pairs")
 	print("Conversation proof: 4 participants TALKING")
 	scene.resident_selection.select(r[0].data)
-	var card = scene.get_node("HUD/ResidentCard")
+	var card = scene.resident_card_view()
 	card._refresh()
 	check("Общение: 80" in card.social_label.text and "Разговаривает" in card.activity_label.text, "Card reads selected social need and activity")
 	var old_social: int = r[0].data.get_need(Type.SOCIAL).value

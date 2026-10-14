@@ -365,7 +365,7 @@ func _search_key(critical: bool) -> Array:
 func _food_reachable(target: Vector2) -> bool:
 	if not target.is_finite(): return false
 	var origin: Variant = _food_origin()
-	if not origin is Vector2 or sources == null: return true # Standalone legacy controller fixtures.
+	if not origin is Vector2 or sources == null: return true # Isolated controller fixtures without a bound source registry.
 	if not origin.is_finite(): return false
 	food_route_checks += 1
 	return sources.reachable(origin,target)

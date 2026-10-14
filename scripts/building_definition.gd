@@ -14,7 +14,7 @@ const CONSTRUCTION_BALANCE = {
 	BuildingType.Type.GATHERER_HUT: {"requirements": {ResourceType.Type.LOG:6}, "minutes": 180, "builders": 2},
 	BuildingType.Type.HOME: {"requirements": {ResourceType.Type.LOG:8,ResourceType.Type.STONE:2}, "minutes": 180, "builders": 2},
 }
-# Explicit 3D physical area in build cells; legacy size remains the 2D visual footprint.
+# Explicit 3D physical area in build cells; size remains the shared logical footprint in simulation coordinates.
 const FOOTPRINT_CELLS = {
 	BuildingType.Type.QUARRY: Vector2i(12,8),
 	BuildingType.Type.TOWN_CENTER: Vector2i(16,12),
