@@ -47,7 +47,7 @@ func run() -> void:
 		var window=world.settlement_panel
 		var camera: Camera3D=world.get_node("World/Camera3D")
 		var transform: Transform3D=camera.global_transform
-		var zoom: float=camera.size
+		var zoom: float=camera.get_zoom_distance()
 		var prefix:="polish_%d_" % resolution.x
 		await settle()
 		var viewport: Rect2=root.get_visible_rect()
@@ -221,7 +221,7 @@ func run() -> void:
 			scroll.scroll_horizontal=int(scroll.get_h_scroll_bar().max_value)
 			await settle()
 			check(viewport.encloses(green.buttons[&"fixture_11"].get_global_rect()),"Last menu entry has an on-screen hit area through scrolling")
-		check(camera.global_transform==transform and camera.size==zoom,"All native UI transitions preserve camera")
+		check(camera.global_transform==transform and camera.get_zoom_distance()==zoom,"All native UI transitions preserve camera")
 		world.free();await settle()
 	root.size=Vector2i(1440,900) # Existing project default, no stretch/settings mutation.
 	world=F.create(self)

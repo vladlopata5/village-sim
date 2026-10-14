@@ -208,7 +208,7 @@ func integration() -> void:
 	var camera_before: Vector3=camera.position
 	camera.pan(Vector2.RIGHT,0.1)
 	camera.zoom(1)
-	check(camera.position!=camera_before and camera.size<44,"Camera pan/zoom unchanged")
+	check(camera.position!=camera_before and camera.get_zoom_distance()<76,"Camera pan/zoom unchanged")
 	toggle.button_pressed=true
 	actor.view._physics_process(0)
 	check(world.navigation_debug._smooth.mesh!=null and world.navigation_debug._smooth.mesh.get_surface_count()>0,"Toggle ON keeps real committed route visualization")

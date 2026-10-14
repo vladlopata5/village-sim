@@ -108,16 +108,16 @@ func run() -> void:
 	# Actual physics picking keeps interior residents selectable through the mesh.
 	var camera: Camera3D=world.get_node("World/Camera3D")
 	var camera_position:=camera.position
-	var camera_size:=camera.size
+	var camera_distance: float=camera.get_zoom_distance()
 	camera.position=Coordinates.to_world(gather.position)+Vector3(30,50.56,30)
-	camera.size=12
+	camera.set_zoom_distance(12 / (2 * tan(deg_to_rad(camera.fov / 2))))
 	await physics_frame
 	var hit: Dictionary=world.pick(camera.unproject_position(population[0].view.global_position+Vector3.UP))
 	check(hit.get("collider") is ResidentView,"Raycast selects interior resident through transparent building")
 	world.handle_world_click(MOUSE_BUTTON_LEFT,hit)
 	check(world.resident_selection.selected_resident!=null and world.resident_selection.selected_building==null,"Interior selection remains unified")
 	camera.position=camera_position
-	camera.size=camera_size
+	camera.set_zoom_distance(camera_distance)
 	world.resident_selection.clear()
 	var old_progress: int=gather.production_progress
 	world.production._produce(gather)

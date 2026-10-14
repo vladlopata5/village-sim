@@ -79,7 +79,7 @@ func run() -> void:
 		var info=world.game_ui.info_panel
 		var camera: Camera3D=world.get_node("World/Camera3D")
 		var before: Transform3D=camera.global_transform
-		var zoom: float=camera.size
+		var zoom: float=camera.get_zoom_distance()
 		check(panel.collapsed,"Collapsed initial menu")
 		await capture(prefix+"collapsed")
 		click(panel.collapse_button)
@@ -159,7 +159,7 @@ func run() -> void:
 		check(world.settlement_panel.visible and not world.settlement_panel.get_global_rect().intersects(info.get_global_rect()),"Existing Residents window and expanded blue coexist")
 		await capture(prefix+"residents_window")
 		key(KEY_ESCAPE)
-		check(camera.global_transform==before and camera.size==zoom,"UI/placement/rotation/road/selection preserve camera")
+		check(camera.global_transform==before and camera.get_zoom_distance()==zoom,"UI/placement/rotation/road/selection preserve camera")
 		# Actual Ground sources, physical pickup/handling/delivery and Builder cycles.
 		if resolution.x==1920:
 			var logs: Dictionary=world.debug_spawn.spawn_resources(Vector3(-15,0,8),6,R.LOG)

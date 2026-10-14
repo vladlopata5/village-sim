@@ -17,7 +17,7 @@ func run() -> void:
 	var ui=world.game_ui
 	var camera: Camera3D=world.get_node("World/Camera3D")
 	var transform: Transform3D=camera.global_transform
-	var zoom: float=camera.size
+	var zoom: float=camera.get_zoom_distance()
 	var no_view=Resident.new("no_view","Алексей Очень Длинное Имя Жителя Поселения",42,P.NONE)
 	var twin=Resident.new("twin","Алексей Очень Длинное Имя Жителя Поселения",42,P.NONE)
 	pc.register_resident(no_view);pc.register_resident(twin)
@@ -104,7 +104,7 @@ func run() -> void:
 	wheel.pressed=true;wheel.button_index=MOUSE_BUTTON_WHEEL_DOWN;wheel.position=window.table.get_global_rect().get_center()
 	root.push_input(wheel,true)
 	wheel.pressed=false;root.push_input(wheel.duplicate(),true)
-	check(camera.size==zoom,"Table wheel never zooms camera")
+	check(camera.get_zoom_distance()==zoom,"Table wheel never zooms camera")
 	world._cancel_active_world_tool()
 	F.click(self,window.search)
 	check(ui.input_context.text_editing(),"Search can regain text focus before closing")
@@ -120,7 +120,7 @@ func run() -> void:
 	pc.unregister_resident(later.id)
 	await process_frame
 	check(not window.rows.has(later.id),"Removed resident releases stale TreeItem")
-	check(camera.global_transform==transform and camera.size==zoom,"All window/dialog/selection transitions preserve camera")
+	check(camera.global_transform==transform and camera.get_zoom_distance()==zoom,"All window/dialog/selection transitions preserve camera")
 	world.free()
 	print("E4 residents window: %d checks, %d failures" % [checks,failures])
 	quit(1 if failures else 0)

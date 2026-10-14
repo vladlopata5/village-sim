@@ -2824,3 +2824,25 @@ Type-preview transition сохраняет expanded локальным presentat
 до synchronous cancellation/selection.clear callbacks и передаёт его InfoPanel.
 Обычный clear/отмена возвращает compact Day. Новый selection/инструмент не создан;
 confirm/generation/rotation/repeated-placement code не изменён. E6 не начат.
+
+## 2026-10-14 — Canonical perspective camera (фаза A)
+
+Canonical main_3d использует perspective adapter, prototype сохраняет ортографию.
+Ориентация pitch −50° / yaw 45° и ground focus (0.00108,0,0.00108) сохранены.
+Постоянный vertical FOV 35°, начальная дистанция 76 world units, near 0.1 / far 500.
+Диапазон дистанции 19.0296–253.7276 соответствует прежним projected spans 12–160;
+шаг 5.07455 соответствует прежним 3.2 units. Первоначальная геометрическая
+калибровка уточнена по реальному Town Center, чтобы ближайшее здание не уходило
+под HUD. Масштаб/позиция сравниваются в camera-rendered.json, снимки до/после
+сохранены вне Git в outputs/e6-perspective-camera.
+
+Zoom dolly сохраняет ground focus и FOV; MMB использует два screen rays и
+пересечения с y=0, а не параллельность ортографических лучей. WASD/стрелки и
+скорость 20 world units/sec сохранены, keyboard zoom scaling ранее отсутствовал.
+Отдельных пользовательских rotation keys в исходном контроллере не было.
+orbit_to_yaw предоставляет narrow direction change с сохранением pivot/pitch
+для regression QA, без новых команд. UIInputContext, Main3D pick/ground_pick,
+сеточные validators, simulation и viewport/stretch не изменены.
+
+Прежние camera.size assertions canonical tests заменены реальной дистанцией;
+orthographic prototype tests сохранены. Фаза B/E6 проверяется отдельно.

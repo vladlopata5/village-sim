@@ -55,7 +55,7 @@ func capture(f: Dictionary, name: String, selected: RefCounted = null) -> void:
 	var camera: Camera3D = f.world.get_node("World/Camera3D")
 	var focus: Vector3 = preload("res://scripts/world_3d/world_coordinates.gd").to_world(selected.position) if selected!=null else f.actor.view.get_world_position()
 	camera.position=focus+camera.basis.z*40
-	camera.size=30
+	camera.set_zoom_distance(30 / (2 * tan(deg_to_rad(camera.fov / 2))))
 	await process_frame
 	await process_frame
 	await RenderingServer.frame_post_draw

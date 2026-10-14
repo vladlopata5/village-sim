@@ -36,7 +36,7 @@ func run() -> void:
 	var b=world.residents[1]
 	var camera: Camera3D=world.get_node("World/Camera3D")
 	var transform_before:=camera.global_transform
-	var zoom_before:=camera.size
+	var zoom_before: float=camera.get_zoom_distance()
 	check(world.game_ui.residents_button.text=="↗ Жители: 4","Existing residents caption uses correct UTF-8 text")
 	check(panel.visible and panel.day_summary.visible and panel.day_summary.text=="День 1" and not panel.expanded,"Initial persistent day card")
 	selection.select(a)
@@ -147,7 +147,7 @@ func run() -> void:
 	selection.select_building(house)
 	world.player_control.unregister_building(house.id)
 	check(selection.selected_entity==null,"Unregister selected building clears stale selection")
-	check(camera.global_transform==transform_before and camera.size==zoom_before,"All card transitions leave camera transform/zoom unchanged")
+	check(camera.global_transform==transform_before and camera.get_zoom_distance()==zoom_before,"All card transitions leave camera transform/zoom unchanged")
 	var control=world.player_control
 	world.free()
 	check(a.relationship_changed.get_connections().all(func(c): return c.callable.get_object()!=resident),"Destroyed card leaves no relationship callbacks")

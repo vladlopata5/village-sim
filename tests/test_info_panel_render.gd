@@ -35,7 +35,7 @@ func capture(world: Node, label: String, rendered: bool) -> void:
 	check(frame.position.y >= 139.9 or not panel.expanded,"Expanded card remains below time block: "+label)
 	check(not frame.intersects(world.game_ui.time_controls.get_global_rect()),"Time and info never overlap: "+label)
 	check(not world.settlement_panel.visible or not frame.intersects(world.settlement_panel.get_global_rect()),"Ordinary window never overlaps blue: "+label)
-	measurements.append({"case":label,"window":str(root.size),"viewport":str(root.get_visible_rect()),"stretch":str(root.get_stretch_transform()),"info":str(frame),"window_rect":str(world.settlement_panel.get_global_rect()),"expanded":panel.expanded,"tab":panel.active_tab,"camera":str(camera.global_transform),"zoom":camera.size})
+	measurements.append({"case":label,"window":str(root.size),"viewport":str(root.get_visible_rect()),"stretch":str(root.get_stretch_transform()),"info":str(frame),"window_rect":str(world.settlement_panel.get_global_rect()),"expanded":panel.expanded,"tab":panel.active_tab,"camera":str(camera.global_transform),"zoom":camera.get_zoom_distance()})
 	if rendered:
 		await RenderingServer.frame_post_draw
 		root.get_texture().get_image().save_png(OUT+label+".png")
@@ -82,7 +82,7 @@ func run() -> void:
 	var selection=world.resident_selection
 	var camera: Camera3D=world.get_node("World/Camera3D")
 	var original_transform:=camera.global_transform
-	var original_zoom:=camera.size
+	var original_zoom: float=camera.get_zoom_distance()
 	for resolution in [Vector2i(1920,1080),Vector2i(1600,900)]:
 		root.size=resolution
 		await process_frame
@@ -114,7 +114,7 @@ func run() -> void:
 		root.push_input(wheel,true)
 		wheel.pressed=false
 		root.push_input(wheel,true)
-		check(camera.size==original_zoom,"Wheel on real expanded card never zooms camera")
+		check(camera.get_zoom_distance()==original_zoom,"Wheel on real expanded card never zooms camera")
 		for entity in [home,saw,store,world.warehouse_data,site]:
 			selection.select_building(entity)
 			panel.select_tab(&"info")
@@ -139,7 +139,7 @@ func run() -> void:
 		check(panel.show_type_preview(Def.for_type(Types.SAWMILL)),"Standalone preview uses real definition")
 		await capture(world,prefix+"type_preview",rendered)
 		panel.clear_type_preview()
-		check(camera.global_transform==original_transform and camera.size==original_zoom,"No card action changes camera at either resolution")
+		check(camera.global_transform==original_transform and camera.get_zoom_distance()==original_zoom,"No card action changes camera at either resolution")
 	if rendered:
 		var file:=FileAccess.open(OUT+"rendered-measurements.json",FileAccess.WRITE)
 		file.store_string(JSON.stringify(measurements,"\t"))

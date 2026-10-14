@@ -2531,3 +2531,12 @@ context учитывает assignment revision; команды и critical needs
 статус unassigned и отдельные counts в BuildingCard. Полный staffing panel, выбор
 конкретного workplace в F10 и окончательный большой распределённый playtest отложены.
 DebugSpawn пользуется штатной capacity и сообщает unassigned count без bypass.
+
+## 2026-10-14 — Текущая canonical камера: perspective
+
+Canonical `scenes/main_3d.tscn`: FOV 35°, ground-focus distance 76, range
+19.0296–253.7276, near/far 0.1/500; pitch −50°, yaw 45°. WASD/стрелки, MMB
+grab-map и колесо сохранены. При zoom меняется дистанция, FOV постоянен.
+Историческое описание orthographic camera относится к прежнему canonical
+checkpoint и к `scenes/prototypes/2_5d_prototype.tscn`, который не мигрирован.
+World coordinates, модели, UI и игровые механики не масштабируются.

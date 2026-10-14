@@ -12,7 +12,7 @@ func check(value: bool, message: String) -> void:
 		push_error(message)
 func snapshot(world: Node) -> Dictionary:
 	var camera: Camera3D = world.get_node("World/Camera3D")
-	return {"transform": camera.global_transform, "zoom": camera.size}
+	return {"transform": camera.global_transform, "zoom": camera.get_zoom_distance()}
 func click(control: Control) -> void:
 	var point := control.get_global_rect().get_center()
 	var motion := InputEventMouseMotion.new()

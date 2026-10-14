@@ -43,7 +43,7 @@ func run() -> void:
 	if "--rendered" in OS.get_cmdline_user_args():
 		var camera = scene.get_node("World/Camera3D")
 		camera.global_position = Vector3(-20,0,-8) + Vector3(20,28,20)
-		camera.size = 50
+		camera.set_zoom_distance(50 / (2 * tan(deg_to_rad(camera.fov / 2))))
 	scene.navigation.add_blocker(&"test_wall",Rect2(-10,-40,1,80))
 	var before: int = scene.navigation._connectivity.builds
 	scene.game_time.advance(0.05) # Actual x20 minute/phase boundary, including HUD signals.

@@ -49,7 +49,7 @@ func run() -> void:
 	var catalog=panel.catalogue
 	var camera: Camera3D=world.get_node("World/Camera3D")
 	var before: Transform3D=camera.global_transform
-	var zoom: float=camera.size
+	var zoom: float=camera.get_zoom_distance()
 	check(panel.collapsed and panel.sections.size()==2,"Only Construction TAB and Residents QUICK_WINDOW; initial collapsed")
 	check(panel.sections[0].kind==panel.Kind.TAB and panel.sections[1].kind==panel.Kind.QUICK_WINDOW,"Distinct registered action kinds")
 	var names:=[]
@@ -182,8 +182,8 @@ func run() -> void:
 	var wheel:=InputEventMouseButton.new()
 	wheel.button_index=MOUSE_BUTTON_WHEEL_DOWN;wheel.pressed=true;wheel.position=panel.get_global_rect().get_center()
 	root.push_input(wheel,true)
-	check(camera.size==zoom,"Catalogue wheel never zooms camera")
-	check(camera.global_transform==before and camera.size==zoom,"All UI transitions preserve camera")
+	check(camera.get_zoom_distance()==zoom,"Catalogue wheel never zooms camera")
+	check(camera.global_transform==before and camera.get_zoom_distance()==zoom,"All UI transitions preserve camera")
 	world.free()
 	var legacy=load("res://scenes/main.tscn").instantiate()
 	root.add_child(legacy)

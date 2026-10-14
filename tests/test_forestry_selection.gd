@@ -31,7 +31,7 @@ func capture(label: String,scene: Node,actor: Node) -> void:
 	var forward := -camera.global_basis.z
 	var center := camera.global_position+forward*(-camera.global_position.y/forward.y)
 	camera.global_position += Vector3(-23-center.x,0,-8-center.z)
-	camera.size=20
+	camera.set_zoom_distance(20 / (2 * tan(deg_to_rad(camera.fov / 2))))
 	await process_frame
 	await RenderingServer.frame_post_draw
 	DirAccess.make_dir_recursive_absolute("res://.godot/forestry_qa")

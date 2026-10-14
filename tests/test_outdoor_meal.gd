@@ -67,7 +67,7 @@ func capture(world: Node, actor: Node, label: String) -> void:
 	var center := camera.global_position + forward*(-camera.global_position.y/forward.y)
 	var focus: Vector3 = actor.view.global_position
 	camera.global_position += Vector3(focus.x-center.x,0,focus.z-center.z)
-	camera.size = 14
+	camera.set_zoom_distance(14 / (2 * tan(deg_to_rad(camera.fov / 2))))
 	await process_frame
 	await RenderingServer.frame_post_draw
 	check(root.get_texture().get_image().save_png("C:/Users/SW/Documents/Codex/outputs/outdoor-meal-lifecycle/"+label+".png") == OK,"Rendered lifecycle snapshot")

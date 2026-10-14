@@ -132,7 +132,7 @@ func run() -> void:
 	var camera: Camera3D = world.get_node("World/Camera3D")
 	camera.position=Vector3(45,30,20)
 	camera.look_at(Vector3(29,0,-2))
-	camera.size=30
+	camera.set_zoom_distance(30 / (2 * tan(deg_to_rad(camera.fov / 2))))
 	await capture("quarry_internal_courier")
 	world.game_time.debug_skip_minutes(10)
 	check(collect.state==Job.State.COMPLETED and quarry.resources.get_amount(R.STONE)==1 and miner.view._marker==null,"Unload commits and exits portal")

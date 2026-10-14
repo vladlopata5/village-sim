@@ -54,19 +54,19 @@ func run() -> void:
 	var point: Vector2=ui.time_controls.get_global_rect().get_center()
 	var count: int=world.buildings.size()
 	world._select_building_definition(preload("res://scripts/building_definition.gd").for_type(preload("res://scripts/building_type.gd").Type.HOME))
-	var before: float=camera.size
+	var before: float=camera.get_zoom_distance()
 	for button in [MOUSE_BUTTON_LEFT,MOUSE_BUTTON_RIGHT,MOUSE_BUTTON_WHEEL_UP]:
 		mouse(point,button,true)
 		mouse(point,button,false)
 	await physics_frame
 	check(world.buildings.size()==count and world.placement.is_active() and world._clicks.is_empty(),"UI press/release neither confirms nor cancels placement or queues world click")
-	check(camera.size==before,"Wheel over UI never zooms camera")
+	check(camera.get_zoom_distance()==before,"Wheel over UI never zooms camera")
 	world.placement.cancel()
 	ui.open_window(&"residents")
 	var scroll: Vector2=world.settlement_panel.get_global_rect().get_center()
 	mouse(scroll,MOUSE_BUTTON_WHEEL_DOWN,true)
 	mouse(scroll,MOUSE_BUTTON_WHEEL_DOWN,false)
-	check(camera.size==before,"Scrollable population window owns wheel")
+	check(camera.get_zoom_distance()==before,"Scrollable population window owns wheel")
 	ui.close_window()
 	world.social_feed.add_message("Проверка границы существующей ленты")
 	await process_frame

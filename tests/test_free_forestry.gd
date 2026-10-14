@@ -88,7 +88,7 @@ func run() -> void:
 	var camera: Camera3D = scene.get_node("World/Camera3D")
 	camera.position=Vector3(-9,30,11)
 	camera.look_at(Vector3(-29,0,-9))
-	camera.size=40
+	camera.set_zoom_distance(40 / (2 * tan(deg_to_rad(camera.fov / 2))))
 	scene.resident_selection.select(actor.data)
 	await capture("free_ground_logs")
 	# Shared area and normal phase decision (no direct request_work).

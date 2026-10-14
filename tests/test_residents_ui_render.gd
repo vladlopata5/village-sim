@@ -60,7 +60,7 @@ func run() -> void:
 		var info=world.game_ui.info_panel
 		var camera: Camera3D=world.get_node("World/Camera3D")
 		var transform: Transform3D=camera.global_transform
-		var zoom: float=camera.size
+		var zoom: float=camera.get_zoom_distance()
 		var prefix:="e4_%d_" % resolution.x
 		await settle()
 		F.click(self,world.game_ui.residents_button)
@@ -75,7 +75,7 @@ func run() -> void:
 			wheel.pressed=true;root.push_input(wheel.duplicate(),true)
 			wheel.pressed=false;root.push_input(wheel.duplicate(),true)
 		await settle()
-		check(window.table.get_scroll().y>scroll_before and camera.size==zoom,"Actual large-list wheel scroll, no camera zoom")
+		check(window.table.get_scroll().y>scroll_before and camera.get_zoom_distance()==zoom,"Actual large-list wheel scroll, no camera zoom")
 		await capture(prefix+"scrolled_list")
 		await choose_option(window.sort_order,1)
 		F.click(self,window.reverse_order)
@@ -167,7 +167,7 @@ func run() -> void:
 		check(not window.visible and world.placement.is_active(),"Esc 2 closes Residents only")
 		F.key(self,KEY_ESCAPE)
 		check(not world.placement.is_active(),"Esc 3 cancels existing world tool")
-		check(camera.global_transform==transform and camera.size==zoom,"All real GUI actions preserve camera")
+		check(camera.global_transform==transform and camera.get_zoom_distance()==zoom,"All real GUI actions preserve camera")
 		world.free()
 		await settle()
 	var file:=FileAccess.open(OUT+("rendered-measurements.json" if rendered else "headless-gui.json"),FileAccess.WRITE)

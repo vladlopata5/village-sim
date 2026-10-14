@@ -3,7 +3,7 @@
 [ext_resource type="Script" uid="uid://crfwjlyt88s0t" path="res://scripts/world_3d/main_3d.gd" id="1"]
 [ext_resource type="Script" uid="uid://btw8hfkqy6bu1" path="res://scripts/game_time.gd" id="2"]
 [ext_resource type="Script" uid="uid://btfdjqx1ufser" path="res://scripts/world_3d/field_3d.gd" id="3"]
-[ext_resource type="Script" uid="uid://b2b3v0h8sfgbr" path="res://scripts/prototypes/prototype_camera_3d.gd" id="4"]
+[ext_resource type="Script" path="res://scripts/world_3d/perspective_camera_3d.gd" id="4"]
 [ext_resource type="Script" uid="uid://bm5jodm3hctts" path="res://scripts/resident_selection.gd" id="5"]
 [ext_resource type="PackedScene" path="res://scenes/ui/game_ui.tscn" id="6"]
 
@@ -31,15 +31,14 @@ script = ExtResource("3")
 
 [node name="Camera3D" type="Camera3D" parent="World" unique_id=656168221]
 process_mode = 3
-transform = Transform3D(0.70710677, -0.5416752, 0.45451948, 0, 0.64278764, 0.76604444, -0.70710677, -0.5416752, 0.45451948, 30, 50.56, 30)
-projection = 1
+transform = Transform3D(0.70710677, -0.5416752, 0.45451948, 0, 0.64278764, 0.76604444, -0.70710677, -0.5416752, 0.45451948, 34.54456174, 58.21937744, 34.54456174)
+projection = 0
+fov = 35.0
+near = 0.1
+far = 500.0
 current = true
-size = 44.0
 script = ExtResource("4")
 movement_speed = 20.0
-zoom_step = 3.2
-min_zoom = 12.0
-max_zoom = 160.0
 
 [node name="Light" type="DirectionalLight3D" parent="World" unique_id=359556534]
 transform = Transform3D(0.8660254, 0.4531539, -0.21130912, 0, 0.42261824, 0.9063078, 0.5, -0.7848856, 0.36599812, 0, 0, 0)

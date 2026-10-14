@@ -38,35 +38,22 @@ func run() -> void:
 	await process_frame
 	var position_before := camera.global_position
 	var rotation_before := camera.rotation_degrees
-	var zoom_before := camera.size
+	var zoom_before: float = camera.get_zoom_distance()
 	for yaw in [45.0,-25.0]:
-		camera.rotation_degrees.y = yaw
-		for zoom_size in [camera.min_zoom,camera.max_zoom]:
-			camera.size = zoom_size
+		for distance in [camera.min_distance,camera.max_distance]:
+			camera.global_transform=Transform3D(Basis.from_euler(rotation_before*PI/180.0),position_before)
+			camera.orbit_to_yaw(yaw)
+			camera.set_zoom_distance(distance)
 			for relative in [Vector2(40,0),Vector2(-40,0),Vector2(0,40),Vector2(0,-40),Vector2(30,-20)]:
-				camera.global_position = position_before
-				var screen_before := camera.unproject_position(Vector3.ZERO)
-				camera.drag_pan(relative)
-				var screen_delta := camera.unproject_position(Vector3.ZERO)-screen_before
-				check(screen_delta.distance_to(relative)<0.001,"Grab-map screen displacement equals mouse delta at either yaw/zoom")
-				check(is_equal_approx(camera.global_position.y,position_before.y) and camera.rotation_degrees.is_equal_approx(Vector3(rotation_before.x,yaw,rotation_before.z)),"Drag changes neither height nor pitch/yaw")
-	camera.global_position = position_before
-	camera.keep_aspect = Camera3D.KEEP_WIDTH
-	var width_screen := camera.unproject_position(Vector3.ZERO)
-	camera.drag_pan(Vector2(40,20))
-	check((camera.unproject_position(Vector3.ZERO)-width_screen).distance_to(Vector2(40,20))<0.001,"Drag respects orthographic KEEP_WIDTH aspect mode too")
-	camera.keep_aspect = Camera3D.KEEP_HEIGHT
-	camera.rotation_degrees = rotation_before
-	camera.global_position = position_before
-	camera.size = camera.min_zoom
-	camera.drag_pan(Vector2(40,20))
-	var close_distance := camera.global_position.distance_to(position_before)
-	camera.global_position = position_before
-	camera.size = camera.max_zoom
-	camera.drag_pan(Vector2(40,20))
-	check(is_equal_approx(camera.global_position.distance_to(position_before)/close_distance,camera.max_zoom/camera.min_zoom),"Mouse world pan scales linearly with orthographic zoom")
-	camera.global_position = position_before
-	camera.size = zoom_before
+				var cursor:=Vector2(640,360)
+				var grabbed: Vector3=Plane(Vector3.UP,0).intersects_ray(camera.project_ray_origin(cursor),camera.project_ray_normal(cursor))
+				var height_before:=camera.global_position.y
+				camera.drag_pan(relative,cursor+relative)
+				check(camera.unproject_position(grabbed).distance_to(cursor+relative)<0.002,"Perspective grabbed point follows mouse at either yaw/zoom")
+				check(is_equal_approx(camera.global_position.y,height_before) and is_equal_approx(camera.rotation_degrees.x,rotation_before.x),"Drag preserves height and pitch")
+	camera.global_position=position_before
+	camera.rotation_degrees=rotation_before
+	camera.set_zoom_distance(zoom_before)
 	camera.pan(Vector2.UP,0.25)
 	check(is_equal_approx(camera.global_position.distance_to(position_before),camera.movement_speed*0.25),"Keyboard pan speed unchanged")
 	camera.global_position = position_before
@@ -101,7 +88,7 @@ func run() -> void:
 	wheel.position = Vector2(700,450) # Uncovered world, not the selected card.
 	wheel.pressed = true
 	root.push_input(wheel,true)
-	check(is_equal_approx(camera.size,zoom_before-camera.zoom_step),"Real wheel zoom input unchanged")
+	check(is_equal_approx(camera.get_zoom_distance(),zoom_before-camera.distance_step),"Real wheel dollies toward original focus")
 	camera._mouse_panning = true
 	camera._notification(Node.NOTIFICATION_WM_WINDOW_FOCUS_OUT)
 	check(not camera._mouse_panning,"Focus loss stops mouse drag")
