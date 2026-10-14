@@ -16,13 +16,18 @@ var cancel_button: Button
 var _actions: VBoxContainer
 var _connections: Array = []
 var _dismiss_button := 0
+var _poll_elapsed := 0.0
+var refresh_count := 0
 func _ready() -> void:
 	position=Vector2(254,250)
 	size=Vector2(440,260)
-	var style := StyleBoxFlat.new()
-	style.bg_color=Color(0.10,0.17,0.20,1)
-	for side in [SIDE_LEFT,SIDE_RIGHT,SIDE_TOP,SIDE_BOTTOM]: style.set_content_margin(side,12)
-	add_theme_stylebox_override("panel",style)
+	if has_theme_stylebox("panel", "WindowPanel"):
+		theme_type_variation = &"WindowPanel"
+	else:
+		var style := StyleBoxFlat.new()
+		style.bg_color=Color(0.10,0.17,0.20,1)
+		for side in [SIDE_LEFT,SIDE_RIGHT,SIDE_TOP,SIDE_BOTTOM]: style.set_content_margin(side,12)
+		add_theme_stylebox_override("panel",style)
 	var column := VBoxContainer.new()
 	column.add_theme_constant_override("separation",4)
 	add_child(column)
@@ -106,8 +111,12 @@ func _error(key: Variant) -> String:
 	if error.is_empty() and resident.work_location_id==building_id and resident.profession==key: return "Житель уже работает здесь в этой роли"
 	return error
 func _refresh() -> void:
-	if not visible: return
+	if not is_visible_in_tree(): return
 	if not _valid_context(): close(); return
+	refresh_count += 1
+	var resident = control.get_resident(resident_id)
+	var building = control.get_building(building_id)
+	title_label.text="Назначение жителя «%s»\nЗдание: «%s»" % [resident.resident_name,building.display_name]
 	for key in buttons:
 		var error := _error(key)
 		buttons[key].disabled=not error.is_empty()
@@ -141,6 +150,12 @@ func _visibility_changed() -> void:
 		if building!=null and building.construction_changed.is_connected(_availability_changed): building.construction_changed.disconnect(_availability_changed)
 	_resident=null;_building=null
 	resident_id="";building_id=&""
+func _process(delta: float) -> void:
+	if not is_visible_in_tree(): return
+	_poll_elapsed += delta
+	if _poll_elapsed < 0.25: return
+	_poll_elapsed=0.0
+	_refresh()
 func _availability_changed() -> void: _refresh()
 func _resident_changed(_id: String) -> void: _refresh()
 func _home_changed(_id: String, _previous: StringName, _current: StringName) -> void: _refresh()

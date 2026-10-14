@@ -16,6 +16,7 @@ func _ready() -> void:
 	add_child(_categories)
 	for category in categories:
 		var button := Button.new()
+		button.theme_type_variation = &"GreenTab"
 		button.text = category.title
 		button.toggle_mode = true
 		button.focus_mode = Control.FOCUS_NONE
@@ -35,6 +36,7 @@ func _ready() -> void:
 		for entry in category.entries:
 			entries[entry.id] = entry
 			var tile := Button.new()
+			tile.theme_type_variation = &"GreenTab"
 			tile.custom_minimum_size = Vector2(160,96)
 			tile.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			tile.focus_mode = Control.FOCUS_NONE

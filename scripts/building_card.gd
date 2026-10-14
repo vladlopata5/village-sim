@@ -1,4 +1,6 @@
 extends PanelContainer
+# Presentation counters for focused UI diagnostics; never used by simulation.
+var refresh_count := 0
 @export var embedded := false
 @export var embedded_close_path: NodePath
 var clock: Node
@@ -67,13 +69,14 @@ func _on_selection_changed() -> void:
 func _on_resources_changed(_resource: ResourceType.Type, _amount: int) -> void: _refresh()
 func _process(delta: float) -> void:
 	# Same live-data pattern as ResidentCard; no node/list rebuilding per frame.
-	if not visible: return
+	if not is_visible_in_tree(): return
 	if embedded:
 		_refresh_elapsed += delta
 		if _refresh_elapsed < 0.25: return
 		_refresh_elapsed = 0.0
 	_refresh()
 func _refresh() -> void:
+	refresh_count += 1
 	if management_button != null: management_button.visible = _building != null and _building.is_built() and _building.type == Types.Type.TOWN_CENTER
 	if _building == null:
 		if not embedded: hide()
@@ -87,7 +90,7 @@ func _refresh() -> void:
 			if limit > 0: resource_lines.append("%s: %d / %d" % [ResourceType.display_name(resource), _building.resources.get_amount(resource), limit])
 	var workers_snapshot: Array = _control.get_workplace_workers(_building.id).map(func(worker): return worker.id) if _control != null else []
 	var porter_snapshot: Array = _control.get_porters(_building.id).map(func(worker): return worker.id) if _control != null else []
-	var snapshot: Array = [workers_snapshot,porter_snapshot,_building.definition.porter_capacity,_building.display_name, _building.id, _building.state, _building.type, amount, capacity, _building.production_progress, _building.construction_delivered, _building.construction_progress, _building.active_builder_ids, _building.definition.construction_requirements.duplicate(), _building.definition.construction_work_required, _building.definition.max_builders, resource_lines]
+	var snapshot: Array = [workers_snapshot,porter_snapshot,_building.definition.porter_capacity,_building.definition.worker_capacity,_building.definition.housing_capacity,_building.display_name, _building.id, _building.state, _building.type, amount, capacity, _building.production_progress, _building.construction_delivered, _building.construction_progress, _building.active_builder_ids, _building.definition.construction_requirements.duplicate(), _building.definition.construction_work_required, _building.definition.max_builders, resource_lines]
 	if embedded: _refresh_embedded(resource_lines)
 	if snapshot == _last_snapshot: return
 	_last_snapshot = snapshot
@@ -161,6 +164,7 @@ var _presented_tabs: Array[StringName] = []
 var visitors_provider: Callable
 var natural_progress_provider: Callable
 var _people_snapshot: Array = []
+var people_rebuild_count := 0
 func _info_body() -> VBoxContainer:
 	return get_node("%Info") if embedded else $Margin/Column/Scroll/Content
 func available_tabs() -> Array[StringName]:
@@ -221,8 +225,9 @@ func _refresh_people(producers: Array, porters: Array) -> void:
 	if _control == null: return
 	var residents: Array = _control.get_home_occupants(_building.id) if _control.is_housing_target(_building) else []
 	var visitors: Array = visitors_provider.call(_building.id) if visitors_provider.is_valid() else []
-	var snapshot: Array = [producers.map(func(r): return [r.id,r.resident_name]),porters.map(func(r): return [r.id,r.resident_name]),residents.map(func(r): return [r.id,r.resident_name]),visitors,_building.active_builder_ids,_building.id,_building.state,_building.definition.worker_capacity,_building.definition.porter_capacity]
+	var snapshot: Array = [producers.map(func(r): return [r.id,r.resident_name]),porters.map(func(r): return [r.id,r.resident_name]),residents.map(func(r): return [r.id,r.resident_name]),visitors,_building.active_builder_ids,_building.id,_building.state,_building.definition.worker_capacity,_building.definition.porter_capacity,_building.definition.housing_capacity]
 	if snapshot == _people_snapshot: return
+	people_rebuild_count += 1
 	_people_snapshot = snapshot
 	var body: VBoxContainer = get_node("%People")
 	for child in body.get_children():
@@ -279,6 +284,12 @@ func _add_person(body: VBoxContainer, person: RefCounted, housing: bool, removab
 	var button := Button.new()
 	button.text = person.resident_name
 	button.clip_text = true
+	if person.resident_name.length()>24:
+		var full_name := Label.new()
+		full_name.text = person.resident_name
+		full_name.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		body.add_child(full_name)
+		body.move_child(full_name,row.get_index())
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	button.focus_mode = Control.FOCUS_NONE
 	button.pressed.connect(_select_person.bind(person.id))

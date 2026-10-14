@@ -62,6 +62,7 @@ func run() -> void:
 	ui.time_controls.pause_button.pressed.emit()
 	world.game_time.total_minutes=1505
 	world.game_time.minute_changed.emit(1505)
+	await process_frame # E5 coalesces clock paint after domain listeners.
 	check(ui.time_controls.day_label.text=="День 2" and world.clock_label.text=="01:05","Day/time come from simulation clock")
 	var before := snapshot(world)
 	world.resident_selection.select(world.residents[0])

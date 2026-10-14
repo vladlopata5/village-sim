@@ -674,7 +674,7 @@ func _build_hud() -> void:
 	game_ui.mount_messages(social_feed)
 	game_ui.info_panel.setup(game_time,resident_selection,player_control,logistics.get_job,_ui_visitors,_ui_natural_progress)
 	building_uses.slots_changed.connect(_ui_slots_changed)
-func _update_clock(_minutes: int) -> void: game_ui.time_controls.refresh_clock()
+func _update_clock(_minutes: int) -> void: game_ui.time_controls.request_clock_refresh()
 func _update_pause() -> void: game_ui.time_controls.refresh_pause()
 func _update_population() -> void: game_ui.update_population(residents.size())
 func _update_phase(_phase: String) -> void: pass

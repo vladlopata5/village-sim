@@ -1,4 +1,6 @@
 extends PanelContainer
+# Presentation counters for focused UI diagnostics; never used by simulation.
+var refresh_count := 0
 @export var embedded := false
 @export var embedded_close_path: NodePath
 var clock: Node
@@ -114,14 +116,19 @@ func bind_selection(selection: ResidentSelection) -> void:
 	_on_selection_changed()
 
 func _process(delta: float) -> void:
-	if not visible: return
+	if not is_visible_in_tree(): return
 	if embedded:
 		_refresh_elapsed += delta
 		if _refresh_elapsed < 0.25: return
 		_refresh_elapsed = 0.0
 	_refresh()
+	if embedded:
+		_refresh_home()
+		_refresh_work_place()
+		if get_node("%Relations").is_visible_in_tree(): _refresh_known_relationships()
 
 func _refresh() -> void:
+	refresh_count += 1
 	if _selection == null or _selection.selected_resident == null:
 		if not embedded: hide()
 		return
@@ -200,6 +207,7 @@ func _on_selection_changed() -> void:
 	_refresh()
 
 func _refresh_assignments() -> void:
+	assignment_rebuild_count += 1
 	# Rebuild on assignment/selection events only, never from the per-frame card refresh.
 	for child in assignment_list.get_children():
 		assignment_list.remove_child(child)
@@ -355,6 +363,8 @@ func _refresh_work_place() -> void:
 var job_provider: Callable
 var _needs_connected: Array = []
 var _relationship_snapshot: Array = [null]
+var relationship_rebuild_count := 0
+var assignment_rebuild_count := 0
 func _work_body() -> VBoxContainer:
 	return get_node("%WorkBody") if embedded else $Margin/Column/Scroll/Content
 func apply_presentation(expanded: bool, tab: StringName) -> void:
@@ -383,6 +393,7 @@ func _refresh_known_relationships() -> void:
 			var other = _control.get_resident(String(id))
 			if other != null: snapshot.append([other.id, other.resident_name, _assignment_resident.get_opinion(id)])
 	if snapshot == _relationship_snapshot: return
+	relationship_rebuild_count += 1
 	_relationship_snapshot = snapshot
 	var list: VBoxContainer = get_node("%RelationshipLinks")
 	for child in list.get_children():
@@ -393,6 +404,11 @@ func _refresh_known_relationships() -> void:
 		var button := Button.new()
 		button.text = "%s: %+d" % [entry[1], entry[2]]
 		button.clip_text = true
+		if str(entry[1]).length()>24:
+			var full_name := Label.new()
+			full_name.text = str(entry[1])
+			full_name.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			list.add_child(full_name)
 		button.focus_mode = Control.FOCUS_NONE
 		button.pressed.connect(_select_related.bind(entry[0]))
 		list.add_child(button)

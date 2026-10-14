@@ -1,5 +1,7 @@
 extends PanelContainer
 ## The existing GameTime is the sole clock; this component only presents it.
+var refresh_count := 0
+var _clock_pending := false
 var clock: Node
 @onready var clock_label: Label = $Column/ClockRow/Clock
 @onready var day_label: Label = $Column/ClockRow/Day
@@ -25,7 +27,15 @@ func setup(time: Node, pause_action: Callable) -> void:
 	timer.start()
 	refresh_clock()
 	refresh_pause()
+func request_clock_refresh() -> void:
+	if _clock_pending: return
+	_clock_pending=true
+	_flush_clock.call_deferred()
+func _flush_clock() -> void:
+	_clock_pending=false
+	refresh_clock()
 func refresh_clock() -> void:
+	refresh_count += 1
 	clock_label.text = clock.get_clock_text()
 	day_label.text = "День %d" % (floori(float(clock.total_minutes) / 1440.0) + 1)
 func refresh_pause() -> void:

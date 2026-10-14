@@ -1,7 +1,12 @@
 extends PanelContainer
+# Presentation counters for focused UI diagnostics; never used by simulation.
+var refresh_count := 0
 ## A Tree projection of PlayerControl's registry; never a second population model.
 signal assignment_requested(resident_id: String)
 const Profession = preload("res://scripts/resident_profession.gd")
+var row_creation_count := 0
+var poll_count := 0
+var registry_scan_count := 0
 var control: RefCounted
 var selection: Node
 var rows: Dictionary = {} # resident ID -> existing TreeItem (presentation only).
@@ -23,13 +28,18 @@ var _pending := false
 var _layout_pending := false
 var _connections: Array = []
 var _pressed_id := ""
+var _poll_elapsed := 0.0
+var _display_snapshot: Dictionary = {}
 func _ready() -> void:
 	position=Vector2(134,160)
 	size=Vector2(680,400)
-	var style := StyleBoxFlat.new()
-	style.bg_color=Color(0.12,0.15,0.13,1)
-	for side in [SIDE_LEFT,SIDE_RIGHT,SIDE_TOP,SIDE_BOTTOM]: style.set_content_margin(side,12)
-	add_theme_stylebox_override("panel",style)
+	if has_theme_stylebox("panel", "WindowPanel"):
+		theme_type_variation = &"WindowPanel"
+	else:
+		var style := StyleBoxFlat.new()
+		style.bg_color=Color(0.12,0.15,0.13,1)
+		for side in [SIDE_LEFT,SIDE_RIGHT,SIDE_TOP,SIDE_BOTTOM]: style.set_content_margin(side,12)
+		add_theme_stylebox_override("panel",style)
 	var column := VBoxContainer.new()
 	column.add_theme_constant_override("separation",4)
 	add_child(column)
@@ -87,6 +97,21 @@ func _ready() -> void:
 	footer.add_child(close)
 	visibility_changed.connect(_visibility_changed)
 	hide()
+func _process(delta: float) -> void:
+	if not is_visible_in_tree() or control==null: return
+	_poll_elapsed += delta
+	if _poll_elapsed < 1.0: return
+	_poll_elapsed = 0.0
+	_poll_visible()
+func _poll_visible() -> void:
+	if not is_visible_in_tree() or control==null: return
+	poll_count += 1
+	for id in rows:
+		var resident = control.get_resident(id)
+		if resident==null: continue
+		var snapshot := [resident.resident_name,resident.age,workplace_label(resident)]
+		if _display_snapshot.get(id)!=snapshot: _row_changed(id)
+	_selection_changed()
 func _options(parent: Node, title: String, values: Array) -> OptionButton:
 	var column := VBoxContainer.new()
 	column.size_flags_horizontal=Control.SIZE_EXPAND_FILL
@@ -136,18 +161,20 @@ func _home_changed(id: String, _previous: StringName, _current: StringName) -> v
 func _building_removed(_id: StringName) -> void: _registry_changed()
 func _selection_changed() -> void:
 	var building = selection.selected_building
-	context_label.text="Жители" if building==null else "Жители • выбранное здание: "+building.display_name
+	var caption: String="Жители" if building==null else "Жители • выбранное здание: "+building.display_name
+	if context_label.text==caption: return
+	context_label.text=caption
 	_layout_fixed.call_deferred()
 func _projection_changed() -> void:
 	_projection_dirty=true
 	_queue_refresh()
 func _queue_refresh() -> void:
-	if not visible or _pending or control==null: return
+	if not is_visible_in_tree() or _pending or control==null: return
 	_pending=true
 	_flush.call_deferred()
 func _visibility_changed() -> void:
 	_pressed_id=""
-	if visible and control!=null:
+	if is_visible_in_tree() and control!=null:
 		_flush()
 		_layout_fixed.call_deferred()
 func _layout_fixed() -> void:
@@ -192,6 +219,7 @@ func _update_row(id: String) -> void:
 	var resident = control.get_resident(id)
 	if resident==null: return
 	if not rows.has(id):
+		row_creation_count += 1
 		var new_item := table.create_item(_root)
 		new_item.set_metadata(0,id)
 		new_item.custom_minimum_height=30
@@ -202,15 +230,19 @@ func _update_row(id: String) -> void:
 	item.set_text(0,resident.resident_name)
 	item.set_text(1,Profession.display_name(resident.profession))
 	item.set_text(2,workplace_label(resident))
+	_display_snapshot[id]=[resident.resident_name,resident.age,item.get_text(2)]
 func _flush() -> void:
 	_pending=false
-	if not visible or control==null: return
+	if not is_visible_in_tree() or control==null: return
+	refresh_count += 1
 	if _roster_dirty:
+		registry_scan_count += 1
 		var ids: Array=control.get_residents().map(func(resident): return resident.id)
 		for id in rows.keys():
 			if id not in ids:
 				rows[id].free()
 				rows.erase(id)
+				_display_snapshot.erase(id)
 		for id in ids: _dirty_ids[id]=true
 		_roster_dirty=false
 	for id in _dirty_ids: _update_row(id)
@@ -227,7 +259,7 @@ func _flush() -> void:
 		if previous!=null: item.move_after(previous)
 		previous=item
 		if item.visible: visible_ids.append(id)
-	count_label.text="Показано: %d / %d" % [visible_ids.size(),rows.size()]
+	count_label.text=("Совпадений нет • " if visible_ids.is_empty() else "")+"Показано: %d / %d" % [visible_ids.size(),rows.size()]
 func preset_profession(role: int=-1) -> void:
 	search.text=""
 	profession_filter.select(0)

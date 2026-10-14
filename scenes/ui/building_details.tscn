@@ -13,7 +13,13 @@ embedded_close_path = NodePath("../../Header/Close")
 layout_mode = 2
 unique_name_in_owner = true
 
-[node name="Compact" type="VBoxContainer" parent="Column"]
+[node name="CompactScroll" type="ScrollContainer" parent="Column"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 160)
+horizontal_scroll_mode = 0
+mouse_force_pass_scroll_events = false
+[node name="Compact" type="VBoxContainer" parent="Column/CompactScroll"]
+size_flags_horizontal = 3
 layout_mode = 2
 unique_name_in_owner = true
 theme_override_constants/separation = 1
@@ -27,19 +33,19 @@ mouse_force_pass_scroll_events = false
 layout_mode = 2
 unique_name_in_owner = true
 size_flags_horizontal = 3
-[node name="Name" type="Label" parent="Column/Compact"]
+[node name="Name" type="Label" parent="Column/CompactScroll/Compact"]
 layout_mode = 2
 unique_name_in_owner = true
 autowrap_mode = 3
 text = ""
 theme_override_font_sizes/font_size = 18
-[node name="Summary" type="Label" parent="Column/Compact"]
+[node name="Summary" type="Label" parent="Column/CompactScroll/Compact"]
 layout_mode = 2
 unique_name_in_owner = true
 autowrap_mode = 3
 text = ""
 theme_override_font_sizes/font_size = 13
-[node name="StaffSummary" type="Label" parent="Column/Compact"]
+[node name="StaffSummary" type="Label" parent="Column/CompactScroll/Compact"]
 layout_mode = 2
 unique_name_in_owner = true
 autowrap_mode = 3

@@ -2,6 +2,7 @@ extends PanelContainer
 ## Owns only presentation state. Selection and simulation objects remain external.
 signal preview_close_requested
 const TITLES = {&"bio":"Био",&"work":"Работа",&"relations":"Отношения",&"info":"Инфо",&"production":"Производство",&"storage":"Склад"}
+var tab_rebuild_count := 0
 var selection: Node
 var clock: Node
 var control: RefCounted
@@ -48,6 +49,7 @@ func _sync_tabs() -> void:
 	elif selection.selected_building != null: tabs = building_details.available_tabs()
 	if active_tab not in tabs: active_tab = tabs[0] if not tabs.is_empty() else &""
 	if tabs != _tabs:
+		tab_rebuild_count += 1
 		_tabs = tabs
 		for child in $Column/Tabs.get_children():
 			$Column/Tabs.remove_child(child)
@@ -87,7 +89,7 @@ func _apply() -> void:
 	building_details.apply_presentation(expanded,active_tab)
 	_layout()
 func _layout() -> void:
-	var height := 52.0 if day_summary.visible else (568.0 if expanded else 152.0)
+	var height := 52.0 if day_summary.visible else (568.0 if expanded else 208.0)
 	reset_size()
 	offset_left = -320.0
 	offset_right = 0.0

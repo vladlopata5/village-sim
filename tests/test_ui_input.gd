@@ -65,6 +65,7 @@ func run() -> void:
 	ui.open_window(&"residents")
 	var scroll: Vector2=world.settlement_panel.get_global_rect().get_center()
 	mouse(scroll,MOUSE_BUTTON_WHEEL_DOWN,true)
+	mouse(scroll,MOUSE_BUTTON_WHEEL_DOWN,false)
 	check(camera.size==before,"Scrollable population window owns wheel")
 	ui.close_window()
 	world.social_feed.add_message("Проверка границы существующей ленты")
@@ -72,8 +73,9 @@ func run() -> void:
 	var feed_point: Vector2=world.social_feed.get_global_rect().get_center()
 	mouse(feed_point,MOUSE_BUTTON_RIGHT,true)
 	mouse(feed_point,MOUSE_BUTTON_RIGHT,false)
+	check(not ui.input_context.pointer_blocked(feed_point) and not world._clicks.is_empty(),"Passive message feed permits normal world input")
+	world._clear_world_input()
 	await physics_frame
-	check(world._clicks.is_empty() and world.resident_runtimes[0].commands.active_command==null,"IGNORE message feed still prevents world commands")
 	# An interface transition must discard an already queued world click.
 	mouse(Vector2(700,450),MOUSE_BUTTON_RIGHT,true)
 	check(not world._clicks.is_empty(),"World click initially enters normal deferred queue")
@@ -90,11 +92,11 @@ func run() -> void:
 	world._road_dragging=true
 	world.road_tool._previous=Vector2i(10,10)
 	var motion := InputEventMouseMotion.new()
-	motion.position=feed_point
+	motion.position=point
 	root.push_input(motion,true)
 	await physics_frame
 	check(world.road_tool._previous==null,"Road motion through UI ends stroke; no interpolation across UI")
-	mouse(feed_point,MOUSE_BUTTON_LEFT,false)
+	mouse(point,MOUSE_BUTTON_LEFT,false)
 	check(not world._road_dragging,"Release observed even over UI")
 	world._cancel_road_tool()
 	# A real focused field and real global keyboard state exercise the polling camera.

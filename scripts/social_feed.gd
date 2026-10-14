@@ -1,6 +1,7 @@
 extends PanelContainer
 ## Short-lived UI output, independent from game-time diary history.
 const Balance = preload("res://scripts/balance_config.gd")
+var newest_first := false # Enabled by canonical presentation; legacy default remains.
 var messages: Array = []
 var _column: VBoxContainer
 var _scroll: ScrollContainer
@@ -27,11 +28,12 @@ func add_message(text: String) -> void:
 	if text.is_empty(): return
 	var label := Label.new()
 	label.text = text
-	label.custom_minimum_size.x = 540
+	label.custom_minimum_size.x = 0 if newest_first else 540
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	label.add_theme_font_size_override("font_size", 13)
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_column.add_child(label)
+	if newest_first: _column.move_child(label,0)
 	messages.append(label)
 	while messages.size() > Balance.SOCIAL_FEED_MAX_MESSAGES: expire_message(messages[0])
 	visible = true
@@ -40,6 +42,8 @@ func add_message(text: String) -> void:
 	timer.one_shot = true
 	timer.wait_time = Balance.SOCIAL_FEED_LIFETIME_SECONDS
 	add_child(timer)
+	# Keep the existing timer hierarchy; clean up evicted timers with their labels.
+	label.set_meta("expiry_timer",weakref(timer))
 	var label_reference: WeakRef = weakref(label)
 	timer.timeout.connect(func():
 		var expired: Label = label_reference.get_ref()
@@ -48,10 +52,13 @@ func add_message(text: String) -> void:
 	timer.start()
 func expire_message(label: Label) -> void:
 	if not label in messages: return
+	var timer_reference: WeakRef = label.get_meta("expiry_timer",null)
+	var timer: Timer = timer_reference.get_ref() if timer_reference!=null else null
+	if timer!=null: timer.queue_free()
 	messages.erase(label)
 	_column.remove_child(label)
 	label.queue_free()
 	visible = not messages.is_empty()
 
 func _show_latest() -> void:
-	_scroll.scroll_vertical = int(_scroll.get_v_scroll_bar().max_value)
+	_scroll.scroll_vertical = 0 if newest_first else int(_scroll.get_v_scroll_bar().max_value)

@@ -15,10 +15,7 @@ var _column: VBoxContainer
 var _contents: VBoxContainer
 var _row: HBoxContainer
 func _ready() -> void:
-	var style := StyleBoxFlat.new()
-	style.bg_color=Color(0.09,0.24,0.14,0.97)
-	for side in [SIDE_LEFT,SIDE_RIGHT,SIDE_TOP,SIDE_BOTTOM]: style.set_content_margin(side,6)
-	add_theme_stylebox_override("panel",style)
+	theme_type_variation = &"GreenPanel"
 	_column=VBoxContainer.new()
 	add_child(_column)
 	_contents=VBoxContainer.new()
@@ -50,6 +47,7 @@ func register_section(id: StringName, title: String, kind: Kind, content: Contro
 		content.visible=active_tab==id
 	var button := Button.new()
 	button.text=title if kind==Kind.TAB else "↗ "+title
+	button.theme_type_variation = &"GreenTab" if kind==Kind.TAB else &"QuickButton"
 	button.focus_mode=Control.FOCUS_NONE
 	button.toggle_mode=kind==Kind.TAB
 	button.pressed.connect(_activate.bind(id))

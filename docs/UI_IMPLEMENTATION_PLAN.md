@@ -472,3 +472,22 @@ selection, Unicode input, крупный реестр Debug spawn и реаль�
 Подробные проверки, screenshots и ограничения:
 C:/Users/SW/Documents/Codex/outputs/ui-e4-residents/REPORT.md.
 E5/E6 и будущие журнал/демонтаж/HP не начинались.
+
+## Фактический checkpoint E5 (2026-10-14)
+
+Общая Theme, canonical newest-first passive SocialFeed и visible-only read
+fallback реализованы. Срок жизни/лимит/источники социальных сообщений сохранены.
+Окно использует прежние TreeItems, dirty/coalesced updates и существующий реестр;
+silent name/age/workplace labels проверяются не чаще одного раза в секунду.
+Карточки/диалог используют существующие события и bounded 0.25-second fallback.
+Минутные обновления canonical time display coalesced после domain callbacks.
+
+Rendered layout уточнил compact Blue до 320×208 logical units, чтобы длинное
+имя не скрывало остальные обязательные сведения; особо длинное содержимое
+прокручивается. Expanded Blue 320×568, ResidentsWindow 680×400 и dialog 440×260
+сохранены. Viewport/stretch/камера не менялись. Реальные GUI проверки выполнены
+на 1920×1080 и 1600×900; подробные результаты и ограничения находятся вне Git
+в `C:/Users/SW/Documents/Codex/outputs/ui-e5-polish/REPORT.md`.
+
+E6 не начат. Журнал, уведомления, демонтаж, HP и новые игровые механики не входят
+в реализованный этап.

@@ -33,8 +33,9 @@ func mount_messages(feed: Control) -> void:
 	feed.reparent($MessagesAnchor)
 	feed.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
 	feed.position = Vector2.ZERO
-	feed.size = Vector2(560, 102)
-	register_pointer_control(feed)
+	feed.size = Vector2(560, 110)
+	feed.newest_first = true
+	# Decorative messages do not own pointer input. All children already IGNORE.
 func mount_construction(panel: PanelContainer) -> void:
 	_construction=panel
 	panel.reparent($ActionsAnchor)
@@ -61,6 +62,9 @@ func update_population(count: int) -> void:
 func register_window(id: StringName, window: Control) -> void:
 	assert(not _windows.has(id))
 	window.reparent($Windows)
+	if window is PanelContainer:
+		window.remove_theme_stylebox_override("panel")
+		window.theme_type_variation = &"WindowPanel"
 	_windows[id] = window
 	window.hide()
 	register_pointer_control(window)
