@@ -83,10 +83,11 @@ func _apply() -> void:
 	day_summary.visible = not resident and not building and not is_preview
 	$Column/Header.visible = not day_summary.visible
 	$Column/Tabs.visible = expanded and not _tabs.is_empty()
-	$Column/Header/Expand.text = "Свернуть" if expanded else "Развернуть"
+	$Column/Header/Expand.text = "▼" if expanded else "▲"
 	for button in $Column/Tabs.get_children(): button.set_pressed_no_signal(button.get_meta("tab_id")==active_tab)
 	resident_details.apply_presentation(expanded,active_tab)
 	building_details.apply_presentation(expanded,active_tab)
+	preview.apply_presentation(expanded)
 	_layout()
 func _layout() -> void:
 	var height := 52.0 if day_summary.visible else (568.0 if expanded else 208.0)
@@ -95,12 +96,13 @@ func _layout() -> void:
 	offset_right = 0.0
 	offset_top = -height
 	offset_bottom = 0.0
-func show_type_preview(definition: RefCounted, description: String = "") -> bool:
+func show_type_preview(definition: RefCounted, description: String = "", expansion: Variant = null) -> bool:
 	# E3 supplies its authoritative placement definition; no fictitious entity.
 	if selection == null or selection.selected_entity != null or definition == null: return false
 	_preview_definition = definition
 	preview.show_definition(definition,description)
-	expanded = true
+	if expansion != null: expanded = bool(expansion)
+	preview.apply_presentation(expanded)
 	_apply()
 	return true
 func clear_type_preview() -> void:

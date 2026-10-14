@@ -137,7 +137,7 @@ func integration() -> void:
 		check(world.cancel_construction(existing_site.id),"Remove regression construction fixture")
 	var actor=world.resident_runtimes[0]
 	world.resident_selection.select(actor.data)
-	var toggle=world.get_node("HUD/NavigationDebugToggle")
+	var toggle=world.developer_panel.navigation_toggle
 	toggle.button_pressed=true
 	check(world.navigation_debug.visible and world.navigation_debug._grid.mesh!=null,"Existing toggle enables grid and route renderer")
 	var grid_mesh=world.navigation_debug._grid.mesh

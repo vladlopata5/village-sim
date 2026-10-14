@@ -7,6 +7,7 @@ var clock: Node
 var _refresh_elapsed := 0.0
 func _widget(id: String, legacy_path: String) -> Node:
 	if not embedded: return get_node(legacy_path)
+	if id in ["ID","State","Type","HousingResidents"]: return null
 	return get_node(embedded_close_path) if id == "Close" else get_node("%" + id)
 
 ## Reads the selected instance. Only presentation is updated; there are no management rules.
@@ -95,9 +96,10 @@ func _refresh() -> void:
 	if snapshot == _last_snapshot: return
 	_last_snapshot = snapshot
 	name_label.text = _building.display_name
-	id_label.text = "ID: %s" % _building.id
-	state_label.text = "Состояние: " + ("Построено" if _building.is_built() else "Строится")
-	type_label.text = "Тип: " + _type_text(_building.type)
+	if not embedded:
+		id_label.text = "ID: %s" % _building.id
+		state_label.text = "Состояние: " + ("Построено" if _building.is_built() else "Строится")
+		type_label.text = "Тип: " + _type_text(_building.type)
 	if _control != null and _building.is_built() and _building.definition.worker_profession != preload("res://scripts/resident_profession.gd").Type.NONE:
 		var workers: Array = _control.get_workplace_workers(_building.id)
 		resource_lines.append("Работники производства: %d / %d" % [workers.size(),_building.definition.worker_capacity])
@@ -157,7 +159,7 @@ func _refresh_housing() -> void:
 	housing_count.text = "Жильцы: %d / %d" % [occupants.size(), _building.definition.housing_capacity]
 	var names := PackedStringArray()
 	for resident in occupants: names.append("• " + resident.resident_name)
-	housing_residents.text = "Заселение: откройте «Жители» и выберите человека." if embedded else ("\n".join(names) if not names.is_empty() else "Нет жильцов")
+	if not embedded: housing_residents.text = "\n".join(names) if not names.is_empty() else "Нет жильцов"
 
 signal presentation_changed
 var _presented_tabs: Array[StringName] = []
@@ -165,6 +167,8 @@ var visitors_provider: Callable
 var natural_progress_provider: Callable
 var _people_snapshot: Array = []
 var people_rebuild_count := 0
+var _presentation_expanded := false
+var _image_type := -1
 func _info_body() -> VBoxContainer:
 	return get_node("%Info") if embedded else $Margin/Column/Scroll/Content
 func available_tabs() -> Array[StringName]:
@@ -174,6 +178,8 @@ func available_tabs() -> Array[StringName]:
 		elif _building.definition.worker_profession != preload("res://scripts/resident_profession.gd").Type.NONE: result.append(&"production")
 	return result
 func apply_presentation(expanded: bool, tab: StringName) -> void:
+	_presentation_expanded=expanded
+	get_node("%StaffSummary").visible=not expanded and not get_node("%StaffSummary").text.is_empty()
 	get_node("%Scroll").visible = expanded
 	get_node("%Info").visible = tab == &"info"
 	get_node("%ProductionTab").visible = tab == &"production"
@@ -187,9 +193,15 @@ func _refresh_embedded(resource_lines: PackedStringArray) -> void:
 		counts.append("Работники: %d / %s" % [producers.size(), str(_building.definition.worker_capacity) if _building.definition.worker_capacity > 0 else "без лимита"])
 	if _building.is_built() and _building.definition.porter_capacity > 0: counts.append("Носильщики: %d / %d" % [porters.size(),_building.definition.porter_capacity])
 	get_node("%StaffSummary").text = "\n".join(counts)
-	get_node("%StaffSummary").visible = not counts.is_empty()
-	var caption: String = _type_text(_building.type)
-	get_node("%Summary").text = caption + " • " + ("Построено" if _building.is_built() else "Строится")
+	get_node("%StaffSummary").visible = not _presentation_expanded and not counts.is_empty()
+	get_node("%Summary").text = "Строится" if not _building.is_built() else ""
+	get_node("%Summary").visible=not _building.is_built()
+	if _image_type!=_building.type:
+		_image_type=_building.type
+		get_node("%Image").texture=null
+		for category in preload("res://scripts/ui/construction_catalog_data.gd").categories():
+			for entry in category.entries:
+				if entry.action==&"building" and entry.definition.type==_image_type: get_node("%Image").texture=load("res://assets/ui/catalog/%s.svg" % entry.icon)
 	var def = _building.definition
 	var buffer_lines := PackedStringArray()
 	for resource in ResourceType.Type.values():
@@ -206,8 +218,6 @@ func _refresh_embedded(resource_lines: PackedStringArray) -> void:
 	get_node("%StorageAmounts").text = "\n".join(resource_lines)
 	get_node("%OtherStocks").text = "\n".join(resource_lines)
 	get_node("%OtherStocks").visible = _building.is_built() and available_tabs().size() == 1 and not resource_lines.is_empty()
-	get_node("%ManagementHint").visible = false
-	get_node("%Characteristics").text = "Footprint: %d × %d клеток\nПоворот: %d°" % [def.footprint_cells.x,def.footprint_cells.y,_building.quarter_turns*90]
 	var recipe_lines := PackedStringArray()
 	if def.production_recipe != null:
 		for resource in def.production_recipe.inputs: recipe_lines.append("Нужно: %s ×%d" % [ResourceType.display_name(resource),def.production_recipe.inputs[resource]])
@@ -234,13 +244,11 @@ func _refresh_people(producers: Array, porters: Array) -> void:
 		body.remove_child(child)
 		child.queue_free()
 	staffing_buttons.clear()
+	var profession=preload("res://scripts/resident_profession.gd")
 	for role in _control.get_workplace_roles(_building.id):
-		var button := Button.new()
-		button.text="Назначить: "+preload("res://scripts/resident_profession.gd").display_name(role)
-		button.focus_mode=Control.FOCUS_NONE
-		button.pressed.connect(staffing_requested.emit.bind(role))
-		body.add_child(button)
-		staffing_buttons[role]=button
+		var people: Array=porters if role==profession.Type.PORTER else producers
+		var capacity: int=_building.definition.porter_capacity if role==profession.Type.PORTER else _building.definition.worker_capacity
+		_add_staff_group(body,role,people,capacity)
 	if _control.has_housing_role(_building.id):
 		var button := Button.new()
 		button.text="Поселить жителя"
@@ -248,10 +256,7 @@ func _refresh_people(producers: Array, porters: Array) -> void:
 		button.pressed.connect(staffing_requested.emit.bind(-1))
 		body.add_child(button)
 		staffing_buttons[&"home"]=button
-	if _building.is_built() and _building.definition.worker_profession != preload("res://scripts/resident_profession.gd").Type.NONE:
-		_add_group(body,"Производственные работники",producers,_building.definition.worker_capacity,false)
-	if _building.is_built() and _building.definition.porter_capacity > 0: _add_group(body,"Носильщики",porters,_building.definition.porter_capacity,false)
-	if _control.is_housing_target(_building): _add_group(body,"Жильцы",residents,_building.definition.housing_capacity,true)
+		for person in residents: _add_person(body,person,true,true)
 	if not _building.is_built() and not _building.active_builder_ids.is_empty():
 		var title := Label.new()
 		title.text = "Работающие строители (временное назначение)"
@@ -262,23 +267,37 @@ func _refresh_people(producers: Array, porters: Array) -> void:
 			if person != null: _add_person(body,person,false,false)
 	if not visitors.is_empty():
 		var title := Label.new()
-		title.text = "Физическая занятость слотов (отдельно от назначений)"
+		title.text = "Посетители"
 		title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		body.add_child(title)
 		for entry in visitors:
 			var person = _control.get_resident(entry.id)
 			if person != null:
 				var purpose := Label.new()
-				purpose.text = ["Место выполнения работы","Курьерское посещение","Посещение","Сон"][entry.purpose]
+				purpose.text = ["Работа","Курьерское посещение","Посещение","Сон"][entry.purpose]
 				body.add_child(purpose)
 				_add_person(body,person,false,false)
-func _add_group(body: VBoxContainer, title: String, people: Array, capacity: int, housing: bool) -> void:
+func _add_staff_group(body: VBoxContainer, role: int, people: Array, capacity: int) -> void:
 	var label := Label.new()
-	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	label.text = "%s: занято %d, свободно %s" % [title,people.size(),str(maxi(capacity-people.size(),0)) if capacity > 0 else "без лимита"]
+	label.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+	label.text="%s: %d / %s" % [preload("res://scripts/resident_profession.gd").display_name(role),people.size(),str(capacity) if capacity>0 else "без лимита"]
 	body.add_child(label)
-	for person in people: _add_person(body,person,housing,true)
-func _add_person(body: VBoxContainer, person: RefCounted, housing: bool, removable: bool) -> void:
+	for person in people: _add_person(body,person,false,true,role)
+	var row := HBoxContainer.new()
+	body.add_child(row)
+	var vacancy := Label.new()
+	vacancy.text="Свободно: %s" % (str(maxi(capacity-people.size(),0)) if capacity>0 else "без лимита") if _building.is_built() else "Здание строится"
+	vacancy.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+	vacancy.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+	row.add_child(vacancy)
+	var button := Button.new()
+	button.text="Назначить"
+	button.focus_mode=Control.FOCUS_NONE
+	button.disabled=not _building.is_built() or (capacity>0 and people.size()>=capacity)
+	button.pressed.connect(staffing_requested.emit.bind(role))
+	row.add_child(button)
+	staffing_buttons[role]=button
+func _add_person(body: VBoxContainer, person: RefCounted, housing: bool, removable: bool, role: int = -1) -> void:
 	var row := HBoxContainer.new()
 	body.add_child(row)
 	var button := Button.new()
@@ -296,19 +315,22 @@ func _add_person(body: VBoxContainer, person: RefCounted, housing: bool, removab
 	row.add_child(button)
 	if removable:
 		var clear := Button.new()
-		clear.text = "Выселить" if housing else "Освободить"
+		clear.text = "Выселить" if housing else "Уволить"
 		clear.focus_mode = Control.FOCUS_NONE
-		clear.pressed.connect(_clear_person.bind(person.id,_building.id,housing))
+		clear.pressed.connect(_clear_person.bind(person.id,_building.id,housing,role,weakref(person),weakref(_building)))
 		row.add_child(clear)
 func _select_person(id: String) -> void:
 	var current = _control.get_resident(id) if _control != null else null
 	if current != null: _selection.select(current)
-func _clear_person(id: String, building_id: StringName, housing: bool) -> void:
+func _clear_person(id: String, building_id: StringName, housing: bool, role: int = -1, resident_identity: WeakRef = null, building_identity: WeakRef = null) -> void:
 	var current = _control.get_resident(id) if _control != null else null
-	if current == null or _control.get_building(building_id) == null: return
+	var building = _control.get_building(building_id)
+	if current == null or building == null: return
+	if resident_identity!=null and resident_identity.get_ref()!=current: return
+	if building_identity!=null and building_identity.get_ref()!=building: return
 	if housing:
 		if current.home_location_id == building_id: _control.clear_home(id)
-	elif current.work_location_id == building_id: _control.clear_work_assignment(id)
+	elif current.work_location_id == building_id and current.profession==role: _control.clear_work_assignment(id)
 	_refresh()
 func _exit_tree() -> void:
 	if _building != null:

@@ -17,6 +17,9 @@ var resource_choice: OptionButton
 var resource_count: SpinBox
 var building_choice: OptionButton
 var hour: SpinBox
+var navigation_toggle: CheckButton
+var speed_buttons: Dictionary = {}
+var _tabs: TabContainer
 var minute: SpinBox
 func setup(commands: RefCounted) -> void:
 	if not OS.is_debug_build():
@@ -45,6 +48,7 @@ func setup(commands: RefCounted) -> void:
 	status.text="Выберите объект и нажмите «Создать». Затем кликните по земле."
 	column.add_child(status)
 	var tabs := TabContainer.new()
+	_tabs=tabs
 	tabs.custom_minimum_size=Vector2(400,300)
 	column.add_child(tabs)
 	var residents := _section(tabs,"Жители")
@@ -73,7 +77,11 @@ func setup(commands: RefCounted) -> void:
 	_button(time,"Пауза / Продолжить",service.world._toggle_pause)
 	var speeds := HBoxContainer.new()
 	time.add_child(speeds)
-	for speed in service.world.game_time.SUPPORTED_SPEEDS: _button(speeds,"x%d" % speed,service.world.game_time.set_speed.bind(speed))
+	for speed in service.world.game_time.SUPPORTED_SPEEDS:
+		speed_buttons[speed]=_button(speeds,"x%d" % speed,service.world.game_time.set_speed.bind(speed))
+		speed_buttons[speed].toggle_mode=true
+	service.world.game_time.speed_changed.connect(_refresh_speeds)
+	_refresh_speeds(service.world.game_time.speed_multiplier)
 	var row := HBoxContainer.new()
 	time.add_child(row)
 	hour=_count(row,23,0)
@@ -98,11 +106,21 @@ func _count(parent: Node, maximum: int, minimum: int = 1) -> SpinBox:
 	spin.value=minimum
 	parent.add_child(spin)
 	return spin
-func _button(parent: Node, label: String, action: Callable) -> void:
+func _button(parent: Node, label: String, action: Callable) -> Button:
 	var button := Button.new()
 	button.text=label
 	button.pressed.connect(action)
 	parent.add_child(button)
+	return button
+func add_navigation_toggle(action: Callable, enabled: bool) -> void:
+	var section: Node = _tabs.get_parent()
+	navigation_toggle=CheckButton.new()
+	navigation_toggle.name="NavigationDebugToggle"
+	navigation_toggle.text="Навигация"
+	navigation_toggle.set_pressed_no_signal(enabled)
+	navigation_toggle.toggled.connect(action)
+	section.add_child(navigation_toggle)
+	section.move_child(navigation_toggle,_tabs.get_index()+1)
 func _note(parent: Node, text: String) -> void:
 	var label := Label.new()
 	label.text=text
@@ -161,3 +179,8 @@ func _physics_process(_delta: float) -> void:
 	for event in _paused_clicks:
 		service.world.handle_world_click(event.button_index,service.world.ground_pick(event.position),event.position)
 	_paused_clicks.clear()
+
+func _refresh_speeds(multiplier: int) -> void:
+	for speed in speed_buttons: speed_buttons[speed].set_pressed_no_signal(speed==multiplier)
+func _exit_tree() -> void:
+	if service!=null and is_instance_valid(service.world.game_time) and service.world.game_time.speed_changed.is_connected(_refresh_speeds): service.world.game_time.speed_changed.disconnect(_refresh_speeds)

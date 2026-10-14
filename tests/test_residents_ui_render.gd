@@ -66,7 +66,7 @@ func run() -> void:
 		F.click(self,world.game_ui.residents_button)
 		await settle()
 		check(window.visible and window.visible_ids.size()==pc.get_residents().size() and world.resident_selection.selected_entity==null,"Actual quick button opens all registered residents, no selection change")
-		check(window.get_global_rect()==Rect2(134,160,680,400),"Fixed approved logical roster geometry")
+		check(window.get_global_rect()==Rect2(12,12,924,476),"Fixed approved logical roster geometry")
 		await capture(prefix+"no_selection_large_list")
 		var scroll_before: int=window.table.get_scroll().y
 		var wheel:=InputEventMouseButton.new()

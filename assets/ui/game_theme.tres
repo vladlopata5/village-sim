@@ -1,4 +1,4 @@
-[gd_resource type="Theme" load_steps=14 format=3]
+[gd_resource type="Theme" load_steps=15 format=3]
 
 [sub_resource type="StyleBoxFlat" id="Panel"]
 bg_color = Color(0.075, 0.095, 0.12, 0.97)
@@ -208,6 +208,22 @@ content_margin_right = 0.0
 content_margin_top = 4.0
 content_margin_bottom = 4.0
 
+[sub_resource type="StyleBoxFlat" id="Strip"]
+bg_color = Color(0.07, 0.16, 0.12, 0.97)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.22, 0.39, 0.29, 1)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_left = 4
+corner_radius_bottom_right = 4
+content_margin_left = 6.0
+content_margin_right = 6.0
+content_margin_top = 4.0
+content_margin_bottom = 12.0
+
 [resource]
 default_font_size = 15
 Label/colors/font_color = Color(0.92, 0.94, 0.92, 1)
@@ -272,3 +288,5 @@ GridContainer/constants/h_separation = 6
 GridContainer/constants/v_separation = 6
 ProgressBar/styles/background = SubResource("Field")
 ProgressBar/styles/fill = SubResource("Progress")
+GreenStrip/base_type = &"PanelContainer"
+GreenStrip/styles/panel = SubResource("Strip")

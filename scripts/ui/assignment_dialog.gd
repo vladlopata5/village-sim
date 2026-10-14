@@ -19,7 +19,7 @@ var _dismiss_button := 0
 var _poll_elapsed := 0.0
 var refresh_count := 0
 func _ready() -> void:
-	position=Vector2(254,250)
+	position=Vector2(254,120)
 	size=Vector2(440,260)
 	if has_theme_stylebox("panel", "WindowPanel"):
 		theme_type_variation = &"WindowPanel"

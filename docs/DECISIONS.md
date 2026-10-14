@@ -2790,3 +2790,37 @@ refresh/rebuild используются тестами и не участвую
 
 Производство, AI, логистика, назначения, резервы, строительные validators и
 рецепты не изменены. E6 требует отдельного задания.
+
+## 2026-10-14 — UI Polish после E5: согласованные изменения компоновки
+
+Нижняя Green surface проходит почти на всю ширину viewport; нижние 8 logical
+units — обрезаемый фон. Каталог отдельно слева 720×156. Menu scroll lane имеет
+постоянный gutter для Blue; только реальные поверхности зарегистрированы как
+pointer blockers. Blue 320 units во всех состояниях, z-index выше подложки.
+Прозрачный layout gap не блокирует мир. Общие кнопки — ▲/▼/× (36×28 minimum).
+
+Canonical BuildingCard удаляет technical widgets ID/type/state/footprint/rotation;
+шапка содержит название и постоянную image area со старой SVG или нейтральной
+поверхностью. Built status не выводится; UC имеет «Строится». Info показывает
+раздельные реальные роли/людей/свободные места и короткие Назначить/Уволить.
+Увольнение повторно проверяет weak identities, workplace и роль перед прежним
+clear-work API; stale row не снимает новое назначение. Committed hauling intact.
+Housing/visitors/construction/production/per-resource stocks сохраняются.
+Demolish disabled без callback; ResidentCard contents/commands unchanged.
+
+ResidentsWindow следует fixed viewport anchors: left/top=12, right=Blue.left−12,
+bottom=expanded catalogue.top−12; на 1280×720 это 924×476. Collapse/selection/
+filter/roster не меняют рамку. Window находится выше Feed, не меняя саму ленту.
+AssignmentDialog 440×260 в (254,120); F10 выше основных окон, dialogs выше F10.
+Project viewport/stretch/min_size и camera mathematics не изменены.
+
+TimeControls 224×72: HH:MM и ряд ⏸/▶, x1/x2/x4. Day только в DaySummary;
+x10/x20 остаются в F10/прежнем GameTime. Навигационный toggle перенесён внутрь
+F10 к прежним set_enabled/set_work_area_debug handlers, без новых nav tools.
+Для монохромного символа паузы используется доступный SystemFont (без font file),
+с fallback при отсутствии glyph. Остальные шрифты/theme остаются прежними.
+
+Type-preview transition сохраняет expanded локальным presentation параметром
+до synchronous cancellation/selection.clear callbacks и передаёт его InfoPanel.
+Обычный clear/отмена возвращает compact Day. Новый selection/инструмент не создан;
+confirm/generation/rotation/repeated-placement code не изменён. E6 не начат.

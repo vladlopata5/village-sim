@@ -73,6 +73,7 @@ func _ready() -> void:
 	settlement_panel = preload("res://scenes/ui/residents_window.tscn").instantiate()
 	$HUD.add_child(settlement_panel)
 	game_ui.register_window(&"residents", settlement_panel)
+	settlement_panel.set_canonical_layout()
 	settlement_panel.setup(player_control,resident_selection)
 	assignment_dialog=preload("res://scenes/ui/assignment_dialog.tscn").instantiate()
 	game_ui.get_node("Windows").add_child(assignment_dialog)
@@ -86,15 +87,6 @@ func _ready() -> void:
 	$World.add_child(navigation_debug)
 	navigation_debug.setup(navigation)
 	navigation.changed.connect(_on_navigation_changed)
-	var toggle := CheckButton.new()
-	toggle.name = "NavigationDebugToggle"
-	toggle.text = "Навигация"
-	toggle.tooltip_text = "Сетка, препятствия и маршруты жителей"
-	toggle.position = Vector2(12,126)
-	toggle.toggled.connect(navigation_debug.set_enabled)
-	toggle.toggled.connect(_set_work_area_debug)
-	$HUD.add_child(toggle)
-	game_ui.register_pointer_control(toggle)
 	resident_selection.selection_changed.connect(_update_navigation_debug)
 	_pointer_position = get_viewport().get_mouse_position()
 	_setup_forest()
@@ -108,6 +100,8 @@ func _ready() -> void:
 		developer_panel=preload("res://scripts/debug_panel.gd").new()
 		$HUD.add_child(developer_panel)
 		developer_panel.setup(debug_spawn)
+		developer_panel.add_navigation_toggle(_set_navigation_debug,navigation_debug.visible)
+		developer_panel.z_index=3
 		developer_panel.escape_handler = game_ui.try_escape
 		developer_panel.ui_input_context = game_ui.input_context
 		game_ui.register_pointer_control(developer_panel)
@@ -227,6 +221,8 @@ func _select_building_definition(definition: BuildingDefinition) -> void:
 	if placement.selected_definition==definition:
 		_cancel_building_placement()
 		return
+	# Capture only presentation state before synchronous cancellation/selection callbacks.
+	var expansion: bool=game_ui.info_panel.expanded
 	_cancel_debug_placement()
 	_cancel_work_area()
 	_cancel_road_tool()
@@ -234,7 +230,7 @@ func _select_building_definition(definition: BuildingDefinition) -> void:
 	interaction_menu.hide()
 	resident_selection.clear()
 	placement.select(definition)
-	game_ui.info_panel.show_type_preview(definition,construction_panel.catalogue.description(definition))
+	game_ui.info_panel.show_type_preview(definition,construction_panel.catalogue.description(definition),expansion)
 func _confirm_building_placement() -> BuildingInstance:
 	var definition: BuildingDefinition=placement.selected_definition
 	var turns: int=placement.quarter_turns
@@ -427,6 +423,9 @@ func handle_world_click(button: int, hit: Dictionary, screen: Vector2 = Vector2.
 			interaction_menu.hide()
 			player_control.move_to(data.id, Coordinates.to_sim(hit.position))
 
+func _set_navigation_debug(enabled: bool) -> void:
+	navigation_debug.set_enabled(enabled)
+	_set_work_area_debug(enabled)
 func _update_navigation_debug() -> void:
 	var data = resident_selection.selected_resident
 	var runtime = get_resident_runtime(data) if data != null else null

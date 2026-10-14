@@ -152,7 +152,7 @@ func run() -> void:
 		world.resident_selection.select(world.residents[0])
 		info.set_expanded(true)
 		await settle()
-		check(not panel.get_global_rect().intersects(info.get_global_rect()),"Expanded green and blue do not overlap")
+		check(not panel._contents.get_global_rect().intersects(info.get_global_rect()) and panel.strip.get_global_rect().intersects(info.get_global_rect()),"Catalogue avoids Blue; bottom strip intentionally underlays it")
 		await capture(prefix+"green_blue_expanded")
 		click(world.game_ui.residents_button)
 		await settle()

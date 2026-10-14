@@ -28,6 +28,7 @@ var _pending := false
 var _layout_pending := false
 var _connections: Array = []
 var _pressed_id := ""
+var _canonical_layout := false
 var _poll_elapsed := 0.0
 var _display_snapshot: Dictionary = {}
 func _ready() -> void:
@@ -181,10 +182,14 @@ func _layout_fixed() -> void:
 	if not is_inside_tree() or _layout_pending: return
 	_layout_pending=true
 	get_tree().process_frame.connect(_apply_fixed_layout,CONNECT_ONE_SHOT)
+func set_canonical_layout() -> void:
+	_canonical_layout=true
+	get_parent().resized.connect(_layout_fixed)
+	_layout_fixed.call_deferred()
 func _apply_fixed_layout() -> void:
 	_layout_pending=false
-	position=Vector2(134,160)
-	size=Vector2(680,400)
+	position=Vector2(12,12) if _canonical_layout else Vector2(134,160)
+	size=Vector2(get_parent().size.x-356,get_parent().size.y-244) if _canonical_layout else Vector2(680,400)
 func has_work_assignment(resident: RefCounted) -> bool:
 	return not resident.work_location_id.is_empty() or not resident.work_area_id.is_empty()
 func workplace_label(resident: RefCounted) -> String:
@@ -284,6 +289,7 @@ func _table_input(event: InputEvent) -> void:
 		if not id.is_empty() and _pressed_id==id: activate_row(id)
 		_pressed_id=""
 func _exit_tree() -> void:
+	if _canonical_layout and get_parent().resized.is_connected(_layout_fixed): get_parent().resized.disconnect(_layout_fixed)
 	if get_tree().process_frame.is_connected(_apply_fixed_layout): get_tree().process_frame.disconnect(_apply_fixed_layout)
 	for connection in _connections:
 		if is_instance_valid(connection[0]) and connection[0].is_connected(connection[1],connection[2]): connection[0].disconnect(connection[1],connection[2])

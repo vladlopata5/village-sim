@@ -52,6 +52,7 @@ func run() -> void:
 	check(marker!=null,"Actual marker occupancy API")
 	var body: VBoxContainer=building.get_node("%People")
 	check(building.get_node("%StaffSummary").text.contains("Носильщики: 0 / 2") and body.get_children().any(func(row): return row is Label and row.text=="Курьерское посещение"),"Physical courier is visible separately and never counted as assigned Porter")
+	check(body.get_children().any(func(row): return row is HBoxContainer and row.get_child(0) is Button and row.get_child(0).text==a.resident_name),"Visitor name remains independently visible")
 	var people_before:=body.get_children()
 	var tabs_before: Array=panel.get_node("Column/Tabs").get_children()
 	for iteration in range(50): building._refresh()

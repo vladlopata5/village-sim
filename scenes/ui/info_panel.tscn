@@ -22,15 +22,20 @@ theme_override_constants/separation = 4
 layout_mode = 2
 [node name="Expand" type="Button" parent="Column/Header"]
 layout_mode = 2
-size_flags_horizontal = 3
+custom_minimum_size = Vector2(36, 28)
 focus_mode = 0
-theme_override_font_sizes/font_size = 14
-text = "Развернуть"
+theme_override_font_sizes/font_size = 18
+text = "▲"
+[node name="Spacer" type="Control" parent="Column/Header"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
 [node name="Close" type="Button" parent="Column/Header"]
 layout_mode = 2
 focus_mode = 0
-theme_override_font_sizes/font_size = 14
-text = "Закрыть"
+custom_minimum_size = Vector2(36, 28)
+theme_override_font_sizes/font_size = 18
+text = "×"
 [node name="Tabs" type="HBoxContainer" parent="Column"]
 layout_mode = 2
 [node name="Body" type="VBoxContainer" parent="Column"]

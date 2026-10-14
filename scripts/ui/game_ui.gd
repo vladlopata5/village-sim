@@ -42,7 +42,7 @@ func mount_construction(panel: PanelContainer) -> void:
 	residents_button=panel.buttons[&"residents"]
 	panel.quick_window_requested.connect(toggle_window)
 	panel.collapse_changed.connect(_construction_changed)
-	register_pointer_control(panel)
+	for surface in panel.input_surfaces(): register_pointer_control(surface)
 	_layout_actions()
 func _construction_changed(_collapsed: bool) -> void:
 	_layout_actions()
@@ -54,8 +54,9 @@ func active_green_tab() -> StringName:
 	return _construction.active_tab if _construction!=null else &""
 func _layout_actions() -> void:
 	if _construction==null: return
-	$ActionsAnchor.offset_right=minf(732.0,size.x-344.0)
-	$ActionsAnchor.offset_top=-64.0 if _construction.collapsed else -212.0
+	$ActionsAnchor.offset_right=size.x-12.0
+	$ActionsAnchor.offset_bottom=8.0
+	$ActionsAnchor.offset_top=8.0-_construction.STRIP_HEIGHT if _construction.collapsed else 8.0-(_construction.CATALOG_SIZE.y+_construction.CATALOG_GAP+_construction.STRIP_HEIGHT)
 	_construction.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 func update_population(count: int) -> void:
 	residents_button.text = "↗ Жители: %d" % count
@@ -84,7 +85,7 @@ func open_top_dialog(dialog: Control) -> void:
 	if is_instance_valid(_top_dialog): _top_dialog.hide()
 	if dialog.get_parent() != $Windows: dialog.reparent($Windows)
 	dialog.move_to_front()
-	dialog.z_index = 1 # Upper UI layer, also above the independent F10 panel.
+	dialog.z_index = 2 # Upper UI layer, also above the independent F10 panel.
 	_top_dialog = dialog
 	register_pointer_control(dialog)
 	dialog.show()
@@ -96,6 +97,7 @@ func close_top_dialog(dialog: Control=null) -> void:
 	blocking_ui_changed.emit()
 func bind_context_menu(menu: Control) -> void:
 	context_menu = menu
+	menu.z_index=4 # Context actions remain above the new overlapping surfaces.
 	register_pointer_control(menu)
 func try_escape() -> bool:
 	if is_instance_valid(_top_dialog) and _top_dialog.visible:

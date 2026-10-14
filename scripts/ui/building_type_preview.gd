@@ -20,3 +20,8 @@ func show_definition(definition: RefCounted, description: String = "") -> void:
 	if definition.housing_capacity > 0: roles.append("Жильцы: %d" % definition.housing_capacity)
 	$Roles.text = "\n".join(roles)
 	$Roles.visible = not roles.is_empty()
+
+func apply_presentation(expanded: bool) -> void:
+	$Description.visible=expanded and not $Description.text.is_empty()
+	$Footprint.visible=expanded
+	$Roles.visible=expanded and not $Roles.text.is_empty()

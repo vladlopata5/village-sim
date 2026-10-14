@@ -274,7 +274,9 @@ Journal/unread, event identity/object links и retention общего журна
 
 Это измерение координат, не скриншот макета. Godot различает canvas base size и window pixels при canvas_items; anchors/containers относятся к canvas. См. [Multiple resolutions](https://docs.godotengine.org/en/stable/tutorials/rendering/multiple_resolutions.html). Рекомендуется сохранить эти settings: задавать размеры UI в логических units, а таблицу экранных pixels считать после stretch. Не хардкодить 1920 в Control.position.
 
-### 12.2. Таблица рамок
+### 12.2. Первоначальная таблица рамок (историческое предложение до E1)
+
+Таблица и последующие расчёты в §12.2–12.3 сохраняют историю исходного предложения, а не действующий post-E5 layout. Актуальные правила заменены согласованными UI Polish revisions в UI_DESIGN §11.1.
 
 Отступ 12 logical units. Размеры ordinary window фиксированы относительно состояния синей панели. Все значения ниже предварительные, без реализации; запись — `(x,y,w,h)`.
 
@@ -384,3 +386,16 @@ InfoPanel внутри InfoAnchor стал владельцем compact/expanded
 InfoPanel разрешает unregistered selected entities через существующие PlayerControl notifications и очищает только selection. Scoped card subscriptions отключаются при смене data и exit_tree. Natural tree/rock и committed haul presentation инжектируются небольшими read providers из Main3D; они не создают jobs, не вызывают has_work/best_task/pathfinding и не меняют reservations. Нет универсального нового runtime или scheduler.
 
 Body scroll и полная синяя frame boundary подключены к E1 input context; UI transitions не меняют camera. E4 roster/assignment dialog, E3 catalogue/repeat tools и E5 styling остаются отдельными этапами. В E2 также исправлена обнаруженная при rendered inspection неверная UTF-8 подпись существующей кнопки жителей из E1; поведение кнопки не менялось.
+
+
+## UI Polish: актуальная поправка после E5
+
+Действующая геометрия — UI_DESIGN §11.1: Green backdrop почти на всю ширину
+под Blue, fixed 720×156 catalogue слева, ResidentsWindow над каталогом и до Blue
+с зазорами 12, Windows над Feed. Прежняя возможность перекрывать каталог окном
+жителей отменена. Ширина Blue 320 во всех режимах; ▲/▼/× сохраняют прежние actions.
+Технические building widgets удалены только из embedded canonical card, legacy
+defaults сохранены. Time HUD оставляет HH:MM и x1/x2/x4; day в DaySummary,
+x10/x20 и nav toggle в F10. Preview capture/restore disclosure — только локальный
+UI transition, без второго selection или изменения placement lifecycle.
+История аудита и checkpoints не переопределяется задним числом; E6 отдельно.

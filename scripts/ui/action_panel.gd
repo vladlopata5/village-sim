@@ -11,16 +11,26 @@ var collapsed := true
 var active_tab: StringName = &""
 var collapse_button: Button
 var catalogue: VBoxContainer
-var _column: VBoxContainer
-var _contents: VBoxContainer
+const CATALOG_SIZE = Vector2(720,156)
+const STRIP_HEIGHT = 64.0
+const CATALOG_GAP = 8.0
+var strip: PanelContainer
+var _column: Control
+var _contents: PanelContainer
 var _row: HBoxContainer
 func _ready() -> void:
-	theme_type_variation = &"GreenPanel"
-	_column=VBoxContainer.new()
+	mouse_filter=Control.MOUSE_FILTER_IGNORE
+	add_theme_stylebox_override("panel",StyleBoxEmpty.new())
+	_column=Control.new()
+	_column.mouse_filter=Control.MOUSE_FILTER_IGNORE
 	add_child(_column)
-	_contents=VBoxContainer.new()
-	_contents.size_flags_vertical=Control.SIZE_EXPAND_FILL
+	_contents=PanelContainer.new()
+	_contents.theme_type_variation=&"GreenPanel"
 	_column.add_child(_contents)
+	strip=PanelContainer.new()
+	strip.theme_type_variation=&"GreenStrip"
+	_column.add_child(strip)
+	resized.connect(_layout_surfaces)
 	catalogue=preload("res://scenes/ui/construction_catalog.tscn").instantiate()
 	catalogue.size_flags_vertical=Control.SIZE_EXPAND_FILL
 	_contents.add_child(catalogue)
@@ -31,13 +41,25 @@ func _ready() -> void:
 	scroll.horizontal_scroll_mode=ScrollContainer.SCROLL_MODE_AUTO
 	scroll.custom_minimum_size.y=36
 	scroll.mouse_force_pass_scroll_events=false
-	_column.add_child(scroll)
+	var menu_margin := MarginContainer.new()
+	# The surface extends under Blue; the scrollable buttons retain a safe visible lane.
+	menu_margin.add_theme_constant_override("margin_right",336)
+	strip.add_child(menu_margin)
+	menu_margin.add_child(scroll)
 	_row=HBoxContainer.new()
 	scroll.add_child(_row)
 	register_section(&"construction","Строительство",Kind.TAB,catalogue)
 	register_section(&"residents","Жители",Kind.QUICK_WINDOW)
 	collapse_button=buttons[&"construction"]
 	_apply()
+	_layout_surfaces()
+func _layout_surfaces() -> void:
+	_contents.position=Vector2.ZERO
+	_contents.size=CATALOG_SIZE
+	strip.position=Vector2(0,0.0 if collapsed else CATALOG_SIZE.y+CATALOG_GAP)
+	strip.size=Vector2(size.x,STRIP_HEIGHT)
+func input_surfaces() -> Array[Control]:
+	return [strip,_contents]
 func register_section(id: StringName, title: String, kind: Kind, content: Control=null) -> void:
 	assert(not buttons.has(id))
 	assert(kind!=Kind.TAB or content!=null)
@@ -70,6 +92,7 @@ func set_collapsed(value: bool) -> void:
 	_apply()
 	collapse_changed.emit(value)
 func _apply() -> void:
+	_layout_surfaces()
 	_contents.visible=not collapsed
 	for section in sections:
 		if section.kind==Kind.TAB:

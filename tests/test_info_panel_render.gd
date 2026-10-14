@@ -112,6 +112,8 @@ func run() -> void:
 		wheel.pressed=true
 		wheel.position=scroll.get_global_rect().get_center()
 		root.push_input(wheel,true)
+		wheel.pressed=false
+		root.push_input(wheel,true)
 		check(camera.size==original_zoom,"Wheel on real expanded card never zooms camera")
 		for entity in [home,saw,store,world.warehouse_data,site]:
 			selection.select_building(entity)

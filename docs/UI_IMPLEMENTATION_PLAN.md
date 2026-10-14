@@ -491,3 +491,16 @@ Rendered layout уточнил compact Blue до 320×208 logical units, что�
 
 E6 не начат. Журнал, уведомления, демонтаж, HP и новые игровые механики не входят
 в реализованный этап.
+
+## Согласованные revisions после E5 (2026-10-14)
+
+Исторические checkpoints E1–E5 выше сохраняются. Актуальные geometry/UX
+требования теперь находятся в UI_DESIGN §6–8, §11.1: full-width Green underlay,
+отдельный left catalogue, Blue symbol controls/common building header, short
+safe staffing actions, крупное anchored ResidentsWindow, compact player time
+controls и Navigation/x10/x20 только в F10. Type preview сохраняет disclosure
+на переходе, отмена сбрасывает к compact Day. Сообщения E5 не меняются.
+
+Следующий E6 должен проверять именно эту редакцию, без автоматического начала
+в рамках UI Polish. Отчёт вне Git:
+`C:/Users/SW/Documents/Codex/outputs/ui-post-e5-revisions/REPORT.md`.
