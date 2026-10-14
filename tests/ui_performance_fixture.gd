@@ -13,7 +13,11 @@ func run() -> void:
 	root.size=Vector2i(1600,900)
 	for population in [30,100]:
 		var world=F.create(self)
-		world.debug_spawn.spawn_residents(Vector3(-4,0,-8),population-4,0)
+		# Debug spawn admits at most 50 per command. Verify the actual population.
+		while world.residents.size()<population:
+			var spawned: Dictionary=world.debug_spawn.spawn_residents(Vector3(-4,0,-8),mini(50,population-world.residents.size()),0)
+			assert(spawned.created>0,"Performance fixture must register requested population")
+		assert(world.residents.size()==population)
 		for actor in world.resident_runtimes:
 			actor.decision._deciding=true;actor.view.set_physics_process(false)
 			actor.intents.abort_current(actor.intents.current_intent)

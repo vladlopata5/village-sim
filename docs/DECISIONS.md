@@ -2846,3 +2846,37 @@ orbit_to_yaw предоставляет narrow direction change с сохран�
 
 Прежние camera.size assertions canonical tests заменены реальной дистанцией;
 orthographic prototype tests сохранены. Фаза B/E6 проверяется отдельно.
+
+## 2026-10-14 — E6 Integration QA после перспективной камеры
+
+Фаза A: `25fd81d40e33e0ddf4a6333ce3e4fb68244cfa2a`. Функциональная E6-проверка
+использует текущий UI Polish, а не старую геометрию checkpoints. Новый
+test_ui_integration проходит полный цикл Sawmill: catalogue/rotation/site,
+реальная доставка LOG/STONE Builder, completion, GUI назначения Sawyer/Porter,
+физический Ground→buffer haul, clock-driven LOG→PLANK, housing и 100 циклов
+cards/windows на каждом целевом разрешении. Дополнительные suites сохраняют
+capacity refusal, stale identity, committed hauling, EAT/social/diary и legacy.
+
+Autonomous rendered прогоны 4/30/100 жителей: по 225 секунд, более трёх игровых
+дней каждый, 13 смен фаз; AI/движение/needs/dispatcher не отключались. Проверены
+повторные 06:59/07:00. Очереди и committed jobs ограничены населением, резервов
+с отрицательным количеством или сверх stock не найдено. Активные owned резервы
+в конце рабочих рейсов не объявляются утечками и не обнуляются ради теста.
+
+Performance fixture исправлен: DebugSpawn принимает максимум 50 за команду;
+для настоящих 100 жителей используются batches с assertion реальной численности.
+Это исправление тестового окружения, не правил spawn или gameplay. UI-only
+30/100, x1/x20, open/closed: нет роста nodes/TreeItems, hidden roster не poll-ится.
+
+Функциональная регрессия и rendered геометрия подтверждены; нагрузочная приёмка
+имеет замечание: 100 жителей x20 дают p99 около 71 ms и первый пик около 411 ms.
+Сопоставимый 20-second orthographic контроль также имеет пик около 418 ms
+(perspective около 425 ms), поэтому новое ухудшение от камеры не подтверждено.
+Это не обещание стабильного FPS и не заявление «фризов нет». Лимит массовой
+симуляции и стоимость стартового world setup требуют отдельного решения,
+если такой масштаб необходим. Полностью успешная приёмка производительности
+100 жителей не заявлена; AI/nav/logistics для неё не менялись.
+
+Все логи, численные результаты, диагностика и screenshots вне Git:
+`C:/Users/SW/Documents/Codex/outputs/e6-perspective-camera/REPORT.md`.
+История E1–E5 не переписывается; новые механики не начаты.

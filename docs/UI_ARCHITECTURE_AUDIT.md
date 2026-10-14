@@ -399,3 +399,13 @@ defaults сохранены. Time HUD оставляет HH:MM и x1/x2/x4; day 
 x10/x20 и nav toggle в F10. Preview capture/restore disclosure — только локальный
 UI transition, без второго selection или изменения placement lifecycle.
 История аудита и checkpoints не переопределяется задним числом; E6 отдельно.
+
+## 2026-10-14 — E6 / current camera
+
+Исторический orthographic controller остался у отдельного prototype.
+Canonical использует небольшой perspective subclass с той же UIInputContext
+и существующими Main3D project_ray_origin/normal pick methods. Второго camera
+rig/selection/domain owner нет. UI geometry и adapters E1–E5 сохранены; удаление
+legacy compatibility hooks не требуется: их consumers остаются рабочими.
+Результат E6: функциональные checks подтверждены, нагрузка 100 x20 с замечанием
+(подробности в checkpoint UI_IMPLEMENTATION_PLAN и external REPORT).
