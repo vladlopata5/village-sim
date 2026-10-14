@@ -1,0 +1,8 @@
+[gd_scene load_steps=2 format=3]
+[ext_resource type="Script" path="res://scripts/settlement_residents_panel.gd" id="1"]
+[node name="ResidentsWindow" type="PanelContainer"]
+offset_left = 134.0
+offset_top = 160.0
+offset_right = 814.0
+offset_bottom = 560.0
+script = ExtResource("1")

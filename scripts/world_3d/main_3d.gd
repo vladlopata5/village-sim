@@ -34,6 +34,7 @@ var legacy_reference_setup := false # Explicit historical integration fixture on
 var entrance_zones = preload("res://scripts/world_3d/building_entrance_zones_3d.gd").new()
 var building_uses = preload("res://scripts/world_3d/building_use_3d.gd").new()
 var settlement_panel: PanelContainer
+var assignment_dialog: PanelContainer
 var debug_spawn: RefCounted
 var developer_panel: PanelContainer
 var debug_spawn_marker: MeshInstance3D
@@ -69,11 +70,18 @@ func _ready() -> void:
 	resident_card_view().work_area_requested.connect(_start_work_area)
 	player_control.work_assignment_changed.connect(_work_assignment_updated)
 	work_areas.changed.connect(_work_areas_updated)
-	settlement_panel = preload("res://scripts/settlement_residents_panel.gd").new()
+	settlement_panel = preload("res://scenes/ui/residents_window.tscn").instantiate()
 	$HUD.add_child(settlement_panel)
-	settlement_panel.setup(player_control,resident_selection)
 	game_ui.register_window(&"residents", settlement_panel)
-	building_card_view().settlement_management_requested.connect(game_ui.open_window.bind(&"residents"))
+	settlement_panel.setup(player_control,resident_selection)
+	assignment_dialog=preload("res://scenes/ui/assignment_dialog.tscn").instantiate()
+	game_ui.get_node("Windows").add_child(assignment_dialog)
+	assignment_dialog.setup(player_control,resident_selection,game_ui)
+	settlement_panel.assignment_requested.connect(assignment_dialog.open_for)
+	settlement_panel.visibility_changed.connect(func():
+		if not settlement_panel.visible: assignment_dialog.close())
+	building_card_view().settlement_management_requested.connect(_open_residents)
+	building_card_view().staffing_requested.connect(_open_residents)
 	game_ui.update_population(residents.size())
 	$World.add_child(navigation_debug)
 	navigation_debug.setup(navigation)
@@ -117,6 +125,9 @@ func _ready() -> void:
 		$World.add_child(debug_spawn_marker)
 		debug_spawn_marker.hide()
 		developer_panel.placement_cancelled.connect(debug_spawn_marker.hide)
+func _open_residents(role: int=-1) -> void:
+	settlement_panel.preset_profession(role)
+	game_ui.open_window(&"residents")
 func _create_resident_presentation(data: ResidentData, start: Vector2) -> Node:
 	var executor = Executor.new()
 	executor.name = "ResidentExecutor_" + data.id

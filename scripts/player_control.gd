@@ -101,7 +101,7 @@ func current_intent(resident_id: String):
 func assign_profession(resident_id: String, profession: Profession.Type) -> bool:
 	# True means the profession was accepted; workplace may remain empty for Porter.
 	var resident: RefCounted = _residents.get(resident_id)
-	if resident == null or profession not in Profession.Type.values(): return false
+	if not profession_eligibility_error(resident_id,profession).is_empty(): return false
 	if profession in [Profession.Type.LUMBERJACK,Profession.Type.MINER] and resident.profession == profession and not resident.work_area_id.is_empty(): return true
 	if profession in [Profession.Type.NONE,Profession.Type.BUILDER]: return _assign(resident_id,profession,&"")
 	if resident.profession == profession and can_assign_workplace(resident_id,resident.work_location_id,profession): return true
@@ -133,8 +133,33 @@ func get_building(building_id: StringName) -> RefCounted:
 		if building.id == building_id: return building
 	return null
 
+func _is_housing_definition(building: RefCounted) -> bool:
+	return building is BuildingInstance and building.type == BuildingType.Type.HOME and building.definition.housing_capacity > 0
 func is_housing_target(building: RefCounted) -> bool:
-	return building is BuildingInstance and building.is_built() and building.type == BuildingType.Type.HOME and building.definition.housing_capacity > 0
+	return _is_housing_definition(building) and building.is_built()
+func has_housing_role(building_id: StringName) -> bool:
+	return _is_housing_definition(get_building(building_id))
+func get_workplace_roles(building_id: StringName) -> Array[int]:
+	var building := get_building(building_id)
+	var roles: Array[int] = []
+	if building == null: return roles
+	if building.definition.worker_profession != Profession.Type.NONE: roles.append(building.definition.worker_profession)
+	if building.definition.porter_capacity > 0: roles.append(Profession.Type.PORTER)
+	return roles # Applicability is known even while construction blocks admission.
+func profession_eligibility_error(resident_id: String, profession: int) -> String:
+	if get_resident(resident_id) == null: return "Житель не найден"
+	if profession not in Profession.Type.values(): return "Профессия недоступна"
+	return "" # No age/skill/building/vacancy requirement exists for eligibility.
+func home_assignment_error(resident_id: String, building_id: StringName) -> String:
+	var resident = get_resident(resident_id)
+	var building := get_building(building_id)
+	if resident == null: return "Житель не найден"
+	if building == null: return "Здание недоступно"
+	if not building.is_built(): return "Здание ещё строится"
+	if not is_housing_target(building): return "Здание не предназначено для заселения"
+	if resident.home_location_id == building_id: return "Житель уже живёт здесь"
+	if get_home_occupants(building_id).size() >= building.definition.housing_capacity: return "В доме нет свободных мест"
+	return ""
 
 func get_home(resident_id: String) -> RefCounted:
 	var resident: RefCounted = _residents.get(resident_id)
@@ -147,10 +172,8 @@ func get_home_occupants(building_id: StringName) -> Array:
 	return _residents.values().filter(func(resident): return resident.home_location_id == building_id)
 
 func assign_home(resident_id: String, building_id: StringName) -> bool:
+	if not home_assignment_error(resident_id,building_id).is_empty(): return false
 	var resident: RefCounted = _residents.get(resident_id)
-	var building := get_building(building_id)
-	if resident == null or not is_housing_target(building) or resident.home_location_id == building_id: return false
-	if get_home_occupants(building_id).size() >= building.definition.housing_capacity: return false
 	# Validate the new home before replacing the old relationship.
 	var previous: StringName = resident.home_location_id
 	resident.home_location_id = building_id

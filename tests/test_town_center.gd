@@ -102,16 +102,22 @@ func run() -> void:
 	var card = world.building_card_view()
 	check(card.management_button.visible and card.resources_label.text.contains("60"),"Town Center card exposes stock and management")
 	card.management_button.pressed.emit()
-	check(world.settlement_panel.visible and world.settlement_panel.resident_buttons.size()==4,"Settlement panel lists current residents")
-	world.settlement_panel.resident_buttons[world.residents[1].id].pressed.emit()
+	check(world.settlement_panel.visible and world.settlement_panel.rows.size()==4,"Settlement panel lists current residents")
+	world.settlement_panel.activate_row(world.residents[1].id)
+	check(world.assignment_dialog.visible and world.resident_selection.selected_building==center,"Building context opens assignment without changing selection")
+	world.assignment_dialog.close()
+	world.resident_selection.clear()
+	world.settlement_panel.activate_row(world.residents[1].id)
 	check(world.resident_selection.selected_resident==world.residents[1] and world.resident_card_view().visible,"Population list uses existing selection/card")
 	var extra = Resident.new("population_fixture","Новый житель",20)
 	extra.id="population_fixture"
 	extra.resident_name="Новый житель"
 	world.player_control.register_resident(extra)
-	check(world.settlement_panel.resident_buttons.has(extra.id),"Resident-added signal refreshes list")
+	world.settlement_panel._flush()
+	check(world.settlement_panel.rows.has(extra.id),"Resident-added signal refreshes list")
 	world.player_control.unregister_resident(extra.id)
-	check(not world.settlement_panel.resident_buttons.has(extra.id),"Resident-removed signal refreshes list")
+	world.settlement_panel._flush()
+	check(not world.settlement_panel.rows.has(extra.id),"Resident-removed signal refreshes list")
 	var removed_actor = world.resident_runtimes[3]
 	removed_actor.schedule._on_phase_changed("Ночь")
 	for step in range(800):

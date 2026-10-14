@@ -444,3 +444,31 @@ input/callback generations, rotations and tool transitions. Rendered QA includes
 target resolutions, real GUI clicks/rays and actual Ground delivery/Builder completion.
 Detailed results and screenshots: C:/Users/SW/Documents/Codex/outputs/ui-e3-construction/REPORT.md.
 E4–E6 have not started; future journal and demolition remain out of scope.
+
+## 16. Checkpoint E4
+
+Реализованы ResidentsWindow/AssignmentDialog. Существующий SettlementResidentsPanel
+теперь использует Tree с ID metadata, поиском без регистра, независимыми фильтрами
+current/eligible profession и наличия назначения, сортировкой name/age/assignment
+с reverse и stable-ID tie. Default имя; role preset задаёт eligibility и пустые
+назначения первыми. Target capacity никогда не фильтрует население.
+
+Green, Town Center и реальные production/Porter/housing buttons BuildingCard ведут
+в один экземпляр окна. Row без selected building выбирает resident; с building
+открывает верхний dialog, сохраняет Blue/building и окно. Смена/удаление context
+закрывает dialog. Applicable роли читаются из PC; UC/full/already assigned остаются
+disabled с видимыми причинами. Assignment/home changes выполняют существующие API
+с повторной проверкой; committed hauling сохраняется.
+
+Read queries и housing/eligibility predicates добавлены в PC без изменения правил.
+Сигналы обновляют затронутые TreeItems, reorder/filter объединяются; hidden window
+не делает постоянных population scans. Scoped connections отключаются при exit;
+window подключается к PC после coordinator reparent. No second population/selection.
+
+Rendered QA использует обе целевые resolution, настоящие GUI press/release, PopupMenu
+selection, Unicode input, крупный реестр Debug spawn и реальные PC assignments.
+Геометрия: roster 680×400, dialog 440×260; Blue не перекрывается и камера не меняется.
+Исправлен UI-only stale housing count через home_changed; housing rules unchanged.
+Подробные проверки, screenshots и ограничения:
+C:/Users/SW/Documents/Codex/outputs/ui-e4-residents/REPORT.md.
+E5/E6 и будущие журнал/демонтаж/HP не начинались.

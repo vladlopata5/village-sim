@@ -85,14 +85,17 @@ func open_top_dialog(dialog: Control) -> void:
 	register_pointer_control(dialog)
 	dialog.show()
 	blocking_ui_changed.emit()
+func close_top_dialog(dialog: Control=null) -> void:
+	if dialog!=null and _top_dialog!=dialog: return
+	if is_instance_valid(_top_dialog): _top_dialog.hide()
+	_top_dialog=null
+	blocking_ui_changed.emit()
 func bind_context_menu(menu: Control) -> void:
 	context_menu = menu
 	register_pointer_control(menu)
 func try_escape() -> bool:
 	if is_instance_valid(_top_dialog) and _top_dialog.visible:
-		_top_dialog.hide()
-		_top_dialog = null
-		blocking_ui_changed.emit()
+		close_top_dialog()
 		return true
 	if is_instance_valid(context_menu) and context_menu.visible:
 		context_menu.hide()

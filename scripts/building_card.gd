@@ -22,6 +22,8 @@ var _selection: Selection
 var _building: Instance
 var _last_snapshot: Array = []
 signal settlement_management_requested
+signal staffing_requested(profession: int)
+var staffing_buttons: Dictionary = {}
 var management_button: Button
 @onready var name_label: Label = _widget("Name", "Margin/Column/Scroll/Content/Name")
 @onready var id_label: Label = _widget("ID", "Margin/Column/Scroll/Content/ID")
@@ -142,8 +144,8 @@ func bind_control(control: RefCounted) -> void:
 
 func _on_home_changed(_resident_id: String, previous: StringName, current: StringName) -> void:
 	if _building != null and _building.id in [previous, current]:
+		_refresh_housing()
 		if embedded: _refresh()
-		else: _refresh_housing()
 
 func _refresh_housing() -> void:
 	housing_section.visible = _control != null and _control.is_housing_target(_building)
@@ -152,7 +154,7 @@ func _refresh_housing() -> void:
 	housing_count.text = "Жильцы: %d / %d" % [occupants.size(), _building.definition.housing_capacity]
 	var names := PackedStringArray()
 	for resident in occupants: names.append("• " + resident.resident_name)
-	housing_residents.text = "Заселение: выберите жителя и нажмите ПКМ по дому." if embedded else ("\n".join(names) if not names.is_empty() else "Нет жильцов")
+	housing_residents.text = "Заселение: откройте «Жители» и выберите человека." if embedded else ("\n".join(names) if not names.is_empty() else "Нет жильцов")
 
 signal presentation_changed
 var _presented_tabs: Array[StringName] = []
@@ -200,7 +202,7 @@ func _refresh_embedded(resource_lines: PackedStringArray) -> void:
 	get_node("%StorageAmounts").text = "\n".join(resource_lines)
 	get_node("%OtherStocks").text = "\n".join(resource_lines)
 	get_node("%OtherStocks").visible = _building.is_built() and available_tabs().size() == 1 and not resource_lines.is_empty()
-	get_node("%ManagementHint").visible = _building.is_built() and _building.type != Types.Type.HOME
+	get_node("%ManagementHint").visible = false
 	get_node("%Characteristics").text = "Footprint: %d × %d клеток\nПоворот: %d°" % [def.footprint_cells.x,def.footprint_cells.y,_building.quarter_turns*90]
 	var recipe_lines := PackedStringArray()
 	if def.production_recipe != null:
@@ -226,6 +228,21 @@ func _refresh_people(producers: Array, porters: Array) -> void:
 	for child in body.get_children():
 		body.remove_child(child)
 		child.queue_free()
+	staffing_buttons.clear()
+	for role in _control.get_workplace_roles(_building.id):
+		var button := Button.new()
+		button.text="Назначить: "+preload("res://scripts/resident_profession.gd").display_name(role)
+		button.focus_mode=Control.FOCUS_NONE
+		button.pressed.connect(staffing_requested.emit.bind(role))
+		body.add_child(button)
+		staffing_buttons[role]=button
+	if _control.has_housing_role(_building.id):
+		var button := Button.new()
+		button.text="Поселить жителя"
+		button.focus_mode=Control.FOCUS_NONE
+		button.pressed.connect(staffing_requested.emit.bind(-1))
+		body.add_child(button)
+		staffing_buttons[&"home"]=button
 	if _building.is_built() and _building.definition.worker_profession != preload("res://scripts/resident_profession.gd").Type.NONE:
 		_add_group(body,"Производственные работники",producers,_building.definition.worker_capacity,false)
 	if _building.is_built() and _building.definition.porter_capacity > 0: _add_group(body,"Носильщики",porters,_building.definition.porter_capacity,false)

@@ -2722,3 +2722,37 @@ cancels its placement. Opening the existing Residents quick window preserves the
 tool. Dirt Road uses its own unchanged validation/paint/erase path. Collapsing the
 catalogue does not cancel independent WorkArea/F10 tools. No committed worker task,
 logistics, placement validator, recipe, capacity or camera mathematics changed.
+
+## 2026-10-14 — E4: единое окно жителей и назначения
+
+Canonical ResidentsWindow заменяет прежний простой список, используя тот же
+SettlementResidentsPanel и GameUI coordinator. Один TreeItem на registered ID,
+три колонки; единственный реестр — PlayerControl. Строки обновляются по сигналам,
+фильтрация/сортировка coalesced; закрытое окно сохраняет dirty flags без обхода
+населения каждый кадр. Selection остаётся ResidentSelection.
+
+Фильтр «Назначение» — производная от непустого work_location_id или work_area_id,
+не от profession, activity, HaulJob или физических WORKER/COURIER slots. WorkArea
+показывается отдельной областью; Builder без места обозначает работу в мире,
+Porter без места — носильщика без рабочего места. Недоступный target отмечается
+в подписи; UI не исправляет domain relationship самостоятельно.
+
+Небольшие PlayerControl read queries: profession_eligibility_error (registration
+и известная профессия, без vacancy/building/age/skills); get_workplace_roles
+(worker_profession и porter_capacity, включая UC applicability); has_housing_role
+и home_assignment_error. Eligibility и housing setter переиспользуют прежние
+admission predicates; outcomes, capacities и atomicity не изменены.
+
+AssignmentDialog хранит IDs и weak identity references. Новое selection или
+исчезновение сущности закрывает старый dialog (A2), без retarget. Каждый execute
+повторно разрешает identity/selection/admission и вызывает только explicit-role
+assign_workplace либо assign_home/clear_home. Full/UC/already assigned действия
+видны disabled с текстом причины. Успех закрывает только dialog; список и здание
+сохраняются. Outside dismissal поглощает press/release и не отдаёт click в мир.
+Committed hauling не отменяется UI-переназначением.
+
+Окно фиксировано 680×400 в (134,160) logical units; диалог 440×260 в (254,250),
+чтобы вместить заголовок, две роли, причины и отказ. Blue geometry/viewport/stretch
+не изменены. Layout выполняется после container pass через scoped one-shot signal,
+без per-frame resize/refresh. UI home_changed отдельно обновляет housing counter,
+не полагаясь на snapshot production/resources. Legacy scene/card defaults сохранены.
