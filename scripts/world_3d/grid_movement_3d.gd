@@ -15,7 +15,9 @@ var _index := 0
 var _segments: Array[Dictionary] = []
 var _spent := 0.0
 var _revision := -1
-func set_target(world_position: Vector3) -> void:
+var _prepared_path: Dictionary = {}
+func set_target(world_position: Vector3, prepared: Dictionary = {}) -> void:
+	_prepared_path = prepared
 	_target = world_position
 	_moving = true
 	_pending = true # Plan on advance, after intent ownership is established.
@@ -25,6 +27,7 @@ func set_target(world_position: Vector3) -> void:
 	_spent = 0.0
 	path_changed.emit(_path)
 func stop() -> void:
+	_prepared_path = {}
 	_moving = false
 	_pending = false
 	raw_path.clear()
@@ -41,7 +44,13 @@ func advance(delta: float) -> void:
 		_fail()
 		return
 	if _pending or _revision != navigation.revision:
-		raw_path = navigation.find_raw_path(body.global_position,_target)
+		var hint := _prepared_path
+		var prepared_raw: PackedVector3Array = hint.get("raw",PackedVector3Array())
+		_prepared_path = {} # Consume once; replans always use the current world.
+		if hint.get("navigation_id",-1) == navigation.get_instance_id() and hint.get("revision",-1) == navigation.revision and hint.get("start") == body.global_position and hint.get("target") == _target and not prepared_raw.is_empty() and prepared_raw[0] == body.global_position and prepared_raw[-1] == _target:
+			raw_path = prepared_raw
+		else:
+			raw_path = navigation.find_raw_path(body.global_position,_target)
 		_path = navigation.smooth_path(raw_path)
 		_pending = false
 		_revision = navigation.revision

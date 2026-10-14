@@ -431,6 +431,33 @@ func _update_navigation_debug() -> void:
 	var runtime = get_resident_runtime(data) if data != null else null
 	navigation_debug.bind_movement(runtime.view.movement if runtime != null else null)
 
+func _bind_resident_control(runtime: ResidentRuntime) -> void:
+	super._bind_resident_control(runtime)
+	runtime.builder.material_planner = _plan_construction_material
+	runtime.builder.material_lower_bound = _construction_material_lower_bound
+	runtime.builder.material_path_current = _construction_path_current
+	if not navigation.changed.is_connected(runtime.builder.on_navigation_changed): navigation.changed.connect(runtime.builder.on_navigation_changed)
+
+func _construction_material_lower_bound(origin: Vector2, access: Vector2, destination: Vector2) -> float:
+	return navigation.minimum_path_cost(Coordinates.to_world(origin),Coordinates.to_world(access)) + navigation.minimum_path_cost(Coordinates.to_world(access),Coordinates.to_world(destination))
+func _construction_path_current(path: Dictionary) -> bool:
+	return path.get("navigation_id",-1) == navigation.get_instance_id() and path.get("revision",-1) == navigation.revision
+func _construction_material_path(start: Vector2, target: Vector2) -> Dictionary:
+	var from_world := Coordinates.to_world(start)
+	var to_world := Coordinates.to_world(target)
+	if not navigation.can_reach_point(from_world,to_world): return {}
+	var raw := navigation.find_raw_path(from_world,to_world)
+	if not navigation.is_raw_path_walkable(raw): return {}
+	return {"raw":raw,"navigation_id":navigation.get_instance_id(),"revision":navigation.revision,"start":from_world,"target":to_world}
+func _plan_construction_material(origin: Vector2, access: Vector2, destination: Vector2) -> Dictionary:
+	var pickup := _construction_material_path(origin,access)
+	if pickup.is_empty(): return {}
+	var delivery := _construction_material_path(access,destination)
+	if delivery.is_empty(): return {}
+	# Actual distance/speed integration on raw polylines, same units as movement.
+	var cost: float = navigation.raw_path_travel_cost(pickup.raw) + navigation.raw_path_travel_cost(delivery.raw)
+	return {"source_path":pickup,"delivery_path":delivery,"origin":origin,"access":access,"destination":destination,"cost":cost}
+
 func _on_navigation_changed(_revision: int) -> void:
 	# Reuse local availability events; cached logistics offers must see new locations.
 	logistics.recalculate()

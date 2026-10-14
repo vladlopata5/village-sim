@@ -2880,3 +2880,38 @@ Performance fixture исправлен: DebugSpawn принимает макси
 Все логи, численные результаты, диагностика и screenshots вне Git:
 `C:/Users/SW/Documents/Codex/outputs/e6-perspective-camera/REPORT.md`.
 История E1–E5 не переписывается; новые механики не начаты.
+
+## 2026-10-14 — P1: Builder material search and one-use raw routes
+
+Canonical Builder uses ResourceSources.find_construction_trip. It enumerates live
+exportable/unreserved sources, stores their current access points and ranks a cheap
+lower bound: distance(origin,access)+distance(access,site), divided by the grid's
+fastest traversal speed. Each examined candidate receives two actual A* raw paths,
+validated with the existing conservative LOS/clearance rules. Comparison uses the
+same distance/speed integral as movement, before optional smoothing. The best examined
+raw trip can stop the search when its cost is at most1.25 times the next candidate's
+lower bound. There is no candidate cap: unreachable prefixes cannot hide distant work.
+This25% search slack was chosen from open/weighted/wall fixtures against strict1.0
+and looser1.5/2.0 alternatives; it is not a universal promise about smoothed route
+optimality. Source choice can change; source admission, recipes and reservations do not.
+
+One transient material offer per Builder separates resource admission from geometry.
+Before acquisition it checks live source identity/availability, site membership/built
+state/uncovered demand, current origin/access/destination and navigation identity plus
+revision (including cost edits). Quantity changes alone need not discard valid paths.
+Work sites retain the existing priority formula; eligibility is evaluated in sorted
+priority order. A stale selected site/origin is re-evaluated. A negative availability
+answer is reconsidered after navigation/world edits or a changed resident origin.
+
+The two raw legs are optional one-use ResidentIntent hints. The 3D executor passes
+only Builder-provided hints to GridMovement3D. At planning, movement requires matching
+navigation instance/revision, exact start/target and raw endpoints, then calls the
+unchanged smoother once. Portal exits, changed free construction markers, position
+or navigation invalidate the hint and use the ordinary fresh plan. Arrival/physical
+slots, weighted speed, loading/unloading, committed material delivery and rollback
+remain unchanged. Cleanup retains no active delivery hint. No global route cache,
+AI scheduler, new ledger, threading or resource mutation during availability was added.
+
+Legacy Builder still uses the original ResourceSources.find and movement defaults.
+Generic find, Porter/self-logistics, food, social events, UI and camera are untouched.
+Measurements and acceptance: C:/Users/SW/Documents/Codex/outputs/performance-optimization-p1/REPORT.md.

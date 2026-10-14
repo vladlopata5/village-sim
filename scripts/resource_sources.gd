@@ -49,6 +49,32 @@ func find(resource: int, origin: Vector2, destination: Vector2, excluded: String
 		var db: float = origin.distance_to(point(b))+point(b).distance_to(destination)
 		return da<db or (is_equal_approx(da,db) and a.stable_key()<b.stable_key()))
 	return result
+# Builder-only query. Rank cheap lower bounds, validate raw routes, never smooth here.
+# The slack bounds the unexamined raw-route alternatives, not resource admission.
+const CONSTRUCTION_SEARCH_SLACK := 1.25
+func find_construction_trip(resource: int, origin: Vector2, destination: Vector2, excluded: StringName, planner: Callable, lower_bound: Callable, slack: float = CONSTRUCTION_SEARCH_SLACK) -> Dictionary:
+	var references: Array = []
+	for building in buildings.values():
+		if building.id != excluded: references.append(Source.new(Source.Kind.CONTAINER,building.id))
+	if is_instance_valid(ground):
+		for drop in ground.drops: references.append(Source.new(Source.Kind.GROUND,drop.id))
+	var candidates: Array[Dictionary] = []
+	for source_ref in references:
+		if not available(source_ref,resource): continue
+		var access: Vector2 = point(source_ref)
+		candidates.append({"reference":source_ref,"point":access,"bound":float(lower_bound.call(origin,access,destination)),"key":source_ref.stable_key()})
+	candidates.sort_custom(func(a,b): return a.bound < b.bound or (a.bound == b.bound and a.key < b.key))
+	var best: Dictionary = {}
+	for candidate in candidates:
+		# No fixed candidate cap: unreachable prefixes never mean "no work".
+		if not best.is_empty() and best.cost <= maxf(1.0,slack)*candidate.bound: break
+		var plan: Dictionary = planner.call(origin,candidate.point,destination)
+		if plan.is_empty(): continue
+		if best.is_empty() or plan.cost < best.cost or (plan.cost == best.cost and candidate.key < best.reference.stable_key()):
+			best = plan.duplicate()
+			best["reference"] = candidate.reference
+	return best
+
 func reserve(source_ref: Source, resource: int, owner: StringName) -> bool:
 	if owner.is_empty() or _claims.has(owner) or not available(source_ref,resource): return false
 	var entity: Variant = resolve(source_ref)

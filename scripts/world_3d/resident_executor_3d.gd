@@ -32,17 +32,18 @@ func get_drop_sim_position() -> Vector2:
 	return Coordinates.to_sim(_entry_position) if _marker.purpose!=Slot.Purpose.CONSTRUCTION else get_sim_position()
 func set_selected(value: bool) -> void: view.set_selected(value)
 func set_time_speed(multiplier: int) -> void: _time_speed = multiplier
-func move_to(target: Vector2) -> void:
+func move_to(target: Vector2, prepared: Dictionary = {}) -> void:
 	_exit_building()
 	_active = null
-	movement.set_target(Coordinates.to_world(target))
+	movement.set_target(Coordinates.to_world(target),prepared)
 func apply_intent(intent: Intent) -> void:
 	if intent.type == Intent.Type.NONE:
 		_active = null
 		movement.stop()
 		if not _reporting_arrival: _exit_building()
 		return
-	move_to(intent.target_position)
+	move_to(intent.target_position,intent.prepared_path)
+	intent.prepared_path = {}
 	_active = intent
 func _physics_process(delta: float) -> void:
 	movement.speed = Coordinates.length_to_world(Modifiers.movement_speed(resident_data, 120.0)) * _time_speed

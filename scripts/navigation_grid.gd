@@ -321,6 +321,18 @@ func _compact_raw_path(raw: PackedVector3Array) -> PackedVector3Array:
 		compact.append(points[index])
 	compact.append(points[-1])
 	return compact
+# Mandatory fallback geometry validation, without optional smoothing or cost scoring.
+func is_raw_path_walkable(raw: PackedVector3Array) -> bool:
+	var points := _compact_raw_path(raw)
+	if points.is_empty() or not is_world_walkable(points[0]): return false
+	for index in range(1,points.size()):
+		if not has_line_of_sight(points[index-1],points[index]): return false
+	return true
+func raw_path_travel_cost(raw: PackedVector3Array) -> float:
+	return path_travel_cost(_compact_raw_path(raw))
+func minimum_path_cost(start: Vector3, target: Vector3) -> float:
+	return start.distance_to(target) / _fastest_speed
+
 func find_path(start: Vector3, target: Vector3) -> PackedVector3Array:
 	return smooth_path(find_raw_path(start,target))
 

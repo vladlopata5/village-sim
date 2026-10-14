@@ -41,6 +41,16 @@ var _availability_dirty := true
 var _potential_work := false
 var _waiting_resume_queued := false
 var source_search_count := 0
+# Canonical 3D adapters; legacy keeps its original query and movement defaults.
+var material_planner: Callable
+var material_lower_bound: Callable
+var material_path_current: Callable
+var _work_offer: Instance
+var _work_origin: Variant = null
+var _trip_offer: Dictionary = {}
+var _offer_site: Instance
+var _offer_source: RefCounted
+var _delivery_path: Dictionary = {}
 var handling = preload("res://scripts/resource_handling.gd").new()
 
 func setup(data: RefCounted, clock: Node, locations: RefCounted, buildings: Array, intents: Node, decision: Node) -> void:
@@ -109,29 +119,55 @@ func _material_trip(candidate: Instance) -> Dictionary:
 		if candidate.get_uncovered_construction_amount(resource) <= 0: continue
 		var end: Variant = _locations.get_position(candidate.id)
 		if not end is Vector2: continue
+		if material_planner.is_valid():
+			if _trip_offer_valid(candidate,resource,current_position,end): return _trip_offer
+			source_search_count += 1
+			var trip: Dictionary = sources.find_construction_trip(resource,current_position,end,candidate.id,material_planner,material_lower_bound)
+			if not trip.is_empty():
+				trip["resource"] = resource
+				_trip_offer = trip
+				_offer_site = candidate
+				_offer_source = sources.resolve(trip.reference)
+				return trip
+			continue
 		source_search_count += 1
 		var matches: Array = sources.find(resource,current_position,end,candidate.id)
 		if not matches.is_empty(): return {"resource":resource,"reference":matches[0]}
 	return {}
+
+func _trip_offer_valid(candidate: Instance, resource: int, origin: Vector2, destination: Vector2) -> bool:
+	if _trip_offer.is_empty() or _offer_site != candidate or candidate not in _buildings or candidate.is_built(): return false
+	if _trip_offer.resource != resource or candidate.get_uncovered_construction_amount(resource) <= 0: return false
+	var reference: Source = _trip_offer.reference
+	if sources.resolve(reference) != _offer_source or not sources.available(reference,resource): return false
+	if _trip_offer.origin != origin or _trip_offer.destination != destination or _trip_offer.access != sources.point(reference): return false
+	return material_path_current.call(_trip_offer.source_path) and material_path_current.call(_trip_offer.delivery_path)
+func on_navigation_changed(_revision: int) -> void:
+	_on_world_changed() # Also invalidates negative availability after a blocker changes.
 
 func _eligible(candidate: Instance) -> bool:
 	return not candidate.is_built() and candidate.has_free_builder_slot() and _locations.get_position(candidate.id) is Vector2 and (candidate.are_construction_materials_complete() or not _material_trip(candidate).is_empty())
 
 func best_site() -> Instance:
 	var current_position: Variant = _position()
+	_work_offer = null
+	_work_origin = current_position
 	if not current_position is Vector2: return null
-	var best: Instance = null
-	var score := -INF
+	var ranked: Array[Dictionary] = []
 	for candidate in _buildings:
-		if not _eligible(candidate): continue
-		var value := site_priority(candidate, current_position)
-		if best == null or value > score or (value == score and String(candidate.id) < String(best.id)):
-			best = candidate
-			score = value
-	return best
+		if candidate.is_built() or not candidate.has_free_builder_slot(): continue
+		ranked.append({"site":candidate,"score":site_priority(candidate,current_position)})
+	ranked.sort_custom(func(a,b): return a.score > b.score or (a.score == b.score and String(a.site.id) < String(b.site.id)))
+	for candidate in ranked:
+		if _eligible(candidate.site):
+			_work_offer = candidate.site
+			return _work_offer
+	return null
 
 func has_work() -> bool:
 	if _data.profession != Profession.Type.BUILDER or phase != Phase.NONE or _data.inventory.amount != 0: return false
+	# A negative geometry answer belongs to its origin; teleport/portal exit can change it.
+	if material_planner.is_valid() and not _potential_work and _work_origin != _position(): _availability_dirty = true
 	# Missing sources are reconsidered after world events, not idle retry intervals.
 	if _availability_dirty:
 		_potential_work = best_site() != null
@@ -140,7 +176,8 @@ func has_work() -> bool:
 
 func request_work() -> bool:
 	if _clock.get_phase() != "День" or not has_work() or _intents.has_current_action(): return false
-	site = best_site()
+	# Fresh resource/identity checks even if availability and execution share geometry.
+	site = _work_offer if material_planner.is_valid() and _work_offer != null and _work_offer in _buildings and _work_offer.has_free_builder_slot() and _work_origin == _position() and _eligible(_work_offer) else best_site()
 	if site == null: return false
 	_mutating = true
 	var claimed: bool = site.claim_builder_slot(_data.id)
@@ -191,7 +228,11 @@ func _continue_task() -> bool:
 		abort("не удалось зарезервировать материалы")
 		return false
 	phase = Phase.GOING_TO_SOURCE
-	return _move(&"builder_source", sources.point(source_ref))
+	_delivery_path = trip.get("delivery_path",{})
+	_trip_offer = {}
+	_offer_site = null
+	_offer_source = null
+	return _move(&"builder_source", sources.point(source_ref),trip.get("source_path",{}))
 
 func _materials_incoming() -> bool:
 	for resource in site.definition.construction_requirements:
@@ -230,8 +271,10 @@ func _resume_waiting() -> void:
 		logger.info(EventLog.BUILDING, "%s: ожидаемая поставка отменена — пересматривает работу %s" % [_data.resident_name, site.id])
 	_continue_task()
 
-func _move(reason: StringName, target: Vector2) -> bool:
-	return _set_task_intent(Intent.new(Intent.Type.MOVE_TO, reason, target, Balance.WORK_PRIORITY, false))
+func _move(reason: StringName, target: Vector2, prepared: Dictionary = {}) -> bool:
+	var next := Intent.new(Intent.Type.MOVE_TO,reason,target,Balance.WORK_PRIORITY,false)
+	next.prepared_path = prepared
+	return _set_task_intent(next)
 
 func _set_task_intent(next: Intent) -> bool:
 	var previous: Intent = _intent
@@ -281,7 +324,9 @@ func _complete_arrival(intent: Intent) -> void:
 			return
 		if logger != null: logger.info(EventLog.BUILDING, "%s: забрал 1 %s — %s" % [_data.resident_name, ResourceType.Type.keys()[_resource], sources.label(source_ref)])
 		phase = Phase.CARRYING_TO_SITE
-		_move(&"builder_delivery", _locations.get_position(site.id))
+		var prepared := _delivery_path
+		_delivery_path = {}
+		_move(&"builder_delivery", _locations.get_position(site.id),prepared)
 	elif phase == Phase.CARRYING_TO_SITE:
 		_mutating = true
 		_data.inventory.clear()
@@ -366,6 +411,11 @@ func _flush_work() -> void:
 		logger.info(EventLog.BUILDING,"%s: %s (%d мин уже начислено)" % [_data.resident_name,message,work_minutes])
 
 func _cleanup(reason: String) -> Intent:
+	_trip_offer = {}
+	_work_offer = null
+	_offer_site = null
+	_offer_source = null
+	_delivery_path = {}
 	_availability_dirty = true
 	_exiting = true
 	var old: Intent = _intent
