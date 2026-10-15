@@ -3098,3 +3098,20 @@ food/work/resource callbacks сохранены. Новых массовых wor
 Это согласованное изменение игровой механики. Не объявлять его устранением всех
 задержек или гарантированным ускорением FPS. Контракт: AI_DECISION_QUEUE.md;
 измерения: C:/Users/SW/Documents/Codex/outputs/performance-optimization-p3-3/REPORT.md.
+
+
+## 2026-10-15 — P3.4: строительная availability без синхронного fan-out поиска
+
+ResidentBuilderController по-прежнему немедленно инвалидирует availability-cache,
+проверяет действующее назначение и очищает недействительную стройку. Потеря
+резерва источника, unregister/abort и event-driven ожидание материалов сохранены.
+Повторные сигналы construction/resource/source объединяются в один deferred
+_refresh_work_availability для свободного BUILDER без текущего действия и груза.
+Для занятого жителя поиск не нужен: следующая обычная проверка читает dirty-cache.
+Перед deferred проверкой повторно проверяется состояние жителя; прежнее уведомление
+construction_available отправляется только на переходе unavailable → available.
+Прямые has_work/request_work видят инвалидацию сразу; claim и material reservations
+остаются синхронными с живой проверкой. Промежуточные состояния внутри одной серии
+изменений не требуют отдельных запросов. Новых массовых пробуждений IDLE нет;
+P3.2 queue/budget, P3.3 timer, приоритет площадок и P1 planner не меняются.
+Измерения и ограничения: внешний performance-optimization-p3-4/REPORT.md.

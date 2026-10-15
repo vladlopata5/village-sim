@@ -40,6 +40,7 @@ var _had_work := false
 var _availability_dirty := true
 var _potential_work := false
 var _waiting_resume_queued := false
+var _availability_refresh_queued := false
 var source_search_count := 0
 # Optional navigation query providers; isolated domain fixtures use generic source queries.
 var material_planner: Callable
@@ -498,6 +499,25 @@ func _on_world_changed() -> void:
 		# Coalesce synchronous reservation/delivery signals; never run inside a carrier mutation.
 		_waiting_resume_queued = true
 		call_deferred("_resume_waiting")
+	# Active workers keep their immediate safety checks above. Their next ordinary
+	# decision reads the invalidated cache; there is no reason to scan sites now.
+	if not _can_refresh_availability():
+		_had_work = false
+		return
+	if not _availability_refresh_queued:
+		_availability_refresh_queued = true
+		call_deferred("_refresh_work_availability")
+
+func _can_refresh_availability() -> bool:
+	return _data.profession == Profession.Type.BUILDER and phase == Phase.NONE and _data.inventory.amount == 0 and _data.activity == Activity.Type.IDLE and not _intents.has_current_action()
+
+func _refresh_work_availability() -> void:
+	_availability_refresh_queued = false
+	# Several claims/deliveries/progress signals can describe one final state.
+	# Recheck at service: an intervening command/task must not be interrupted.
+	if not _can_refresh_availability():
+		_had_work = false
+		return
 	var available := has_work()
 	if available and not _had_work and _data.activity == Activity.Type.IDLE and not _intents.has_current_action():
 		_decision.call_deferred("request_decision", "construction_available")
