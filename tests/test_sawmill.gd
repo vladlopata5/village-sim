@@ -138,7 +138,7 @@ func run() -> void:
 	actor.decision.request_decision("empty_recipe")
 	check(not actor.intents.has_current_action(),"No input permits ordinary idle/personal decision without hanging work")
 	saw.resources.add(Resources.LOG,1)
-	await process_frame
+	await preload("res://tests/ai_queue_fixture.gd").drain(world)
 	check(actor.recipe_work.phase==RecipeWork.Phase.GOING_TO_WORK and actor.decision.last_selection.candidates.any(func(row): return row.id=="WORK"),"Input availability event triggers normal UtilitySelector WORK")
 	walk(actor)
 	actor.decision._deciding = true
@@ -149,7 +149,7 @@ func run() -> void:
 	check(not actor.recipe_work.has_work(),"Full output forbids a new candidate")
 	actor.decision._deciding = false
 	saw.resources.try_take(Resources.PLANK,1)
-	await process_frame
+	await preload("res://tests/ai_queue_fixture.gd").drain(world)
 	check(actor.recipe_work.phase==RecipeWork.Phase.GOING_TO_WORK,"Released output capacity event starts ordinary WORK again")
 	walk(actor)
 	actor.decision._deciding = true

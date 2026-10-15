@@ -23,6 +23,8 @@ func run() -> void:
 	world.social_events.enabled = false
 	for actor in world.resident_runtimes:
 		actor.decision._deciding = true
+		# This housing fixture drives phase/sleep directly with ordinary AI disabled.
+		actor.schedule.work_decision = Callable()
 		actor.intents.abort_current(actor.intents.current_intent)
 		actor.view.set_physics_process(false)
 	await physics_frame

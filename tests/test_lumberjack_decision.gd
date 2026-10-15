@@ -36,6 +36,7 @@ func run() -> void:
 	await physics_frame
 	var marina = prepare_marina(scene)
 	scene.game_time.debug_skip_minutes(52) # Real phase boundary drives the existing schedule/AI.
+	await preload("res://tests/ai_queue_fixture.gd").drain(scene)
 	var worker = marina.get_node("Lumberjack")
 	check(scene.game_time.get_phase()=="День" and scene._work_available(marina),"Main3D forestry provider exposes reachable standing tree")
 	check(marina.decision._has_work(),"AI workplace gate admits assigned lumberjack")
@@ -61,6 +62,7 @@ func run() -> void:
 	marina = prepare_marina(scene)
 	for tree in scene.trees: tree.claim(&"other_worker")
 	scene.game_time.debug_skip_minutes(52)
+	await preload("res://tests/ai_queue_fixture.gd").drain(scene)
 	check(not scene._work_available(marina) and not marina.decision._has_work(),"All trees unavailable removes WORK availability")
 	check(not marina.decision.collect_actions(marina.decision._has_work()).any(func(row): return row.id=="WORK"),"No available tree means no WORK candidate")
 	check(marina.get_node("Lumberjack").tree==null and marina.intents.current_intent.reason_id==&"wander","Existing normal wander remains available without trees")

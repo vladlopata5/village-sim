@@ -40,6 +40,7 @@ func drop_at(point: Vector3 = Vector3(-24,0,-4)) -> RefCounted:
 func start() -> RefCounted:
 	actor.decision._deciding=false
 	actor.decision.request_decision("forestry_internal_test")
+	await preload("res://tests/ai_queue_fixture.gd").drain(world)
 	actor.decision._deciding=true
 	var job = world.logistics.get_job(actor.data.id)
 	check(job!=null and job.admission==Job.Admission.INTERNAL,"Normal WORK owns INTERNAL job")
@@ -66,7 +67,7 @@ func run() -> void:
 	var expected: Array = world.logistics.sources.find(R.LOG,actor.view.get_sim_position(),world.world_locations.get_position(hut.id),hut.id,hut,area).filter(func(ref): return ref.kind==Source.Kind.GROUND and area.contains(world.logistics.sources.point(ref)))
 	check(worker.has_work() and worker._available_task.kind==&"COLLECT","COLLECT before CHOP")
 	check(worker._available_task.reference.id==expected[0].id and worker._available_task.reference.id==close.id,"Same legacy route-distance/stable-ID selection, early LOG/in-area filter")
-	var job = start()
+	var job = await start()
 	check(job.source_ref.id==close.id and close.reservation_owner_id==job.id and hut.resources.get_reserved_in(R.LOG)==1,"Owned Ground claim and normal inbound")
 	check(worker.kind.is_empty() and actor.intents.current_intent.priority==Balance.WORK_PRIORITY,"No parallel forestry haul state, priority preserved")
 	walk()
@@ -88,7 +89,7 @@ func run() -> void:
 		for picked_up in [false,true]:
 			fixture()
 			var drop = drop_at()
-			job=start()
+			job=await start()
 			if picked_up:
 				walk()
 				world.game_time.debug_skip_minutes(10)
@@ -114,7 +115,7 @@ func run() -> void:
 		for stage in ["loading","carrying","unloading"]:
 			fixture()
 			drop_at()
-			job=start()
+			job=await start()
 			walk()
 			if stage!="loading": world.game_time.debug_skip_minutes(10)
 			if stage=="unloading": walk()
@@ -132,14 +133,14 @@ func run() -> void:
 			world.free()
 	fixture()
 	var expiring = drop_at()
-	job=start()
+	job=await start()
 	world.ground_resources._on_minute(expiring.created_at+expiring.lifetime)
 	world.logistics.recalculate()
 	check(job.state==Job.State.CANCELLED and hut.resources.get_reserved_in(R.LOG)==0 and expiring.reservation_owner_id.is_empty(),"Expiry before pickup cleans promises")
 	world.free()
 	fixture()
 	drop_at()
-	job=start()
+	job=await start()
 	world.game_time.total_minutes=1019
 	world.game_time.debug_skip_minutes(1)
 	walk()
@@ -161,7 +162,7 @@ func run() -> void:
 	fixture()
 	var common = drop_at()
 	hut.resources.add(R.LOG,11)
-	job=start()
+	job=await start()
 	check(hut.resources.get_available_free_capacity(R.LOG)==0,"Collect owns last inbound room")
 	var porter=world.resident_runtimes[0]
 	world.player_control.assign_workplace(porter.data.id,world.warehouse_data.id)
@@ -176,7 +177,7 @@ func run() -> void:
 	for edge in ["entry","exit","pickup_callback","deposit_callback","before_loading_tick","before_unloading_tick"]:
 		fixture()
 		drop_at()
-		job=start()
+		job=await start()
 		var move_command := func(): world.player_control.move_to(actor.data.id,C.to_sim(Vector3(0,0,-10)))
 		var portal_callback := func(id: StringName, purpose: int):
 			if id!=hut.id or purpose!=1: return
@@ -211,13 +212,14 @@ func run() -> void:
 	# After completion, ordinary decision lifecycle may choose new work, never a linked delivery.
 	fixture()
 	drop_at()
-	job=start()
+	job=await start()
 	walk()
 	world.game_time.debug_skip_minutes(10)
 	walk()
 	var decisions_before: int = actor.decision.decision_count
 	actor.decision._deciding=false
 	world.game_time.debug_skip_minutes(10)
+	await preload("res://tests/ai_queue_fixture.gd").drain(world)
 	actor.decision._deciding=true
 	check(job.state==Job.State.COMPLETED and actor.decision.decision_count>decisions_before,"Delivery completion returns to ordinary AI")
 	check(worker.kind==&"CHOP" and worker.tree!=null,"Ordinary next decision chooses forestry CHOP")

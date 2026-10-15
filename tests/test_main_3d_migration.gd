@@ -185,6 +185,7 @@ func _run() -> void:
 	actor.intents.abort_current(actor.intents.current_intent) # Isolate sleep routing from a newly committed haul.
 	scene.game_time.total_minutes = 1379
 	scene.game_time.advance(1)
+	await preload("res://tests/ai_queue_fixture.gd").drain(scene)
 	check(actor.intents.current_intent.reason_id == &"night_home" and actor.intents.current_intent.target_position == scene.world_locations.get_position(house.id), "Real night schedule resolves home access, not center")
 	check(actor.data.activity == Activity.MOVING, "Ordinary sleep requires physical travel")
 	await walk(actor)

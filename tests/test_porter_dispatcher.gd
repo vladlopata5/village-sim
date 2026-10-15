@@ -51,6 +51,7 @@ func fixture(count: int = 1) -> Dictionary:
 		resource_count += world.debug_spawn.spawn_resources(C.to_world(actor.view.get_sim_position())+Vector3(1,0,0),ceili(60.0/count),R.LOG).created
 	check(resource_count == 60, "Real Ground batch within workers' local search circles")
 	world.decision_dispatcher.clear()
+	preload("res://tests/ai_queue_fixture.gd").one_per_slice(world)
 	return {"world":world, "actors":actors, "actor":actors[0], "queue":world.decision_dispatcher}
 func begin(f: Dictionary, speed: int = 1) -> void:
 	f.world.game_time.set_speed(speed)
@@ -152,7 +153,7 @@ func run() -> void:
 	completion_fixture.world.logistics.recalculate()
 	check(live_job.state == Job.State.CANCELLED and completion_fixture.world.logistics._inbound.is_empty(), "Safety cancellation synchronous, not frame queued")
 	completion_fixture.world.free()
-	# Only Porter: a real Gatherer still decides synchronously.
+	# All professions: ordinary Gatherer planning now uses the same queue.
 	completion_fixture = fixture()
 	completion_fixture.actor.decision._deciding = true
 	var gatherer = completion_fixture.world.resident_runtimes[1]
@@ -160,7 +161,9 @@ func run() -> void:
 	check(completion_fixture.world.player_control.assign_profession(gatherer.data.id,P.GATHERER),"Normal Gatherer assignment")
 	gatherer.decision._deciding = false
 	completion_fixture.world.game_time.advance(1.0)
-	check(gatherer.decision.decision_count > 0 and completion_fixture.queue.pending_count() == 0, "Other professions preserve synchronous decisions")
+	check(gatherer.decision.decision_count == 0 and completion_fixture.queue.pending_count() == 1, "Gatherer queues before ordinary selection")
+	await tick(completion_fixture)
+	check(gatherer.decision.decision_count > 0 and completion_fixture.queue.pending_count() == 0, "Gatherer uses the same budgeted service")
 	completion_fixture.world.free()
 	print("Porter dispatcher: %d checks, %d failures" % [checks, failures])
 	quit(1 if failures else 0)

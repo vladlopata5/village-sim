@@ -102,6 +102,7 @@ func run() -> void:
 	second.decision._deciding=false
 	scene.game_time.total_minutes=419
 	scene.game_time.debug_skip_minutes(1)
+	await preload("res://tests/ai_queue_fixture.gd").drain(scene)
 	var other = second.get_node("Lumberjack")
 	check(worker.tree!=null and other.tree!=null and worker.tree!=other.tree,"Normal 07:00 AI selects different claimed trees")
 	walk(actor)

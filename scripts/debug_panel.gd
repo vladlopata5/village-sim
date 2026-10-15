@@ -20,6 +20,8 @@ var hour: SpinBox
 var navigation_toggle: CheckButton
 var speed_buttons: Dictionary = {}
 var _tabs: TabContainer
+var ai_queue_label: Label
+var _ai_queue_refresh_at := 0
 var minute: SpinBox
 func setup(commands: RefCounted) -> void:
 	if not OS.is_debug_build():
@@ -91,6 +93,10 @@ func setup(commands: RefCounted) -> void:
 	_button(time,"Перевести время вперёд",func(): _show_result(service.advance_to_time(int(hour.value),int(minute.value))))
 	_button(time,"Следующий день (00:00)",func(): _show_result(service.next_day()))
 	_note(time,"Только вперёд: раннее время — на следующий день. Пропуск проигрывает все игровые минуты; для физического движения используйте скорости x1–x20.")
+	var ai := _section(tabs,"AI")
+	ai_queue_label=Label.new()
+	ai_queue_label.name="AIQueueMetrics"
+	ai.add_child(ai_queue_label)
 	_button(column,"Отменить размещение (Esc / ПКМ)",cancel_placement)
 	hide()
 func _section(tabs: TabContainer, label: String) -> VBoxContainer:
@@ -184,3 +190,13 @@ func _refresh_speeds(multiplier: int) -> void:
 	for speed in speed_buttons: speed_buttons[speed].set_pressed_no_signal(speed==multiplier)
 func _exit_tree() -> void:
 	if service!=null and is_instance_valid(service.world.game_time) and service.world.game_time.speed_changed.is_connected(_refresh_speeds): service.world.game_time.speed_changed.disconnect(_refresh_speeds)
+
+func _process(_delta: float) -> void:
+	if not visible or service == null or ai_queue_label == null: return
+	var now := Time.get_ticks_msec()
+	if now < _ai_queue_refresh_at: return
+	_ai_queue_refresh_at = now + 250
+	var queue: Node = service.world.decision_dispatcher
+	if not is_instance_valid(queue): return
+	var stats: Dictionary = queue.statistics()
+	ai_queue_label.text = "AI Queue\nОжидают: %d (пик %d)\nЗа кадр: %d решений, %.2f мс\nБюджет: %.2f мс (мягкий)\nСтарейший запрос: %.0f мс\nОбъединено: %d\nОтброшено: %d\nПревышений: %d" % [stats.pending, stats.peak, stats.processed, stats.elapsed_usec / 1000.0, stats.budget_usec / 1000.0, stats.oldest_usec / 1000.0, stats.merged, stats.discarded, stats.overruns]

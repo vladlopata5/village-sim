@@ -121,10 +121,15 @@ func run() -> void:
 	check(world.player_control.assign_profession(builder.data.id,Profession.BUILDER),"Builder profession can be reassigned after self-export")
 	var home = construct(world,builder,Types.HOME,Vector3(22,0,18))
 	check(home!=null and world.player_control.assign_home(builder.data.id,home.id),"Player-built normal home can be assigned")
+	world.game_time.total_minutes=1380
 	for actor in world.resident_runtimes:
 		actor.intents.abort_current(actor.intents.current_intent)
+		# Earlier production steps deliberately suppressed needs reactions; isolate housing now.
+		for need in actor.data.needs.values(): need.value=0
+		actor.decision._deciding=false
 		actor.schedule._on_phase_changed("Ночь")
-		walk(actor)
+	await preload("res://tests/ai_queue_fixture.gd").drain(world)
+	for actor in world.resident_runtimes: walk(actor)
 	check(builder.schedule._fallback_id.is_empty() and builder.data.current_sleep_quality==1.0 and world.building_uses.occupied_by(home.id,builder.data.id,3),"Assigned resident physically sleeps at HOME rather than Town Center")
 	check(world.fallback_housing.count(center.id)==3 and world.resident_runtimes.all(func(actor): return actor.data.activity==preload("res://scripts/resident_activity.gd").Type.SLEEPING),"Remaining three homeless residents physically sleep at Town Center")
 	world.free()

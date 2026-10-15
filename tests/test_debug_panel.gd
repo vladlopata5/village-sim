@@ -156,6 +156,7 @@ func run() -> void:
 	quiet(actor)
 	actor.decision._deciding=false
 	actor.decision.request_decision("debug_quarry")
+	await preload("res://tests/ai_queue_fixture.gd").drain(world)
 	actor.decision._deciding=true
 	check(actor.get_node("Miner").rock!=null,"Normal mining work candidate")
 	walk(actor)

@@ -46,6 +46,7 @@ var _confirming_placement := false
 func _ready() -> void:
 	decision_dispatcher = preload("res://scripts/ai_decision_dispatcher.gd").new()
 	decision_dispatcher.name = "AIDecisionDispatcher"
+	decision_dispatcher.clock = game_time
 	add_child(decision_dispatcher)
 	world_locations = preload("res://scripts/world_3d/building_locations_3d.gd").new()
 	world_locations.navigation = navigation

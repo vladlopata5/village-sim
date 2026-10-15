@@ -29,6 +29,7 @@ func decision(actor: Node) -> void:
 	clear(actor)
 	actor.decision._deciding=false
 	actor.decision.request_decision("quarry_fixture")
+	await preload("res://tests/ai_queue_fixture.gd").drain(world)
 	actor.decision._deciding=true
 func capture(name: String) -> void:
 	if not rendered: return
@@ -62,7 +63,7 @@ func run() -> void:
 	var area = world.work_areas.create(C.to_sim(Vector3(30,0,-9)),C.length_to_sim(15))
 	world.player_control.assign_work_area(miner.data.id,area.id)
 	for cycle in range(4):
-		decision(miner)
+		await decision(miner)
 		check(controller.rock!=null,"Real normal FREE WORK selects rock")
 		walk(miner)
 		world.game_time.debug_skip_minutes(60)
@@ -74,7 +75,7 @@ func run() -> void:
 	world.player_control.assign_work_area(lumberjack.data.id,forest.id)
 	world.game_time.total_minutes=420
 	for cycle in range(4):
-		decision(lumberjack)
+		await decision(lumberjack)
 		check(lumberjack.get_node("Lumberjack").tree!=null,"Normal FREE forestry supplies recipe LOG")
 		walk(lumberjack)
 		world.game_time.debug_skip_minutes(60)
@@ -118,7 +119,7 @@ func run() -> void:
 	check(world.player_control.assign_workplace(miner.data.id,quarry.id) and miner.data.work_area_id.is_empty(),"FREE -> BUILDING assignment")
 	check(not world.player_control.assign_workplace(lumberjack.data.id,quarry.id),"Second Quarry worker rejected")
 	world.game_time.total_minutes=420
-	decision(miner)
+	await decision(miner)
 	check(controller.mining or controller.rock!=null,"Normal BUILDING AI selects MINE")
 	world.resident_selection.select_building(quarry)
 	world.building_card_view()._refresh()

@@ -110,6 +110,7 @@ func run() -> void:
 	actor.view.global_position=Vector3(-30,0,-8)
 	actor.decision._deciding=false
 	scene.game_time.advance(1.0)
+	await preload("res://tests/ai_queue_fixture.gd").drain(scene)
 	check(worker.tree==near and actor.intents.current_intent.reason_id==&"chop_tree","Real 06:59 to 07:00 schedule chooses forestry work")
 	actor.view._physics_process(0.4)
 	await capture("07_00_approach",scene,actor)

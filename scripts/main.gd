@@ -355,7 +355,7 @@ func _refresh_porter_availability() -> void:
 	_logistics_notification_pending = false
 	for runtime in resident_runtimes:
 		if not is_instance_valid(runtime) or not is_instance_valid(runtime.decision): continue
-		if runtime.data.profession == Profession.Type.PORTER and is_instance_valid(decision_dispatcher):
+		if runtime.data.profession in [Profession.Type.PORTER,Profession.Type.SAWYER,Profession.Type.GATHERER,Profession.Type.LUMBERJACK,Profession.Type.MINER] and is_instance_valid(decision_dispatcher):
 			# Do not run a route/availability probe before entering the frame budget.
 			if runtime.data.activity == preload("res://scripts/resident_activity.gd").Type.IDLE and not runtime.intents.has_current_action():
 				runtime.decision.request_decision("logistics_available")

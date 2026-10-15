@@ -39,6 +39,7 @@ var work_available: Callable
 var work_request: Callable
 var queued_work_valid: Callable
 var _dispatcher: WeakRef
+var _ordinary_running := false
 
 func bind_dispatcher(dispatcher: Node) -> void:
 	_cancel_queued_decision()
@@ -81,9 +82,11 @@ func check_critical() -> void:
 	_deciding = true
 	if _data.hunger == 100 and not _critical_hunger_attempted and _intents.forced_priority <= CRITICAL_HUNGER:
 		_critical_hunger_attempted = true
+		_record_critical_reaction()
 		if logger != null: logger.info(EventLog.NEED, "%s: критический голод — принудительное действие" % _data.resident_name)
 		_needs.try_eat(_data.get_need(NeedType.Type.HUNGER).get_priority(), CRITICAL_HUNGER)
 	if _data.fatigue == 100 and _intents.forced_priority < CRITICAL_FATIGUE:
+		_record_critical_reaction()
 		if logger != null: logger.info(EventLog.NEED, "%s: критическая усталость — принудительный сон" % _data.resident_name)
 		_needs.try_rest(0, CRITICAL_FATIGUE)
 	_deciding = false
@@ -181,21 +184,41 @@ func _decision_debug_text(selected: String, unavailable: Array) -> String:
 	var text: String = Selector.debug_text(_data.resident_name, last_selection, selected, unavailable)
 	return text.replace("EAT priority=", "EAT hunger=%d utility=" % _data.hunger)
 
-func request_decision(_reason: String = "free") -> void:
-	if not _can_decide(): return
-	if _data.profession == Profession.Type.PORTER and _clock.get_phase() == "День" and _dispatcher != null:
-		var dispatcher: Node = _dispatcher.get_ref()
-		if is_instance_valid(dispatcher):
-			dispatcher.request(_data.id, self, _reason, {"workplace": _data.work_location_id, "phase": _clock.get_phase(), "assignment_revision": _data.work_assignment_revision})
-			return
-	_decide_now()
+func _queue_context() -> Dictionary:
+	return {"workplace": _data.work_location_id, "phase": _clock.get_phase(),
+		"profession": _data.profession, "assignment_revision": _data.work_assignment_revision}
 
-func execute_queued_decision(_reason: String, context: Dictionary) -> bool:
-	if _data.profession != Profession.Type.PORTER or _clock.get_phase() != context.phase or _data.work_location_id != context.workplace: return false
-	if _data.work_assignment_revision != context.get("assignment_revision",_data.work_assignment_revision): return false
+func _ordinary_ready() -> bool:
+	if _intents.player_controlled or _data.activity == Activity.Type.SLEEPING: return false
+	if _clock.get_phase() != _schedule.get_phase(): return false
+	if _clock.get_phase() == "Ночь" and _intents.forced_priority == 0: return true
+	return not _intents.has_current_action() and not (_work_cycle_active and _data.activity == Activity.Type.WORKING)
+
+func request_decision(reason: String = "free") -> void:
+	var dispatcher: Node = _dispatcher.get_ref() if _dispatcher != null else null
+	if not is_instance_valid(dispatcher):
+		if _can_decide(): _decide_now()
+		return # Isolated domain fixtures have no world scheduler.
+	check_critical() # Emergency ownership/reaction never waits for ordinary service.
+	if _deciding and not _ordinary_running: return
+	if not _ordinary_ready(): return
+	var priority := 0 if reason in ["idle_completed", "logistics_available", "construction_available", "recipe_available"] else 1
+	if _data.hunger >= 90 or _data.fatigue >= 90: priority = 2
+	dispatcher.request(_data.id, self, reason, _queue_context(), priority)
+
+func execute_queued_decision(reason: String, context: Dictionary) -> bool:
+	if _queue_context() != {"workplace": context.get("workplace"), "phase": context.get("phase"),
+		"profession": context.get("profession"), "assignment_revision": context.get("assignment_revision")}:
+		request_decision("state_changed") # Discard old context; a fresh entry waits for another frame.
+		return false
 	if queued_work_valid.is_valid() and not queued_work_valid.call(): return false
 	if not _can_decide(): return false
+	var reasons: Array = context.get("request_reasons", [reason])
+	if reasons.all(func(value): return value == "logistics_available") and _data.profession not in [Profession.Type.PORTER, Profession.Type.LUMBERJACK, Profession.Type.MINER] and not _has_work(): return false
+	if reasons.all(func(value): return value == "food_available") and not _needs.has_food_action(): return false
+	_ordinary_running = true
 	_decide_now()
+	_ordinary_running = false
 	return true
 
 func _can_decide() -> bool:
@@ -205,6 +228,7 @@ func _can_decide() -> bool:
 	if not _intents.has_current_action() and _data.hunger == 100 and _needs.has_food_action():
 		_critical_hunger_attempted = false
 	check_critical()
+	if _clock.get_phase() == "Ночь" and _schedule.get_phase() == "Ночь" and _intents.forced_priority == 0 and _data.activity != Activity.Type.SLEEPING: return true
 	if _intents.has_current_action() or _data.activity == Activity.Type.SLEEPING: return false
 	return _clock.get_phase() == _schedule.get_phase() # phase_changed owns this boundary.
 
@@ -282,7 +306,6 @@ func _on_minute(minute: int) -> void:
 		request_decision("idle_completed")
 
 func _on_phase(phase: String) -> void:
-	if phase != "День": _cancel_queued_decision()
 	if phase != "День": _end_work_cycle("смена распорядка")
 	request_decision("phase_changed")
 
@@ -290,7 +313,11 @@ func _on_food_available() -> void:
 	# A changed world is an option for the next normal boundary, not a forced event.
 	if _deciding or _intents.has_current_action() or _data.activity != Activity.Type.IDLE: return
 	if _data.get_need(NeedType.Type.HUNGER).get_priority() < NEED_ACTION_THRESHOLD: return
-	if not _needs.has_food_action(): return # Route probes only for a resident able to decide now.
+	if _data.hunger == 100:
+		if _needs.has_food_action():
+			_critical_hunger_attempted = false
+			check_critical()
+		if _intents.has_current_action(): return
 	if logger != null: logger.info(EventLog.NEED, "%s: FOOD стала доступна — новая decision point" % _data.resident_name)
 	request_decision("food_available")
 
@@ -312,3 +339,7 @@ func _has_work() -> bool:
 	if _data.work_location_id.is_empty() or not _needs.has_location(_data.work_location_id): return false
 	if work_available.is_valid(): return work_available.call()
 	return not _data.work_location_id.is_empty()
+
+func _record_critical_reaction() -> void:
+	var dispatcher: Node = _dispatcher.get_ref() if _dispatcher != null else null
+	if is_instance_valid(dispatcher): dispatcher.critical_reactions += 1

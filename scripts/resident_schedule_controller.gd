@@ -83,7 +83,9 @@ func _on_phase_changed(phase: String) -> void:
 				_intents.clear_reason(&"manual_move")
 			else:
 				_move_to_location(data.work_location_id, &"day_work", WORK_PRIORITY)
-		"Ночь": _request_night_sleep()
+		"Ночь":
+			if work_decision.is_valid(): work_decision.call()
+			else: _request_night_sleep()
 
 func _move_to_location(location_id: StringName, reason: StringName, priority: int) -> void:
 	if reason == &"day_work" and before_work.is_valid() and not before_work.call():

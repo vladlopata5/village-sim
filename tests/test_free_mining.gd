@@ -96,6 +96,7 @@ func run() -> void:
 	second.decision._deciding=false
 	scene.game_time.total_minutes=419
 	scene.game_time.debug_skip_minutes(1)
+	await preload("res://tests/ai_queue_fixture.gd").drain(scene)
 	actor.decision._deciding=true
 	second.decision._deciding=true
 	check(worker.rock!=null and second.get_node("Miner").rock!=null and worker.rock!=second.get_node("Miner").rock,"Real normal WORK dispatch and exclusive competition")
