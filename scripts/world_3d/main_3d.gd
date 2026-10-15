@@ -465,7 +465,7 @@ func _wander_target_2d(rng: RandomNumberGenerator, resident_id: String):
 	if not origin is Vector2: return null
 	return WanderTarget.nearby(origin, rng, field.FIELD, _reachable_wander_target)
 func _reachable_wander_target(origin: Vector2, target: Vector2) -> bool:
-	return not navigation.find_path(Coordinates.to_world(origin), Coordinates.to_world(target)).is_empty()
+	return navigation.has_walkable_path(Coordinates.to_world(origin), Coordinates.to_world(target))
 
 func _setup_forest() -> void:
 	tree_locations.navigation = navigation
@@ -544,7 +544,7 @@ func _set_work_area_debug(enabled: bool) -> void:
 func _resource_route_available(start: Vector2, target: Vector2) -> bool:
 	var from_world := Coordinates.to_world(start)
 	var to_world := Coordinates.to_world(target)
-	return navigation.can_reach_point(from_world,to_world) and not navigation.find_path(from_world,to_world).is_empty()
+	return navigation.can_reach_point(from_world,to_world) and navigation.has_walkable_path(from_world,to_world)
 
 func _create_starting_buildings() -> void:
 	warehouse_data = BuildingData.new(&"town_center", "Городской центр", BuildingType.Type.TOWN_CENTER)

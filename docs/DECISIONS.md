@@ -3021,3 +3021,29 @@ geometry cache и selective scheduler нет. Исторические запи�
 время; эта запись заменяет только прежний per-resident notification recount.
 Технические правила: FOOD_AVAILABILITY.md. Измерения и приёмка находятся вне Git:
 C:/Users/SW/Documents/Codex/outputs/performance-optimization-p2/REPORT.md.
+
+
+## 2026-10-15 — P3.1 — Bool-only reachability
+
+Проверки наличия точечного маршрута отделены от подготовки сглаженной геометрии
+для движения. NavigationGrid.has_walkable_path использует прежний find_raw_path
+и обязательный is_raw_path_walkable: compacted fallback, конечные/допустимые
+endpoints, resident clearance и supercover LOS каждого сегмента. Непустой raw A*
+сам по себе не считается достаточным доказательством безопасного пути.
+
+- Main3D._reachable_wander_target, Main3D._resource_route_available и
+  ResidentLumberjackController._path больше не вызывают optional smoothing.
+  Connectivity precheck ресурсного поиска и порядок выбора/резервирования прежние.
+- smooth_path после обязательной геометрической проверки не отвергает маршрут
+  по длине/стоимости: weighted cost guard ограничивает лишь shortcuts. Поэтому
+  bool helper сохраняет not find_path(...).is_empty() для действующего NavigationGrid.
+- GridMovement3D продолжает сглаживать исполняемый путь и перепланировать его при
+  revision; entrance/portal admission и live failure остаются у executor.
+- NaturalSourceLocations3D.resolve/find_path_to_radius выбирают подходящую точку
+  региона, поэтому не заменены bool helper. P1 raw hints, cost/ranking и early stop
+  не меняются. Повторный PLANT scan, строительные notifications, AI dispatcher,
+  RNG/приоритеты и GameTime в этот этап не входят.
+
+Контракт и карта потребителей: NAVIGATION_REACHABILITY.md. Измерения и результаты
+проверок: внешний отчёт performance-optimization-p3-1/REPORT.md. Это сокращение
+вычислений, не обещание устранить все оставшиеся тяжёлые кадры и не запуск P3.2.

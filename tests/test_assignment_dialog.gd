@@ -9,9 +9,9 @@ const Source=preload("res://scripts/resource_source_ref.gd")
 const Job=preload("res://scripts/haul_job.gd")
 class NavigationProbe extends "res://scripts/navigation_grid.gd":
 	var requests := 0
-	func find_path(start: Vector3, target: Vector3) -> PackedVector3Array:
+	func find_raw_path(start: Vector3, target: Vector3) -> PackedVector3Array:
 		requests+=1
-		return super.find_path(start,target)
+		return super.find_raw_path(start,target)
 	func find_path_to_radius(start: Vector3, center: Vector3, radius: float, inner_radius: float=0.0) -> PackedVector3Array:
 		requests+=1
 		return super.find_path_to_radius(start,center,radius,inner_radius)

@@ -333,6 +333,11 @@ func raw_path_travel_cost(raw: PackedVector3Array) -> float:
 func minimum_path_cost(start: Vector3, target: Vector3) -> float:
 	return start.distance_to(target) / _fastest_speed
 
+# Point reachability keeps mandatory fallback clearance/LOS validation.
+# Optional shortening and terrain-cost comparisons are only needed for a route.
+func has_walkable_path(start: Vector3, target: Vector3) -> bool:
+	return is_raw_path_walkable(find_raw_path(start,target))
+
 func find_path(start: Vector3, target: Vector3) -> PackedVector3Array:
 	return smooth_path(find_raw_path(start,target))
 

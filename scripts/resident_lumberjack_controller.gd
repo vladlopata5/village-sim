@@ -56,7 +56,7 @@ func _current_hut() -> RefCounted:
 	var building = world.player_control.get_building(runtime.data.work_location_id)
 	return building if building != null and building.is_built() and building.type == BuildingType.Type.LUMBERJACK_HUT and world.world_locations.get_position(building.id) is Vector2 else null
 func _path(from_position: Vector2, to_position: Vector2) -> bool:
-	return not locations.navigation.find_path(Coordinates.to_world(from_position),Coordinates.to_world(to_position)).is_empty()
+	return locations.navigation.has_walkable_path(Coordinates.to_world(from_position),Coordinates.to_world(to_position))
 func _eligible_tree(candidate: RefCounted, context: RefCounted) -> bool:
 	return candidate in trees and candidate.position.is_finite() and candidate.state==TreeData.State.STANDING and candidate.reservation_owner_id.is_empty() and context.area.contains(candidate.position) and (context.mode == Context.Mode.FREE or context.hut.resources.get_available_free_capacity(Resources.Type.LOG)>=candidate.yield_amount)
 func best_target() -> Dictionary:
