@@ -273,7 +273,8 @@ func cancel_construction(id: StringName) -> bool:
 	player_control.unregister_building(id)
 	var activation := _activate_completed_building.bind(building)
 	if building.construction_changed.is_connected(activation): building.construction_changed.disconnect(activation)
-	for runtime in resident_runtimes: runtime.builder.unregister_building(building)
+	for runtime in resident_runtimes:
+		if runtime.builder.site == building: runtime.builder.unregister_building(building)
 	if resident_selection.selected_building == building: resident_selection.clear()
 	var view: Node = world_locations.get_view(id)
 	building_uses.unregister(id)

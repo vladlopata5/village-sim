@@ -198,6 +198,7 @@ func _run() -> void:
 			"cancel": check(scene.cancel_construction(a.id), "Construction cancellation succeeds")
 		await process_frame
 		check(actor.builder.phase == Builder.Phase.NONE and actor.builder.site == null and a.active_builder_ids.is_empty(), "Wait cleanup after " + ending)
+		check(not a.construction_changed.is_connected(actor.builder._on_world_changed) and not actor.builder.sources.changed.is_connected(actor.builder._on_sources_changed), "Committed subscriptions removed after " + ending)
 		check(a.construction_progress == (180 if ending == "complete" else 27), "Stored building progress survives " + ending)
 		if ending == "player": check(actor.commands.active_command != null, "Absolute PlayerCommand priority retained")
 		if ending == "critical": check(actor.intents.current_intent.reason_id == &"critical_sleep", "Critical fatigue retains existing forced sleep")

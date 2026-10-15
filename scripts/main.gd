@@ -299,7 +299,6 @@ func _show_building(building: BuildingInstance) -> void:
 	# The same registry/view gains functionality after the one-way state transition.
 	building.construction_changed.connect(_activate_completed_building.bind(building))
 	for runtime in resident_runtimes:
-		runtime.builder.register_building(building)
 		runtime.recipe_work.register_building(building)
 	if building.is_built(): _activate_completed_building(building)
 

@@ -134,7 +134,9 @@ func _run() -> void:
 	check(actor.decision.decision_count == decision_before, "No-world-change/no-material state generates no retry decision loop")
 	scene.warehouse_data.resources.add(PLANK, 1)
 	await process_frame
-	check(actor.builder.phase == Builder.Phase.GOING_TO_SOURCE, "PLANK availability event wakes free builder through ordinary decision flow")
+	check(actor.builder.phase == Builder.Phase.NONE and actor.decision.decision_count == decision_before, "PLANK availability invalidates lazy state without waking a free builder")
+	actor.decision.request_decision("idle_completed")
+	check(actor.builder.phase == Builder.Phase.GOING_TO_SOURCE, "Next ordinary decision discovers newly available PLANK")
 	scene.free()
 
 	# Nearest physical source and concurrent reservations on an uncovered deficit.

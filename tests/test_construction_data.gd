@@ -70,6 +70,7 @@ func _run() -> void:
 	home.state = Instance.State.UNDER_CONSTRUCTION
 	home.construction_progress = 0
 	check(home.is_built() and home.construction_progress == 180 and not home.add_delivered_material(PLANK, 1), "Built instance cannot revert or continue construction writes")
+	check(home.construction_revision == changes and other.construction_revision == 1, "Construction revision tracks every real signal independently per instance")
 	var scene = Setup.make_scene(self)
 	for initial in scene.buildings:
 		check(initial.is_built() and initial.construction_progress == 0 and initial.get_delivered_amount(PLANK) == 0 and initial.active_builder_ids.is_empty(), "Starting BUILT buildings need no retroactive construction")

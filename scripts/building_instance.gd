@@ -11,6 +11,7 @@ var position: Vector2
 var quarter_turns: int = 0:
 	set(value): quarter_turns = posmod(value, 4)
 signal construction_changed
+var construction_revision := 0 # Lazy Builder identity, not an assignment ledger.
 var _state: State = State.BUILT
 var state: State:
 	get: return _state
@@ -30,7 +31,7 @@ var construction_progress: int = 0:
 		var clamped := clampi(value, 0, definition.construction_work_required)
 		if clamped == construction_progress: return
 		construction_progress = clamped
-		construction_changed.emit()
+		_notify_construction_changed()
 var resources: ResourceContainer
 var production_worker_id: String = "" # Active recipe owner, not workplace assignment.
 var production_progress: int = 0
@@ -61,7 +62,7 @@ func add_delivered_material(resource: int, amount: int) -> bool:
 	# Caller records actual arrival only. No reservation/warehouse lookup or transfer here.
 	if is_built() or amount <= 0 or amount > get_uncovered_construction_amount(resource): return false
 	_construction_delivered[resource] = get_delivered_amount(resource) + amount
-	construction_changed.emit()
+	_notify_construction_changed()
 	return true
 func are_construction_materials_complete() -> bool:
 	for resource in definition.construction_requirements:
@@ -79,12 +80,12 @@ func has_free_builder_slot() -> bool:
 func claim_builder_slot(resident_id: String) -> bool:
 	if resident_id.is_empty() or resident_id in _active_builder_ids or not has_free_builder_slot(): return false
 	_active_builder_ids.append(resident_id)
-	construction_changed.emit()
+	_notify_construction_changed()
 	return true
 func release_builder_slot(resident_id: String) -> bool:
 	if resident_id not in _active_builder_ids: return false
 	_active_builder_ids.erase(resident_id)
-	construction_changed.emit()
+	_notify_construction_changed()
 	return true
 func can_complete_construction() -> bool:
 	return not is_built() and are_construction_materials_complete() and construction_progress >= definition.construction_work_required
@@ -92,7 +93,7 @@ func complete_construction() -> bool:
 	if not can_complete_construction(): return false
 	_state = State.BUILT
 	_active_builder_ids.clear()
-	construction_changed.emit()
+	_notify_construction_changed()
 	return true
 
 func get_construction_reserved_in(resource: int) -> int:
@@ -102,18 +103,18 @@ func get_uncovered_construction_amount(resource: int) -> int:
 func reserve_construction_material(resource: int, amount: int) -> bool:
 	if is_built() or amount <= 0 or amount > get_uncovered_construction_amount(resource): return false
 	_construction_reserved_in[resource] = get_construction_reserved_in(resource) + amount
-	construction_changed.emit()
+	_notify_construction_changed()
 	return true
 func release_construction_material(resource: int, amount: int) -> bool:
 	if amount <= 0 or amount > get_construction_reserved_in(resource): return false
 	_construction_reserved_in[resource] -= amount
-	construction_changed.emit()
+	_notify_construction_changed()
 	return true
 func deliver_reserved_construction_material(resource: int, amount: int) -> bool:
 	if is_built() or amount <= 0 or amount > get_construction_reserved_in(resource) or amount > get_missing_amount(resource): return false
 	_construction_reserved_in[resource] -= amount
 	_construction_delivered[resource] = get_delivered_amount(resource) + amount
-	construction_changed.emit()
+	_notify_construction_changed()
 	return true
 func get_construction_material_ratio() -> float:
 	var required := 0
@@ -122,3 +123,7 @@ func get_construction_material_ratio() -> float:
 		required += get_required_amount(resource)
 		delivered += mini(get_delivered_amount(resource), get_required_amount(resource))
 	return float(delivered) / required if required > 0 else 1.0
+
+func _notify_construction_changed() -> void:
+	construction_revision += 1
+	construction_changed.emit()

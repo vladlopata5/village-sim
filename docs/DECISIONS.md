@@ -3115,3 +3115,38 @@ construction_available отправляется только на переход
 изменений не требуют отдельных запросов. Новых массовых пробуждений IDLE нет;
 P3.2 queue/budget, P3.3 timer, приоритет площадок и P1 planner не меняются.
 Измерения и ограничения: внешний performance-optimization-p3-4/REPORT.md.
+
+
+## 2026-10-15 — P3.6: локальные строительные подписки и lazy discovery
+
+Свободный Builder больше не подписывается на construction/resource availability
+каждого здания и не получает construction_available. Новая стройка, progress,
+claim/release или доступный материал обнаруживаются при обычном решении AI.
+Это заменяет eager availability refresh этапа P3.4; история P3.4 сохранена.
+
+Property site подключает контроллер только к принятой/подтверждаемой площадке;
+claim по-прежнему синхронный и перепроверяемый. Отказ claim, cleanup/abort и смена
+site снимают подписку. На период задания остаётся ResourceSources.changed для
+проверки потери источника; оно больше не запускает поиск новых строительных работ.
+Отмена canonical стройки немедленно вызывает unregister только связанных builders,
+включая перевозчиков; completion обрабатывается существующим сигналом своей site.
+WAITING_FOR_MATERIALS/GOING_TO_WAIT сохраняют coalesced deferred resume по изменениям
+своей site, включая потерю inbound. Поминутного поиска ожидающими не добавлено.
+
+BuildingInstance.construction_revision увеличивается перед прежним construction_changed
+при каждой успешной мутации; UI/activation сохраняют прежние сигналы. has_work читает
+revision/identity действующих площадок, их геометрию/рецепт/лимиты, позицию жителя,
+work_assignment_revision, navigation.revision и существующий ResourceSources.revision.
+Контейнерные операции не всегда меняют Source revision, поэтому на обычном probe
+сверяются identity/access и boolean доступность одной единицы требуемых ресурсов
+в текущем source registry. Это дешёвая сигнатура, без A*/Ground scan; unchanged
+negative повторно не планирует маршруты. Перед claim остаются живые проверки P1.
+Смена источника/радиусов/назначения/слота/площадки не оставляет вечный cached false.
+
+Builder использует прежнюю Ground-геометрию вокруг рассматриваемой site/жителя;
+новое применение назначенной WorkArea не добавляется. Выполняемые рейсы не отменяются
+из-за движения за радиус поиска. Случайный IDLE10–30мин, queue budget1мс, GameTime,
+приоритеты/рецепты/скорость стройки не меняются. Без прежней availability подсказки
+новая работа может ждать следующего обычного AI; это согласовано в P3.6.
+Общие Logistics/Recipe/Social уведомления не оптимизировались. Измерения и ограничения:
+C:/Users/SW/Documents/Codex/outputs/performance-optimization-p3-6/REPORT.md.

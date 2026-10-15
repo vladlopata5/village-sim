@@ -14,7 +14,12 @@ signal work_cycle_started(building_id: StringName)
 signal cargo_dropped(resource: ResourceType.Type, amount: int)
 var logger: EventLog
 var position_provider: Callable
-var site: Instance
+var site: Instance:
+	set(value):
+		if site == value: return
+		_watch_site(false)
+		site = value
+		_watch_site(true)
 const Source = preload("res://scripts/resource_source_ref.gd")
 var sources = preload("res://scripts/resource_sources.gd").new()
 var _owns_sources := true
@@ -36,11 +41,9 @@ var _decision: Node
 var _exiting := false
 var _mutating := false
 var _interrupt_pending := false
-var _had_work := false
 var _availability_dirty := true
 var _potential_work := false
 var _waiting_resume_queued := false
-var _availability_refresh_queued := false
 var source_search_count := 0
 # Optional navigation query providers; isolated domain fixtures use generic source queries.
 var material_planner: Callable
@@ -71,27 +74,33 @@ func setup(data: RefCounted, clock: Node, locations: RefCounted, buildings: Arra
 	for building in buildings: register_building(building)
 
 func bind_sources(provider: RefCounted) -> void:
+	_watch_site(false)
 	_owns_sources = false
 	sources = provider
-	if not sources.changed.is_connected(_on_sources_changed): sources.changed.connect(_on_sources_changed)
-	_on_world_changed()
+	_watch_site(true)
+	_availability_dirty = true
+
+func _watch_site(watch: bool) -> void:
+	if site == null: return
+	if watch:
+		if not site.construction_changed.is_connected(_on_world_changed): site.construction_changed.connect(_on_world_changed)
+		if not sources.changed.is_connected(_on_sources_changed): sources.changed.connect(_on_sources_changed)
+	else:
+		if site.construction_changed.is_connected(_on_world_changed): site.construction_changed.disconnect(_on_world_changed)
+		if sources.changed.is_connected(_on_sources_changed): sources.changed.disconnect(_on_sources_changed)
+
 func _on_sources_changed() -> void:
-	if phase==Phase.GOING_TO_SOURCE and not _mutating and not sources.reserved(source_ref,_resource,_source_owner()): abort("источник недоступен")
-	_on_world_changed()
+	# Only an accepted task watches source loss; new availability is read lazily.
+	if phase == Phase.GOING_TO_SOURCE and not _mutating and not sources.reserved(source_ref,_resource,_source_owner()): abort("источник недоступен")
 func _source_owner() -> StringName: return StringName("builder:"+_data.id)
 func register_building(building: Instance) -> void:
+	# Isolated controllers may own their source registry. Canonical uses shared sources.
 	if _owns_sources: sources.buildings[building.id] = building
-	if not building.construction_changed.is_connected(_on_world_changed): building.construction_changed.connect(_on_world_changed)
-	if not building.resources.availability_changed.is_connected(_on_resource_changed): building.resources.availability_changed.connect(_on_resource_changed)
-	_on_world_changed()
-
+	_availability_dirty = true
 func unregister_building(building: Instance) -> void:
-	# World registry removes the entity before notifying its workers.
 	if building not in _buildings: sources.buildings.erase(building.id)
 	if site == building: abort("стройка отменена")
-	if building.construction_changed.is_connected(_on_world_changed): building.construction_changed.disconnect(_on_world_changed)
-	if building.resources.availability_changed.is_connected(_on_resource_changed): building.resources.availability_changed.disconnect(_on_resource_changed)
-	_on_world_changed()
+	_availability_dirty = true
 
 func site_priority(candidate: Instance, from_position: Vector2) -> float:
 	var distance := from_position.distance_to(candidate.position) / Balance.BUILDER_DISTANCE_SCALE
@@ -147,7 +156,7 @@ func _trip_offer_valid(candidate: Instance, resource: int, origin: Vector2, dest
 	if _trip_offer.origin != origin or _trip_offer.destination != destination or _trip_offer.access != sources.point(reference): return false
 	return material_path_current.call(_trip_offer.source_path) and material_path_current.call(_trip_offer.delivery_path)
 func on_navigation_changed(_revision: int) -> void:
-	_on_world_changed() # Also invalidates negative availability after a blocker changes.
+	_availability_dirty = true # Invalidate, never wake idle workers.
 
 func _eligible(candidate: Instance) -> bool:
 	return not candidate.is_built() and candidate.has_free_builder_slot() and _locations.get_position(candidate.id) is Vector2 and (candidate.are_construction_materials_complete() or not _material_trip(candidate).is_empty())
@@ -172,13 +181,27 @@ func has_work() -> bool:
 	if _data.profession != Profession.Type.BUILDER or phase != Phase.NONE or _data.inventory.amount != 0: return false
 	# Cheap context at existing decision probes, never a resource scan on movement ticks.
 	var current_position: Variant = _position()
-	var current_identity: Array = [current_position,sources.revision]
+	var current_identity: Array = [current_position,sources.revision,_data.work_assignment_revision]
+	var navigation: RefCounted = _locations.get("navigation")
+	current_identity.append(navigation.revision if navigation != null else 0)
+	var resources: Array = []
 	for candidate in _buildings:
-		if not candidate.is_built(): current_identity.append(sources.GroundAreas.identity(current_position,candidate))
+		if candidate.is_built(): continue
+		current_identity.append([candidate.get_instance_id(),candidate.construction_revision,candidate.definition.max_builders,candidate.definition.construction_work_required,candidate.definition.construction_requirements.duplicate(),_locations.get_position(candidate.id),sources.GroundAreas.identity(current_position,candidate)])
+		for resource in candidate.definition.construction_requirements:
+			if resource not in resources: resources.append(resource)
+	# Container changes do not all advance ResourceSources.revision. Read their
+	# relevant one-unit availability, never a route, so a cached false cannot stick.
+	if not resources.is_empty():
+		for building in sources.buildings.values():
+			var reference := Source.new(Source.Kind.CONTAINER,building.id)
+			var identity: Array = [building.get_instance_id(),sources.point(reference)]
+			for resource in resources: identity.append([resource,sources.available(reference,resource)])
+			current_identity.append(identity)
 	if current_identity != _search_identity:
 		_search_identity = current_identity
 		_availability_dirty = true
-	# Missing sources are reconsidered after world events, not idle retry intervals.
+	# Unchanged negative probes reuse the cache across idle periods and days.
 	if _availability_dirty:
 		_potential_work = best_site() != null
 		_availability_dirty = false
@@ -485,43 +508,15 @@ func _on_phase(phase_name: String) -> void:
 		abort("конец рабочего времени")
 	# A carried unit is delivered safely before leaving work.
 
-func _on_resource_changed(resource: ResourceType.Type, _amount: int) -> void:
-	for candidate in _buildings:
-		if not candidate.is_built() and candidate.definition.construction_requirements.has(resource):
-			_on_world_changed()
-			return
 func _on_world_changed() -> void:
+	# Bound only to the committed site. No eager availability or AI request.
 	_availability_dirty = true
 	if _exiting or _mutating: return
 	if site != null and phase != Phase.NONE and not _valid_site():
 		abort("изменение доступности стройки")
 	if _is_waiting() and not _waiting_resume_queued:
-		# Coalesce synchronous reservation/delivery signals; never run inside a carrier mutation.
 		_waiting_resume_queued = true
 		call_deferred("_resume_waiting")
-	# Active workers keep their immediate safety checks above. Their next ordinary
-	# decision reads the invalidated cache; there is no reason to scan sites now.
-	if not _can_refresh_availability():
-		_had_work = false
-		return
-	if not _availability_refresh_queued:
-		_availability_refresh_queued = true
-		call_deferred("_refresh_work_availability")
-
-func _can_refresh_availability() -> bool:
-	return _data.profession == Profession.Type.BUILDER and phase == Phase.NONE and _data.inventory.amount == 0 and _data.activity == Activity.Type.IDLE and not _intents.has_current_action()
-
-func _refresh_work_availability() -> void:
-	_availability_refresh_queued = false
-	# Several claims/deliveries/progress signals can describe one final state.
-	# Recheck at service: an intervening command/task must not be interrupted.
-	if not _can_refresh_availability():
-		_had_work = false
-		return
-	var available := has_work()
-	if available and not _had_work and _data.activity == Activity.Type.IDLE and not _intents.has_current_action():
-		_decision.call_deferred("request_decision", "construction_available")
-	_had_work = available
 
 func _exit_tree() -> void:
 	if site != null: _cleanup("удаление исполнителя")
