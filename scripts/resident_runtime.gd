@@ -25,6 +25,7 @@ var schedule = Schedule.new()
 var need_dynamics = Dynamics.new()
 var decision = Decision.new()
 var needs = Needs.new()
+var food_availability: RefCounted
 
 func setup(resident: RefCounted, presentation: Node, clock: Node, locations: RefCounted, buildings: Array, housing: RefCounted = null) -> void:
 	data = resident
@@ -49,6 +50,7 @@ func setup(resident: RefCounted, presentation: Node, clock: Node, locations: Ref
 	if view.has_method("exit_for_action"): needs.exit_building_provider = view.exit_for_action
 	need_dynamics.eating_rate_provider = needs.get_hunger_eating_rate
 	need_dynamics.setup(clock, data)
+	needs.food_availability = food_availability
 	needs.setup(clock, data, buildings, locations, intents, schedule)
 	assignments.setup(data, needs, intents, social, clock)
 	decision.assignments = assignments

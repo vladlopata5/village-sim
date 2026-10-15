@@ -1485,3 +1485,13 @@ AI scheduler и GameTime не перерабатывались. Техничес
 GROUND_RESOURCE_SEARCH.md; результаты приёмки — внешний отчёт ground-resource-
 search-areas/REPORT.md. История P1 и Legacy Removal сохранена. Food availability
 fan-out и массовые AI decisions остаются отдельными задачами, здесь не начаты.
+
+## 2026-10-15 — P2 Food Availability
+
+Общий предварительный FOOD total заменяет повторные population-wide source scans.
+Синхронная реакция на контейнерную еду, реальные проверки источника и резервов,
+личный Ground radius и действующий AI scheduler сохранены. Ground aggregate
+обновляется прежним coalesced событием. Архитектура: FOOD_AVAILABILITY.md;
+измерения/результаты: внешний performance-optimization-p2/REPORT.md. P1 и Ground
+Search Areas не перерабатываются. Массовые фазовые AI decisions остаются отдельным
+направлением P3; реализация P3 в эту задачу не входит.

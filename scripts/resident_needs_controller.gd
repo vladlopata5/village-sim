@@ -11,6 +11,9 @@ const Activity = preload("res://scripts/resident_activity.gd")
 const BuildingType = preload("res://scripts/building_type.gd")
 const ResourceType = preload("res://scripts/resource_type.gd")
 const Source = preload("res://scripts/resource_source_ref.gd")
+const FoodAvailability = preload("res://scripts/food_availability.gd")
+var food_availability: RefCounted
+var _owns_food_availability := false
 var sources: RefCounted
 var position_provider: Callable
 var ground_position_provider: Callable # Actual center, distinct from walkable portal route origin.
@@ -50,7 +53,6 @@ var _started_at := 0
 var _minutes_left := 0
 var _food_unavailable := false
 var _available_food_amount := 0
-var _available_ground_food_amount := 0 # Derived notification total, never used to allocate/consume FOOD.
 var food_search_count := 0
 var _exiting := false
 
@@ -63,6 +65,10 @@ func setup(clock: Node, data: Data, buildings: Array, locations: RefCounted, int
 	clock.minute_changed.connect(_on_minute_changed)
 	intents.intent_changed.connect(_on_intent_changed)
 	intents.intent_arrived.connect(_on_arrival)
+	if food_availability == null:
+		food_availability = FoodAvailability.new()
+		food_availability.setup(buildings, locations)
+		_owns_food_availability = true
 	for building in buildings: register_food_building(building)
 	_available_food_amount = _count_available_food()
 
@@ -263,11 +269,7 @@ func _abort_unavailable() -> void:
 	action_unavailable.emit()
 
 func _count_available_food() -> int:
-	var total := 0
-	for building in _buildings:
-		if building.is_built() and building.resources.allows_resource(FOOD) and building.resources.get_capacity(FOOD)>0 and _locations.get_position(building.id) is Vector2:
-			total += building.resources.get_available_amount(FOOD)
-	return total + _available_ground_food_amount
+	return food_availability.total()
 
 func can_try_eat() -> bool:
 	return _data.hunger >= Modifiers.eat_threshold(_data) and (not _food_unavailable or _search_key(false) != _probe_key)
@@ -296,6 +298,8 @@ func prepare_for_work() -> bool:
 func _exit_tree() -> void:
 	_exiting = true
 	_cancel_own_action()
+	if sources != null: sources.changed.disconnect(_food_world_changed)
+	if _owns_food_availability: food_availability.dispose()
 
 func _food_target_valid() -> bool:
 	if _food_source == null or _active_intent == null: return false
@@ -312,6 +316,7 @@ func has_location(location_id: StringName) -> bool:
 	return _locations.get_position(location_id) is Vector2
 
 func register_food_building(building: RefCounted) -> void:
+	food_availability.register_building(building)
 	if not building.resources.availability_changed.is_connected(_on_food_availability_changed): building.resources.availability_changed.connect(_on_food_availability_changed)
 	_on_food_availability_changed(FOOD,building.resources.get_available_amount(FOOD))
 
@@ -328,7 +333,9 @@ func _has_visitor_room() -> bool:
 	return _select_food_source(false) != null
 
 func bind_sources(provider: RefCounted) -> void:
+	if sources != null and sources != provider: sources.changed.disconnect(_food_world_changed)
 	sources = provider
+	food_availability.bind_sources(provider)
 	if not sources.changed.is_connected(_food_world_changed): sources.changed.connect(_food_world_changed)
 	var uses: RefCounted = _locations.get("uses")
 	if uses != null:
@@ -343,10 +350,6 @@ func _food_world_changed() -> void:
 	# A deferred notification may describe changes already observed by a probe.
 	# Do not invalidate it again solely because the notification arrived later.
 	var previous := _available_food_amount
-	_available_ground_food_amount = 0
-	if sources != null and is_instance_valid(sources.ground):
-		for drop in sources.ground.drops:
-			if drop.resource_type == FOOD and drop.reservation_owner_id.is_empty(): _available_ground_food_amount += drop.amount
 	_available_food_amount = _count_available_food()
 	if _available_food_amount != previous: _food_epoch += 1
 	if _available_food_amount > previous:

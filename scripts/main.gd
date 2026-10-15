@@ -11,6 +11,7 @@ const Profession = preload("res://scripts/resident_profession.gd")
 const LogisticsController = preload("res://scripts/logistics_controller.gd")
 const GroundResources = preload("res://scripts/ground_resources.gd")
 var ground_resources = GroundResources.new()
+var food_availability = preload("res://scripts/food_availability.gd").new()
 var _ground_views: Dictionary = {}
 var logistics = LogisticsController.new()
 const Balance = preload("res://scripts/balance_config.gd")
@@ -57,6 +58,7 @@ func _ready() -> void:
 	building_card_view().bind_selection(resident_selection)
 	fallback_housing.setup(buildings,world_locations)
 	_create_starting_buildings()
+	food_availability.setup(buildings, world_locations)
 	# Account for the elapsed work minute before residents choose their next action.
 	add_child(production)
 	production.setup(game_time, gatherer_hut_data, residents, world_locations, _production_position_2d)
@@ -372,6 +374,7 @@ func _create_resident_runtime(data: ResidentData, start: Vector2) -> ResidentRun
 	$Residents.add_child(runtime)
 	resident_runtimes.append(runtime)
 	runtime.logger = game_logger
+	runtime.food_availability = food_availability
 	runtime.setup(data, view, game_time, world_locations, buildings, fallback_housing)
 	interactions.register_target(StringName(data.id), data.resident_name, data, _resident_interaction_position.bind(data.id), [&"resident"])
 	return runtime
@@ -427,3 +430,6 @@ func _create_starting_home(_data: ResidentData, _index: int) -> void: pass
 func _create_resident_presentation(_data: ResidentData, _start: Vector2) -> Node: return null
 func _create_building_presentation(_building: BuildingInstance) -> Node: return null
 func _show_ground_resource(_drop) -> void: pass
+
+func _exit_tree() -> void:
+	food_availability.dispose()

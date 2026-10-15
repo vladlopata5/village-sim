@@ -2980,3 +2980,44 @@ Legacy 2D окончательно выведена из эксплуатаци�
 
 Подробности и карта потребителей: docs/GROUND_RESOURCE_SEARCH.md.
 Результаты проверки: C:/Users/SW/Documents/Codex/outputs/ground-resource-search-areas/REPORT.md.
+
+## 2026-10-15 — P2: общий предварительный итог доступности FOOD
+
+Повторные замеры на HEAD 6658ec5 подтвердили food availability fan-out: каждое
+изменение свободного количества контейнера вызывало отдельный обход зданий и
+разрешение authored входов для каждого жителя. В каноническую сборку добавлен один
+FoodAvailability; Runtime передаёт его Needs. Изолированный Needs использует тот
+же компонент локально. Нового реестра источников, ledger ресурсов или AI scheduler нет.
+
+- Кэшируются только предварительный общий свободный FOOD и отдельный Ground total.
+  Это подсказка уведомления/повторного поиска, а не индивидуальная доступность.
+  Данные количества и резервов по-прежнему принадлежат ResourceContainer/GroundResource.
+- FOOD availability контейнера синхронно инвалидирует общий итог до вызова
+  Needs. Сохранены прежние прямые subscriptions, включая их порядок относительно
+  Builder и прочих контроллеров. Нового ретранслятора игровых сигналов нет. Первый
+  Needs пересчитывает общий итог; дальнейшие чтения дешёвые.
+  Nested reserve/release снова инвалидирует итог: поздний подписчик читает живой
+  текущий итог, а не устаревший payload внешнего события. Все прежние немедленные
+  food_available реакции сохраняются; переходы не схлопываются новым deferred вызовом.
+- Ground total обновляется один раз на уже существующий coalesced ResourceSources
+  changed; контейнерные события Ground не обходят. Тот же world event сохраняет
+  индивидуальную проверку ещё не полученной еды и cleanup исчезнувшей цели.
+- Registration/construction и navigation.changed инвалидируют предварительный
+  итог; removal от существующего BuildingUse исключает старый источник и снимает
+  его hooks. Смена provider снимает старую подписку. Resident exit отписывает Needs,
+  world exit явно освобождает общие подписки. Полный scan при каждом кадре не добавлен.
+- Kitchen/Other/Ground tiers, порядок источников, route/access/slot checks, critical
+  hunger, отрицательный cache выбора и его ключ позиции/source/navigation/слотов
+  не меняются. Личная Ground FOOD использует фактический центр жителя и радиус
+  4 world units; рабочее здание и WorkArea не расширяют поиск личного питания.
+- Начало действия/резервирование/получение используют прежние live проверки;
+  никакой кэш не разрешает потребление или чужой резерв. Уже принятое питание не
+  отменяется из-за выхода из круга поиска. Hunger rates, thresholds, duration,
+  GameTime, AI dispatcher, P1/planner и Porter logistics не изменены.
+
+Ограничения: остаётся O(N) дешёвых уведомлений и отдельные реальные AI/route probes,
+O(B) на общее изменение FOOD, O(G) на aggregate source change. Новых FOOD delta-index,
+geometry cache и selective scheduler нет. Исторические записи выше сохраняют своё
+время; эта запись заменяет только прежний per-resident notification recount.
+Технические правила: FOOD_AVAILABILITY.md. Измерения и приёмка находятся вне Git:
+C:/Users/SW/Documents/Codex/outputs/performance-optimization-p2/REPORT.md.
