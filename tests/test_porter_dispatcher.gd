@@ -46,7 +46,10 @@ func fixture(count: int = 1) -> Dictionary:
 		quiet(actor)
 		actors.append(actor)
 	if count > 2: check(preload("res://tests/porter_distribution_fixture.gd").assign(world,actors),"Thirty workers assigned to distinct real workplaces within capacity")
-	check(world.debug_spawn.spawn_resources(Vector3(10,0,22),60,R.LOG).created == 60, "Real Ground batch")
+	var resource_count := 0
+	for actor in actors:
+		resource_count += world.debug_spawn.spawn_resources(C.to_world(actor.view.get_sim_position())+Vector3(1,0,0),ceili(60.0/count),R.LOG).created
+	check(resource_count == 60, "Real Ground batch within workers' local search circles")
 	world.decision_dispatcher.clear()
 	return {"world":world, "actors":actors, "actor":actors[0], "queue":world.decision_dispatcher}
 func begin(f: Dictionary, speed: int = 1) -> void:

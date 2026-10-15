@@ -245,6 +245,7 @@ func _configure_logistics() -> void:
 	logistics.bind_world(game_time, world_locations)
 	logistics.sources.bind_ground(ground_resources)
 	logistics.sources.route_available = _resource_route_available
+	logistics.sources.work_object_current = func(building): return building in buildings
 	logistics.recalculate()
 
 func _on_resident_unregistered(resident_id: String) -> void:
@@ -396,6 +397,7 @@ func _bind_resident_social(runtime: ResidentRuntime) -> void:
 	runtime.recipe_work.position_provider = _production_position_2d
 	runtime.builder.position_provider = _production_position_2d
 	runtime.needs.position_provider = _food_position_2d
+	runtime.needs.ground_position_provider = _production_position_2d
 	runtime.builder.cargo_dropped.connect(_drop_cargo.bind(runtime))
 	runtime.social.world = social_world
 	runtime.assignments.bind_social_world()

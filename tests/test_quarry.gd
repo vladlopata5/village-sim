@@ -88,14 +88,24 @@ func run() -> void:
 		quit(1)
 		return
 	check(not world.player_control.assign_workplace(miner.data.id,quarry.id) and miner.data.work_area_id==area.id,"Unbuilt assignment rejected atomically")
+	# Collect distant extraction output locally, then build from real global stock.
+	var porter = world.resident_runtimes[0]
+	for dropped in world.ground_resources.drops.duplicate():
+		world.game_time.total_minutes=420
+		porter.commands.move_to(dropped.world_position)
+		walk(porter)
+		check(world._request_work(porter),"Local Porter claims real extraction output")
+		walk(porter); world.game_time.debug_skip_minutes(10)
+		walk(porter); world.game_time.debug_skip_minutes(10)
 	var builder = world.resident_runtimes[1]
+	world.game_time.total_minutes=420
 	world.player_control.assign_profession(builder.data.id,P.BUILDER)
 	clear(builder)
 	check(builder.builder.request_work(),"Builder starts ordinary mixed-material workflow")
 	for step in range(16000):
 		preload("res://tests/handling_test_step.gd").move_3d(builder,0.05)
 		if builder.builder.phase==Builder.Phase.BUILDING: break
-	check(quarry.get_delivered_amount(R.LOG)==8 and quarry.get_delivered_amount(R.STONE)==4,"Actual Ground LOG and STONE transported to site")
+	check(quarry.get_delivered_amount(R.LOG)==8 and quarry.get_delivered_amount(R.STONE)==4,"Actual extracted LOG and STONE transported through storage to site")
 	for cycle in range(int(180.0/Balance.BUILDER_WORK_CYCLE_MINUTES)):
 		if builder.builder.phase==Builder.Phase.NONE:
 			clear(builder)

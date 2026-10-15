@@ -2928,3 +2928,55 @@ Legacy 2D окончательно выведена из эксплуатаци�
 - Vector2/Rect2 в domain и build/navigation calculations остаются логическими координатами плоскости, а не legacy presentation.
 
 Подробные результаты и артефакты: `C:/Users/SW/Documents/Codex/outputs/legacy-removal/REPORT.md`.
+
+
+## 2026-10-15 — Ground Resource Search Areas
+
+Для нового поиска ресурсов на земле используются объединённые области вокруг
+жителя, рабочего объекта и применимой WorkArea. Достаточно попадания в любую из
+областей; назначенная WorkArea не запрещает подбор рядом с жителем. Ресурсы внутри
+зданий не ограничиваются этими областями. Это согласованное изменение прежнего
+глобального допуска Ground, а не ограничение всех действий жителя.
+
+- BalanceConfig.RESIDENT_GROUND_SEARCH_RADIUS = 100 simulation units (4 world units,
+  8 build cells); DEFAULT_BUILDING_GROUND_SEARCH_RADIUS = 250 (10 world units,
+  20 cells). Карта 128×80 world units, клетка 0.5, 25 simulation units = 1 world unit.
+  Типичное рабочее здание 6×4 world units, существующая добывающая WorkArea имеет
+  радиус 15. Граница круга включена. Значения — первый настраиваемый прототип.
+- BuildingDefinition.ground_search_radius: отрицательное/нечисловое значение
+  использует общий стандарт; конечное неотрицательное переопределяет его для этой
+  definition (0 оставляет точечную область). Геометрия work_radius не меняется.
+- Builder использует рассматриваемую стройплощадку, Porter — свой назначенный
+  workplace, Sawyer self-supply — свою лесопилку; внутренний COLLECT лесоруба и
+  каменщика — свою хижину/каменоломню и существующую effective WorkArea из
+  ForestryWorkContext/NaturalWorkContext. У FREE-добычи остаются прежние CHOP/MINE,
+  новые задания подбора не добавлены. Дом/ближайшее здание центром не становятся.
+- FOOD на земле для личного питания использует только круг жителя. Положение
+  жителя отделено от walkable portal origin маршрута; прежние Kitchen/Other/Ground
+  tiers и доступность еды в контейнерах сохранены.
+- ResourceSources фильтрует Ground до ранжирования/маршрутов. Контейнеры проходят
+  прежние правила export/import, доступного количества и достижимости. Нового
+  пространственного индекса нет: один проход существующей Ground enumeration,
+  без повторных проходов для каждого круга и без дублирования источника.
+- World registry callback проверяет актуальность рабочего объекта, включая ещё
+  не построенные площадки. Нового реестра нет. Без позиции жителя Ground не
+  допускается; низкоуровневый query без workplace использует только origin и явно
+  переданную activity area, без скрытого глобального fallback.
+- Непринятые предложения P1 учитывают текущие origin/site geometry/radius, source
+  identity/access/availability и navigation revision. Builder negative key также
+  учитывает source revision и дешёвую геометрию площадок. Перемещение Ground
+  уведомляет существующую availability/revision цепочку; WorkArea читается из
+  актуального контекста. Проверки выполняются на прежних decision probes/событиях,
+  без нового AI scheduler или polling ресурсов каждый кадр.
+- Допуск повторно проверяется до публикации нового задания, включая reentrant
+  reservation callbacks. После принятия область не проверяется в reserve/pickup,
+  HaulExecutor.validate_job, движении, разгрузке и cleanup. Выход из исходного
+  круга, смена работы или изменение радиуса сами по себе не отменяют committed
+  доставку; прежние причины прерывания/снятия резервов остаются.
+- P1 lower bounds, slack 1.25, early stopping, raw route hints и отсутствие
+  candidate smoothing сохранены. Если локальных Ground нет, остаются глобальные
+  допустимые контейнеры; иначе поиск сообщает отсутствие источника, без новой
+  бесконечной retry-петли. Неизменный отрицательный результат переиспользуется.
+
+Подробности и карта потребителей: docs/GROUND_RESOURCE_SEARCH.md.
+Результаты проверки: C:/Users/SW/Documents/Codex/outputs/ground-resource-search-areas/REPORT.md.

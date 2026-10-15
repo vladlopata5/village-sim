@@ -63,7 +63,7 @@ func run() -> void:
 	occupied.reserve(&"competitor")
 	world.ground_resources.create_drop(R.STONE,1,close.world_position)
 	var area = worker._context().area
-	var expected: Array = world.logistics.sources.find(R.LOG,actor.view.get_sim_position(),world.world_locations.get_position(hut.id),hut.id).filter(func(ref): return ref.kind==Source.Kind.GROUND and area.contains(world.logistics.sources.point(ref)))
+	var expected: Array = world.logistics.sources.find(R.LOG,actor.view.get_sim_position(),world.world_locations.get_position(hut.id),hut.id,hut,area).filter(func(ref): return ref.kind==Source.Kind.GROUND and area.contains(world.logistics.sources.point(ref)))
 	check(worker.has_work() and worker._available_task.kind==&"COLLECT","COLLECT before CHOP")
 	check(worker._available_task.reference.id==expected[0].id and worker._available_task.reference.id==close.id,"Same legacy route-distance/stable-ID selection, early LOG/in-area filter")
 	var job = start()
@@ -165,6 +165,7 @@ func run() -> void:
 	check(hut.resources.get_available_free_capacity(R.LOG)==0,"Collect owns last inbound room")
 	var porter=world.resident_runtimes[0]
 	world.player_control.assign_workplace(porter.data.id,world.warehouse_data.id)
+	porter.view.global_position=C.to_world(common.world_position)+Vector3(1,0,0) # Last-resource competition within resident circle.
 	check(not world.logistics.collect_candidates(porter.data.id).any(func(row): return row.source_ref.id==common.id),"Porter cannot claim owned Ground")
 	world.logistics._executors[actor.data.id].cancel("competition")
 	check(world.logistics.collect_candidates(porter.data.id).any(func(row): return row.source_ref.id==common.id),"Cancellation releases Ground for Porter")

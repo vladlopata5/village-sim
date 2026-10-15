@@ -215,8 +215,8 @@ func _candidate_scan(resident_id: String, first_reachable_only: bool) -> Array:
 	var base: BuildingInstance = _buildings.get(resident.work_location_id)
 	var base_position: Variant = _point(base) if base != null else null
 	if is_instance_valid(sources.ground) and base_position is Vector2 and ResourceType.Type.values().any(func(resource): return base.definition.allows_external_import(resource) and base.resources.get_available_free_capacity(resource) > 0):
-		for drop in sources.ground.drops:
-			var source_ref := Source.new(Source.Kind.GROUND,drop.id)
+		for source_ref in sources.ground_candidates(-1,position,base):
+			var drop = sources.resolve(source_ref)
 			if not sources.available(source_ref,drop.resource_type) or not base.definition.allows_external_import(drop.resource_type) or base.resources.get_available_free_capacity(drop.resource_type)<1: continue
 			var candidate := Candidate.new()
 			candidate.source_ref = source_ref
@@ -267,7 +267,9 @@ func _porter_base_valid(id: StringName, expected: BuildingInstance = null) -> bo
 func _porter_claim_context(resident: ResidentData, base: BuildingInstance, revision: int, capacity: int, source_ref: Source, source: BuildingInstance, destination: BuildingInstance, resource: int) -> bool:
 	if _residents.get(resident.id) != resident or resident.work_assignment_revision != revision or resident.work_location_id != base.id or not _can_claim(resident): return false
 	if not _porter_base_valid(base.id,base) or base.definition.porter_capacity != capacity or _buildings.get(destination.id) != destination: return false
-	if source_ref.kind == Source.Kind.GROUND: return destination == base and destination.definition.allows_external_import(resource)
+	if source_ref.kind == Source.Kind.GROUND:
+		var origin: Variant = position_provider.call(resident.id) if position_provider.is_valid() else null
+		return destination == base and destination.definition.allows_external_import(resource) and sources.ground_allowed(source_ref,origin,base)
 	return _buildings.get(source_ref.id) == source and source != null and _porter_pair(resident,source,destination) and allows_external_delivery(source,destination,resource)
 func _claim_delivery(resident: ResidentData, candidate: Candidate) -> HaulJob:
 	if resident == null or not _can_claim(resident): return null

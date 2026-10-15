@@ -4,6 +4,7 @@ const Sources=preload("res://scripts/resource_sources.gd")
 const Ground=preload("res://scripts/ground_resources.gd")
 const C=preload("res://scripts/world_3d/world_coordinates.gd")
 const R=preload("res://scripts/resource_type.gd").Type
+const SearchArea=preload("res://scripts/work_area.gd")
 const P=preload("res://scripts/resident_profession.gd").Type
 const Def=preload("res://scripts/building_definition.gd")
 const Types=preload("res://scripts/building_type.gd").Type
@@ -58,6 +59,7 @@ func quiet_world() -> Node:
 	return world
 func site(world: Node):
 	var definition=Def.for_type(Types.HOME)
+	definition.ground_search_radius=1000 # Ranking/handoff fixture; default locality tested separately.
 	definition.construction_requirements={R.PLANK:2} # Ownership edge fixture; normal recipes covered by full suite/soak.
 	world.placement.select(definition);world.placement.update_world_position(Vector3(-10,0,25))
 	return world.placement.confirm()
@@ -76,26 +78,26 @@ func run() -> void:
 	var far=ground.create_drop(R.LOG,1,Vector2(-12.25,8.25)*25)
 	navigation.add_blocker(&"wall",Rect2(-0.3,-14,0.6,28))
 	var revision: int=provider.revision
-	var trip: Dictionary=provider.find_construction_trip(R.LOG,origin,target,&"",plan,lower)
+	var trip: Dictionary=provider.find_construction_trip(R.LOG,origin,target,&"",plan,lower,provider.CONSTRUCTION_SEARCH_SLACK,null,SearchArea.new(&"planner_fixture",Vector2.ZERO,1000))
 	check(trip.reference.id==far.id,"Large wall detour chooses the sensible farther straight-line source")
 	check(navigation.is_raw_path_walkable(trip.source_path.raw) and navigation.is_raw_path_walkable(trip.delivery_path.raw),"Both selected raw legs pass mandatory clearance/LOS checks")
 	check(navigation.smooth_calls==0,"Rejected and selected candidates are not smoothed during selection")
 	check(provider.revision==revision and provider._claims.is_empty() and near.reservation_owner_id.is_empty() and far.reservation_owner_id.is_empty(),"Availability query takes no resource reservations")
 	navigation.add_blocker(&"wall",Rect2(-0.3,-20,0.6,40))
 	for i in range(7):ground.create_drop(R.LOG,1,Vector2(2.25,float(i)+1.25)*25)
-	trip=provider.find_construction_trip(R.LOG,origin,target,&"",plan,lower)
+	trip=provider.find_construction_trip(R.LOG,origin,target,&"",plan,lower,provider.CONSTRUCTION_SEARCH_SLACK,null,SearchArea.new(&"planner_fixture",Vector2.ZERO,1000))
 	check(trip.reference.id==far.id,"Search passes more than five unreachable candidates instead of reporting no work")
 	provider.reserve(trip.reference,R.LOG,&"other")
-	check(provider.find_construction_trip(R.LOG,origin,target,&"",plan,lower).is_empty(),"Reserved last unit and disconnected alternatives cannot be assigned")
+	check(provider.find_construction_trip(R.LOG,origin,target,&"",plan,lower,provider.CONSTRUCTION_SEARCH_SLACK,null,SearchArea.new(&"planner_fixture",Vector2.ZERO,1000)).is_empty(),"Reserved last unit and disconnected alternatives cannot be assigned")
 	provider.release(trip.reference,R.LOG,&"other")
 	ground.remove_drop(far)
-	check(provider.find_construction_trip(R.LOG,origin,target,&"",plan,lower).is_empty(),"Removed source is re-resolved, never reused by ID alone")
+	check(provider.find_construction_trip(R.LOG,origin,target,&"",plan,lower,provider.CONSTRUCTION_SEARCH_SLACK,null,SearchArea.new(&"planner_fixture",Vector2.ZERO,1000)).is_empty(),"Removed source is re-resolved, never reused by ID alone")
 	navigation.remove_blocker(&"wall")
-	check(not provider.find_construction_trip(R.LOG,origin,target,&"",plan,lower).is_empty(),"Opening topology restores work, with no permanent negative cache")
+	check(not provider.find_construction_trip(R.LOG,origin,target,&"",plan,lower,provider.CONSTRUCTION_SEARCH_SLACK,null,SearchArea.new(&"planner_fixture",Vector2.ZERO,1000)).is_empty(),"Opening topology restores work, with no permanent negative cache")
 	# Same lower bound remains conservative for accelerated and slow surfaces.
 	navigation.set_traversal_modifier(&"road",Rect2(-19,-19,1,5),1.25)
 	navigation.set_traversal_modifier(&"slow",Rect2(-1,-3,5,8),0.5)
-	trip=provider.find_construction_trip(R.LOG,origin,target,&"",plan,lower)
+	trip=provider.find_construction_trip(R.LOG,origin,target,&"",plan,lower,provider.CONSTRUCTION_SEARCH_SLACK,null,SearchArea.new(&"planner_fixture",Vector2.ZERO,1000))
 	check(trip.cost>=lower(origin,provider.point(trip.reference),target),"Weighted raw score uses movement travel cost and admissible fastest-surface bound")
 	ground.free();clock.free();provider=null
 	# Exact matching route handoff avoids another A*, but geometry changes invalidate it.

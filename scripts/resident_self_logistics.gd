@@ -16,9 +16,9 @@ func _workplace() -> RefCounted:
 	return null
 func _production_available() -> bool:
 	return runtime.recipe_work.has_work() if runtime.data.profession==Profession.Type.SAWYER else world.production.can_work(runtime.data)
-func _eligible(workplace_id: StringName) -> bool:
+func _eligible(workplace_id: StringName, source_ref: RefCounted = null) -> bool:
 	var place := _workplace()
-	return place!=null and place.id==workplace_id and runtime.data.inventory.amount==0 and world.game_time.get_phase()=="День" and not runtime.intents.player_controlled and runtime.intents.forced_priority==0 and not runtime.intents.has_current_action()
+	return place!=null and place.id==workplace_id and runtime.data.inventory.amount==0 and world.game_time.get_phase()=="День" and not runtime.intents.player_controlled and runtime.intents.forced_priority==0 and not runtime.intents.has_current_action() and (source_ref == null or world.logistics.sources.ground_allowed(source_ref,runtime.view.get_sim_position(),place))
 func _committed_workplace(id: StringName) -> bool:
 	var target = world.player_control.get_building(id)
 	return target!=null and target.is_built() and world.world_locations.get_position(id) is Vector2
@@ -35,7 +35,7 @@ func task() -> Dictionary:
 		for resource in recipe.inputs:
 			if not output_room: break
 			if place.resources.get_amount(resource)+place.resources.get_reserved_in(resource)>=int(recipe.inputs[resource]) or place.resources.get_available_free_capacity(resource)<1: continue
-			var matches: Array = sources.find(resource,origin,access,place.id)
+			var matches: Array = sources.find(resource,origin,access,place.id,place)
 			if not matches.is_empty(): return {"kind":&"SUPPLY","source":matches[0],"destination":place,"resource":resource}
 	var outputs: Array = place.definition.production_recipe.outputs.keys() if runtime.data.profession==Profession.Type.SAWYER else [preload("res://scripts/resource_type.gd").Type.FOOD]
 	for resource in outputs:
@@ -51,7 +51,7 @@ func request_work() -> bool:
 	var candidate := task()
 	if candidate.is_empty(): return false
 	if candidate.kind==&"PRODUCTION": return runtime.recipe_work.request_work() if runtime.data.profession==Profession.Type.SAWYER else runtime.schedule.request_work()
-	var job = world.logistics.claim_transport(runtime.data.id,candidate.source,candidate.destination,candidate.resource,_eligible.bind(place.id),true,_committed_workplace.bind(place.id))
+	var job = world.logistics.claim_transport(runtime.data.id,candidate.source,candidate.destination,candidate.resource,_eligible.bind(place.id,candidate.source),true,_committed_workplace.bind(place.id))
 	if job==null: return false
 	if world.logistics.start_claimed_job(job,runtime.data.id): return true
 	world.logistics.cancel_job(job)

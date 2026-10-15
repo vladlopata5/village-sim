@@ -47,6 +47,7 @@ var material_lower_bound: Callable
 var material_path_current: Callable
 var _work_offer: Instance
 var _work_origin: Variant = null
+var _search_identity: Array = []
 var _trip_offer: Dictionary = {}
 var _offer_site: Instance
 var _offer_source: RefCounted
@@ -122,24 +123,26 @@ func _material_trip(candidate: Instance) -> Dictionary:
 		if material_planner.is_valid():
 			if _trip_offer_valid(candidate,resource,current_position,end): return _trip_offer
 			source_search_count += 1
-			var trip: Dictionary = sources.find_construction_trip(resource,current_position,end,candidate.id,material_planner,material_lower_bound)
+			var trip: Dictionary = sources.find_construction_trip(resource,current_position,end,candidate.id,material_planner,material_lower_bound,sources.CONSTRUCTION_SEARCH_SLACK,candidate)
 			if not trip.is_empty():
 				trip["resource"] = resource
+				trip["search_identity"] = sources.GroundAreas.identity(current_position,candidate)
 				_trip_offer = trip
 				_offer_site = candidate
 				_offer_source = sources.resolve(trip.reference)
 				return trip
 			continue
 		source_search_count += 1
-		var matches: Array = sources.find(resource,current_position,end,candidate.id)
+		var matches: Array = sources.find(resource,current_position,end,candidate.id,candidate)
 		if not matches.is_empty(): return {"resource":resource,"reference":matches[0]}
 	return {}
 
 func _trip_offer_valid(candidate: Instance, resource: int, origin: Vector2, destination: Vector2) -> bool:
 	if _trip_offer.is_empty() or _offer_site != candidate or candidate not in _buildings or candidate.is_built(): return false
 	if _trip_offer.resource != resource or candidate.get_uncovered_construction_amount(resource) <= 0: return false
+	if _trip_offer.get("search_identity",[]) != sources.GroundAreas.identity(origin,candidate): return false
 	var reference: Source = _trip_offer.reference
-	if sources.resolve(reference) != _offer_source or not sources.available(reference,resource): return false
+	if sources.resolve(reference) != _offer_source or not sources.available(reference,resource) or not sources.ground_allowed(reference,origin,candidate): return false
 	if _trip_offer.origin != origin or _trip_offer.destination != destination or _trip_offer.access != sources.point(reference): return false
 	return material_path_current.call(_trip_offer.source_path) and material_path_current.call(_trip_offer.delivery_path)
 func on_navigation_changed(_revision: int) -> void:
@@ -166,8 +169,14 @@ func best_site() -> Instance:
 
 func has_work() -> bool:
 	if _data.profession != Profession.Type.BUILDER or phase != Phase.NONE or _data.inventory.amount != 0: return false
-	# A negative geometry answer belongs to its origin; teleport/portal exit can change it.
-	if material_planner.is_valid() and not _potential_work and _work_origin != _position(): _availability_dirty = true
+	# Cheap context at existing decision probes, never a resource scan on movement ticks.
+	var current_position: Variant = _position()
+	var current_identity: Array = [current_position,sources.revision]
+	for candidate in _buildings:
+		if not candidate.is_built(): current_identity.append(sources.GroundAreas.identity(current_position,candidate))
+	if current_identity != _search_identity:
+		_search_identity = current_identity
+		_availability_dirty = true
 	# Missing sources are reconsidered after world events, not idle retry intervals.
 	if _availability_dirty:
 		_potential_work = best_site() != null
@@ -224,7 +233,8 @@ func _continue_task() -> bool:
 		_interrupt_pending = false
 		abort("прерывание при резервировании", false)
 		return false
-	if not _site_reserved or not sources.reserved(source_ref,_resource,_source_owner()) or not _valid_site():
+	# Reentrant reserve callbacks may change an UNACCEPTED proposal's search context.
+	if not _site_reserved or not sources.reserved(source_ref,_resource,_source_owner()) or not _valid_site() or not sources.ground_allowed(source_ref,_position(),site):
 		abort("не удалось зарезервировать материалы")
 		return false
 	phase = Phase.GOING_TO_SOURCE

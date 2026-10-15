@@ -95,6 +95,7 @@ func run() -> void:
 		check(compare(f,"resource %d" % res).resource_type==res,"Every Ground resource")
 		dispose(f)
 	f=fixture()
+	f.base.definition.ground_search_radius=5000 # Explicit large admission fixture isolates negative ranking score.
 	drop(f,&"remote",R.LOG,Vector2(5000,0))
 	check(compare(f,"strictly negative").porter_score<0,"Negative score remains eligible")
 	f.service.sources.route_available=func(a,b): return not (a.x==5000 and b==Vector2.ZERO)

@@ -1,11 +1,13 @@
 extends RefCounted
 ## Source resolution and one-unit reservation adapters, never work assignment/scoring.
 const Source = preload("res://scripts/resource_source_ref.gd")
+const GroundAreas = preload("res://scripts/ground_search_areas.gd")
 signal changed
 var buildings: Dictionary = {}
 var locations: RefCounted
 var ground: Node
 var route_available: Callable
+var work_object_current: Callable # Existing world registry includes unfinished construction sites.
 var _claims: Dictionary = {} # Container reservation ownership, not resource quantities.
 var revision := 0 # Availability generation for transient selection reuse.
 var _queued := false
@@ -37,12 +39,30 @@ func available(source_ref: Source, resource: int) -> bool:
 	return entity.amount > 0 and entity.reservation_owner_id.is_empty() if source_ref.kind == Source.Kind.GROUND else entity.resources.get_available_amount(resource)>0
 func reachable(start: Vector2, target: Vector2) -> bool:
 	return not route_available.is_valid() or route_available.call(start,target)
-func find(resource: int, origin: Vector2, destination: Vector2, excluded: StringName = &"") -> Array:
+func _current_work_object(workplace: RefCounted) -> RefCounted:
+	if workplace == null: return null
+	if work_object_current.is_valid(): return workplace if work_object_current.call(workplace) else null
+	return workplace if buildings.get(workplace.id) == workplace else null
+func ground_allowed(source_ref: Source, origin: Variant, workplace: RefCounted = null, area: RefCounted = null) -> bool:
+	if source_ref == null: return false
+	if source_ref.kind == Source.Kind.CONTAINER: return true
+	var target: Variant = point(source_ref)
+	# Removed/replaced work objects cannot contribute a stale search circle.
+	var live_workplace: RefCounted = _current_work_object(workplace)
+	return target is Vector2 and GroundAreas.contains(target,origin,live_workplace,area)
+func ground_candidates(resource: int, origin: Variant, workplace: RefCounted = null, area: RefCounted = null) -> Array:
+	var result: Array = []
+	if not is_instance_valid(ground): return result
+	var live_workplace: RefCounted = _current_work_object(workplace)
+	for drop in ground.drops:
+		if (resource < 0 or drop.resource_type == resource) and drop.amount > 0 and drop.reservation_owner_id.is_empty() and GroundAreas.contains(drop.world_position,origin,live_workplace,area):
+			result.append(Source.new(Source.Kind.GROUND,drop.id))
+	return result
+func find(resource: int, origin: Vector2, destination: Vector2, excluded: StringName = &"", workplace: RefCounted = null, area: RefCounted = null) -> Array:
 	var result: Array = []
 	for building in buildings.values():
 		if building.id != excluded: result.append(Source.new(Source.Kind.CONTAINER,building.id))
-	if is_instance_valid(ground):
-		for drop in ground.drops: result.append(Source.new(Source.Kind.GROUND,drop.id))
+	result.append_array(ground_candidates(resource,origin,workplace,area))
 	result = result.filter(func(ref): return available(ref,resource) and reachable(origin,point(ref)) and reachable(point(ref),destination))
 	result.sort_custom(func(a,b):
 		var da: float = origin.distance_to(point(a))+point(a).distance_to(destination)
@@ -52,12 +72,11 @@ func find(resource: int, origin: Vector2, destination: Vector2, excluded: String
 # Builder-only query. Rank cheap lower bounds, validate raw routes, never smooth here.
 # The slack bounds the unexamined raw-route alternatives, not resource admission.
 const CONSTRUCTION_SEARCH_SLACK := 1.25
-func find_construction_trip(resource: int, origin: Vector2, destination: Vector2, excluded: StringName, planner: Callable, lower_bound: Callable, slack: float = CONSTRUCTION_SEARCH_SLACK) -> Dictionary:
+func find_construction_trip(resource: int, origin: Vector2, destination: Vector2, excluded: StringName, planner: Callable, lower_bound: Callable, slack: float = CONSTRUCTION_SEARCH_SLACK, workplace: RefCounted = null, area: RefCounted = null) -> Dictionary:
 	var references: Array = []
 	for building in buildings.values():
 		if building.id != excluded: references.append(Source.new(Source.Kind.CONTAINER,building.id))
-	if is_instance_valid(ground):
-		for drop in ground.drops: references.append(Source.new(Source.Kind.GROUND,drop.id))
+	references.append_array(ground_candidates(resource,origin,workplace,area))
 	var candidates: Array[Dictionary] = []
 	for source_ref in references:
 		if not available(source_ref,resource): continue
@@ -143,13 +162,9 @@ func _emit_changed() -> void:
 	_queued = false
 	changed.emit()
 
-func find_ground_in_area(resource: int, area: RefCounted, origin: Vector2, destination: Vector2) -> Array:
+func find_ground_in_area(resource: int, area: RefCounted, origin: Vector2, destination: Vector2, workplace: RefCounted = null) -> Array:
 	# Rank cheaply first, then stop at first reachable: same selected result, fewer paths.
-	var result: Array = []
-	if not is_instance_valid(ground): return result
-	for drop in ground.drops:
-		if drop.resource_type!=resource or drop.amount<1 or not drop.reservation_owner_id.is_empty() or not area.contains(drop.world_position): continue
-		result.append(Source.new(Source.Kind.GROUND,drop.id))
+	var result: Array = ground_candidates(resource,origin,workplace,area)
 	result.sort_custom(func(a,b):
 		var da: float = origin.distance_to(point(a))+point(a).distance_to(destination)
 		var db: float = origin.distance_to(point(b))+point(b).distance_to(destination)

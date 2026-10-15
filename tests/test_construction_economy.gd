@@ -90,6 +90,17 @@ func run() -> void:
 		walk(miner)
 		world.game_time.debug_skip_minutes(Balance.ROCK_WORK_MINUTES)
 	check(world.ground_resources.drops.filter(func(drop): return drop.resource_type == R.STONE).size() == 10 and miner.data.inventory.amount == 0,"Ten real Ground STONE from starter rock")
+	# The approved local rule requires fetching remote extraction output first.
+	# Ordinary player movement brings the Porter into its resident search circle;
+	# the same real haul then deposits each unit in the globally available container.
+	var porter = world.resident_runtimes[0]
+	for drop in world.ground_resources.drops.duplicate():
+		window()
+		porter.commands.move_to(drop.world_position)
+		walk(porter)
+		check(world._request_work(porter),"Nearby Porter claims actual extraction output")
+		walk(porter); walk(porter)
+	check(center.resources.get_amount(R.LOG)==15 and center.resources.get_amount(R.STONE)==10 and world.ground_resources.drops.is_empty(),"All extracted materials physically stocked before remote construction")
 	check(world.player_control.assign_profession(builder.data.id,P.BUILDER),"Builder assigned normally")
 	var saw = await construct(builder,T.SAWMILL,Vector3(-10,0,16))
 	if saw == null:
@@ -106,13 +117,17 @@ func run() -> void:
 		walk(miner)
 		world.game_time.debug_skip_minutes(Balance.SAWMILL_WORK_MINUTES)
 	check(saw.resources.get_amount(R.PLANK) == 6,"Six real LOG become six PLANK")
-	var porter = world.resident_runtimes[0]
+	# Hold remaining timber for the next construction fixture, just as starter
+	# PLANK is held above; ordinary Porter input supply must not consume that fixture stock.
+	var held_logs: int = center.resources.get_available_amount(R.LOG)
+	check(center.resources.reserve_out(R.LOG,held_logs),"Hold next construction timber during board export")
 	for trip in range(20):
 		if center.resources.get_amount(R.PLANK) == 66: break
 		window()
 		check(world._request_work(porter),"Own Town Center Porter chooses normal Ground/output delivery")
 		walk(porter)
 	check(center.resources.get_amount(R.PLANK) == 66 and saw.resources.get_amount(R.PLANK) == 0,"Porter physically delivers all six manufactured boards to Town Center")
+	center.resources.release_out(R.LOG,held_logs)
 	await screenshot("manufactured_boards_delivered")
 	var storage = await construct(builder,T.STORAGE,Vector3(4,0,22))
 	if storage != null:

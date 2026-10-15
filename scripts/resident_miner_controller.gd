@@ -37,9 +37,9 @@ func _context() -> RefCounted:
 	return Context.new(area) if area!=null else null
 func _room(context: RefCounted) -> bool:
 	return context.workplace==null or context.workplace.resources.get_available_free_capacity(Resources.STONE)>=1
-func _transport_eligible(id: StringName) -> bool:
+func _transport_eligible(id: StringName, source_ref: RefCounted = null) -> bool:
 	var context := _context()
-	return context!=null and context.workplace!=null and context.workplace.id==id and clock.get_phase()=="День" and runtime.data.inventory.amount==0 and not runtime.intents.has_current_action()
+	return context!=null and context.workplace!=null and context.workplace.id==id and clock.get_phase()=="День" and runtime.data.inventory.amount==0 and not runtime.intents.has_current_action() and (source_ref == null or world.logistics.sources.ground_allowed(source_ref,runtime.view.get_sim_position(),context.workplace,context.area))
 
 func setup(owner_runtime: Node, game_clock: Node, sources: Array, resolver: RefCounted, completion: Callable) -> void:
 	runtime = owner_runtime
@@ -58,7 +58,7 @@ func _area() -> RefCounted:
 func _identity(area: RefCounted) -> Array:
 	var context := _context()
 	var room: int = context.workplace.resources.get_available_free_capacity(Resources.STONE) if context.workplace!=null else -1
-	return [world.logistics.sources.revision,room,runtime.data.work_location_id,runtime.data.work_area_id,area.id,area.revision,area.center,area.radius,Engine.get_process_frames(),clock.total_minutes,locations.navigation.revision,runtime.view.get_sim_position()]
+	return world.logistics.sources.GroundAreas.identity(runtime.view.get_sim_position(),context.workplace,context.area) + [world.logistics.sources.revision,room,runtime.data.work_location_id,runtime.data.work_area_id,area.id,area.revision,area.center,area.radius,Engine.get_process_frames(),clock.total_minutes,locations.navigation.revision,runtime.view.get_sim_position()]
 func _eligible(source: RefCounted, area: RefCounted) -> bool:
 	return source in rocks and source.position.is_finite() and source.stock > 0 and source.reservation_owner_id.is_empty() and area.contains(source.position)
 func best_target() -> Dictionary:
@@ -81,7 +81,7 @@ func best_task() -> Dictionary:
 	var origin: Vector2 = runtime.view.get_sim_position()
 	var access: Vector2 = world.world_locations.get_position(place.id)
 	if _room(context):
-		var matches: Array = world.logistics.sources.find_ground_in_area(Resources.STONE,context.area,origin,access)
+		var matches: Array = world.logistics.sources.find_ground_in_area(Resources.STONE,context.area,origin,access,place)
 		if not matches.is_empty(): return {"kind":&"COLLECT","source":matches[0],"destination":place}
 		var extraction := best_target()
 		if not extraction.is_empty(): return extraction
@@ -101,7 +101,7 @@ func _candidate_valid(candidate: Dictionary, context: RefCounted) -> bool:
 	if candidate.kind==&"MINE": return _room(context) and _eligible(candidate.rock,context.area) and locations.is_available(candidate.point)
 	if context.workplace==null: return false
 	if not world.logistics.sources.available(candidate.source,Resources.STONE): return false
-	if candidate.kind==&"COLLECT": return _room(context) and candidate.destination==context.workplace and context.area.contains(world.logistics.sources.point(candidate.source))
+	if candidate.kind==&"COLLECT": return _room(context) and candidate.destination==context.workplace and world.logistics.sources.ground_allowed(candidate.source,runtime.view.get_sim_position(),context.workplace,context.area)
 	return candidate.source.id==context.workplace.id and candidate.destination.is_built() and candidate.destination.resources.get_available_free_capacity(Resources.STONE)>=1
 func request_work() -> bool:
 	if clock.get_phase() != "День" or runtime.intents.has_current_action() or runtime.data.inventory.amount != 0: return false
@@ -114,8 +114,8 @@ func request_work() -> bool:
 	if candidate.is_empty(): return false
 	if candidate.kind!=&"MINE":
 		var job: RefCounted
-		if candidate.kind==&"COLLECT": job = world.logistics.claim_internal(runtime.data.id,candidate.source,context.workplace,Resources.STONE,_transport_eligible.bind(context.workplace.id))
-		else: job = world.logistics.claim_worker_export(runtime.data.id,context.workplace,candidate.destination,Resources.STONE,_transport_eligible.bind(context.workplace.id))
+		if candidate.kind==&"COLLECT": job = world.logistics.claim_internal(runtime.data.id,candidate.source,context.workplace,Resources.STONE,_transport_eligible.bind(context.workplace.id,candidate.source))
+		else: job = world.logistics.claim_worker_export(runtime.data.id,context.workplace,candidate.destination,Resources.STONE,_transport_eligible.bind(context.workplace.id,candidate.source))
 		if job==null: return false
 		if world.logistics.start_claimed_job(job,runtime.data.id): return true
 		world.logistics.cancel_job(job)

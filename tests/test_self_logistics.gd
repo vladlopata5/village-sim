@@ -163,8 +163,9 @@ func run() -> void:
 	check(world._request_work(lumber) and world.logistics.get_job(lumber.data.id)!=null,"After release Lumberjack can win same Ground")
 	check(not world._work_available(worker),"Sawyer cannot reserve Lumberjack's claimed source")
 	lumber.commands.move_to(Vector2(0,500))
+	world.resident_runtimes[0].view.global_position=C.to_world(drop.world_position)+Vector3(1,0,0) # Competitor inside its own resident search circle.
 	var candidates: Array = world.logistics.collect_candidates(world.resident_runtimes[0].data.id)
-	check(candidates.any(func(row): return row.source_ref.id==drop.id),"Porter also sees released globally claimable LOG")
+	check(candidates.any(func(row): return row.source_ref.id==drop.id),"Nearby Porter also sees released LOG")
 	var ground_candidate = candidates.filter(func(row): return row.source_ref.id==drop.id)[0]
 	check(is_equal_approx(ground_candidate.porter_score,ground_candidate.world_urgency-ground_candidate.distance_penalty+preload("res://scripts/balance_config.gd").PORTER_GROUND_CLEANUP_BONUS),"Small Ground score bonus, no age term")
 	job = world.logistics.claim_best_job(world.resident_runtimes[0].data.id)
@@ -214,6 +215,7 @@ func run() -> void:
 		world.warehouse_data.resources.release_in(resource,world.warehouse_data.resources.get_reserved_in(resource))
 		Fixture.clear_drops(world)
 	world.warehouse_data.resources.add(R.FOOD,10)
+	world.warehouse_data.definition.ground_search_radius=2000 # Admit far Ground explicitly to isolate urgency/distance ranking.
 	drop = world.ground_resources.create_drop(R.FOOD,1,C.to_sim(Vector3(40,0,28)))
 	candidates = world.logistics.collect_candidates(porter.data.id)
 	var normal = candidates.filter(func(row): return row.source_ref.kind==Ref.Kind.CONTAINER)[0]

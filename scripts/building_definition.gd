@@ -56,6 +56,7 @@ var logistics_flow: Dictionary
 var visitor_capacity := 0
 var worker_capacity := 0 # Zero keeps existing unlimited workplace semantics.
 var porter_capacity := 0 # Zero forbids logistics staffing; independent from worker slots.
+var ground_search_radius := -1.0 # Simulation units; negative means shared default, zero is a point.
 var work_radius := 0.0 # WORLD units, unrelated to visual footprint.
 var target_tree_count := 0
 var local_resource_capacity := 0
@@ -113,6 +114,9 @@ static func for_type(category: BuildingType.Type, label: String = ""):
 		result.worker_capacity = Balance.SAWMILL_WORKER_CAPACITY
 		result.production_recipe = Recipe.new({ResourceType.Type.LOG:1},{ResourceType.Type.PLANK:1},Balance.SAWMILL_WORK_MINUTES)
 	return result
+
+func get_ground_search_radius() -> float:
+	return ground_search_radius if is_finite(ground_search_radius) and ground_search_radius >= 0.0 else Balance.DEFAULT_BUILDING_GROUND_SEARCH_RADIUS
 
 func allows_external_import(resource: int) -> bool:
 	return logistics_flow.get(resource,{}).get("import",false)

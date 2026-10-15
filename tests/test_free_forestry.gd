@@ -164,17 +164,18 @@ func run() -> void:
 	check(scene.work_areas.all().size()==count,"Cancel preview creates nothing")
 	# Builder source-selection fixture is deliberately single-resource.
 	var builder = scene.resident_runtimes[1].builder
-	var loose_plank = scene.ground_resources.create_drop(R.PLANK,1,C.to_sim(Vector3(-24,0,-8)))
+	var loose_plank = scene.ground_resources.create_drop(R.PLANK,1,C.to_sim(Vector3(-23,0,-8)))
 	var build_definition = preload("res://scripts/building_definition.gd").for_type(preload("res://scripts/building_type.gd").Type.HOME)
 	build_definition.construction_requirements = {R.PLANK:1}
 	var site = preload("res://scripts/building_instance.gd").new(&"ground_source_site",build_definition,C.to_sim(Vector3(-17,0,-16)),preload("res://scripts/building_instance.gd").State.UNDER_CONSTRUCTION)
 	scene.buildings.append(site)
 	scene._show_building(site)
 	var material: Dictionary = builder._material_trip(site)
-	check(not material.is_empty() and material.reference.kind==1 and material.reference.id==loose_plank.id,"Existing Builder chooses Ground PLANK under unchanged construction rules")
+	check(not material.is_empty() and material.reference.kind==1 and material.reference.id==loose_plank.id,"Builder chooses local Ground PLANK with unchanged reservation rules")
 	# Ground pickup through the existing Porter flow.
 	var porter = scene.resident_runtimes[0]
 	scene.player_control.assign_workplace(porter.data.id,scene.warehouse_data.id)
+	porter.view.global_position=C.to_world(scene.ground_resources.drops.filter(func(item): return item.resource_type==R.LOG)[0].world_position)+Vector3(1,0,0) # Cleanup starts near actual extraction output.
 	var candidates: Array = scene.logistics.collect_candidates(porter.data.id).filter(func(c): return c.source_ref.kind==1 and c.resource_type==R.LOG)
 	check(not candidates.is_empty(),"Porter sees free-extraction Ground LOG")
 	if not candidates.is_empty():

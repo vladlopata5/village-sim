@@ -158,6 +158,7 @@ func run() -> void:
 	var porter = scene.resident_runtimes[0]
 	scene.player_control.assign_profession(porter.data.id,P.PORTER)
 	porter.intents.abort_current(porter.intents.current_intent)
+	porter.view.global_position=C.to_world(scene.ground_resources.drops.filter(func(item): return item.resource_type==R.STONE)[0].world_position)+Vector3(1,0,0) # Near the real mining output.
 	var jobs = scene.logistics.collect_candidates(porter.data.id)
 	check(not jobs.is_empty(),"Porter sees Ground STONE")
 	var job = scene.logistics._claim_candidate(porter.data,jobs[0])

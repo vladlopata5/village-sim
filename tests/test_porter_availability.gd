@@ -194,7 +194,7 @@ func integration() -> void:
 			need.value=0
 			need.base_weight=0
 	var actor=world.resident_runtimes[0]
-	world.ground_resources.create_drop(R.LOG,3,C.to_sim(Vector3(10,0,22)))
+	world.ground_resources.create_drop(R.LOG,3,C.to_sim(Vector3(10,0,17)))
 	var f={"service":world.logistics,"base":world.warehouse_data,"worker":actor.data,"ground":world.ground_resources}
 	var old=reference(f)
 	var expected=old._best(old.collect_candidates(actor.data.id))
@@ -220,7 +220,7 @@ func integration() -> void:
 		check(job.state==Job.State.COMPLETED and actor.data.inventory.amount==0,"Real delivery and empty cargo")
 		check(world.logistics.get_job(actor.data.id)==null,"Delivery releases active ownership")
 		check(world.logistics.has_available_job(actor.data.id),"Work probe before real PlayerCommand")
-		check(world.player_control.move_to(actor.data.id,C.to_sim(Vector3(10,0,22))),"PlayerCommand accepted between probe and claim")
+		check(world.player_control.move_to(actor.data.id,C.to_sim(Vector3(10,0,17))),"PlayerCommand accepted between probe and claim")
 		check(not world.logistics.has_available_job(actor.data.id) and world.logistics.claim_best_job(actor.data.id)==null,"Player-controlled resident cannot claim stale work")
 		actor.commands.cancel_current()
 		check(world.logistics.has_available_job(actor.data.id),"Availability restored after command cleanup")

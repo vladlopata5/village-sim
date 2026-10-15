@@ -82,7 +82,7 @@ func best_task() -> Dictionary:
 	var best: Dictionary = {}
 	var distance := INF
 	if workplace.resources.get_available_free_capacity(Resources.Type.LOG) >= 1:
-		var matches: Array = world.logistics.sources.find_ground_in_area(Resources.Type.LOG,context.area,origin,home)
+		var matches: Array = world.logistics.sources.find_ground_in_area(Resources.Type.LOG,context.area,origin,home,workplace)
 		if not matches.is_empty(): best = {"kind":&"COLLECT","reference":matches[0]}
 	if not best.is_empty(): return best
 	best = best_target()
@@ -121,7 +121,7 @@ func has_work() -> bool:
 		_availability_minute = clock.total_minutes
 		_availability_revision = locations.navigation.revision
 		_availability_origin = runtime.view.get_sim_position()
-		_availability_context = _context().identity()
+		_availability_context = _context().identity() + world.logistics.sources.GroundAreas.identity(_availability_origin,_context().hut,_context().area)
 		_availability_drops = world.ground_resources.drops.size()
 		_availability_sources = world.logistics.sources.revision
 		_availability_room = context_room(_context())
@@ -131,17 +131,18 @@ func _take_available_task() -> Dictionary:
 	_available_task = {}
 	var context = _context()
 	if candidate.is_empty() or context==null or not is_instance_valid(runtime.view): return {}
-	if _availability_frame!=Engine.get_process_frames() or _availability_minute!=clock.total_minutes or _availability_revision!=locations.navigation.revision or _availability_origin!=runtime.view.get_sim_position() or _availability_context!=context.identity() or _availability_drops!=world.ground_resources.drops.size() or _availability_sources!=world.logistics.sources.revision or _availability_room!=context_room(context): return {}
+	if _availability_frame!=Engine.get_process_frames() or _availability_minute!=clock.total_minutes or _availability_revision!=locations.navigation.revision or _availability_origin!=runtime.view.get_sim_position() or _availability_context!=context.identity()+world.logistics.sources.GroundAreas.identity(runtime.view.get_sim_position(),context.hut,context.area) or _availability_drops!=world.ground_resources.drops.size() or _availability_sources!=world.logistics.sources.revision or _availability_room!=context_room(context): return {}
 	if candidate.kind==&"COLLECT":
 		if context.mode!=Context.Mode.BUILDING or context_room(context)<1 or not world.logistics.sources.available(candidate.reference,Resources.Type.LOG): return {}
-		return candidate if context.area.contains(world.logistics.sources.point(candidate.reference)) else {}
+		return candidate if world.logistics.sources.ground_allowed(candidate.reference,runtime.view.get_sim_position(),context.hut,context.area) else {}
 	if not _eligible_tree(candidate.tree,context) or not locations.is_available(candidate.point) or not locations.in_range(candidate.tree,candidate.point): return {}
 	return candidate
 func context_room(context: RefCounted) -> int:
 	return context.hut.resources.get_available_free_capacity(Resources.Type.LOG) if context.mode==Context.Mode.BUILDING else -1
-func _collect_eligible(workplace_id: StringName) -> bool:
+func _collect_eligible(workplace_id: StringName, source_ref: RefCounted) -> bool:
 	var place := _current_hut()
-	return place!=null and place.id==workplace_id and clock.get_phase()=="День" and runtime.data.inventory.amount==0 and not runtime.intents.has_current_action()
+	var context = _context()
+	return place!=null and place.id==workplace_id and clock.get_phase()=="День" and runtime.data.inventory.amount==0 and not runtime.intents.has_current_action() and context != null and world.logistics.sources.ground_allowed(source_ref,runtime.view.get_sim_position(),place,context.area)
 func request_work() -> bool:
 	if clock.get_phase() != "День" or runtime.intents.has_current_action() or runtime.data.inventory.amount != 0: return false
 	var candidate := _take_available_task()
@@ -150,7 +151,7 @@ func request_work() -> bool:
 	if candidate.kind == &"COLLECT":
 		var place := _current_hut()
 		if place==null: return false
-		var job = world.logistics.claim_internal(runtime.data.id,candidate.reference,place,Resources.Type.LOG,_collect_eligible.bind(place.id))
+		var job = world.logistics.claim_internal(runtime.data.id,candidate.reference,place,Resources.Type.LOG,_collect_eligible.bind(place.id,candidate.reference))
 		if job==null: return false
 		job.execution_priority = Balance.WORK_PRIORITY # Preserve former committed forestry route priority.
 		if world.logistics.start_claimed_job(job,runtime.data.id): return true

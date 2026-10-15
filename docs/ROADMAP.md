@@ -1473,3 +1473,15 @@ Performance fixture исправлен: DebugSpawn принимает макси
 Все логи, численные результаты, диагностика и screenshots вне Git:
 `C:/Users/SW/Documents/Codex/outputs/e6-perspective-camera/REPORT.md`.
 История E1–E5 не переписывается; новые механики не начаты.
+
+
+## 2026-10-15 — Ground Resource Search Areas
+
+Добавлен локальный допуск новых наземных источников: union resident/work-object/
+применимой WorkArea. Начальные радиусы 4/10 world units, type definition override;
+контейнеры сохраняют глобальную доступность. P1 ranking/early stopping/raw hints,
+резервирование и committed delivery не заменены. UI, камера, tree/mining targets,
+AI scheduler и GameTime не перерабатывались. Технические правила и потребители:
+GROUND_RESOURCE_SEARCH.md; результаты приёмки — внешний отчёт ground-resource-
+search-areas/REPORT.md. История P1 и Legacy Removal сохранена. Food availability
+fan-out и массовые AI decisions остаются отдельными задачами, здесь не начаты.

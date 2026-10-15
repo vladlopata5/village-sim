@@ -5,6 +5,7 @@ var ground_resource: RefCounted
 func setup(drop: RefCounted) -> void:
 	ground_resource = drop
 	position = Coordinates.to_world(drop.world_position)
+	drop.availability_changed.connect(_sync_position)
 	var visual := MeshInstance3D.new()
 	var material := StandardMaterial3D.new()
 	if drop.resource_type == Resources.Type.LOG:
@@ -33,3 +34,5 @@ func setup(drop: RefCounted) -> void:
 		material.albedo_color = Color(0.8,0.65,0.2)
 	visual.material_override = material
 	add_child(visual)
+func _sync_position() -> void:
+	position = Coordinates.to_world(ground_resource.world_position)

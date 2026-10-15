@@ -7,7 +7,11 @@ var id: StringName
 var reservation_owner_id := &""
 var resource_type: ResourceType.Type
 var amount: int
-var world_position: Vector2
+var world_position: Vector2:
+	set(value):
+		if world_position == value: return
+		world_position = value
+		availability_changed.emit() # New-search caches observe physical movement.
 var created_at: int
 var lifetime: int = LIFETIME_MINUTES
 

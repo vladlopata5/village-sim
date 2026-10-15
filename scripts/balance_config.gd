@@ -1,4 +1,7 @@
 extends RefCounted
+# Ground admission only: 25 simulation units = 1 world unit; build cell = 12.5.
+const RESIDENT_GROUND_SEARCH_RADIUS := 100.0 # 4 world units / 8 cells.
+const DEFAULT_BUILDING_GROUND_SEARCH_RADIUS := 250.0 # 10 world units / 20 cells.
 const RESOURCE_LOADING_MINUTES := 10
 const RESOURCE_UNLOADING_MINUTES := 10
 ## Prototype balance values; no editor settings framework.

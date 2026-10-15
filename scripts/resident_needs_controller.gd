@@ -13,6 +13,7 @@ const ResourceType = preload("res://scripts/resource_type.gd")
 const Source = preload("res://scripts/resource_source_ref.gd")
 var sources: RefCounted
 var position_provider: Callable
+var ground_position_provider: Callable # Actual center, distinct from walkable portal route origin.
 var exit_building_provider: Callable
 enum MealMode { KITCHEN, OUTSIDE }
 var _meal_mode := MealMode.KITCHEN
@@ -359,9 +360,11 @@ func _source_label() -> String:
 	return _food_building.display_name if _food_building != null else "FOOD на земле"
 func _food_origin() -> Variant:
 	return position_provider.call(_data.id) if position_provider.is_valid() else null
+func _ground_origin() -> Variant:
+	return ground_position_provider.call(_data.id) if ground_position_provider.is_valid() else _food_origin()
 func _search_key(critical: bool) -> Array:
 	var navigation: RefCounted = _locations.get("navigation")
-	return [_food_epoch,sources.revision if sources != null else 0,navigation.revision if navigation != null else 0,_food_origin() if _available_food_amount > 0 or _probe_target != null else null,critical]
+	return [_food_epoch,sources.revision if sources != null else 0,navigation.revision if navigation != null else 0,_food_origin() if _available_food_amount > 0 or _probe_target != null else null,_ground_origin(),critical]
 func _food_reachable(target: Vector2) -> bool:
 	if not target.is_finite(): return false
 	var origin: Variant = _food_origin()
@@ -379,7 +382,7 @@ func _building_food_access(building: RefCounted, allow_busy_visitor: bool) -> bo
 	return uses.courier_position(building.id) is Vector3
 func _source_available(ref: Source, critical: bool, explicit_target: bool = false) -> bool:
 	if ref.kind == Source.Kind.GROUND:
-		return sources != null and (sources.available(ref,FOOD) or (critical and _same_food_source(ref,_food_source) and sources.reserved(ref,FOOD,_food_owner())))
+		return sources != null and ((critical and _same_food_source(ref,_food_source) and sources.reserved(ref,FOOD,_food_owner())) or (sources.ground_allowed(ref,_ground_origin()) and sources.available(ref,FOOD)))
 	var building = get_food_target(ref.id)
 	var compatible: bool = building != null and critical and is_current_eat_compatible(building)
 	return building != null and _building_food_access(building,compatible or explicit_target) and (building.resources.get_available_amount(FOOD)>0 or compatible)
@@ -402,10 +405,9 @@ func _select_food_source(critical: bool) -> Source:
 				return ref
 	if sources == null or not is_instance_valid(sources.ground): return null
 	var candidates: Array = []
-	for drop in sources.ground.drops:
-		if drop.resource_type != FOOD or drop.amount<1 or not drop.world_position.is_finite(): continue
-		var ref := Source.new(Source.Kind.GROUND,drop.id)
-		if _source_available(ref,critical): candidates.append(ref)
+	# Retained emergency meal is committed; movement cannot invalidate it.
+	if critical and _food_source != null and _food_source.kind == Source.Kind.GROUND and _source_available(_food_source,true): candidates.append(_food_source)
+	candidates.append_array(sources.ground_candidates(FOOD,_ground_origin())) # Owned meal is excluded from free candidates.
 	var origin: Variant = _food_origin()
 	if origin is Vector2:
 		candidates.sort_custom(func(a,b):
@@ -428,7 +430,7 @@ func _begin_food_source(ref: Source, priority: int, critical_priority: int, expl
 		food_reservation_failures += 1
 		return _eat_unavailable(critical_priority)
 	# Resource callbacks can remove a source synchronously during reservation.
-	var still_valid: bool = _buildings.has(building) and building.is_built() and _locations.get_position(building.id) is Vector2 if building != null else sources.reserved(ref,FOOD,_food_owner())
+	var still_valid: bool = _buildings.has(building) and building.is_built() and _locations.get_position(building.id) is Vector2 if building != null else sources.reserved(ref,FOOD,_food_owner()) and sources.ground_allowed(ref,_ground_origin())
 	if not still_valid:
 		if building != null: building.resources.release_out(FOOD,1)
 		else: sources.release(ref,FOOD,_food_owner())
