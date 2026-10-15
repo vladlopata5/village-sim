@@ -78,3 +78,35 @@ movement smoothing, resources, GameTime, UI geometry and camera are unchanged.
 Monolithic PLANT searches, construction notification fan-out, critical searches,
 physics and other synchronous callbacks remain possible heavy work. Do not infer
 a hard frame cap or elimination of all freezes from this change.
+
+
+## P3.3 — randomized ordinary idle retry (2026-10-15)
+
+An empty ordinary action selection starts a uniform integer idle period of 10–30
+game minutes inclusive. BalanceConfig.IDLE_RETRY_MIN_MINUTES/MAX_MINUTES hold the
+bounds. DecisionController._start_idle_period uses the existing resident-owned rng
+(seeded by resident ID) once per new period, including empty startup. This consumes
+one extra resident RNG draw intentionally; old action traces need not match.
+Unrelated residents and global RNG calls do not drive this duration.
+
+IDLE is empty current intent plus activity IDLE, not a new named action. The deadline
+uses actual GameTime.total_minutes. At expiry request_decision("idle_completed")
+enters the unchanged P3.2 queue. While ordinary service is pending, minute ticks do
+not repeat this timer request or roll another period. After service, a genuinely
+empty selection starts a fresh period. Rejected availability-only notifications
+preserve the previous period rather than rerolling it at enqueue or rejection.
+
+Accepted intents, intent changes and phase changes cancel the old deadline. After
+cancellation without a completion signal, a new empty idle period may start at the
+next minute tick. Critical needs, player commands, schedule/assignment and existing
+food/work/resource notifications keep their current rules. No new world_changed or
+work_available broadcast was added. Existing notifications can still end idle early.
+Named stationary actions, handling, portal/slot waiting, paid meals, rest, sleep and
+committed work cycles do not acquire this random duration. Their own timers remain.
+
+Expected mean timer is now 20 rather than 10 game minutes. Without an existing
+external notification, newly available work can be discovered up to 20 minutes later
+than the former maximum; this is the agreed behavior change. This is not a claim
+that idle retries explain every heavy frame. Queue budget/priority/aging, GameTime,
+critical thresholds, resource lifecycle, P1/P2/P3.1, PLANT and building fan-out are
+unchanged. Measurements: external performance-optimization-p3-3/REPORT.md.

@@ -28,6 +28,9 @@ const EAT_UTILITY_EXPONENT := 2.0
 const WANDER_PRIORITY := 500
 const WANDER_RADIUS := 100.0
 const WANDER_STAY_MINUTES := 10
+# One uniform draw per ordinary empty-action period, in game minutes.
+const IDLE_RETRY_MIN_MINUTES := 10
+const IDLE_RETRY_MAX_MINUTES := 30
 const CONVERSATION_POSITION_RADIUS := 64.0
 const SOCIAL_GROWTH_DIVISOR := 5
 const LEISURE_GROWTH_DIVISOR := 5

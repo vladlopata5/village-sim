@@ -15,7 +15,6 @@ const NEED_ACTION_THRESHOLD := Balance.NEED_ACTION_THRESHOLD
 const WORK_PRIORITY := Balance.WORK_PRIORITY
 const CRITICAL_HUNGER := 200
 const CRITICAL_FATIGUE := 100
-const IDLE_MINUTES := 10
 var _data: RefCounted
 var _clock: Node
 var _intents: Node
@@ -24,7 +23,8 @@ var _schedule: Node
 var _deciding := false
 var _critical_pending := false
 var _critical_hunger_attempted := false
-var _next_decision_at := 0
+var _next_decision_at := -1
+var _idle_retry_pending := false
 var _work_cycle_active := false
 var _work_cycle_ends_at := 0
 var _work_assignment: Dictionary = {}
@@ -69,8 +69,9 @@ func setup(clock: Node, data: RefCounted, intents: Node, needs: Node, schedule: 
 	intents.intent_changed.connect(_on_intent_changed)
 	needs.action_unavailable.connect(request_decision.bind("unavailable"))
 	needs.food_available.connect(_on_food_available)
-	_next_decision_at = clock.total_minutes + IDLE_MINUTES
-	# Startup is an idle segment; first ordinary decision after ten game minutes.
+	if not _intents.has_current_action() and _data.activity == Activity.Type.IDLE:
+		_start_idle_period()
+	# Startup uses the same resident-owned idle retry as later empty selections.
 	check_critical()
 
 func check_critical() -> void:
@@ -204,9 +205,11 @@ func request_decision(reason: String = "free") -> void:
 	if not _ordinary_ready(): return
 	var priority := 0 if reason in ["idle_completed", "logistics_available", "construction_available", "recipe_available"] else 1
 	if _data.hunger >= 90 or _data.fatigue >= 90: priority = 2
+	_idle_retry_pending = true
 	dispatcher.request(_data.id, self, reason, _queue_context(), priority)
 
 func execute_queued_decision(reason: String, context: Dictionary) -> bool:
+	_idle_retry_pending = false
 	if _queue_context() != {"workplace": context.get("workplace"), "phase": context.get("phase"),
 		"profession": context.get("profession"), "assignment_revision": context.get("assignment_revision")}:
 		request_decision("state_changed") # Discard old context; a fresh entry waits for another frame.
@@ -233,7 +236,7 @@ func _can_decide() -> bool:
 	return _clock.get_phase() == _schedule.get_phase() # phase_changed owns this boundary.
 
 func _decide_now() -> void:
-	_next_decision_at = _clock.total_minutes + IDLE_MINUTES
+	_cancel_idle_period()
 	if _clock.get_phase() == "Ночь":
 		_schedule.resume_current_phase()
 		return
@@ -254,11 +257,12 @@ func _decide_now() -> void:
 			_schedule.resume_current_phase()
 			return
 	_data.activity = Activity.Type.IDLE
+	_start_idle_period()
 	if logger != null: logger.sync_activity(_data)
 
 func _on_completed(intent: Intent) -> void:
 	if intent.reason_id == &"player_move": _critical_hunger_attempted = false
-	_next_decision_at = _clock.total_minutes + IDLE_MINUTES
+	_cancel_idle_period()
 	if intent.reason_id == &"day_work" and _data.activity == Activity.Type.WORKING:
 		if not _work_assignment.is_empty() and (_work_assignment.profession != _data.profession or _work_assignment.location_id != _data.work_location_id):
 			_data.activity = Activity.Type.IDLE
@@ -282,6 +286,7 @@ func get_committed_work_assignment() -> Dictionary:
 	return _work_assignment if _work_cycle_active and _data.activity == Activity.Type.WORKING else {}
 
 func _on_intent_changed(_intent: Intent) -> void:
+	_cancel_idle_period()
 	if _intents.has_current_action(): _cancel_queued_decision()
 	if _data.activity != Activity.Type.WORKING: _end_work_cycle("смена действия")
 
@@ -302,10 +307,16 @@ func _on_minute(minute: int) -> void:
 			if gathering_cycle: _data.add_skill_xp(Skill.Type.GATHERING, 1)
 			request_decision("work_cycle_completed")
 		return
-	if minute >= _next_decision_at and not _intents.has_current_action() and _data.activity == Activity.Type.IDLE:
-		request_decision("idle_completed")
+	if _intents.has_current_action() or _data.activity != Activity.Type.IDLE:
+		_cancel_idle_period()
+	elif not _idle_retry_pending:
+		if _next_decision_at < 0:
+			_start_idle_period() # Cancellation can leave no action and no completion signal.
+		elif minute >= _next_decision_at:
+			request_decision("idle_completed") # One expiry request until queue service.
 
 func _on_phase(phase: String) -> void:
+	_cancel_idle_period()
 	if phase != "День": _end_work_cycle("смена распорядка")
 	request_decision("phase_changed")
 
@@ -343,3 +354,12 @@ func _has_work() -> bool:
 func _record_critical_reaction() -> void:
 	var dispatcher: Node = _dispatcher.get_ref() if _dispatcher != null else null
 	if is_instance_valid(dispatcher): dispatcher.critical_reactions += 1
+
+
+func _start_idle_period() -> void:
+	_idle_retry_pending = false
+	_next_decision_at = _clock.total_minutes + rng.randi_range(Balance.IDLE_RETRY_MIN_MINUTES, Balance.IDLE_RETRY_MAX_MINUTES)
+
+func _cancel_idle_period() -> void:
+	_next_decision_at = -1
+	_idle_retry_pending = false

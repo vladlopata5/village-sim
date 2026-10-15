@@ -89,8 +89,14 @@ func _run() -> void:
 		root.push_input(event, true)
 	check(scene.resident_runtimes[0].view.global_position == position and scene.resident_runtimes[0].intents.current_intent == intent and scene.warehouse_data.resources.get_amount(FOOD) == 10 and scene.kitchen_data.resources.get_amount(FOOD) == 0, "Shift+9 on pause makes no movement, intent or transfer")
 	check(scene.warehouse_data.resources.get_reserved_out(FOOD)==0 and scene.kitchen_data.resources.get_reserved_in(FOOD)==0, "Actual reserves released")
+	# This fixture tests the 07:00 haul, not random choices during the preceding hour.
+	var actor = scene.resident_runtimes[0]
+	actor.decision._deciding = true
 	paused = false
 	scene.game_time.debug_next_phase()
+	actor.decision._deciding = false
+	actor.decision.rng.seed = preload("res://tests/utility_test_seed.gd").for_action(actor.decision.collect_actions(true),"WORK")
+	actor.decision.request_decision("logistics_fixture")
 	check(scene.resident_runtimes[0].view.target_position == scene.world_locations.get_position(&"warehouse_01"), "07:00 delivery uses warehouse source")
 	preload("res://tests/handling_test_step.gd").move_domain(scene.resident_runtimes[0],20.0)
 	check(scene.residents[0].inventory.amount == 1 and scene.logistics.current_job.state == Job.State.GOING_TO_DESTINATION, "Arriving at warehouse picks up reserved cargo")

@@ -178,14 +178,15 @@ func _extra_cases():
 	check(r[0].data.activity == Activity.Type.RELAXING and r[0].view.position == original_position, "Satisfied leisure remains committed")
 	scene.game_time.debug_skip_minutes(20)
 	check(r[0].data.activity == Activity.Type.IDLE, "Leisure completes after 30 minutes")
-	# Needs below 7000 still lose to an available job.
+	# The seeded selector can choose WORK among near-equal ordinary needs.
 	r[0].data.work_location_id = scene.warehouse_data.id
 	r[0].decision.work_available = func(): return true
 	r[0].data.get_need(Type.SOCIAL).value = 87
 	r[0].data.get_need(Type.LEISURE).value = 93
 	scene.game_time.total_minutes = 420
+	r[0].decision.rng.seed = preload("res://tests/utility_test_seed.gd").for_action(r[0].decision.collect_actions(true),"WORK")
 	r[0].schedule._on_phase_changed("День")
-	check(r[0].intents.current_intent.reason_id == &"day_work", "Work wins at priority 7000 and below")
+	check(r[0].intents.current_intent.reason_id == &"day_work", "Seeded WORK remains available among near-equal needs")
 	scene.free()
 
 func continuing_seed() -> int:

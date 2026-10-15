@@ -23,10 +23,12 @@ func _run():
 	check(not r.intents.has_current_action(), "Both priorities below 1000 leave idle")
 	var count: int = r.decision.decision_count
 	for frame in range(120): r.view._process(0.01)
-	scene.game_time.debug_skip_minutes(9)
+	var idle_minutes: int = r.decision._next_decision_at - scene.game_time.total_minutes
+	check(idle_minutes >= 10 and idle_minutes <= 30, "Empty selection starts one bounded random idle period")
+	scene.game_time.debug_skip_minutes(idle_minutes - 1)
 	check(r.decision.decision_count == count, "No per-frame or per-minute ordinary decision")
 	scene.game_time.debug_skip_minutes(1)
-	check(r.decision.decision_count == count + 1, "Idle segment completes at ten game minutes")
+	check(r.decision.decision_count == count + 1, "Idle segment completes at its chosen game-minute deadline")
 	r.data.hunger = 30
 	r.data.fatigue = 0
 	r.decision.request_decision()
