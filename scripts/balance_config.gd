@@ -1,4 +1,15 @@
 extends RefCounted
+const ResourceType = preload("res://scripts/resource_type.gd")
+# E2.2a: prepared only; canonical building setup keeps its current capacities.
+const WAREHOUSE_SHARED_CAPACITY := 100
+const STORAGE_RESOURCE_QUOTAS := {
+	ResourceType.Type.LOG:40, ResourceType.Type.STONE:20,
+	ResourceType.Type.PLANK:25, ResourceType.Type.FOOD:15,
+}
+const TOWN_CENTER_RESOURCE_QUOTAS := {
+	ResourceType.Type.LOG:10, ResourceType.Type.STONE:10,
+	ResourceType.Type.PLANK:60, ResourceType.Type.FOOD:20,
+}
 # Ground admission only: 25 simulation units = 1 world unit; build cell = 12.5.
 const RESIDENT_GROUND_SEARCH_RADIUS := 100.0 # 4 world units / 8 cells.
 const DEFAULT_BUILDING_GROUND_SEARCH_RADIUS := 250.0 # 10 world units / 20 cells.
