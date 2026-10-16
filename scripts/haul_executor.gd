@@ -75,6 +75,9 @@ func start(claimed: Job) -> bool:
 func validate_job() -> bool:
 	if job == null: return false
 	if _mutating: return true
+	if not service.surplus_job_valid(job):
+		cancel("основание вывоза излишка недоступно")
+		return false
 	if job.validation.is_valid() and not job.validation.call():
 		cancel("workflow недоступен")
 		return false

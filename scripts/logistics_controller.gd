@@ -29,7 +29,11 @@ var position_provider: Callable
 var _assignment_control: WeakRef
 var assignment_control: RefCounted: # Existing owner, weak to avoid lifecycle reference cycles.
 	get: return _assignment_control.get_ref() if _assignment_control != null else null
-	set(value): _assignment_control = weakref(value) if value != null else null
+	set(value):
+		var previous: RefCounted = assignment_control
+		if previous != null and previous.work_assignment_changed.is_connected(_on_work_assignment_changed): previous.work_assignment_changed.disconnect(_on_work_assignment_changed)
+		_assignment_control = weakref(value) if value != null else null
+		if value != null: value.work_assignment_changed.connect(_on_work_assignment_changed)
 var jobs: Array[HaulJob] = [] # Active committed deliveries, never offers.
 var current_job: HaulJob # Last claim for prototype debug UI; execution uses resident ownership.
 var _residents: Dictionary = {}
@@ -60,18 +64,20 @@ func register_building(building: BuildingInstance) -> void:
 	_buildings[building.id] = building
 	building.resources.availability_changed.connect(_on_amount_changed)
 	building.resources.reservations_changed.connect(_on_reservations_changed)
+	building.resources.quotas_changed.connect(_on_source_quotas_changed.bind(building.id))
 	building.construction_changed.connect(_on_state_changed)
 	_on_state_changed()
 func remove_building(id: StringName) -> void:
 	var building: BuildingInstance = _buildings.get(id)
 	if building == null: return
 	for active in jobs.duplicate():
-		if active.source_location_id == id or active.destination_location_id == id:
+		if active.source_location_id == id or active.destination_location_id == id or (active.admission == HaulJob.Admission.SURPLUS and active.workplace_location_id == id):
 			var owner = _executors.get(active.assigned_resident_id)
 			if owner != null: owner.cancel("здание удалено")
 			else: cancel_job(active)
 	building.resources.availability_changed.disconnect(_on_amount_changed)
 	building.resources.reservations_changed.disconnect(_on_reservations_changed)
+	building.resources.quotas_changed.disconnect(_on_source_quotas_changed.bind(building.id))
 	building.construction_changed.disconnect(_on_state_changed)
 	_buildings.erase(id)
 	if assignment_control != null: assignment_control.unregister_building(id)
@@ -90,6 +96,17 @@ func _on_amount_changed(_resource: ResourceType.Type, _amount: int) -> void:
 	_on_state_changed()
 func _on_reservations_changed(_resource: ResourceType.Type) -> void:
 	_on_state_changed()
+func _on_source_quotas_changed(building_id: StringName) -> void:
+	# A quota edit validates owned surplus work only; never searches for new work.
+	for active in jobs.duplicate():
+		if active.admission == HaulJob.Admission.SURPLUS and active.source_location_id == building_id: _validate_surplus_job(active)
+func _on_work_assignment_changed(resident_id: String) -> void:
+	var active := get_job(resident_id)
+	if active != null and active.admission == HaulJob.Admission.SURPLUS: _validate_surplus_job(active)
+func _validate_surplus_job(active: HaulJob) -> void:
+	var executor = _executors.get(active.assigned_resident_id)
+	if executor != null and executor.job == active: executor.validate_job()
+	elif not surplus_job_valid(active): cancel_job(active)
 func _on_state_changed() -> void:
 	_recalculate_revision += 1
 	recalculate()
@@ -183,9 +200,33 @@ func _first_reachable(resident_id: String, candidates: Array, attempted: Diction
 	var position: Variant = position_provider.call(resident_id) if position_provider.is_valid() else null
 	if not position is Vector2 or not position.is_finite(): return null
 	candidates.sort_custom(_ranked_before)
+	var warehouses: Dictionary = {}
 	for candidate in candidates:
-		if not attempted.has(candidate.stable_key()) and _routes_available(candidate,position): return candidate
+		if candidate.surplus_export and candidate.destination.definition.is_storage and not attempted.has(candidate.stable_key()):
+			var group := _surplus_group(candidate)
+			if not warehouses.has(group): warehouses[group] = []
+			warehouses[group].append(candidate)
+	var warehouse_available: Dictionary = {}
+	var routes: Dictionary = {} # One selection call only; never a persistent route cache.
+	for candidate in candidates:
+		if attempted.has(candidate.stable_key()): continue
+		if candidate.surplus_export and not candidate.destination.definition.is_storage:
+			var group := _surplus_group(candidate)
+			if not warehouse_available.has(group):
+				warehouse_available[group] = false
+				for storage_candidate in warehouses.get(group,[]):
+					if _selection_route_available(storage_candidate,position,routes):
+						warehouse_available[group] = true
+						break
+			if warehouse_available[group]: continue
+		if _selection_route_available(candidate,position,routes): return candidate
 	return null
+func _selection_route_available(candidate: Candidate, position: Vector2, routes: Dictionary) -> bool:
+	var key := candidate.stable_key()
+	if not routes.has(key): routes[key] = _routes_available(candidate,position)
+	return routes[key]
+func _surplus_group(candidate: Candidate) -> String:
+	return "%d:%s" % [candidate.resource_type,candidate.source_ref.stable_key()]
 func _cheap_candidates(resident_id: String) -> Array:
 	return _candidate_scan(resident_id,false)
 func _candidate_scan(resident_id: String, first_reachable_only: bool) -> Array:
@@ -234,7 +275,67 @@ func _candidate_scan(resident_id: String, first_reachable_only: bool) -> Array:
 			if first_reachable_only:
 				if _routes_available(candidate,position): return [candidate]
 			else: candidates.append(candidate)
+	var surplus := _surplus_candidates(resident,position)
+	if surplus.is_empty(): return candidates
+	var indices: Dictionary = {}
+	for index in candidates.size(): indices[candidates[index].stable_key()] = index
+	for candidate in surplus:
+		if first_reachable_only:
+			if _routes_available(candidate,position): return [candidate]
+		elif indices.has(candidate.stable_key()): candidates[indices[candidate.stable_key()]] = candidate
+		else: candidates.append(candidate)
 	return candidates
+
+func surplus_available(source: BuildingInstance, resource: int) -> int:
+	if source == null or _buildings.get(source.id) != source or not source.is_built() or not source.definition.is_storage or not source.resources.is_warehouse(): return 0
+	return maxi(0,source.resources.get_amount(resource)-source.resources.get_capacity(resource)-source.resources.get_reserved_out(resource))
+func _surplus_pair_allowed(source: BuildingInstance, destination: BuildingInstance, resource: int) -> bool:
+	if source == null or destination == null or source == destination: return false
+	if _buildings.get(source.id) != source or _buildings.get(destination.id) != destination or not source.is_built() or not destination.is_built(): return false
+	return source.definition.is_storage and source.resources.is_warehouse() and source.definition.allows_external_export(resource) and destination.definition.allows_external_import(resource) and source.resources.allows_resource(resource) and destination.resources.allows_resource(resource)
+func _surplus_candidates(resident: ResidentData, position: Vector2) -> Array:
+	var base: BuildingInstance = _buildings.get(resident.work_location_id)
+	if base == null or not base.definition.is_storage or not base.resources.is_warehouse(): return []
+	var result: Array = []
+	for source in _buildings.values():
+		if not source.definition.is_storage or not source.resources.is_warehouse(): continue
+		for resource in ResourceType.Type.values():
+			if surplus_available(source,resource)<1: continue
+			var origin: Variant = _point(source)
+			if not origin is Vector2 or not origin.is_finite(): continue
+			for destination in _buildings.values():
+				if not _surplus_pair_allowed(source,destination,resource) or destination.resources.get_available_free_capacity(resource)<1: continue
+				var target: Variant = _point(destination)
+				if not target is Vector2 or not target.is_finite(): continue
+				var candidate := Candidate.new()
+				candidate.source = source
+				candidate.source_ref = Source.new(Source.Kind.CONTAINER,source.id)
+				candidate.destination = destination
+				candidate.resource_type = resource
+				candidate.surplus_export = true
+				# Same ordinary storage-outbound score; source quota is never a divisor.
+				candidate.world_urgency = Priority.import_priority(destination.resources,resource,destination.logistics_weight)
+				candidate.route_distance = position.distance_to(origin)+origin.distance_to(target)
+				candidate.distance_penalty = distance_penalty(candidate.route_distance)
+				candidate.personal_modifier = _get_personal_delivery_modifier(resident,candidate)
+				candidate.porter_score = candidate.world_urgency-candidate.distance_penalty+candidate.personal_modifier
+				if is_finite(candidate.porter_score): result.append(candidate)
+	return result
+
+func _reserved_surplus_valid(source_ref: Source, resource: int, owner: StringName) -> bool:
+	if source_ref == null or source_ref.kind != Source.Kind.CONTAINER or not sources.reserved(source_ref,resource,owner): return false
+	var source: BuildingInstance = sources.resolve(source_ref)
+	# Includes this job's own reserved unit; all other outbound promises still count.
+	return source != null and source.resources.get_amount(resource)-source.resources.get_capacity(resource)-source.resources.get_reserved_out(resource)+1 >= 1
+func surplus_job_valid(job: HaulJob) -> bool:
+	if job.admission != HaulJob.Admission.SURPLUS: return true
+	if job.source_ref == null or job.source_ref.kind != Source.Kind.CONTAINER: return false
+	var resident: ResidentData = _residents.get(job.assigned_resident_id)
+	var base: BuildingInstance = _buildings.get(job.workplace_location_id)
+	if resident == null or base == null or not _porter_base_valid(base.id,base) or not base.definition.is_storage or base.definition.porter_capacity<=0: return false
+	if resident.profession != Profession.Type.PORTER or resident.work_location_id != base.id or not resident.work_area_id.is_empty() or resident.work_assignment_revision != job.workplace_assignment_revision: return false
+	if not _surplus_pair_allowed(sources.resolve(job.source_ref),_buildings.get(job.destination_location_id),job.resource_type): return false
+	return job.state in [HaulJob.State.CARRYING,HaulJob.State.GOING_TO_DESTINATION] or _reserved_surplus_valid(job.source_ref,job.resource_type,job.id)
 func distance_penalty(distance: float) -> float:
 	return pow(distance / Balance.PORTER_DISTANCE_SCALE, 2.0) * Balance.PORTER_DISTANCE_WEIGHT
 func _get_personal_delivery_modifier(_worker: ResidentData, _candidate: Candidate) -> float: return 0.0
@@ -267,9 +368,10 @@ func _porter_base_valid(id: StringName, expected: BuildingInstance = null) -> bo
 	var base: BuildingInstance = _buildings.get(id)
 	# Staffing limits govern new assignments/claims, not an already-confirmed trip.
 	return base != null and (expected == null or base == expected) and base.is_built() and _point(base) is Vector2
-func _porter_claim_context(resident: ResidentData, base: BuildingInstance, revision: int, capacity: int, source_ref: Source, source: BuildingInstance, destination: BuildingInstance, resource: int) -> bool:
+func _porter_claim_context(resident: ResidentData, base: BuildingInstance, revision: int, capacity: int, source_ref: Source, source: BuildingInstance, destination: BuildingInstance, resource: int, surplus_export: bool = false) -> bool:
 	if _residents.get(resident.id) != resident or resident.work_assignment_revision != revision or resident.work_location_id != base.id or not _can_claim(resident): return false
 	if not _porter_base_valid(base.id,base) or base.definition.porter_capacity != capacity or _buildings.get(destination.id) != destination: return false
+	if surplus_export: return base.definition.is_storage and base.resources.is_warehouse() and source_ref.kind == Source.Kind.CONTAINER and _surplus_pair_allowed(source,destination,resource)
 	if source_ref.kind == Source.Kind.GROUND:
 		var origin: Variant = position_provider.call(resident.id) if position_provider.is_valid() else null
 		return destination == base and destination.definition.allows_external_import(resource) and sources.ground_allowed(source_ref,origin,base)
@@ -285,14 +387,19 @@ func _claim_delivery(resident: ResidentData, candidate: Candidate) -> HaulJob:
 	var source: BuildingInstance = _buildings.get(source_ref.id) if source_ref.kind == Source.Kind.CONTAINER else null
 	var destination := candidate.destination
 	var resource := candidate.resource_type
-	var eligible := _porter_claim_context.bind(resident,base,revision,base.definition.porter_capacity,source_ref,source,destination,resource)
+	var eligible := _porter_claim_context.bind(resident,base,revision,base.definition.porter_capacity,source_ref,source,destination,resource,candidate.surplus_export)
 	if not eligible.call(): return null
-	return claim_transport(resident.id,source_ref,destination,resource,eligible,false,_porter_base_valid.bind(base.id,base),true,candidate.porter_score,null,base.id)
-func claim_transport(resident_id: String, source_ref: Source, destination: BuildingInstance, resource: int, eligibility: Callable, work_phase_only: bool = true, validation: Callable = Callable(), award_xp: bool = false, score: float = 0.0, internal_workplace: BuildingInstance = null, committed_workplace_id: StringName = &"") -> HaulJob:
+	return claim_transport(resident.id,source_ref,destination,resource,eligible,false,_porter_base_valid.bind(base.id,base),true,candidate.porter_score,null,base.id,candidate.surplus_export)
+func claim_transport(resident_id: String, source_ref: Source, destination: BuildingInstance, resource: int, eligibility: Callable, work_phase_only: bool = true, validation: Callable = Callable(), award_xp: bool = false, score: float = 0.0, internal_workplace: BuildingInstance = null, committed_workplace_id: StringName = &"", surplus_export: bool = false) -> HaulJob:
 	# Controllers supply gameplay eligibility. This transaction only owns reservations.
 	var resident: ResidentData = _residents.get(resident_id)
 	var executor = _executors.get(resident_id)
 	if _claiming or resident==null or (executor!=null and not executor.can_start()) or get_job(resident_id)!=null or not eligibility.call(): return null
+	var assignment_revision := resident.work_assignment_revision
+	if surplus_export:
+		var base: BuildingInstance = _buildings.get(committed_workplace_id)
+		if base == null or not base.definition.is_storage or not base.resources.is_warehouse() or not _eligible(resident) or resident.work_location_id != base.id or internal_workplace != null: return null
+		if source_ref == null or source_ref.kind != Source.Kind.CONTAINER or not _surplus_pair_allowed(sources.resolve(source_ref),destination,resource) or surplus_available(sources.resolve(source_ref),resource)<1: return null
 	if not _admission_at_claim(resident,destination,resource,internal_workplace) or destination.resources.get_available_free_capacity(resource)<1: return null
 	var start: Variant = position_provider.call(resident_id) if position_provider.is_valid() else null
 	var end: Variant = _point(destination)
@@ -311,6 +418,7 @@ func claim_transport(resident_id: String, source_ref: Source, destination: Build
 	var valid: bool = incoming and eligibility.call() and (executor==null or executor.can_start()) and _buildings.get(destination.id)==destination and destination.is_built() and _admission_at_claim(resident,destination,resource,internal_workplace) and sources.reserved(source_ref,resource,id) and destination.resources.get_reserved_in(resource)>=1 and _point(destination) is Vector2 and sources.point(source_ref) is Vector2
 	valid = valid and (not validation.is_valid() or validation.call())
 	if valid: valid = sources.reachable(start,sources.point(source_ref)) and sources.reachable(sources.point(source_ref),_point(destination))
+	if valid and surplus_export: valid = resident.work_assignment_revision == assignment_revision and _eligible(resident) and eligibility.call() and _surplus_pair_allowed(sources.resolve(source_ref),destination,resource) and _reserved_surplus_valid(source_ref,resource,id)
 	if not valid:
 		if out: sources.release(source_ref,resource,id,reserved_source)
 		if incoming:
@@ -321,6 +429,9 @@ func claim_transport(resident_id: String, source_ref: Source, destination: Build
 		return null
 	var job := HaulJob.new(id,source_ref.id,destination.id,resource,1,resident_id,score)
 	job.workplace_location_id = committed_workplace_id # Snapshot established before publication.
+	if surplus_export:
+		job.admission = HaulJob.Admission.SURPLUS
+		job.workplace_assignment_revision = assignment_revision
 	if internal_workplace != null:
 		job.admission = HaulJob.Admission.INTERNAL
 		job.workplace_location_id = internal_workplace.id
@@ -417,7 +528,7 @@ func _admission_at_claim(resident: ResidentData, destination: BuildingInstance, 
 func delivery_allowed(job: HaulJob) -> bool:
 	var destination: BuildingInstance = _buildings.get(job.destination_location_id)
 	if destination==null or not destination.is_built() or not destination.resources.allows_resource(job.resource_type): return false
-	if job.admission==HaulJob.Admission.EXTERNAL: return destination.definition.allows_external_import(job.resource_type)
+	if job.admission in [HaulJob.Admission.EXTERNAL,HaulJob.Admission.SURPLUS]: return destination.definition.allows_external_import(job.resource_type)
 	var captured: Dictionary = _internal.get(job.id,{})
 	return not captured.is_empty() and captured.job==job and captured.worker.id==job.assigned_resident_id and captured.workplace==destination and captured.resource==job.resource_type and job.workplace_location_id==destination.id and destination.definition.allows_internal_import(job.resource_type)
 func claim_internal(resident_id: String, source_ref: Source, workplace: BuildingInstance, resource: int, eligibility: Callable) -> HaulJob:

@@ -7,6 +7,7 @@ var source: Instance
 var destination: Instance
 var resource_type: ResourceType.Type
 var amount := 1
+var surplus_export := false # Narrow warehouse-surplus admission, not ordinary balancing.
 var world_urgency := 0.0
 var route_distance := 0.0
 var distance_penalty := 0.0

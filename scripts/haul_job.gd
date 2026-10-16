@@ -2,9 +2,10 @@ extends RefCounted
 ## Successfully claimed delivery, owned by one resident from creation.
 const ResourceType = preload("res://scripts/resource_type.gd")
 enum State { ASSIGNED, GOING_TO_SOURCE, CARRYING, GOING_TO_DESTINATION, COMPLETED, CANCELLED }
-enum Admission { EXTERNAL, INTERNAL }
+enum Admission { EXTERNAL, INTERNAL, SURPLUS }
 var admission: Admission = Admission.EXTERNAL
 var workplace_location_id: StringName = &"" # Committed porter base; no auto reassignment.
+var workplace_assignment_revision := -1 # SURPLUS only; ordinary committed trips keep their policy.
 var work_phase_only := false # Legacy request metadata; execution now finishes committed deliveries across phases.
 const DEFAULT_EXECUTION_PRIORITY := 8000
 var execution_priority := DEFAULT_EXECUTION_PRIORITY # Committed movement priority, independent from candidate score.
