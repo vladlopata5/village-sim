@@ -36,7 +36,7 @@ func export_allowed(source_ref: Source, resource: int) -> bool:
 func available(source_ref: Source, resource: int) -> bool:
 	if not export_allowed(source_ref,resource) or not point(source_ref) is Vector2: return false
 	var entity: Variant = resolve(source_ref)
-	return entity.amount > 0 and entity.reservation_owner_id.is_empty() if source_ref.kind == Source.Kind.GROUND else entity.resources.get_available_amount(resource)>0
+	return entity.available_amount() > 0 if source_ref.kind == Source.Kind.GROUND else entity.resources.get_available_amount(resource)>0
 func reachable(start: Vector2, target: Vector2) -> bool:
 	return not route_available.is_valid() or route_available.call(start,target)
 func _current_work_object(workplace: RefCounted) -> RefCounted:
@@ -55,7 +55,7 @@ func ground_candidates(resource: int, origin: Variant, workplace: RefCounted = n
 	if not is_instance_valid(ground): return result
 	var live_workplace: RefCounted = _current_work_object(workplace)
 	for drop in ground.drops:
-		if (resource < 0 or drop.resource_type == resource) and drop.amount > 0 and drop.reservation_owner_id.is_empty() and GroundAreas.contains(drop.world_position,origin,live_workplace,area):
+		if (resource < 0 or drop.resource_type == resource) and drop.available_amount() > 0 and GroundAreas.contains(drop.world_position,origin,live_workplace,area):
 			result.append(Source.new(Source.Kind.GROUND,drop.id))
 	return result
 func find(resource: int, origin: Vector2, destination: Vector2, excluded: StringName = &"", workplace: RefCounted = null, area: RefCounted = null) -> Array:
@@ -108,7 +108,7 @@ func reserve(source_ref: Source, resource: int, owner: StringName) -> bool:
 func reserved(source_ref: Source, resource: int, owner: StringName) -> bool:
 	var entity: Variant = resolve(source_ref)
 	if entity == null or not export_allowed(source_ref,resource): return false
-	if source_ref.kind == Source.Kind.GROUND: return entity.amount>0 and entity.reservation_owner_id==owner
+	if source_ref.kind == Source.Kind.GROUND: return entity.reserved_amount(owner)>=1
 	var claim: Dictionary = _claims.get(owner,{})
 	if claim.is_empty() or claim.source.stable_key()!=source_ref.stable_key() or claim.resource!=resource: return false
 	var managed := 0
