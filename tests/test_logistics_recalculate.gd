@@ -115,6 +115,18 @@ func run() -> void:
 	f.service.changed.disconnect(echo)
 	f.service.availability_changed.disconnect(echo)
 	dispose(f)
+	# Incoming-only capacity changes do not emit ordinary amount availability.
+	f=fixture(1)
+	var reserved_job=claim_all(f)[0]
+	var amount_before: int=f.base.resources.get_amount(R.LOG)
+	f.service.reset_counts()
+	check(f.base.resources.reserve_in(R.LOG,1),"An independent inbound claim uses real remaining capacity")
+	check(f.service.passes==1 and f.base.resources.get_amount(R.LOG)==amount_before and reserved_job.is_active(),"reserve_in validates accepted haul synchronously without an amount change")
+	check(f.base.resources.release_in(R.LOG,1) and f.service.passes==2 and reserved_job.is_active(),"Releasing unrelated inbound keeps the owned haul valid")
+	check(f.base.resources.release_in(R.LOG,1),"Remove the accepted job's inbound promise")
+	check(reserved_job.state==Job.State.CANCELLED and f.service.jobs.is_empty() and f.service._inbound.is_empty(),"Loss of owned inbound immediately cancels and cleans the accepted haul")
+	check(f.ground.drops.all(func(drop):return drop.reservation_owner_id.is_empty()),"Incoming loss releases the owned source reservation")
+	dispose(f)
 	for count in [1,2,10,30,100]:
 		var bulk:=fixture(count)
 		var committed:=claim_all(bulk)

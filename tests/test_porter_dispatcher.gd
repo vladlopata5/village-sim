@@ -79,8 +79,12 @@ func run() -> void:
 		var f = fixture(30)
 		begin(f,speed)
 		check(f.queue.pending_count() == 30 and f.world.logistics.probes == 0 and f.world.logistics.claims == 0, "WORK queues before expensive has_work/claim at x%d" % speed)
-		for repeat in 100: f.world._refresh_porter_availability()
-		check(f.queue.pending_count() == 30 and f.queue.duplicates >= 3000 and f.world.logistics.probes == 0, "Availability coalesces without prequeue probes")
+		var duplicates: int = f.queue.duplicates
+		for repeat in 100: f.world.logistics.recalculate()
+		check(f.queue.pending_count() == 30 and f.queue.duplicates == duplicates and f.world.logistics.probes == 0, "Resource validation never adds ordinary availability requests")
+		for repeat in 100:
+			for actor in f.actors: actor.decision.request_decision("free")
+		check(f.queue.pending_count() == 30 and f.queue.duplicates >= 3000 and f.world.logistics.probes == 0, "Explicit ordinary requests still coalesce before probes")
 		var chosen: Dictionary = {}
 		for index in 30:
 			var actor = f.actors[index]

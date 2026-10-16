@@ -3150,3 +3150,30 @@ Builder использует прежнюю Ground-геометрию вокру
 новая работа может ждать следующего обычного AI; это согласовано в P3.6.
 Общие Logistics/Recipe/Social уведомления не оптимизировались. Измерения и ограничения:
 C:/Users/SW/Documents/Codex/outputs/performance-optimization-p3-6/REPORT.md.
+
+
+## 2026-10-16 — P3.7: логистическая проверка без общего AI wake-up
+
+Main больше не подписан на Logistics.availability_changed для массовых ordinary
+requests. Удалены _queue_logistics_availability/_refresh_porter_availability.
+Новые перевозки обнаруживаются существующим обычным AI; IDLE10–30мин и очередь1мс
+не меняются. Локальные Recipe/Food/Social уведомления этим этапом не изменяются.
+
+Logistics.recalculate остаётся синхронным валидатором принятых заданий с прежним
+reentrant drain. Подписки на availability_changed И reservations_changed контейнеров,
+Source.changed и lifecycle не удалены. В частности reserve_in/release_in обрабатываются
+без изменения amount; invalid inbound/source/destination немедленно вызывает прежний
+cleanup. Claim, reserves, pickup/delivery/drop и правила assignment сохранены.
+Сигналы Logistics.changed/availability_changed сохранены для наблюдателей; они больше
+не означают команду Main искать новую работу для населения.
+
+Удалён повторный Main._on_hut_resources_changed и его changed bindings: все текущие
+количественные операции ResourceContainer уже уведомляют availability и/или reservations.
+Обе подписки самого Logistics оставлены: между сигналами могут сработать другие
+callbacks, а входящая вместимость иногда меняется только через reservations.
+Porter не хранит negative/candidate cache; ordinary probe читает живое состояние.
+При пустых источниках периодические проверки остаются, но не запускают маршруты
+или бесконечный event retry. P3.6 и другие локальные кэши не менялись.
+Новая работа может ждать очередного обычного решения и обслуживания очереди;
+это согласованная задержка обнаружения, а не изменение времени физической перевозки.
+Измерения и ограничения: внешний performance-optimization-p3-7/REPORT.md.

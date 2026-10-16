@@ -226,7 +226,7 @@ func _run() -> void:
 	check(scene.logistics.jobs.is_empty() and scene.logistics.current_job == null and a.intents.player_controlled, "Player takeover inside claim prevents stale job creation")
 	check(scene.warehouse_data.resources.get_reserved_out(RT.FOOD) == 0 and scene.kitchen_data.resources.get_reserved_in(RT.FOOD) == 0, "Invalidated claim rolls back both reservations")
 	scene.free()
-	# Event-driven resource availability wakes an idle porter without clock polling.
+	# Resource availability is observed at the next ordinary decision, without speculative work.
 	scene = simulation()
 	scene.warehouse_data.resources.try_take(RT.FOOD, 10)
 	scene.game_time.debug_next_phase()
@@ -234,7 +234,9 @@ func _run() -> void:
 	check(scene.logistics.jobs.is_empty() and not a.intents.has_current_action(), "No work leaves porter idle without speculative job")
 	scene.warehouse_data.resources.add(RT.FOOD, 1)
 	await process_frame
-	check(scene.logistics.get_job(a.data.id) != null and a.intents.current_intent.reason_id == &"haul_source", "Local FOOD event supplies new normal decision without time tick")
+	check(scene.logistics.get_job(a.data.id) == null and not a.intents.has_current_action(), "Local FOOD change does not wake an idle porter")
+	a.decision.request_decision("idle_completed")
+	check(scene.logistics.get_job(a.data.id) != null and a.intents.current_intent.reason_id == &"haul_source", "Next ordinary decision sees current FOOD and starts the real haul")
 	scene.free()
 	print("Delivery candidates checks: %d, %s" % [checks, "PASS" if failures == 0 else "FAIL"])
 	quit(0 if failures == 0 else 1)

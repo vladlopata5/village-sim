@@ -94,7 +94,6 @@ func _ready() -> void:
 			# Early schedule setup precedes work-source registration; hand ownership to AI.
 			runtime.intents.clear_reason(&"day_work")
 			runtime.decision.request_decision("startup_work")
-	if gatherer_hut_data != null: gatherer_hut_data.resources.changed.connect(_on_hut_resources_changed)
 	game_time.phase_changed.connect(field.show_phase)
 	field.show_phase(game_time.get_phase())
 	_setup_construction()
@@ -241,7 +240,6 @@ func _configure_logistics() -> void:
 	for runtime in resident_runtimes:
 		_bind_resident_logistics(runtime)
 	logistics.position_provider = _production_position_2d
-	logistics.availability_changed.connect(_queue_logistics_availability)
 	logistics.cargo_dropped.connect(_drop_executor_cargo)
 	logistics.job_cancelled.connect(_on_job_cancelled)
 	logistics.bind_world(game_time, world_locations)
@@ -275,9 +273,6 @@ func _request_haul_work(runtime: ResidentRuntime) -> bool:
 func _on_haul_cancelled(resident_id: String, runtime: ResidentRuntime) -> void:
 	if resident_id == runtime.data.id and is_instance_valid(runtime.decision):
 		runtime.decision.call_deferred("request_decision", "job_cancelled")
-
-func _on_hut_resources_changed(_resource: ResourceType.Type, _amount: int) -> void:
-	logistics.recalculate()
 
 func _drop_cargo(resource: ResourceType.Type, amount: int, runtime: ResidentRuntime) -> void:
 	ground_resources.create_drop(resource, amount, runtime.view.get_sim_position())
@@ -338,29 +333,11 @@ func _activate_completed_building(building: BuildingInstance) -> void:
 				production.building = building
 			else: production.additional_buildings.append(building)
 			logistics.add_production_source(building)
-	building.resources.changed.connect(_on_hut_resources_changed)
 	player_control.register_building(building)
 	interactions.register_building(building, world_locations.get_position.bind(building.id))
 	for runtime in resident_runtimes: runtime.needs.register_food_building(building)
 	logistics.recalculate()
 
-
-var _logistics_notification_pending := false
-func _queue_logistics_availability() -> void:
-	if _logistics_notification_pending: return
-	_logistics_notification_pending = true
-	_refresh_porter_availability.call_deferred()
-func _refresh_porter_availability() -> void:
-	_logistics_notification_pending = false
-	for runtime in resident_runtimes:
-		if not is_instance_valid(runtime) or not is_instance_valid(runtime.decision): continue
-		if runtime.data.profession in [Profession.Type.PORTER,Profession.Type.SAWYER,Profession.Type.GATHERER,Profession.Type.LUMBERJACK,Profession.Type.MINER] and is_instance_valid(decision_dispatcher):
-			# Do not run a route/availability probe before entering the frame budget.
-			if runtime.data.activity == preload("res://scripts/resident_activity.gd").Type.IDLE and not runtime.intents.has_current_action():
-				runtime.decision.request_decision("logistics_available")
-			continue
-		if runtime.data.profession in [Profession.Type.PORTER,Profession.Type.SAWYER,Profession.Type.GATHERER,Profession.Type.LUMBERJACK,Profession.Type.MINER] and runtime.data.activity == preload("res://scripts/resident_activity.gd").Type.IDLE and not runtime.intents.has_current_action() and (runtime.data.profession in [Profession.Type.LUMBERJACK,Profession.Type.MINER] or _work_available(runtime)):
-			runtime.decision.request_decision("logistics_available")
 
 # Presentation factories preserve the same starter data and controller wiring.
 func _register_building_location(building: BuildingInstance, view: Node) -> void:
