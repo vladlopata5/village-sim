@@ -1,4 +1,5 @@
 extends SceneTree
+const Stacks=preload("res://tests/ground_stack_fixture.gd")
 const P = preload("res://scripts/resident_profession.gd").Type
 const R = preload("res://scripts/resource_type.gd").Type
 const BT = preload("res://scripts/building_type.gd").Type
@@ -33,7 +34,7 @@ func run() -> void:
 	world._show_building(hut)
 	var actor = world.resident_runtimes[3]
 	check(world.player_control.assign_workplace(actor.data.id,hut.id),"Assign worker through player control")
-	var drop = world.ground_resources.create_drop(R.LOG,1,C.to_sim(Vector3(8,0,-12)))
+	var drop = Stacks.create(world.ground_resources,R.LOG,1,C.to_sim(Vector3(8,0,-12)))
 	var ref := Source.new(Source.Kind.GROUND,drop.id)
 	var job = world.logistics.claim_internal(actor.data.id,ref,hut,R.LOG,func(): return true)
 	check(job!=null and world.logistics.start_claimed_job(job,actor.data.id),"Internal physical haul starts")
@@ -47,7 +48,7 @@ func run() -> void:
 	check(job.state==Job.State.COMPLETED and hut.resources.get_amount(R.LOG)==1 and actor.data.inventory.amount==0,"Delivery finishes after reassignment")
 	check(not (actor.view._marker!=null) and hut.resources.get_reserved_in(R.LOG)==0,"Portal exit and inbound release")
 	world.player_control.assign_workplace(actor.data.id,hut.id)
-	drop = world.ground_resources.create_drop(R.LOG,1,C.to_sim(Vector3(8,0,-12)))
+	drop = Stacks.create(world.ground_resources,R.LOG,1,C.to_sim(Vector3(8,0,-12)))
 	ref = Source.new(Source.Kind.GROUND,drop.id)
 	job = world.logistics.claim_internal(actor.data.id,ref,hut,R.LOG,func(): return true)
 	world.logistics.start_claimed_job(job,actor.data.id)
@@ -59,7 +60,7 @@ func run() -> void:
 	world.game_time.debug_skip_minutes(10)
 	world.logistics._executors[actor.data.id].cancel("after pickup")
 	check(actor.data.inventory.amount==0 and hut.resources.get_reserved_in(R.LOG)==0,"Cargo cleanup after pickup")
-	check(world.ground_resources.drops.size()==1 and world.ground_resources.drops[0].amount==1,"Cancelled cargo remains exactly once")
+	check(Stacks.total(world.ground_resources)==1 and world.ground_resources.drops[0].amount==1,"Cancelled cargo remains exactly once")
 	var export_job = world.logistics.claim_own_export(actor.data.id,world.warehouse_data)
 	check(export_job!=null and world.logistics.start_claimed_job(export_job,actor.data.id),"Legacy forestry export delegates generic mechanism")
 	walk(actor)
@@ -68,7 +69,7 @@ func run() -> void:
 	world.game_time.debug_skip_minutes(10)
 	check(export_job.state==Job.State.COMPLETED and actor.data.get_skill_xp(preload("res://scripts/skill_type.gd").Type.LOGISTICS)==1,"Legacy completed export XP preserved")
 	# An occupied interior courier waits without starting unload, then forced command cleans cargo.
-	drop = world.ground_resources.create_drop(R.LOG,1,C.to_sim(Vector3(8,0,-12)))
+	drop = Stacks.create(world.ground_resources,R.LOG,1,C.to_sim(Vector3(8,0,-12)))
 	ref = Source.new(Source.Kind.GROUND,drop.id)
 	job = world.logistics.claim_internal(actor.data.id,ref,hut,R.LOG,func(): return true)
 	world.logistics.start_claimed_job(job,actor.data.id)
@@ -85,7 +86,7 @@ func run() -> void:
 	actor.commands.cancel_current()
 	actor.intents.abort_current(actor.intents.current_intent)
 	# Reentrant interruption exactly during portal acquisition must release the new marker too.
-	drop = world.ground_resources.create_drop(R.LOG,1,C.to_sim(Vector3(8,0,-12)))
+	drop = Stacks.create(world.ground_resources,R.LOG,1,C.to_sim(Vector3(8,0,-12)))
 	ref = Source.new(Source.Kind.GROUND,drop.id)
 	job = world.logistics.claim_internal(actor.data.id,ref,hut,R.LOG,func(): return true)
 	world.logistics.start_claimed_job(job,actor.data.id)

@@ -38,10 +38,12 @@ func run() -> void:
 	check(world.navigation.revision==nav_revision,"Residents do not edit NavigationGrid")
 	for resource in R.values():
 		result=service.spawn_resources(Vector3(-45,0,15),10,resource)
-		check(result.created==10 and result.objects.all(func(d): return d.resource_type==resource and d.amount==1),"Unit Ground resources")
+		check(result.created==10 and result.objects.all(func(d): return d.resource_type==resource and d.amount>0 and d.amount<=d.capacity),"Quantity Ground stacks")
 		var drop = result.objects[0]
-		check(drop.reserve(&"test") and not drop.reserve(&"other"),"Exclusive Ground claim")
+		check(drop.reserve(&"test") and drop.reserve(&"other") and drop.reserved_amount(&"test")==1 and drop.reserved_amount(&"other")==1,"Independent quantity claims")
 		drop.release(&"test")
+		drop.release(&"other")
+		for stack in result.objects: world.ground_resources.remove_drop(stack)
 	check(world.navigation.revision==nav_revision,"Ground spawn has no navigation rebuild")
 	check(not service.spawn_residents(Vector3(INF,0,0),1,P.BUILDER).ok,"Invalid coordinates")
 	check(not service.spawn_resources(Vector3.ZERO,101,R.LOG).ok,"Quantity bounds")

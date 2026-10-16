@@ -1,4 +1,5 @@
 extends SceneTree
+const Stacks=preload("res://tests/ground_stack_fixture.gd")
 const TreeData = preload("res://scripts/tree_data.gd")
 const C = preload("res://scripts/world_3d/world_coordinates.gd")
 const P = preload("res://scripts/resident_profession.gd")
@@ -144,7 +145,7 @@ func run() -> void:
 	other.abort(false)
 	actor.decision._deciding=true
 	scene.game_time.debug_skip_minutes(60)
-	check(near.state==TreeData.State.DEPLETED and scene.ground_resources.drops.size()==3,"Unchanged 60-minute chop yields three LOG")
+	check(near.state==TreeData.State.DEPLETED and Stacks.total(scene.ground_resources)==3,"Unchanged 60-minute chop yields three LOG")
 	await capture("three_ground_logs",scene,actor)
 	var logs := preload("res://scripts/resource_type.gd").Type.LOG
 	for trip in range(3):
@@ -248,7 +249,7 @@ func planting_checks() -> void:
 	worker.trees=[]
 	check(worker.has_work(),"Plant offer before a new loose LOG")
 	var logs := preload("res://scripts/resource_type.gd").Type.LOG
-	scene.ground_resources.create_drop(logs,1,C.to_sim(Vector3(-27,0,-8)))
+	Stacks.create(scene.ground_resources,logs,1,C.to_sim(Vector3(-27,0,-8)))
 	check(worker.request_work() and scene.logistics.get_job(actor.data.id)!=null,"New COLLECT takes priority over a saved PLANT")
 	scene.logistics._executors[actor.data.id].cancel("test cleanup")
 	Fixture.clear_drops(scene)

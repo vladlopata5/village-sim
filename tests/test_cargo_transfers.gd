@@ -1,4 +1,5 @@
 extends SceneTree
+const Stacks=preload("res://tests/ground_stack_fixture.gd")
 const Inventory=preload("res://scripts/resident_inventory.gd")
 const Drop=preload("res://scripts/cargo_drop_result.gd")
 const R=preload("res://scripts/resource_type.gd").Type
@@ -103,11 +104,11 @@ func run() -> void:
 			executor._on_arrival(executor._haul_intent)
 			executor.cancel("during pickup")
 	world.warehouse_data.resources.changed.connect(source_callback)
-	var drops_before: int=world.ground_resources.drops.size()
+	var drops_before: int=Stacks.total(world.ground_resources)
 	walk(actor)
 	world.game_time.debug_skip_minutes(10)
 	world.warehouse_data.resources.changed.disconnect(source_callback)
-	check(job.state==Job.State.CANCELLED and actor.data.inventory.amount==0 and world.ground_resources.drops.size()==drops_before+1,"Cancel during pickup drops exactly the obtained unit")
+	check(job.state==Job.State.CANCELLED and actor.data.inventory.amount==0 and Stacks.total(world.ground_resources)==drops_before+1,"Cancel during pickup drops exactly the obtained unit")
 	check(world.warehouse_data.resources.get_amount(R.FOOD)==base_stock-1 and dest.resources.get_reserved_in(R.FOOD)==0,"Pickup cancellation consumes source once and releases inbound")
 	# Drop handler failure is not normal no-space disposal; retain cargo in the existing inventory.
 	job=start_haul(world,actor,dest)
@@ -125,9 +126,9 @@ func run() -> void:
 		actor.data.inventory.clear()
 		release_observations.append(actor.data.inventory.amount)
 	dest.resources.reservations_changed.connect(release_callback)
-	drops_before=world.ground_resources.drops.size()
+	drops_before=Stacks.total(world.ground_resources)
 	check(executor.cancel("failed handler") and actor.data.inventory.amount==1 and executor.last_drop_result==Drop.Status.FAILED,"Failed cancel drop preserves inventory despite callbacks")
-	check(not executor.cancel("repeat") and calls.count==1 and world.ground_resources.drops.size()==drops_before and dest.resources.get_reserved_in(R.FOOD)==0,"Repeat cleanup cannot retry or duplicate failed cargo; promises still released")
+	check(not executor.cancel("repeat") and calls.count==1 and Stacks.total(world.ground_resources)==drops_before and dest.resources.get_reserved_in(R.FOOD)==0,"Repeat cleanup cannot retry or duplicate failed cargo; promises still released")
 	dest.resources.reservations_changed.disconnect(release_callback)
 	check(not release_observations.is_empty() and release_observations.all(func(value):return value==1),"Release callbacks cannot clear the protected cargo")
 	world.logistics.cargo_drop_handler=handler
@@ -136,9 +137,9 @@ func run() -> void:
 	job=start_haul(world,actor,dest)
 	walk(actor)
 	world.game_time.debug_skip_minutes(10)
-	drops_before=world.ground_resources.drops.size()
+	drops_before=Stacks.total(world.ground_resources)
 	world.logistics.remove_building(world.warehouse_data.id)
-	check(job.state==Job.State.CANCELLED and actor.data.inventory.amount==0 and world.ground_resources.drops.size()==drops_before+1 and dest.resources.get_reserved_in(R.FOOD)==0,"Source loss after pickup preserves exactly the carried unit under existing cancellation policy")
+	check(job.state==Job.State.CANCELLED and actor.data.inventory.amount==0 and Stacks.total(world.ground_resources)==drops_before+1 and dest.resources.get_reserved_in(R.FOOD)==0,"Source loss after pickup preserves exactly the carried unit under existing cancellation policy")
 	world.logistics.register_building(world.warehouse_data)
 	# Destination callback cancels during a successful commit: no post-delivery second drop.
 	job=start_haul(world,actor,dest)
@@ -146,7 +147,7 @@ func run() -> void:
 	world.game_time.debug_skip_minutes(10)
 	walk(actor)
 	var before_delivery: int=dest.resources.get_amount(R.FOOD)
-	drops_before=world.ground_resources.drops.size()
+	drops_before=Stacks.total(world.ground_resources)
 	var delivery_callback=func(resource,_amount):
 		if resource==R.FOOD:
 			executor._complete_arrival(executor._haul_intent)
@@ -154,7 +155,7 @@ func run() -> void:
 	dest.resources.changed.connect(delivery_callback)
 	world.game_time.debug_skip_minutes(10)
 	dest.resources.changed.disconnect(delivery_callback)
-	check(job.state==Job.State.COMPLETED and actor.data.inventory.amount==0 and dest.resources.get_amount(R.FOOD)==before_delivery+1 and world.ground_resources.drops.size()==drops_before,"Cancellation callback cannot duplicate a completed delivery")
+	check(job.state==Job.State.COMPLETED and actor.data.inventory.amount==0 and dest.resources.get_amount(R.FOOD)==before_delivery+1 and Stacks.total(world.ground_resources)==drops_before,"Cancellation callback cannot duplicate a completed delivery")
 	# Builder direct abort during source callbacks is deferred like forced interruption.
 	var builder=world.resident_runtimes[1]
 	check(world.player_control.assign_profession(builder.data.id,P.BUILDER),"Builder assignment")
@@ -174,11 +175,11 @@ func run() -> void:
 			builder.builder._on_arrival(builder.builder._intent)
 			builder.builder.abort("source callback",false)
 	held_container.changed.connect(abort_callback)
-	drops_before=world.ground_resources.drops.size()
+	drops_before=Stacks.total(world.ground_resources)
 	walk(builder)
 	world.game_time.debug_skip_minutes(10)
 	held_container.changed.disconnect(abort_callback)
-	check(builder.builder.phase==builder.builder.Phase.NONE and builder.data.inventory.amount==0 and world.ground_resources.drops.size()==drops_before+1,"Builder abort during pickup drops one unit without recursive cleanup")
+	check(builder.builder.phase==builder.builder.Phase.NONE and builder.data.inventory.amount==0 and Stacks.total(world.ground_resources)==drops_before+1,"Builder abort during pickup drops one unit without recursive cleanup")
 	check(site.active_builder_ids.is_empty() and site.get_construction_reserved_in(material_type)==0,"Builder callback cancellation releases slot/inbound")
 	check(builder.builder.request_work(),"Builder may receive another task")
 	walk(builder)
@@ -196,7 +197,7 @@ func run() -> void:
 	check(builder_calls.count==1 and builder.data.inventory.amount==1 and builder.builder.phase==builder.builder.Phase.NONE and site.active_builder_ids.is_empty(),"Builder API error retains cargo and repeated cleanup stays inert")
 	check(site.get_construction_reserved_in(material_type)==0,"Failed builder drop still releases inbound")
 	check(builder.data.inventory.drop_cargo(builder_handler)==Drop.Status.PLACED,"Explicit legacy placement resolves retained builder cargo")
-	check(not world.ground_resources.is_stack_mode(),"Canonical legacy placement remains enabled")
+	check(world.ground_resources.is_stack_mode(),"Canonical stack placement is enabled")
 	world.free()
 	print("Cargo transfers: %d checks, %d failures"%[checks,failures])
 	quit(1 if failures else 0)

@@ -1,4 +1,5 @@
 extends SceneTree
+const Stacks=preload("res://tests/ground_stack_fixture.gd")
 const B = preload("res://scripts/building_instance.gd")
 const Def = preload("res://scripts/building_definition.gd")
 const T = preload("res://scripts/building_type.gd").Type
@@ -66,7 +67,7 @@ func run() -> void:
 	kitchen.resources.add(R.FOOD,3)
 	var storage = building(world,T.STORAGE,Vector3(-8,0,16))
 	storage.resources.add(R.FOOD,3)
-	var drop = world.ground_resources.create_drop(R.FOOD,3,actor.view.get_drop_sim_position()+Vector2(25,0))
+	var drop = Stacks.create(world.ground_resources,R.FOOD,3,actor.view.get_drop_sim_position()+Vector2(25,0))
 	check(actor.needs.has_food_action() and actor.needs.try_eat(8000),"Normal need selects food")
 	check(actor.needs._food_building == kitchen,"Farther Kitchen outranks nearer Town Center/Storage/Ground")
 	check(kitchen.resources.get_amount(R.FOOD) == 3 and kitchen.resources.get_reserved_out(R.FOOD) == 1,"Trip reserves, never remotely consumes")
@@ -96,7 +97,7 @@ func run() -> void:
 	empty(world)
 	actor = world.resident_runtimes[1]
 	kitchen = building(world,T.FOOD,Vector3(-18,0,5))
-	drop = world.ground_resources.create_drop(R.FOOD,1,actor.view.get_drop_sim_position()+Vector2(25,0))
+	drop = Stacks.create(world.ground_resources,R.FOOD,1,actor.view.get_drop_sim_position()+Vector2(25,0))
 	check(actor.needs.try_eat(8000) and actor.needs._food_source.kind == Source.Kind.GROUND,"Empty Kitchen skipped even while its object exists")
 	meal(world,actor)
 	check(kitchen.resources.get_amount(R.FOOD) == 0,"Empty Kitchen never creates free food")
@@ -122,7 +123,7 @@ func run() -> void:
 	actor = world.resident_runtimes[1]
 	var second = world.resident_runtimes[2]
 	second.view.global_position=actor.view.global_position+Vector3(0,0,1) # Both eligible for the same local portion.
-	drop = world.ground_resources.create_drop(R.FOOD,1,actor.view.get_drop_sim_position()+Vector2(25,0))
+	drop = Stacks.create(world.ground_resources,R.FOOD,1,actor.view.get_drop_sim_position()+Vector2(25,0))
 	check(actor.needs.try_eat(8000) and not second.needs.try_eat(8000),"Two hungry residents cannot reserve one Ground portion")
 	check(drop.amount == 1 and drop.reservation_owner_id == StringName("meal:" + actor.data.id),"Existing exclusive claim, no resource copy")
 	actor.commands.move_to(Vector2(0,500))
@@ -141,9 +142,12 @@ func run() -> void:
 	world = fixture()
 	empty(world)
 	actor = world.resident_runtimes[1]
-	drop = world.ground_resources.create_drop(R.FOOD,4,actor.view.get_drop_sim_position()+Vector2(25,0))
+	drop = Stacks.create(world.ground_resources,R.FOOD,4,actor.view.get_drop_sim_position()+Vector2(25,0))
+	check(drop.reserve(&"other_meal_owner"),"Another worker owns one portion of the same stack")
 	check(actor.needs.try_eat(8000),"Multi-unit Ground FOOD supported")
 	meal(world,actor)
+	check(drop.amount==3 and drop.reserved_amount(&"other_meal_owner")==1 and drop.reserved_total()==1,"Eating one portion preserves another worker's reserve")
+	drop.release(&"other_meal_owner")
 	check(drop.amount == 3 and drop.reservation_owner_id.is_empty() and world.ground_resources.get_by_id(drop.id) == drop,"One portion consumed, same remaining Ground ID released")
 	world.free()
 	# Container competition and cancellation ownership.
@@ -161,7 +165,7 @@ func run() -> void:
 	# Occupied courier is a wait, never a premature Ground fallback.
 	world = fixture()
 	actor = world.resident_runtimes[1]
-	drop = world.ground_resources.create_drop(R.FOOD,1,actor.view.get_drop_sim_position()+Vector2(25,0))
+	drop = Stacks.create(world.ground_resources,R.FOOD,1,actor.view.get_drop_sim_position()+Vector2(25,0))
 	var marker = world.building_uses.acquire(world.warehouse_data.id,1,"courier_test",Vector3.ZERO)
 	check(actor.needs.try_eat(8000) and actor.needs._food_building == world.warehouse_data,"Busy courier does not downgrade building tier")
 	walk(actor)
@@ -187,7 +191,7 @@ func run() -> void:
 	world = fixture()
 	empty(world)
 	actor = world.resident_runtimes[1]
-	drop = world.ground_resources.create_drop(R.FOOD,1,actor.view.get_drop_sim_position()+Vector2(25,0))
+	drop = Stacks.create(world.ground_resources,R.FOOD,1,actor.view.get_drop_sim_position()+Vector2(25,0))
 	check(actor.needs.try_eat(8000),"Source loss scenario begins")
 	world.ground_resources.remove_drop(drop)
 	await process_frame
@@ -213,7 +217,7 @@ func run() -> void:
 	actor = world.resident_runtimes[1]
 	var porter = world.resident_runtimes[0]
 	porter.view.global_position=actor.view.global_position+Vector3(0,0,1) # Both search circles include the contested portion.
-	drop = world.ground_resources.create_drop(R.FOOD,1,actor.view.get_drop_sim_position()+Vector2(25,0))
+	drop = Stacks.create(world.ground_resources,R.FOOD,1,actor.view.get_drop_sim_position()+Vector2(25,0))
 	var job = world.logistics.claim_best_job(porter.data.id)
 	check(job != null and drop.reservation_owner_id == job.id,"Normal Porter claim owns last Ground FOOD")
 	check(not actor.needs.try_eat(8000) and drop.amount == 1,"Hungry resident cannot steal Porter claim")
@@ -229,7 +233,7 @@ func run() -> void:
 	empty(world)
 	actor = world.resident_runtimes[1]
 	actor.view.global_position=Vector3(-8,0,11) # Circle includes the enclosed source, but no path crosses its walls.
-	drop = world.ground_resources.create_drop(R.FOOD,1,C.to_sim(Vector3(-8,0,14)))
+	drop = Stacks.create(world.ground_resources,R.FOOD,1,C.to_sim(Vector3(-8,0,14)))
 	var walls := [Rect2(-10,12,0.5,4),Rect2(-6.5,12,0.5,4),Rect2(-10,12,4,0.5),Rect2(-10,15.5,4,0.5)]
 	for index in walls.size(): world.navigation.add_blocker(StringName("food_wall_%d" % index),walls[index])
 	check(world.navigation.is_world_walkable(C.to_world(drop.world_position)),"Food point itself walkable inside disconnected ring")
@@ -243,7 +247,7 @@ func run() -> void:
 	empty(world)
 	actor = world.resident_runtimes[1]
 	actor.view.global_position=Vector3(-8,0,11)
-	drop = world.ground_resources.create_drop(R.FOOD,1,C.to_sim(Vector3(-8,0,14)))
+	drop = Stacks.create(world.ground_resources,R.FOOD,1,C.to_sim(Vector3(-8,0,14)))
 	check(actor.needs.try_eat(8000),"Navigation edit starts with a real Ground claim")
 	actor.view._physics_process(0.05)
 	world.navigation.add_blocker(&"food_mid_trip",Rect2(-9,13,2,2))
@@ -274,7 +278,7 @@ func run() -> void:
 	world = fixture()
 	empty(world)
 	actor = world.resident_runtimes[1]
-	drop = world.ground_resources.create_drop(R.FOOD,1,actor.view.get_drop_sim_position()+Vector2(25,0))
+	drop = Stacks.create(world.ground_resources,R.FOOD,1,actor.view.get_drop_sim_position()+Vector2(25,0))
 	check(actor.needs.try_eat(8000),"Reentrant Ground scenario begins")
 	var current = actor.intents.current_intent
 	actor.decision._deciding = false

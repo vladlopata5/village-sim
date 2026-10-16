@@ -1,4 +1,5 @@
 extends SceneTree
+const Stacks=preload("res://tests/ground_stack_fixture.gd")
 const P = preload("res://scripts/resident_profession.gd").Type
 const R = preload("res://scripts/resource_type.gd").Type
 const BT = preload("res://scripts/building_type.gd").Type
@@ -67,7 +68,7 @@ func run() -> void:
 		check(controller.rock!=null,"Real normal FREE WORK selects rock")
 		walk(miner)
 		world.game_time.debug_skip_minutes(60)
-	check(world.ground_resources.drops.size()==4 and miner.data.inventory.amount==0,"Four actual FREE cycles produce ground STONE")
+	check(Stacks.total(world.ground_resources)==4 and miner.data.inventory.amount==0,"Four actual FREE cycles produce ground STONE")
 	# Natural wood fixture: four real FREE chops, no free building materials.
 	var lumberjack = world.resident_runtimes[2]
 	world.player_control.assign_profession(lumberjack.data.id,P.LUMBERJACK)
@@ -92,12 +93,13 @@ func run() -> void:
 	# Collect distant extraction output locally, then build from real global stock.
 	var porter = world.resident_runtimes[0]
 	for dropped in world.ground_resources.drops.duplicate():
-		world.game_time.total_minutes=420
-		porter.commands.move_to(dropped.world_position)
-		walk(porter)
-		check(world._request_work(porter),"Local Porter claims real extraction output")
-		walk(porter); world.game_time.debug_skip_minutes(10)
-		walk(porter); world.game_time.debug_skip_minutes(10)
+		for unit in range(dropped.amount):
+			world.game_time.total_minutes=420
+			porter.commands.move_to(dropped.world_position)
+			walk(porter)
+			check(world._request_work(porter),"Local Porter claims real extraction output")
+			walk(porter); world.game_time.debug_skip_minutes(10)
+			walk(porter); world.game_time.debug_skip_minutes(10)
 	var builder = world.resident_runtimes[1]
 	world.game_time.total_minutes=420
 	world.player_control.assign_profession(builder.data.id,P.BUILDER)

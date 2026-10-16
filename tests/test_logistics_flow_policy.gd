@@ -1,4 +1,5 @@
 extends SceneTree
+const Stacks=preload("res://tests/ground_stack_fixture.gd")
 const Definition = preload("res://scripts/building_definition.gd")
 const Instance = preload("res://scripts/building_instance.gd")
 const Logistics = preload("res://scripts/logistics_controller.gd")
@@ -132,7 +133,7 @@ func run() -> void:
 		else: scene.logistics.remove_building(own.id)
 		check(scene.logistics.get_job(actor.data.id)==null and own.resources.get_reserved_out(Resources.FOOD)==0 and scene.kitchen_data.resources.get_reserved_in(Resources.FOOD)==0,"Unavailable own base cancels job and releases reservations")
 		check(actor.data.work_location_id== (own.id if picked_up else &"") and not scene.logistics.has_available_job(actor.data.id),"Removed registration clears base; lost access never auto-reassigns")
-		check(own.resources.get_amount(Resources.FOOD)==original_stock and actor.data.inventory.amount==0 and scene.ground_resources.drops.size()==(1 if picked_up else 0),"After-pickup cargo drops, source is not restored")
+		check(own.resources.get_amount(Resources.FOOD)==original_stock and actor.data.inventory.amount==0 and Stacks.total(scene.ground_resources)==(1 if picked_up else 0),"After-pickup cargo drops, source is not restored")
 		if not picked_up:
 			scene.buildings.append(own)
 			scene.player_control.register_building(own)

@@ -1,4 +1,5 @@
 extends SceneTree
+const Stacks=preload("res://tests/ground_stack_fixture.gd")
 const Seed = preload("res://tests/utility_test_seed.gd")
 const Intent = preload("res://scripts/resident_intent.gd")
 const Intents = preload("res://scripts/resident_intent_controller.gd")
@@ -73,12 +74,12 @@ func _run() -> void:
 		scene.residents[0].hunger = 100
 		check(job.state == Job.State.CANCELLED and scene.residents[0].inventory.amount == 0 and scene.resident_runtimes[0].data.inventory.amount == 0, "Emergency cancels loaded job and clears inventory picture")
 		check(scene.warehouse_data.resources.get_amount(FOOD) == 9 and scene.warehouse_data.resources.get_reserved_out(FOOD) == 2 and scene.kitchen_data.resources.get_reserved_in(FOOD) == 0, "Only incoming reserve released after pickup; unrelated outgoing reserve preserved")
-		check(scene.ground_resources.drops.size() == 1 and scene.resident_runtimes[0].intents.current_intent.reason_id == &"eat" and scene.resident_runtimes[0].intents.pending_intent.type == Intent.Type.NONE, "Exactly one physical drop; emergency supersedes pending night")
+		check(Stacks.total(scene.ground_resources) == 1 and scene.resident_runtimes[0].intents.current_intent.reason_id == &"eat" and scene.resident_runtimes[0].intents.pending_intent.type == Intent.Type.NONE, "Exactly one physical drop; emergency supersedes pending night")
 		var drop = scene.ground_resources.drops[0]
 		check(drop is RefCounted and not drop is Node and drop.amount == 1 and drop.resource_type == FOOD and drop.world_position == position and drop.age_minutes(scene.game_time.total_minutes) == 0, "Drop owns FOOD with world position and creation time")
 		check(scene._ground_ids.get(drop)==drop.id, "Real interruption drop registered for interactions")
 		scene.resident_runtimes[0].view.intent_completed.emit(old)
-		check(scene.ground_resources.drops.size() == 1 and scene.kitchen_data.resources.get_amount(FOOD) == 1, "Late delivery cannot duplicate dropped FOOD")
+		check(Stacks.total(scene.ground_resources) == 1 and scene.kitchen_data.resources.get_amount(FOOD) == 1, "Late delivery cannot duplicate dropped FOOD")
 		scene.game_time.advance(100.0)
 		check(drop.age_minutes(scene.game_time.total_minutes) == 0, "Pause does not age physical resource")
 		# Isolate lifetime from further resident decisions while advancing all game minutes.
@@ -86,7 +87,7 @@ func _run() -> void:
 		scene.resident_runtimes[0].decision.free()
 		scene.resident_runtimes[0].needs.free()
 		scene.game_time.debug_skip_minutes(Drop.LIFETIME_MINUTES - 1)
-		check(scene.ground_resources.drops.size() == 1, "Drop remains through 4319 game minutes even on pause")
+		check(Stacks.total(scene.ground_resources) == 1, "Drop remains through 4319 game minutes even on pause")
 		scene.game_time.debug_skip_minutes(1)
 		check(scene.ground_resources.drops.is_empty() and not scene._ground_views.has(drop), "At 3 game days data removed and picture scheduled for removal")
 		paused = false
@@ -114,7 +115,7 @@ func _run() -> void:
 		if carrying_scene.logistics.current_job.state == Job.State.CARRYING:
 			carrying_scene.residents[0].hunger = 100)
 	preload("res://tests/handling_test_step.gd").move_domain(scene.resident_runtimes[0],20.0)
-	check(scene.logistics.current_job.state == Job.State.CANCELLED and scene.ground_resources.drops.size() == 1 and scene.resident_runtimes[0].intents.current_intent.reason_id == &"eat", "Forced in CARRYING notification remains cancelled and does not issue a delivery route")
+	check(scene.logistics.current_job.state == Job.State.CANCELLED and Stacks.total(scene.ground_resources) == 1 and scene.resident_runtimes[0].intents.current_intent.reason_id == &"eat", "Forced in CARRYING notification remains cancelled and does not issue a delivery route")
 	scene.free()
 	# Already eating at the critical threshold keeps its elapsed meal time.
 	scene = make_scene()
@@ -139,7 +140,7 @@ func _run() -> void:
 		scene.residents[0].fatigue = 100
 		check(job.state == Job.State.CANCELLED and scene.residents[0].activity == Activity.Type.SLEEPING, "Critical fatigue cancels ordinary haul and sleeps in place")
 		check(scene.warehouse_data.resources.get_reserved_out(FOOD) == 0 and scene.kitchen_data.resources.get_reserved_in(FOOD) == 0 and scene.residents[0].inventory.amount == 0, "Exhaustion settles correct reserves and clears carried slot")
-		check(scene.ground_resources.drops.size() == (1 if picked_up else 0), "Only already picked cargo becomes a physical drop")
+		check(Stacks.total(scene.ground_resources) == (1 if picked_up else 0), "Only already picked cargo becomes a physical drop")
 		if picked_up: check(scene.ground_resources.drops[0].world_position == dropped_at, "Exhaustion drop stays where resident stopped")
 		scene.free()
 	paused = false

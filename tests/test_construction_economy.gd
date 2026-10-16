@@ -1,4 +1,5 @@
 extends SceneTree
+const Stacks=preload("res://tests/ground_stack_fixture.gd")
 ## Real canonical extraction and construction; no debug/resource spawn.
 const Def = preload("res://scripts/building_definition.gd")
 const T = preload("res://scripts/building_type.gd").Type
@@ -80,7 +81,7 @@ func run() -> void:
 		check(world._request_work(lumber),"Normal FREE forestry WORK")
 		walk(lumber)
 		world.game_time.debug_skip_minutes(Balance.TREE_WORK_MINUTES)
-	check(world.ground_resources.drops.filter(func(drop): return drop.resource_type == R.LOG).size() == 15 and lumber.data.inventory.amount == 0,"Five natural trees yield fifteen Ground LOG")
+	check(Stacks.total(world.ground_resources,R.LOG) == 15 and lumber.data.inventory.amount == 0,"Five natural trees yield fifteen Ground LOG")
 	check(world.player_control.assign_profession(miner.data.id,P.MINER),"Free Miner assigned through PlayerControl")
 	var quarry = world.work_areas.create(C.to_sim(Vector3(30,0,-9)),C.length_to_sim(15))
 	check(world.player_control.assign_work_area(miner.data.id,quarry.id),"Starter rocks area assigned")
@@ -89,17 +90,18 @@ func run() -> void:
 		check(world._request_work(miner),"Normal FREE mining WORK")
 		walk(miner)
 		world.game_time.debug_skip_minutes(Balance.ROCK_WORK_MINUTES)
-	check(world.ground_resources.drops.filter(func(drop): return drop.resource_type == R.STONE).size() == 10 and miner.data.inventory.amount == 0,"Ten real Ground STONE from starter rock")
+	check(Stacks.total(world.ground_resources,R.STONE) == 10 and miner.data.inventory.amount == 0,"Ten real Ground STONE from starter rock")
 	# The approved local rule requires fetching remote extraction output first.
 	# Ordinary player movement brings the Porter into its resident search circle;
 	# the same real haul then deposits each unit in the globally available container.
 	var porter = world.resident_runtimes[0]
 	for drop in world.ground_resources.drops.duplicate():
-		window()
-		porter.commands.move_to(drop.world_position)
-		walk(porter)
-		check(world._request_work(porter),"Nearby Porter claims actual extraction output")
-		walk(porter); walk(porter)
+		for unit in range(drop.amount):
+			window()
+			porter.commands.move_to(drop.world_position)
+			walk(porter)
+			check(world._request_work(porter),"Nearby Porter claims actual extraction output")
+			walk(porter); walk(porter)
 	check(center.resources.get_amount(R.LOG)==15 and center.resources.get_amount(R.STONE)==10 and world.ground_resources.drops.is_empty(),"All extracted materials physically stocked before remote construction")
 	check(world.player_control.assign_profession(builder.data.id,P.BUILDER),"Builder assigned normally")
 	var saw = await construct(builder,T.SAWMILL,Vector3(-10,0,16))

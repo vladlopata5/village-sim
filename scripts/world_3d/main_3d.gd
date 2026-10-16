@@ -44,6 +44,8 @@ var _pointer_position := Vector2.ZERO
 var _tool_generation := 0
 var _confirming_placement := false
 func _ready() -> void:
+	var stacks_enabled: bool=ground_resources.enable_stack_mode(build_grid.bounds)
+	assert(stacks_enabled,"A new canonical world starts with an empty stack registry")
 	decision_dispatcher = preload("res://scripts/ai_decision_dispatcher.gd").new()
 	decision_dispatcher.name = "AIDecisionDispatcher"
 	decision_dispatcher.clock = game_time
@@ -291,7 +293,29 @@ func _drop_cargo(resource: ResourceType.Type, amount: int, runtime: ResidentRunt
 	if amount!=1 or resource not in ResourceType.Type.values() or not is_instance_valid(runtime) or not is_instance_valid(runtime.view): return DropResult.Status.FAILED
 	var point: Vector2=runtime.view.get_drop_sim_position()
 	if not point.is_finite(): return DropResult.Status.FAILED
-	return DropResult.Status.PLACED if ground_resources.create_drop(resource,amount,point)!=null else DropResult.Status.FAILED
+	var result:=place_ground_resources(resource,amount,point,GroundResources.PlacementMode.WORKER)
+	if result.remaining!=0: return DropResult.Status.FAILED
+	if result.placed==1 and result.discarded==0: return DropResult.Status.PLACED
+	if result.placed==0 and result.discarded==1: return DropResult.Status.DISCARDED
+	return DropResult.Status.FAILED
+
+# Creation is separate from views, reservations and worker inventory commits.
+func place_ground_resources(resource: int, quantity: int, point: Vector2, mode: int = GroundResources.PlacementMode.NATURAL) -> Dictionary:
+	var failed:={"placed":0,"discarded":0,"remaining":quantity,"stack_ids":[]}
+	if not ready_for_play or not ground_resources.is_stack_mode() or not point.is_finite() or not build_grid.bounds.has_point(Coordinates.world_plane(Coordinates.to_world(point))) or quantity<=0 or resource not in ResourceType.Type.values() or mode not in GroundResources.PlacementMode.values(): return failed
+	if mode==GroundResources.PlacementMode.WORKER and (quantity!=1 or not navigation.is_world_walkable(Coordinates.to_world(point))): return failed
+	var reachable: Callable
+	if mode==GroundResources.PlacementMode.WORKER: reachable=_ground_cell_reachable.bind(point)
+	return ground_resources.place_near(resource,quantity,ground_resources.cell_from_position(point),mode,_ground_cell_allowed,reachable)
+func _ground_cell_allowed(cell: Vector2i) -> bool:
+	var point:=Coordinates.to_world(ground_resources.position_from_cell(cell))
+	if not build_grid.validation_reason([cell]).is_empty() or not navigation.is_world_walkable(point): return false
+	# Stacks may share ground with residents; exclude buildings, trees and rocks.
+	var plane:=Coordinates.world_plane(point)
+	return runtime_placement_blockers.first_overlap(Rect2(plane-Vector2.ONE*0.05,Vector2.ONE*0.1),true).is_empty()
+func _ground_cell_reachable(cell: Vector2i, origin: Vector2) -> bool:
+	# Drops are placed immediately; no movement leg or route preparation is added.
+	return navigation.can_reach_point(Coordinates.to_world(origin),Coordinates.to_world(ground_resources.position_from_cell(cell)))
 func _on_movement_failed(intent: RefCounted, data: ResidentData) -> void:
 	var runtime = get_resident_runtime(data)
 	if runtime == null or runtime.intents.current_intent != intent: return
@@ -495,9 +519,7 @@ func _deplete_tree(tree: RefCounted) -> void:
 	var view: Node = tree_views[tree.id]
 	view.queue_free()
 	tree_views.erase(tree.id)
-	for index in range(tree.yield_amount):
-		var offset := Vector2.from_angle(index*TAU/maxi(tree.yield_amount,1))*0.35
-		ground_resources.create_drop(tree.yield_resource_type,1,tree.position+offset*Coordinates.SIM_UNITS_PER_WORLD_UNIT)
+	place_ground_resources(tree.yield_resource_type,tree.yield_amount,tree.position)
 func _work_available(runtime: ResidentRuntime) -> bool:
 	if runtime.data.profession in [Profession.Type.LUMBERJACK,Profession.Type.MINER]:
 		var controller = runtime.get_node_or_null("Miner" if runtime.data.profession == Profession.Type.MINER else "Lumberjack")
@@ -624,7 +646,7 @@ func _complete_rock_cycle(rock: RefCounted, receipt: int, worker_position: Vecto
 	# Mark before emitting Ground added/navigation signals (which can reenter).
 	_rock_receipts[key] = true
 	assert(rock_locations.is_available(worker_position),"Mining yield must be on walkable ground")
-	ground_resources.create_drop(ResourceType.Type.STONE,1,worker_position)
+	place_ground_resources(ResourceType.Type.STONE,1,worker_position)
 	if rock.stock > 0: return
 	rocks.erase(rock)
 	var view: Node = rock_views.get(rock.id)

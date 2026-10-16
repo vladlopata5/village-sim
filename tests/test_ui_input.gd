@@ -1,4 +1,5 @@
 extends SceneTree
+const Stacks=preload("res://tests/ground_stack_fixture.gd")
 var checks := 0
 var failures := 0
 func _initialize() -> void: call_deferred("run")
@@ -140,11 +141,11 @@ func run() -> void:
 	key(KEY_ESCAPE)
 	check(not world.developer_panel.active() and world.developer_panel.visible,"Next paused Esc cancels developer tool only")
 	world.developer_panel.begin_placement(&"resource",preload("res://scripts/resource_type.gd").Type.LOG,1)
-	var drops: int=world.ground_resources.drops.size()
+	var drops: int=Stacks.total(world.ground_resources)
 	mouse(point,MOUSE_BUTTON_LEFT,true)
 	mouse(point,MOUSE_BUTTON_LEFT,false)
 	await physics_frame
-	check(world.ground_resources.drops.size()==drops and world.developer_panel._paused_clicks.is_empty(),"Paused developer placement also rejects UI clicks")
+	check(Stacks.total(world.ground_resources)==drops and world.developer_panel._paused_clicks.is_empty(),"Paused developer placement also rejects UI clicks")
 	key(KEY_F10)
 	check(not world.developer_panel.visible and not world.developer_panel.active(),"F10 close cleans paused tool")
 	world.game_time.toggle_pause()

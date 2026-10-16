@@ -1,4 +1,5 @@
 extends SceneTree
+const Stacks=preload("res://tests/ground_stack_fixture.gd")
 const Definitions = preload("res://scripts/building_definition.gd")
 const Types = preload("res://scripts/building_type.gd").Type
 const Profession = preload("res://scripts/resident_profession.gd").Type
@@ -207,7 +208,7 @@ func run() -> void:
 	var tree: RefCounted = forestry.tree
 	walk(lumber)
 	world.game_time.debug_skip_minutes(60)
-	check(tree.state==TreeData.State.DEPLETED and world.ground_resources.drops.size()==3,"One tree yields3 Ground LOG")
+	check(tree.state==TreeData.State.DEPLETED and Stacks.total(world.ground_resources)==3,"One tree yields3 Ground LOG")
 	for trip in range(3):
 		check(forestry.request_work(),"Collect LOG through own-hut workflow")
 		walk(lumber,&"haul_source")

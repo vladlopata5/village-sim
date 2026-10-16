@@ -54,7 +54,7 @@ func _count_ground() -> int:
 	var amount := 0
 	if _sources != null and is_instance_valid(_sources.ground):
 		for drop in _sources.ground.drops:
-			if drop.resource_type == FOOD and drop.reservation_owner_id.is_empty(): amount += drop.amount
+			if drop.resource_type == FOOD: amount += drop.available_amount()
 	return amount
 
 func _resource_changed(resource: int, _amount: int) -> void:

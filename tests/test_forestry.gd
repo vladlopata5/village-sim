@@ -1,4 +1,5 @@
 extends SceneTree
+const Stacks=preload("res://tests/ground_stack_fixture.gd")
 const TreeData = preload("res://scripts/tree_data.gd")
 const Profession = preload("res://scripts/resident_profession.gd")
 const Resources = preload("res://scripts/resource_type.gd")
@@ -81,9 +82,9 @@ func run() -> void:
 	check(target_tree.state==TreeData.State.DEPLETED and target_tree.work_done==60 and target_tree.reservation_owner_id.is_empty(),"60 actual minutes deplete and release")
 	check(not scene.tree_views.has(target_tree.id) and not scene.runtime_placement_blockers.has_blocker(target_tree.id),"View/placement registration removed")
 	check(scene.navigation.is_world_walkable(Coordinates.to_world(target_tree.position)),"Navigation opens immediately without rebake")
-	check(scene.ground_resources.drops.size()==3 and scene._ground_views.size()==3,"Exactly three individual ground objects and 3D views")
+	check(Stacks.total(scene.ground_resources)==3 and scene._ground_views.size()==scene.ground_resources.drops.size(),"Three units with one view per stack")
 	for drop in scene.ground_resources.drops:
-		check(drop.resource_type==Resources.Type.LOG and drop.amount==1 and scene.navigation.is_world_walkable(Coordinates.to_world(drop.world_position)),"One physical LOG with valid deterministic position")
+		check(drop.resource_type==Resources.Type.LOG and drop.amount>0 and drop.amount<=drop.capacity and scene.navigation.is_world_walkable(Coordinates.to_world(drop.world_position)),"One physical LOG with valid deterministic position")
 	check(scene.warehouse_data.resources.get_amount(Resources.Type.PLANK)==plank_before and scene.warehouse_data.resources.get_amount(Resources.Type.LOG)==0,"No conversion/storage/logistics transfer")
 	check(actor.data.get_skill_xp(Skill.Type.GATHERING)==1 and actor.data.get_skill_xp(Skill.Type.LOGISTICS)==0,"One completed tree grants Gathering XP only")
 	actor.view.global_position = Vector3(0,0,20)
@@ -104,7 +105,7 @@ func run() -> void:
 	check(worker.request_work() and worker.tree==partial,"Another ordinary task resumes partial tree")
 	arrive(actor)
 	scene.game_time.debug_skip_minutes(30)
-	check(partial.state==TreeData.State.DEPLETED and scene.ground_resources.drops.size()==3,"Resume 30 minutes completes remaining work and one additional yield")
+	check(partial.state==TreeData.State.DEPLETED and Stacks.total(scene.ground_resources)==3,"Resume 30 minutes completes remaining work and one additional yield")
 	preload("res://tests/forestry_fixture.gd").clear_drops(scene)
 	for tree in scene.trees: tree.release(&"fixture")
 	check(worker.request_work(),"Critical interruption fixture starts")

@@ -51,10 +51,13 @@ func spawn_residents(point: Vector3, count: int, profession: int) -> Dictionary:
 	return {"ok":not objects.is_empty(),"created":objects.size(),"objects":objects,"reason":"Создано жителей: %d / %d. Без места работы: %d" % [objects.size(),count,unassigned]}
 func spawn_resources(point: Vector3, count: int, resource: int) -> Dictionary:
 	if not available(): return rejected("Debug команды недоступны")
-	if count<1 or count>100 or resource not in Resources.Type.values(): return rejected("Некорректное количество или ресурс")
-	var objects: Array = []
-	for position in _positions(point,count,0.6,false): objects.append(world.ground_resources.create_drop(resource,1,Coordinates.to_sim(position)))
-	return {"ok":not objects.is_empty(),"created":objects.size(),"objects":objects,"reason":"Создано ресурсов: %d / %d" % [objects.size(),count]}
+	if count<1 or count>100 or resource not in Resources.Type.values() or not point.is_finite(): return rejected("Некорректное количество, ресурс или позиция")
+	var placed: Dictionary=world.place_ground_resources(resource,count,Coordinates.to_sim(point))
+	var objects: Array=[]
+	for id in placed.stack_ids:
+		var stack=world.ground_resources.get_by_id(id)
+		if stack!=null and stack not in objects: objects.append(stack)
+	return {"ok":placed.placed>0,"created":placed.placed,"objects":objects,"discarded":placed.discarded,"reason":"Создано ресурсов: %d / %d" % [placed.placed,count]}
 func spawn_building(point: Vector3, definition: Definition) -> Dictionary:
 	if not available(): return rejected("Debug команды недоступны")
 	if definition==null or not definition.player_buildable or not point.is_finite(): return rejected("Недопустимый тип или координаты")

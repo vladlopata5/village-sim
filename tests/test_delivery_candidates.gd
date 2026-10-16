@@ -1,4 +1,5 @@
 extends SceneTree
+const Stacks=preload("res://tests/ground_stack_fixture.gd")
 const Logistics = preload("res://scripts/logistics_controller.gd")
 const Candidate = preload("res://scripts/delivery_candidate.gd")
 const Job = preload("res://scripts/haul_job.gd")
@@ -214,7 +215,7 @@ func _run() -> void:
 			else: b.data.fatigue = 100
 			check(bj.state == Job.State.CANCELLED and aj.is_active() and scene.logistics.get_job(a.data.id) == aj, "%s interrupt affects only owning porter" % forced_kind)
 			check(scene.warehouse_data.resources.get_reserved_out(RT.FOOD) == 1 and scene.kitchen_data.resources.get_reserved_in(RT.FOOD) == 1 and b.data.inventory.amount == 0, "Interrupted owner releases exactly its own promises")
-			check(scene.warehouse_data.resources.get_amount(RT.FOOD) == (9 if picked_up else 10) and scene.ground_resources.drops.size() == (1 if picked_up else 0), "Before/after pickup preserves physical resource")
+			check(scene.warehouse_data.resources.get_amount(RT.FOOD) == (9 if picked_up else 10) and Stacks.total(scene.ground_resources) == (1 if picked_up else 0), "Before/after pickup preserves physical resource")
 			if picked_up: check(scene.ground_resources.drops[0].world_position == drop_position, "Cargo drops at interrupted resident, not other executor")
 			scene.free()
 	# PlayerCommand during reserve callbacks invalidates claim before job creation.

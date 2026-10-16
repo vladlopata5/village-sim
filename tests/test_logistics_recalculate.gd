@@ -1,4 +1,5 @@
 extends SceneTree
+const Stacks=preload("res://tests/ground_stack_fixture.gd")
 ## Component fixtures use real claims/executors, with explicit test capacity for 100 jobs.
 const Building = preload("res://scripts/building_data.gd")
 const Data = preload("res://scripts/resident_data.gd")
@@ -264,8 +265,8 @@ func integration() -> void:
 			need.base_weight=0
 	var actors: Array=[world.resident_runtimes[0],world.resident_runtimes[3]]
 	check(world.player_control.assign_profession(actors[1].data.id,P.PORTER),"Normal PlayerControl assigns second Porter")
-	world.ground_resources.create_drop(R.LOG,3,Coordinates.to_sim(Vector3(10,0,17)))
-	world.ground_resources.create_drop(R.LOG,3,Coordinates.to_sim(Vector3(11,0,17)))
+	Stacks.create(world.ground_resources,R.LOG,3,Coordinates.to_sim(Vector3(10,0,17)))
+	Stacks.create(world.ground_resources,R.LOG,3,Coordinates.to_sim(Vector3(11,0,17)))
 	world.game_time.total_minutes=419
 	for actor in actors: actor.decision._deciding=false
 	world.game_time.advance(1.0)

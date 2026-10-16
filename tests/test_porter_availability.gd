@@ -1,4 +1,5 @@
 extends SceneTree
+const Stacks=preload("res://tests/ground_stack_fixture.gd")
 ## Read-only existence probes must not change the subsequent exact, fresh claim.
 const Ref = preload("res://tests/porter_exhaustive_reference.gd")
 const Building = preload("res://scripts/building_data.gd")
@@ -194,7 +195,7 @@ func integration() -> void:
 			need.value=0
 			need.base_weight=0
 	var actor=world.resident_runtimes[0]
-	world.ground_resources.create_drop(R.LOG,3,C.to_sim(Vector3(10,0,17)))
+	Stacks.create(world.ground_resources,R.LOG,3,C.to_sim(Vector3(10,0,17)))
 	var f={"service":world.logistics,"base":world.warehouse_data,"worker":actor.data,"ground":world.ground_resources}
 	var old=reference(f)
 	var expected=old._best(old.collect_candidates(actor.data.id))

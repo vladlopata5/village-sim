@@ -1,4 +1,5 @@
 extends SceneTree
+const Stacks=preload("res://tests/ground_stack_fixture.gd")
 const P = preload("res://scripts/resident_profession.gd").Type
 const BT = preload("res://scripts/building_type.gd").Type
 const R = preload("res://scripts/resource_type.gd").Type
@@ -139,7 +140,7 @@ func run() -> void:
 		var base = flow.places[row[0]]
 		check(flow.world.player_control.assign_workplace(flow.actor.data.id,base.id,P.PORTER),"Real production/storage explicit workplace")
 		if row[0]==BT.STORAGE:
-			flow.world.ground_resources.create_drop(R.FOOD,2,preload("res://scripts/world_3d/world_coordinates.gd").to_sim(Vector3(30,0,24)))
+			Stacks.create(flow.world.ground_resources,R.FOOD,2,preload("res://scripts/world_3d/world_coordinates.gd").to_sim(Vector3(30,0,24)))
 		else: base.resources.add(row[1],1)
 		flow.actor.decision._deciding=false
 		flow.world.decision_dispatcher.clear()
@@ -164,7 +165,7 @@ func run() -> void:
 	var sawyer = self_flow.other
 	var sawmill = self_flow.places[BT.SAWMILL]
 	check(self_flow.world.player_control.assign_workplace(sawyer.data.id,sawmill.id),"Canonical Sawyer production assignment")
-	self_flow.world.ground_resources.create_drop(R.LOG,1,preload("res://scripts/world_3d/world_coordinates.gd").to_sim(Vector3(8,0,-14)))
+	Stacks.create(self_flow.world.ground_resources,R.LOG,1,preload("res://scripts/world_3d/world_coordinates.gd").to_sim(Vector3(8,0,-14)))
 	check(self_flow.world._request_work(sawyer),"Sawyer supplies itself without Porter")
 	var supply = self_flow.world.logistics.get_job(sawyer.data.id)
 	await finish(self_flow,sawyer,supply)

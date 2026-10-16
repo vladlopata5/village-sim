@@ -1,4 +1,5 @@
 extends SceneTree
+const Stacks=preload("res://tests/ground_stack_fixture.gd")
 const View = preload("res://scripts/world_3d/building_view_3d.gd")
 const Layouts = preload("res://scripts/world_3d/building_layouts_3d.gd")
 const Slot = preload("res://scripts/world_3d/building_slot_3d.gd")
@@ -126,7 +127,7 @@ func run() -> void:
 		actor.view.set_physics_process(false)
 		for need in actor.data.needs.values(): need.value=0
 	var worker=world.resident_runtimes[0]
-	var loose=world.ground_resources.create_drop(Resources.LOG,1,Vector2(250,550))
+	var loose=Stacks.create(world.ground_resources,Resources.LOG,1,Vector2(250,550))
 	var source=preload("res://scripts/resource_source_ref.gd")
 	var job=world.logistics.claim_transport(worker.data.id,source.new(source.Kind.GROUND,loose.id),world.warehouse_data,Resources.LOG,func(): return true)
 	check(job!=null and world.logistics.start_claimed_job(job,worker.data.id),"Real haul uses indexed Ground")
@@ -143,8 +144,8 @@ func run() -> void:
 	world.game_time.advance(1.0)
 	await process_frame
 	check(job.state==preload("res://scripts/haul_job.gd").State.CANCELLED and worker.view._marker==null and not worker.view._waiting,"Freed Courier cancels through existing validation")
-	check(worker.data.inventory.amount==0 and world.warehouse_data.resources.get_reserved_in(Resources.LOG)==0 and world.ground_resources.drops.size()==1,"Cargo and inbound cleanup conserved")
-	check(world.ground_resources.drops[0].world_position==preload("res://scripts/world_3d/world_coordinates.gd").to_sim(safe_entry),"Interrupted interior cargo still drops at entrance")
+	check(worker.data.inventory.amount==0 and world.warehouse_data.resources.get_reserved_in(Resources.LOG)==0 and Stacks.total(world.ground_resources)==1,"Cargo and inbound cleanup conserved")
+	check((world.ground_resources.drops[0].cell-world.ground_resources.cell_from_position(preload("res://scripts/world_3d/world_coordinates.gd").to_sim(safe_entry))).length_squared()<=64 and world._ground_cell_allowed(world.ground_resources.drops[0].cell),"Interrupted interior cargo drops in a valid cell within eight cells of entrance")
 	world.free()
 	print("Building marker index: %d checks, %d failures"%[checks,failures])
 	quit(1 if failures else 0)

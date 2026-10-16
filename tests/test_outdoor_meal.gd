@@ -1,4 +1,5 @@
 extends SceneTree
+const Stacks=preload("res://tests/ground_stack_fixture.gd")
 const B = preload("res://scripts/building_instance.gd")
 const Def = preload("res://scripts/building_definition.gd")
 const T = preload("res://scripts/building_type.gd").Type
@@ -123,7 +124,7 @@ func run() -> void:
 	# Ground multi-amount, critical merge and pause/speed changes.
 	world = fixture()
 	actor = world.resident_runtimes[1]
-	var drop = world.ground_resources.create_drop(R.FOOD,4,actor.view.get_drop_sim_position()+Vector2(25,0))
+	var drop = Stacks.create(world.ground_resources,R.FOOD,4,actor.view.get_drop_sim_position()+Vector2(25,0))
 	check(actor.needs.try_eat(8000),"Ground action starts")
 	walk(actor)
 	intent = actor.intents.current_intent
@@ -168,7 +169,7 @@ func run() -> void:
 	var porter=world.resident_runtimes[0]
 	porter.data.hunger=0
 	world.warehouse_data.resources.add(R.FOOD,1)
-	world.ground_resources.create_drop(R.LOG,1,porter.view.get_drop_sim_position()+Vector2(25,0))
+	Stacks.create(world.ground_resources,R.LOG,1,porter.view.get_drop_sim_position()+Vector2(25,0))
 	var job=world.logistics.claim_best_job(porter.data.id)
 	check(job!=null and world.logistics.start_claimed_job(job,porter.data.id),"Ordinary valid Porter haul is physically started")
 	transport_walk(porter)
@@ -244,7 +245,7 @@ func run() -> void:
 		world=fixture()
 		actor=world.resident_runtimes[1]
 		world.game_time.total_minutes=minute
-		world.ground_resources.create_drop(R.FOOD,1,actor.view.get_drop_sim_position()+Vector2(25,0))
+		Stacks.create(world.ground_resources,R.FOOD,1,actor.view.get_drop_sim_position()+Vector2(25,0))
 		check(actor.needs.try_eat(8000),"Schedule-boundary Ground meal begins")
 		walk(actor)
 		world.game_time.advance(10.0)
@@ -254,7 +255,7 @@ func run() -> void:
 	world=fixture()
 	actor=world.resident_runtimes[1]
 	actor.data.hunger=40
-	world.ground_resources.create_drop(R.FOOD,1,actor.view.get_drop_sim_position()+Vector2(25,0))
+	Stacks.create(world.ground_resources,R.FOOD,1,actor.view.get_drop_sim_position()+Vector2(25,0))
 	check(actor.needs.try_eat(8000,200),"Clamp fixture starts paid Ground meal")
 	walk(actor)
 	world.game_time.advance(10.0)

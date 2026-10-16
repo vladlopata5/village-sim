@@ -1,4 +1,5 @@
 extends SceneTree
+const Stacks=preload("res://tests/ground_stack_fixture.gd")
 const Grid=preload("res://scripts/navigation_grid.gd")
 const Sources=preload("res://scripts/resource_sources.gd")
 const Ground=preload("res://scripts/ground_resources.gd")
@@ -131,7 +132,7 @@ func run() -> void:
 	var world=quiet_world();var building=site(world)
 	var first=world.resident_runtimes[1];var second=world.resident_runtimes[3]
 	world.warehouse_data.resources.try_take(R.PLANK,world.warehouse_data.resources.get_amount(R.PLANK))
-	var drop=world.ground_resources.create_drop(R.PLANK,1,Vector2(-4.25,-1.25)*25)
+	var drop=Stacks.create(world.ground_resources,R.PLANK,1,Vector2(-4.25,-1.25)*25)
 	world.player_control.assign_profession(first.data.id,P.BUILDER);world.player_control.assign_profession(second.data.id,P.BUILDER)
 	check(first.builder.has_work() and second.builder.has_work(),"Two builders see the same unreserved real material")
 	var searches: int=first.builder.source_search_count
@@ -145,7 +146,7 @@ func run() -> void:
 	first.intents.clear_reason(&"player_move")
 	var trip_before: Dictionary=second.builder._material_trip(building)
 	var old_raw: int=world.navigation.raw_calls
-	world.ground_resources.create_drop(R.PLANK,1,Vector2(-6.25,-1.25)*25)
+	Stacks.create(world.ground_resources,R.PLANK,1,Vector2(-6.25,-1.25)*25)
 	var trip_after: Dictionary=second.builder._material_trip(building)
 	check(trip_after.reference.id==trip_before.reference.id and world.navigation.raw_calls==old_raw,"Unrelated quantity changes preserve valid geometry while stock is re-read")
 	old_raw=world.navigation.raw_calls
@@ -170,7 +171,7 @@ func run() -> void:
 	world.free()
 	world=quiet_world();building=site(world);first=world.resident_runtimes[1]
 	world.warehouse_data.resources.try_take(R.PLANK,world.warehouse_data.resources.get_amount(R.PLANK))
-	world.ground_resources.create_drop(R.PLANK,1,Vector2(-4.25,-1.25)*25)
+	Stacks.create(world.ground_resources,R.PLANK,1,Vector2(-4.25,-1.25)*25)
 	world.player_control.assign_profession(first.data.id,P.BUILDER)
 	first.view.global_position=C.to_world(world.warehouse_data.position)
 	check(not first.builder.has_work(),"Blocked original position produces a genuine negative availability")

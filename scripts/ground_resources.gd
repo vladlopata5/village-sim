@@ -12,7 +12,7 @@ var _stack_mode := false
 var _grid = Grid.new()
 var _by_cell: Dictionary = {}
 var _offsets: Dictionary = {}
-# Explicit opt-in; never called by the playable scene in E1.1.
+# Explicit opt-in before any drops are created; canonical worlds enable it on startup.
 func enable_stack_mode(bounds: Rect2 = Grid.WORLD_BOUNDS) -> bool:
 	if not drops.is_empty() or _stack_mode or not bounds.has_area(): return false
 	_grid=Grid.new(bounds)
@@ -167,7 +167,7 @@ func find_placement(resource: ResourceType.Type, origin: Vector2i, radius: int, 
 	return null
 func place_near(resource: ResourceType.Type, quantity: int, origin: Vector2i, mode: PlacementMode, allowed: Callable = Callable(), reachable: Callable = Callable()) -> Dictionary:
 	var result:={"placed":0,"discarded":0,"remaining":quantity,"stack_ids":[]}
-	if not _stack_mode or quantity<=0 or resource not in ResourceType.Type.values() or mode not in PlacementMode.values(): return result
+	if not _stack_mode or not is_instance_valid(_clock) or quantity<=0 or resource not in ResourceType.Type.values() or mode not in PlacementMode.values(): return result
 	if mode==PlacementMode.WORKER and quantity!=1: return result
 	var radius: int=Balance.GROUND_NATURAL_PLACEMENT_RADIUS if mode==PlacementMode.NATURAL else Balance.GROUND_WORKER_PLACEMENT_RADIUS
 	var tried: Array=[]

@@ -1,4 +1,5 @@
 extends SceneTree
+const Stacks=preload("res://tests/ground_stack_fixture.gd")
 const P = preload("res://scripts/resident_profession.gd").Type
 const R = preload("res://scripts/resource_type.gd").Type
 const BT = preload("res://scripts/building_type.gd").Type
@@ -82,10 +83,10 @@ func run() -> void:
 	await capture("time_tab")
 	tabs.current_tab=1
 	check(panel.active() and not world.placement.is_active() and not world.road_tool.active and not world.work_area_tool.active(),"Exclusive debug placement mode")
-	var before: int = world.ground_resources.drops.size()
+	var before: int = Stacks.total(world.ground_resources)
 	click(panel.get_global_rect().position+Vector2(25,20))
 	await physics_frame
-	check(world.ground_resources.drops.size()==before and world._clicks.is_empty(),"UI clicks do not spawn or queue world command")
+	check(Stacks.total(world.ground_resources)==before and world._clicks.is_empty(),"UI clicks do not spawn or queue world command")
 	key(KEY_ESCAPE)
 	check(not panel.active(),"Escape cancels")
 	panel.begin_placement(&"resource",R.LOG,1)
@@ -94,7 +95,7 @@ func run() -> void:
 	click(Vector2(760,500))
 	await physics_frame
 	await process_frame
-	check(world.ground_resources.drops.size()==before+1 and not panel.active(),"Ground click creates and ends mode")
+	check(Stacks.total(world.ground_resources)==before+1 and not panel.active(),"Ground click creates and ends mode")
 	panel.begin_placement(&"building",Definition.for_type(BT.STORAGE),1)
 	world.handle_world_click(MOUSE_BUTTON_LEFT,{"position":world.get_node("World/BuildingViews").get_child(0).position})
 	check(panel.active() and not panel.status.text.is_empty(),"Invalid overlap reports reason and stays active")
@@ -116,8 +117,9 @@ func run() -> void:
 		check(world.player_control.assign_workplace(data.id,storage.id),"Normal explicit own Storage assignment")
 		quiet(world.get_resident_runtime(data))
 	var nav_before: int = world.navigation.revision
+	var initial_logs: int=Stacks.total(world.ground_resources,R.LOG)
 	var logs: Array = service.spawn_resources(Vector3(-15,0,5),100,R.LOG).objects
-	check(logs.size()==100 and world.navigation.revision==nav_before,"100 Ground LOG without navigation edits")
+	check(logs.reduce(func(total,stack):return total+stack.amount,0)==100 and Stacks.total(world.ground_resources,R.LOG)==initial_logs+100 and world.navigation.revision==nav_before,"100 Ground LOG without navigation edits")
 	world.game_time.total_minutes=419
 	world.game_time.debug_skip_minutes(1)
 	world.logistics.checked_candidates=0
@@ -134,10 +136,10 @@ func run() -> void:
 		jobs.append(job)
 	print("Debug 2-Porter / 100 LOG decision interval: %.3f ms" % ((Time.get_ticks_usec()-selection_started)/1000.0))
 	check(world.logistics.checked_candidates==4,"Exact lazy selection checks only first feasible per availability/claim on 100 LOG")
-	check(jobs[0].source_ref.id!=jobs[1].source_ref.id and storage.resources.get_reserved_in(R.LOG)==2,"Distinct Ground claims and inbound reservations")
+	check(jobs[0].id!=jobs[1].id and world.logistics.sources.reserved(jobs[0].source_ref,R.LOG,jobs[0].id) and world.logistics.sources.reserved(jobs[1].source_ref,R.LOG,jobs[1].id) and storage.resources.get_reserved_in(R.LOG)==2,"Distinct owned quantity claims and inbound reservations")
 	for data in workers: walk(world.get_resident_runtime(data))
 	world.game_time.debug_skip_minutes(10)
-	check(workers.all(func(data): return data.inventory.amount==1) and logs.filter(func(drop): return drop in world.ground_resources.drops).size()==98,"Real loading/pickup removes exactly two Ground units")
+	check(workers.all(func(data): return data.inventory.amount==1) and Stacks.total(world.ground_resources,R.LOG)==initial_logs+98,"Real loading/pickup removes exactly two Ground units")
 	world.resident_selection.select(workers[0])
 	await capture("porter_carrying")
 	for data in workers: walk(world.get_resident_runtime(data))
@@ -168,14 +170,14 @@ func run() -> void:
 	check(paused,"Pause")
 	key(KEY_F10)
 	check(panel.visible,"F10 works while paused")
-	var existing: int = world.ground_resources.drops.size()
+	var existing: int = Stacks.total(world.ground_resources)
 	panel.begin_placement(&"resource",R.STONE,1)
 	world.resident_selection.clear()
 	await process_frame
 	click(Vector2(760,500))
 	await physics_frame
 	await process_frame
-	check(world.ground_resources.drops.size()==existing+1,"Placement commands work while paused")
+	check(Stacks.total(world.ground_resources)==existing+1,"Placement commands work while paused")
 	world.game_time.set_speed(20)
 	check(world.game_time.speed_multiplier==20,"Supported speed")
 	world.game_time.toggle_pause()

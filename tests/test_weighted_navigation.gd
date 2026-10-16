@@ -1,4 +1,5 @@
 extends SceneTree
+const Stacks=preload("res://tests/ground_stack_fixture.gd")
 const Grid = preload("res://scripts/navigation_grid.gd")
 const Movement = preload("res://scripts/world_3d/grid_movement_3d.gd")
 const C = preload("res://scripts/world_3d/world_coordinates.gd")
@@ -167,7 +168,7 @@ func corridor() -> void:
 	check(tree.claim(&"test_chop") and tree.add_work(&"test_chop",tree.work_required),"Normal domain chopping depletes mature tree")
 	world._deplete_tree(tree)
 	check(world.navigation.get_world_speed_multiplier(C.to_world(tree.position))==1.0 and not world.runtime_placement_blockers.has_blocker(tree.id),"Depletion removes slow source and placement registration")
-	check(world.ground_resources.drops.size()==3,"Forestry yield remains three physical LOG")
+	check(Stacks.total(world.ground_resources)==3,"Forestry yield remains three physical LOG")
 	world.spawn_sapling(tree.position)
 	check(is_equal_approx(world.navigation.get_world_speed_multiplier(C.to_world(tree.position)),0.2),"Replanting restores slow traversal")
 	check(not world.navigation.is_world_walkable(C.to_world(hut.position)) and not world.navigation.is_world_walkable(C.to_world(saw.position)),"Buildings remain hard navigation blockers")

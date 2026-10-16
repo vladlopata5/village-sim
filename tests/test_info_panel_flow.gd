@@ -1,4 +1,5 @@
 extends SceneTree
+const Stacks=preload("res://tests/ground_stack_fixture.gd")
 const Def=preload("res://scripts/building_definition.gd")
 const Types=preload("res://scripts/building_type.gd").Type
 const R=preload("res://scripts/resource_type.gd").Type
@@ -28,7 +29,7 @@ func run() -> void:
 	var actor=world.resident_runtimes[0]
 	var a=actor.data
 	var b=world.residents[1]
-	world.ground_resources.create_drop(R.LOG,1,C.to_sim(Vector3(5,0,8)))
+	Stacks.create(world.ground_resources,R.LOG,1,C.to_sim(Vector3(5,0,8)))
 	check(world._request_haul_work(actor),"Normal Porter workflow creates real committed job")
 	var job=world.logistics.get_job(a.id)
 	var destination=world.player_control.get_building(job.destination_location_id)

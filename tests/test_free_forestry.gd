@@ -1,4 +1,5 @@
 extends SceneTree
+const Stacks=preload("res://tests/ground_stack_fixture.gd")
 const P = preload("res://scripts/resident_profession.gd").Type
 const C = preload("res://scripts/world_3d/world_coordinates.gd")
 const A = preload("res://scripts/work_area.gd")
@@ -79,12 +80,12 @@ func run() -> void:
 	var completing = worker.tree
 	scene.player_control.clear_work_assignment(actor.data.id)
 	scene.game_time.debug_skip_minutes(60-int(completing.work_done))
-	check(completing.state==T.State.DEPLETED and scene.ground_resources.drops.size()==3,"Exactly three LOG on completion")
+	check(completing.state==T.State.DEPLETED and Stacks.total(scene.ground_resources)==3,"Exactly three LOG on completion")
 	check(actor.data.inventory.amount==0 and worker.kind.is_empty(),"FREE leaves Ground, no collect/export/plant")
 	check(actor.data.get_skill_xp(preload("res://scripts/skill_type.gd").Type.GATHERING)==1,"Existing extraction XP awarded once")
-	var drops_before: int = scene.ground_resources.drops.size()
+	var drops_before: int = Stacks.total(scene.ground_resources)
 	scene._deplete_tree(completing)
-	check(scene.ground_resources.drops.size()==drops_before,"No duplicate yield")
+	check(Stacks.total(scene.ground_resources)==drops_before,"No duplicate yield")
 	var camera: Camera3D = scene.get_node("World/Camera3D")
 	camera.position=Vector3(-9,30,11)
 	camera.look_at(Vector3(-29,0,-9))
@@ -165,7 +166,7 @@ func run() -> void:
 	check(scene.work_areas.all().size()==count,"Cancel preview creates nothing")
 	# Builder source-selection fixture is deliberately single-resource.
 	var builder = scene.resident_runtimes[1].builder
-	var loose_plank = scene.ground_resources.create_drop(R.PLANK,1,C.to_sim(Vector3(-23,0,-8)))
+	var loose_plank = Stacks.create(scene.ground_resources,R.PLANK,1,C.to_sim(Vector3(-23,0,-9)))
 	var build_definition = preload("res://scripts/building_definition.gd").for_type(preload("res://scripts/building_type.gd").Type.HOME)
 	build_definition.construction_requirements = {R.PLANK:1}
 	var site = preload("res://scripts/building_instance.gd").new(&"ground_source_site",build_definition,C.to_sim(Vector3(-17,0,-16)),preload("res://scripts/building_instance.gd").State.UNDER_CONSTRUCTION)

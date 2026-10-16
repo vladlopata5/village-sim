@@ -1,4 +1,5 @@
 extends SceneTree
+const Stacks=preload("res://tests/ground_stack_fixture.gd")
 const Fixture = preload("res://tests/forestry_fixture.gd")
 const Definition = preload("res://scripts/building_definition.gd")
 const Types = preload("res://scripts/building_type.gd").Type
@@ -63,7 +64,7 @@ func run() -> void:
 	check("Бревно" in scene.building_card_view().resources_label.text and scene.building_card_view().get_node("%People").get_children().any(func(row): return row is HBoxContainer and row.get_child(0).text == "Марина"),"Card exposes LOG and assigned worker")
 	scene.game_time.debug_skip_minutes(60)
 	check(worker.best_task().kind==&"CHOP","No loose LOG gives chopping")
-	var remote_drop = scene.ground_resources.create_drop(Resources.LOG,1,Coordinates.to_sim(Vector3(40,0,20)))
+	var remote_drop = Stacks.create(scene.ground_resources,Resources.LOG,1,Coordinates.to_sim(Vector3(40,0,20)))
 	check(worker.best_task().kind==&"CHOP","Ground LOG outside own work radius is ignored")
 	check(not remote_drop.reserve(&"") and remote_drop.reserve(&"first") and not remote_drop.reserve(&"second"),"Generic GroundResource reservation excludes duplicate owners")
 	remote_drop.release(&"second")
@@ -82,21 +83,22 @@ func run() -> void:
 	scene.building_card_view()._refresh()
 	check(scene.building_card_view().get_node("%NaturalProgress").text.contains("%d / %d" % [chopped.work_done,chopped.work_required]),"Card reads actual partially worked tree, no building progress copy")
 	scene.game_time.debug_skip_minutes(50)
-	check(chopped.state==TreeData.State.DEPLETED and scene.ground_resources.drops.size()==3,"Chop yields three physical LOG")
+	check(chopped.state==TreeData.State.DEPLETED and Stacks.total(scene.ground_resources)==3,"Chop yields three physical LOG")
 	for trip in range(3):
 		check(worker.best_task().kind==&"COLLECT" and worker.request_work(),"Loose logs take priority over standing trees")
 		var collect_job = scene.logistics.get_job(actor.data.id)
 		var drop = scene.logistics.sources.resolve(collect_job.source_ref)
 		check(not drop.id.is_empty() and drop.reservation_owner_id==collect_job.id and hut.resources.get_reserved_in(Resources.LOG)==1,"Ground and hut capacity reserved together")
+		var amount_before: int=drop.amount
 		walk(actor,&"haul_source")
-		check(actor.data.inventory.amount==1 and actor.data.inventory.resource_type==Resources.LOG and drop not in scene.ground_resources.drops,"Pickup physically transfers one LOG")
+		check(actor.data.inventory.amount==1 and actor.data.inventory.resource_type==Resources.LOG and drop.amount==amount_before-1 and (drop in scene.ground_resources.drops)==(drop.amount>0) and drop.reserved_amount(collect_job.id)==0,"Pickup transfers one LOG and retains remaining stack")
 		walk(actor)
 		check(actor.data.inventory.amount==0 and hut.resources.get_amount(Resources.LOG)==trip+1 and hut.resources.get_reserved_in(Resources.LOG)==0,"Delivery deposits into own hut and clears reservation")
 	check(scene.ground_resources.drops.is_empty(),"Three trips collect all three logs")
 	# Overlapping huts share spatial resources; there is no permanent owner.
 	var second_hut = Fixture.hut(scene,&"second_hut",Vector3(-20,0,-2))
 	check(scene.player_control.assign_workplace(other.data.id,second_hut.id),"Separate hut has its own worker capacity")
-	var loose = scene.ground_resources.create_drop(Resources.LOG,1,Coordinates.to_sim(Vector3(-24,0,-4)))
+	var loose = Stacks.create(scene.ground_resources,Resources.LOG,1,Coordinates.to_sim(Vector3(-24,0,-4)))
 	check(scene.forestry_area.inside(hut,loose.world_position) and scene.forestry_area.inside(second_hut,loose.world_position),"Both work areas can contain same ground LOG")
 	check(worker.request_work() and loose.reservation_owner_id==scene.logistics.get_job(actor.data.id).id,"First worker reserves common LOG")
 	check(other.get_node("Lumberjack").best_task().kind!=&"COLLECT","Second worker cannot duplicate reserved pickup")
@@ -106,7 +108,7 @@ func run() -> void:
 	check(worker.request_work(),"Collection can resume after command")
 	walk(actor,&"haul_source")
 	scene.player_control.move_to(actor.data.id,Vector2(0,500))
-	check(actor.data.inventory.amount==0 and scene.ground_resources.drops.size()==1 and hut.resources.get_reserved_in(Resources.LOG)==0,"After pickup interrupt drops carried LOG without duplication")
+	check(actor.data.inventory.amount==0 and Stacks.total(scene.ground_resources)==1 and hut.resources.get_reserved_in(Resources.LOG)==0,"After pickup interrupt drops carried LOG without duplication")
 	idle(actor)
 	Fixture.clear_drops(scene)
 	# Full-buffer regression: export naturally frees enough capacity for a complete yield.
@@ -164,12 +166,12 @@ func run() -> void:
 		var amount_before: int = hut.resources.get_amount(Resources.LOG)
 		actor.intents.force_set_intent(preload("res://scripts/resident_intent.gd").new(preload("res://scripts/resident_intent.gd").Type.NONE,&"critical_sleep",Vector2.ZERO,0,false),100)
 		check(hut.resources.get_reserved_out(Resources.LOG)==0 and scene.warehouse_data.resources.get_reserved_in(Resources.LOG)==0 and scene.logistics.get_job(actor.data.id)==null,"Critical export cleanup releases both container reservations")
-		check(hut.resources.get_amount(Resources.LOG)==amount_before and actor.data.inventory.amount==0 and scene.ground_resources.drops.size()==(1 if picked_up else 0),"Only physically picked cargo becomes ground LOG on interrupt")
+		check(hut.resources.get_amount(Resources.LOG)==amount_before and actor.data.inventory.amount==0 and Stacks.total(scene.ground_resources)==(1 if picked_up else 0),"Only physically picked cargo becomes ground LOG on interrupt")
 		actor.intents.abort_current(actor.intents.current_intent)
 		Fixture.clear_drops(scene)
 		if picked_up: hut.resources.add(Resources.LOG,1)
 	# Committed local collection finishes after WORK; no new collection can start.
-	var end_drop = scene.ground_resources.create_drop(Resources.LOG,1,Coordinates.to_sim(Vector3(-24,0,-4)))
+	var end_drop = Stacks.create(scene.ground_resources,Resources.LOG,1,Coordinates.to_sim(Vector3(-24,0,-4)))
 	hut.resources.try_take(Resources.LOG,1)
 	check(worker.request_work() and scene.logistics.get_job(actor.data.id)!=null,"Schedule cleanup starts local pickup")
 	scene.game_time.total_minutes = 1019

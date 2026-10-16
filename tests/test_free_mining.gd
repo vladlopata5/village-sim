@@ -1,4 +1,5 @@
 extends SceneTree
+const Stacks=preload("res://tests/ground_stack_fixture.gd")
 const P = preload("res://scripts/resident_profession.gd").Type
 const C = preload("res://scripts/world_3d/world_coordinates.gd")
 const R = preload("res://scripts/resource_type.gd").Type
@@ -71,14 +72,14 @@ func run() -> void:
 	walk(actor)
 	scene.player_control.clear_work_assignment(actor.data.id)
 	scene.game_time.debug_skip_minutes(43)
-	check(source.stock==9 and source.work_done==0 and scene.ground_resources.drops.size()==1,"17+43 produces exactly one stone")
+	check(source.stock==9 and source.work_done==0 and Stacks.total(scene.ground_resources)==1,"17+43 produces exactly one stone")
 	check(actor.data.inventory.amount==0 and worker.rock==null,"FREE leaves resource and finishes action")
 	check(actor.data.get_skill_xp(Skill.GATHERING)==1,"Exactly one GATHERING XP")
 	check(scene.navigation.topology_generation==topology,"Intermediate stock/claim/work do not change topology")
 	var drop = scene.ground_resources.drops[0]
 	check(drop.resource_type==R.STONE and scene.rock_locations.is_available(drop.world_position),"Ground STONE on walkable worker position")
 	scene._complete_rock_cycle(source,source.completed_cycles,drop.world_position)
-	check(scene.ground_resources.drops.size()==1,"Repeated world callback deduplicated")
+	check(Stacks.total(scene.ground_resources)==1,"Repeated world callback deduplicated")
 	var camera: Camera3D = scene.get_node("World/Camera3D")
 	camera.position=Vector3(50,30,12)
 	camera.look_at(Vector3(30,0,-9))
@@ -139,7 +140,7 @@ func run() -> void:
 	scene.game_time.debug_skip_minutes(1)
 	check(final_source.stock==0 and final_source not in scene.rocks and not scene.rock_views.has(final_source.id),"Captured action finishes after area deletion and depletes rock")
 	check(scene.navigation.is_world_walkable(C.to_world(final_source.position)),"Last yield removes hard blocker")
-	check(scene.ground_resources.drops.size()==2,"Last resource survives removed source")
+	check(Stacks.total(scene.ground_resources)==2,"Last resource survives removed source")
 	# Reentrant interrupt at completion: receipt publication and XP still finish exactly once.
 	var fresh_area = scene.work_areas.create(C.to_sim(Vector3(30,0,-9)),C.length_to_sim(15))
 	scene.player_control.assign_work_area(actor.data.id,fresh_area.id)
@@ -150,10 +151,10 @@ func run() -> void:
 	var edge_callback := func():
 		if edge.completed_cycles>0: worker.abort(false)
 	edge.changed.connect(edge_callback)
-	var before: int = scene.ground_resources.drops.size()
+	var before: int = Stacks.total(scene.ground_resources)
 	var xp: int = actor.data.get_skill_xp(Skill.GATHERING)
 	scene.game_time.debug_skip_minutes(1)
-	check(scene.ground_resources.drops.size()==before+1 and actor.data.get_skill_xp(Skill.GATHERING)==xp+1 and worker.rock==null,"Completion-edge reentrant interrupt no duplication or lost yield")
+	check(Stacks.total(scene.ground_resources)==before+1 and actor.data.get_skill_xp(Skill.GATHERING)==xp+1 and worker.rock==null,"Completion-edge reentrant interrupt no duplication or lost yield")
 	edge.changed.disconnect(edge_callback)
 	# Generic logistics: Porter retrieves Ground STONE.
 	var porter = scene.resident_runtimes[0]
@@ -177,8 +178,8 @@ func run() -> void:
 	var site = preload("res://scripts/building_instance.gd").new(&"mixed_site",definition,C.to_sim(Vector3(4,0,-12)),preload("res://scripts/building_instance.gd").State.UNDER_CONSTRUCTION)
 	scene.buildings.append(site)
 	scene._show_building(site)
-	scene.ground_resources.create_drop(R.LOG,1,C.to_sim(Vector3(0,0,-9)))
-	scene.ground_resources.create_drop(R.STONE,1,C.to_sim(Vector3(1,0,-9)))
+	Stacks.create(scene.ground_resources,R.LOG,1,C.to_sim(Vector3(0,0,-9)))
+	Stacks.create(scene.ground_resources,R.STONE,1,C.to_sim(Vector3(1,0,-9)))
 	var builder = scene.resident_runtimes[1]
 	scene.player_control.assign_profession(builder.data.id,P.BUILDER)
 	builder.intents.abort_current(builder.intents.current_intent)

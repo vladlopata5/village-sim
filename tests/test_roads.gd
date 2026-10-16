@@ -1,4 +1,5 @@
 extends SceneTree
+const Stacks=preload("res://tests/ground_stack_fixture.gd")
 const Roads = preload("res://scripts/road_grid.gd")
 const Tool = preload("res://scripts/world_3d/road_tool_3d.gd")
 const Layer = preload("res://scripts/world_3d/road_layer_3d.gd")
@@ -153,7 +154,7 @@ func integration() -> void:
 	world._deplete_tree(tree)
 	world.road_tool.end_stroke()
 	world.road_tool.paint(C.to_world(tree.position))
-	check(world.roads.contains(tree_cell) and world.ground_resources.drops.size()==3,"After chop road paint allowed; forestry yield unchanged")
+	check(world.roads.contains(tree_cell) and Stacks.total(world.ground_resources)==3,"After chop road paint allowed; forestry yield unchanged")
 	# Residents may stand on roads; they remain building-placement blockers only.
 	var resident_cell: Vector2i=world.build_grid.world_to_cell(actor.view.get_world_position())
 	check(world.road_tool.can_paint(resident_cell),"Movable residents do not prevent instant road surface painting")

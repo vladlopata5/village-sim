@@ -1,4 +1,5 @@
 extends SceneTree
+const Stacks=preload("res://tests/ground_stack_fixture.gd")
 const Types = preload("res://scripts/building_type.gd").Type
 const Def = preload("res://scripts/building_definition.gd")
 const R = preload("res://scripts/resource_type.gd").Type
@@ -69,7 +70,7 @@ func run() -> void:
 	check(world.player_control.assign_workplace(lumber.data.id,hut.id) and world._request_work(lumber),"Normal Lumberjack work selects a reachable standing tree")
 	walk(lumber)
 	world.game_time.debug_skip_minutes(Balance.TREE_WORK_MINUTES)
-	check(world.ground_resources.drops.size()==3,"Real chopping produces three LOG")
+	check(Stacks.total(world.ground_resources)==3,"Real chopping produces three LOG")
 	check(world._request_work(lumber),"Normal Lumberjack collects its local physical LOG")
 	walk(lumber)
 	check(hut.resources.get_amount(R.LOG)==1,"LOG physically carried into built Lumberjack Hut")

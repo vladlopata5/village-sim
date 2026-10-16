@@ -1,4 +1,5 @@
 extends SceneTree
+const Stacks=preload("res://tests/ground_stack_fixture.gd")
 const Setup = preload("res://tests/behavior_test_setup.gd")
 const Profession = preload("res://scripts/resident_profession.gd").Type
 const Activity = preload("res://scripts/resident_activity.gd").Type
@@ -198,7 +199,7 @@ func _run() -> void:
 	var loaded_job = scene.logistics.current_job
 	var drop_position: Vector2 = resident.view.global_position
 	resident.data.fatigue = 100
-	check(loaded_job.state == Job.State.CANCELLED and resident.data.inventory.amount == 0 and scene.ground_resources.drops.size() == 1, "Critical fatigue cancels newly assigned porter's loaded haul and drops cargo")
+	check(loaded_job.state == Job.State.CANCELLED and resident.data.inventory.amount == 0 and Stacks.total(scene.ground_resources) == 1, "Critical fatigue cancels newly assigned porter's loaded haul and drops cargo")
 	check(scene.ground_resources.drops[0].world_position == drop_position and scene.kitchen_data.resources.get_reserved_in(FOOD) == 0, "Ground cargo uses actual executor position, never Stepan's")
 	scene.free()
 	# Management never bypasses critical/forced survival.

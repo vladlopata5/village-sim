@@ -1,4 +1,5 @@
 extends SceneTree
+const Stacks=preload("res://tests/ground_stack_fixture.gd")
 const Logistics = preload("res://scripts/logistics_controller.gd")
 const Priority = preload("res://scripts/logistics_priority.gd")
 const Building = preload("res://scripts/building_data.gd")
@@ -124,7 +125,7 @@ func _run():
 		if picked_up: preload("res://tests/handling_test_step.gd").move_domain(carrier,20)
 		carrier.data.hunger = 100
 		check(export_job.state == Job.State.CANCELLED and scene.gatherer_hut_data.resources.get_reserved_out(FOOD) == 0 and scene.warehouse_data.resources.get_reserved_in(FOOD) == 0 and carrier.data.inventory.amount == 0, "Forced export cancellation clears exactly hut/warehouse reservations and inventory")
-		check(scene.ground_resources.drops.size() == (1 if picked_up else 0) and scene.gatherer_hut_data.resources.get_amount(FOOD) == (0 if picked_up else 1), "Loaded export creates ground FOOD; unloaded FOOD stays in hut")
+		check(Stacks.total(scene.ground_resources) == (1 if picked_up else 0) and scene.gatherer_hut_data.resources.get_amount(FOOD) == (0 if picked_up else 1), "Loaded export creates ground FOOD; unloaded FOOD stays in hut")
 		scene.free()
 	print("Production logistics checks: ", "PASS" if failures == 0 else "FAIL")
 	quit(0 if failures == 0 else 1)

@@ -1,4 +1,5 @@
 extends SceneTree
+const Stacks=preload("res://tests/ground_stack_fixture.gd")
 const P = preload("res://scripts/resident_profession.gd").Type
 const R = preload("res://scripts/resource_type.gd").Type
 const BT = preload("res://scripts/building_type.gd").Type
@@ -51,7 +52,7 @@ func run() -> void:
 	walk(actor)
 	place.resources.add(R.STONE,1)
 	world.game_time.debug_skip_minutes(60)
-	check(world.ground_resources.drops.size()==1 and place.resources.get_amount(R.STONE)==12,"Buffer filled mid-MINE still creates Ground output")
+	check(Stacks.total(world.ground_resources)==1 and place.resources.get_amount(R.STONE)==12,"Buffer filled mid-MINE still creates Ground output")
 	check(worker.best_task().kind==&"EXPORT","Full buffer exports even while unclaimed Ground exists")
 	place.resources.try_take(R.STONE,1)
 	check(worker.best_task().kind==&"COLLECT","11/12 Ground has priority")
@@ -76,8 +77,10 @@ func run() -> void:
 	world.logistics.start_claimed_job(job,actor.data.id)
 	world.game_time.total_minutes=drop.created_at+drop.lifetime
 	world.ground_resources._on_minute(world.game_time.total_minutes)
+	check(drop.amount==1 and drop.reserved_amount(job.id)==1 and job.is_active(),"Expiry protects a committed unit")
+	world.ground_resources.remove_drop(drop)
 	world.logistics.recalculate()
-	check(job.state==5 and place.resources.get_reserved_in(R.STONE)==0,"Ground expiry before pickup cancels and releases inbound")
+	check(job.state==5 and place.resources.get_reserved_in(R.STONE)==0,"Explicit Ground removal before pickup cancels and releases inbound")
 	world.game_time.total_minutes=420
 	place.resources.try_take(R.STONE,11)
 	check(worker.request_work(),"Empty Quarry resumes mining")

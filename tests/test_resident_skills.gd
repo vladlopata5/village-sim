@@ -1,4 +1,5 @@
 extends SceneTree
+const Stacks=preload("res://tests/ground_stack_fixture.gd")
 const Setup = preload("res://tests/behavior_test_setup.gd")
 const Data = preload("res://scripts/resident_data.gd")
 const Skill = preload("res://scripts/skill_type.gd")
@@ -149,7 +150,7 @@ func _run() -> void:
 		if after_pickup: arrive(actor)
 		actor.commands.move_to(Vector2(200, 0))
 		check(actor.data.get_skill_xp(Skill.Type.LOGISTICS) == 0, "Interrupted haul grants no XP")
-		check(scene.ground_resources.drops.size() == (1 if after_pickup else 0), "Drop/cleanup unchanged and grants no XP")
+		check(Stacks.total(scene.ground_resources) == (1 if after_pickup else 0), "Drop/cleanup unchanged and grants no XP")
 		scene.free()
 
 	scene = scenario()

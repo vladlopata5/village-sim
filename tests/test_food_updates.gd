@@ -70,7 +70,7 @@ func run() -> void:
 	box.release_out(R.FOOD,1)
 	box.try_take(R.FOOD,box.get_available_amount(R.FOOD))
 	# Queue a real aggregate source event before the subsequent FOOD mutations.
-	world.ground_resources.create_drop(R.LOG,1,Vector2(1000,500))
+	Stacks.create(world.ground_resources,R.LOG,1,Vector2(1000,500))
 	box.add(R.FOOD,1);box.reserve_out(R.FOOD,1);box.release_out(R.FOOD,1);box.try_take(R.FOOD,1)
 	check(shared.total()==0,"Several same-frame availability transitions preserve final empty state")
 	box.add(R.FOOD,2)
@@ -91,7 +91,8 @@ func run() -> void:
 	var b=world.resident_runtimes[1]
 	a.view.global_position=Vector3(-20,0,20)
 	b.view.global_position=Vector3(20,0,20)
-	var drop=world.ground_resources.create_drop(R.FOOD,1,C.to_sim(a.view.global_position)+Vector2(100,0))
+	var drop=Stacks.create(world.ground_resources,R.FOOD,1,C.to_sim(a.view.global_position)+Vector2(100,0))
+	a.view.global_position=C.to_world(drop.world_position)-Vector3(4,0,0) # Exact search boundary uses the snapped cell center.
 	await process_frame
 	await process_frame
 	check(shared.total()==1,"Ground FOOD refresh shares one total")
@@ -100,7 +101,8 @@ func run() -> void:
 	check(drop.amount==1 and not drop.reservation_owner_id.is_empty(),"Food reserved before movement, never remotely consumed")
 	a.commands.move_to(Vector2(-400,400))
 	a.commands.cancel_current()
-	drop.world_position=C.to_sim(b.view.global_position)
+	world.ground_resources.remove_drop(drop)
+	drop=Stacks.create(world.ground_resources,R.FOOD,1,C.to_sim(b.view.global_position))
 	await process_frame
 	await process_frame
 	check(not a.needs.has_food_action() and b.needs.has_food_action(),"Moved FOOD invalidates personal negative and positive probes")

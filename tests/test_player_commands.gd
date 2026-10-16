@@ -1,4 +1,5 @@
 extends SceneTree
+const Stacks=preload("res://tests/ground_stack_fixture.gd")
 const Setup = preload("res://tests/behavior_test_setup.gd")
 const Intent = preload("res://scripts/resident_intent.gd")
 const Command = preload("res://scripts/player_command.gd")
@@ -183,7 +184,7 @@ func _run() -> void:
 		var position: Vector2 = resident.view.global_position
 		scene.player_control.move_to(resident.data.id, Vector2(-500, 300))
 		check(job.state == Job.CANCELLED and scene.warehouse_data.resources.get_reserved_out(FOOD) == 0 and scene.kitchen_data.resources.get_reserved_in(FOOD) == 0 and resident.data.inventory.amount == 0, "Player haul interrupt settles reservations and job")
-		check(scene.ground_resources.drops.size() == (1 if picked_up else 0), "Only actually picked-up cargo becomes GroundResource")
+		check(Stacks.total(scene.ground_resources) == (1 if picked_up else 0), "Only actually picked-up cargo becomes GroundResource")
 		if picked_up: check(scene.ground_resources.drops[0].world_position == position and scene.ground_resources.drops[0].amount == 1, "Cargo physically drops at executor position")
 		check(resident.intents.current_intent.reason_id == &"player_move", "Haul cleanup does not overwrite player command")
 		scene.free()
@@ -217,7 +218,7 @@ func _run() -> void:
 	check(not scene.interactions.get_interactions([resident.data.id], scene.gatherer_hut_data.id)[1].enabled and resident.commands.active_command == active, "Already employed is disabled; management does not cancel command")
 	scene.interaction_menu.open_for([resident.data.id],StringName(scene.residents[1].id),Vector2(200,200))
 	check(scene.interaction_menu.visible and scene.interaction_menu.options.any(func(row): return row.id == &"go_to") and scene.interaction_menu.options.any(func(row): return row.id == &"talk"), "Resident target offers go-to command and talk assignment")
-	var drop = scene.ground_resources.create_drop(FOOD, 1, Vector2(-200, 200))
+	var drop = Stacks.create(scene.ground_resources,FOOD, 1, Vector2(-200, 200))
 	scene.interaction_menu.open_for([scene.resident_selection.selected_resident.id],drop.id,Vector2(200,200))
 	check(scene.interaction_menu.visible and scene.interaction_menu.options.size() == 3 and resident.commands.active_command == active, "RMB on another object replaces an already-open menu without a command")
 	scene.resident_selection.select(scene.residents[1])

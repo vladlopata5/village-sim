@@ -2,10 +2,20 @@ extends Node3D
 const Coordinates = preload("res://scripts/world_3d/world_coordinates.gd")
 const Resources = preload("res://scripts/resource_type.gd")
 var ground_resource: RefCounted
+var quantity_label: Label3D
 func setup(drop: RefCounted) -> void:
 	ground_resource = drop
 	position = Coordinates.to_world(drop.world_position)
 	drop.availability_changed.connect(_sync_position)
+	quantity_label=Label3D.new()
+	quantity_label.position.y=0.7
+	quantity_label.billboard=BaseMaterial3D.BILLBOARD_ENABLED
+	quantity_label.font_size=48
+	quantity_label.pixel_size=0.006
+	quantity_label.outline_size=10
+	quantity_label.no_depth_test=true
+	add_child(quantity_label)
+	_sync_position()
 	var visual := MeshInstance3D.new()
 	var material := StandardMaterial3D.new()
 	if drop.resource_type == Resources.Type.LOG:
@@ -36,3 +46,6 @@ func setup(drop: RefCounted) -> void:
 	add_child(visual)
 func _sync_position() -> void:
 	position = Coordinates.to_world(ground_resource.world_position)
+	if quantity_label!=null:
+		quantity_label.text="×%d" % ground_resource.amount
+		quantity_label.visible=ground_resource.amount>1

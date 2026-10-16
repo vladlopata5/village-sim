@@ -1,4 +1,5 @@
 extends SceneTree
+const Stacks=preload("res://tests/ground_stack_fixture.gd")
 const Def = preload("res://scripts/building_definition.gd")
 const Types = preload("res://scripts/building_type.gd").Type
 const R = preload("res://scripts/resource_type.gd").Type
@@ -58,7 +59,7 @@ func run() -> void:
 	var worker = world.resident_runtimes[1]
 	check(world.player_control.assign_workplace(worker.data.id,saw.id),"Sawyer assigned through management")
 	check(not world._work_available(worker),"No sources means no work")
-	var drop = world.ground_resources.create_drop(R.LOG,1,C.to_sim(Vector3(1,0,10)))
+	var drop = Stacks.create(world.ground_resources,R.LOG,1,C.to_sim(Vector3(1,0,10)))
 	check(worker.self_logistics.task().kind==&"SUPPLY" and world._work_available(worker),"Ground LOG creates normal Sawyer supply candidate")
 	check(worker.decision.collect_actions(true).any(func(row): return row.id=="WORK" and row.priority==7000),"Self logistics keeps standard WORK category")
 	check(world._request_work(worker),"Sawyer self-supply starts shared committed haul")
@@ -82,15 +83,15 @@ func run() -> void:
 	check(world.warehouse_data.resources.get_amount(R.PLANK)==1 and saw.resources.get_amount(R.PLANK)==0,"Sawyer export reaches Storage physically")
 	check(worker.data.get_skill_xp(preload("res://scripts/skill_type.gd").Type.LOGISTICS)==0,"Sawyer self hauling has no extra Logistics XP")
 	# Ground despawn before pickup releases inbound, source claim, and job.
-	drop = world.ground_resources.create_drop(R.LOG,1,C.to_sim(Vector3(-4,0,10)))
+	drop = Stacks.create(world.ground_resources,R.LOG,1,C.to_sim(Vector3(-4,0,10)))
 	check(world._request_work(worker),"Second supply starts")
 	job = world.logistics.get_job(worker.data.id)
-	world.ground_resources._on_minute(drop.created_at+drop.lifetime)
+	world.ground_resources.remove_drop(drop)
 	world.logistics.recalculate()
 	check(job.state==Job.State.CANCELLED and saw.resources.get_reserved_in(R.LOG)==0 and drop.reservation_owner_id.is_empty(),"Despawn before pickup cancels and cleans both reservations")
 	idle(worker)
 	# Interrupts before and after pickup.
-	drop = world.ground_resources.create_drop(R.LOG,1,C.to_sim(Vector3(-4,0,10)))
+	drop = Stacks.create(world.ground_resources,R.LOG,1,C.to_sim(Vector3(-4,0,10)))
 	check(world._request_work(worker),"Supply before PlayerCommand")
 	worker.commands.move_to(Vector2(0,500))
 	check(drop.amount==1 and drop.reservation_owner_id.is_empty() and saw.resources.get_reserved_in(R.LOG)==0,"Before pickup interrupt preserves source and clears reserves")
@@ -98,7 +99,7 @@ func run() -> void:
 	check(world._request_work(worker),"Supply resumes through decision")
 	walk(worker,&"haul_source")
 	worker.commands.move_to(Vector2(0,500))
-	check(worker.data.inventory.amount==0 and saw.resources.get_amount(R.LOG)==0 and saw.resources.get_reserved_in(R.LOG)==0 and world.ground_resources.drops.size()==1,"After pickup interruption drops cargo, no source restoration")
+	check(worker.data.inventory.amount==0 and saw.resources.get_amount(R.LOG)==0 and saw.resources.get_reserved_in(R.LOG)==0 and Stacks.total(world.ground_resources)==1,"After pickup interruption drops cargo, no source restoration")
 	idle(worker)
 	check(world._request_work(worker),"Dropped material is globally reusable")
 	walk(worker,&"haul_source")
@@ -125,7 +126,7 @@ func run() -> void:
 	var site = place(world,Types.HOME,Vector3(-12,0,14),false)
 	worker = world.resident_runtimes[1]
 	world.player_control.assign_profession(worker.data.id,P.BUILDER)
-	drop = world.ground_resources.create_drop(R.PLANK,1,world.world_locations.get_position(site.id))
+	drop = Stacks.create(world.ground_resources,R.PLANK,1,world.world_locations.get_position(site.id))
 	await process_frame
 	check(world._request_work(worker),"Builder sources Ground PLANK")
 	check(worker.builder.source_ref.kind==Ref.Kind.GROUND and site.get_construction_reserved_in(R.PLANK)==1,"Builder keeps construction inbound outside normal HaulJob")
@@ -155,7 +156,7 @@ func run() -> void:
 	world.player_control.assign_workplace(worker.data.id,saw.id)
 	var lumber = world.resident_runtimes[3]
 	world.player_control.assign_workplace(lumber.data.id,hut.id)
-	drop = world.ground_resources.create_drop(R.LOG,1,C.to_sim(Vector3(-14,0,-10)))
+	drop = Stacks.create(world.ground_resources,R.LOG,1,C.to_sim(Vector3(-14,0,-10)))
 	check(lumber.get_node("Lumberjack").best_task().kind==&"COLLECT","Lumberjack sees global Ground within local radius")
 	check(world._request_work(worker),"Sawyer wins only by first successful claim")
 	check(lumber.get_node("Lumberjack").best_task().kind!=&"COLLECT" and not world.logistics.collect_candidates(world.resident_runtimes[0].data.id).any(func(row): return row.source_ref.id==drop.id),"Lumberjack and Porter respect same exclusive claim")
@@ -207,7 +208,7 @@ func run() -> void:
 	world = scene()
 	porter = world.resident_runtimes[0]
 	for resource in [R.FOOD,R.PLANK,R.LOG]:
-		drop = world.ground_resources.create_drop(resource,1,world.world_locations.get_position(world.warehouse_data.id))
+		drop = Stacks.create(world.ground_resources,resource,1,world.world_locations.get_position(world.warehouse_data.id))
 		candidates = world.logistics.collect_candidates(porter.data.id)
 		check(candidates.any(func(row): return row.source_ref.id==drop.id and row.destination.id==porter.data.work_location_id),"Ground FOOD/PLANK/LOG only own Storage")
 		world.warehouse_data.resources.reserve_in(resource,world.warehouse_data.resources.get_available_free_capacity(resource))
@@ -216,7 +217,7 @@ func run() -> void:
 		Fixture.clear_drops(world)
 	world.warehouse_data.resources.add(R.FOOD,10)
 	world.warehouse_data.definition.ground_search_radius=2000 # Admit far Ground explicitly to isolate urgency/distance ranking.
-	drop = world.ground_resources.create_drop(R.FOOD,1,C.to_sim(Vector3(40,0,28)))
+	drop = Stacks.create(world.ground_resources,R.FOOD,1,C.to_sim(Vector3(40,0,28)))
 	candidates = world.logistics.collect_candidates(porter.data.id)
 	var normal = candidates.filter(func(row): return row.source_ref.kind==Ref.Kind.CONTAINER)[0]
 	ground_candidate = candidates.filter(func(row): return row.source_ref.id==drop.id)[0]
@@ -227,7 +228,7 @@ func run() -> void:
 	site = place(world,Types.HOME,Vector3(-12,0,14),false)
 	worker = world.resident_runtimes[1]
 	world.player_control.assign_profession(worker.data.id,P.BUILDER)
-	drop = world.ground_resources.create_drop(R.PLANK,1,world.world_locations.get_position(site.id))
+	drop = Stacks.create(world.ground_resources,R.PLANK,1,world.world_locations.get_position(site.id))
 	worker.builder._on_world_changed()
 	check(world._request_work(worker),"Ground Builder task before pickup")
 	worker.commands.move_to(Vector2(0,500))
@@ -237,7 +238,7 @@ func run() -> void:
 	check(world._request_work(worker),"Ground Builder task resumed")
 	walk(worker,&"builder_source")
 	worker.commands.move_to(Vector2(0,500))
-	check(worker.data.inventory.amount==0 and site.get_delivered_amount(R.PLANK)==0 and site.get_construction_reserved_in(R.PLANK)==0 and world.ground_resources.drops.size()==1,"Builder Ground after pickup drops PLANK without duplicating")
+	check(worker.data.inventory.amount==0 and site.get_delivered_amount(R.PLANK)==0 and site.get_construction_reserved_in(R.PLANK)==0 and Stacks.total(world.ground_resources)==1,"Builder Ground after pickup drops PLANK without duplicating")
 	world.free()
 	# Event-driven wakeup uses normal decision lifecycle, no forced self-haul timer.
 	world = scene()
@@ -248,7 +249,7 @@ func run() -> void:
 	worker.decision._deciding=false
 	worker.decision.request_decision("no_input")
 	check(not worker.intents.has_current_action(),"Unavailable worker can idle normally")
-	world.ground_resources.create_drop(R.LOG,1,C.to_sim(Vector3(1,0,10)))
+	Stacks.create(world.ground_resources,R.LOG,1,C.to_sim(Vector3(1,0,10)))
 	await process_frame
 	await process_frame
 	check(world.logistics.get_job(worker.data.id)!=null and worker.decision.last_selection.candidates.any(func(row): return row.id=="WORK"),"Ground availability wakes ordinary WORK through UtilitySelector")
@@ -259,7 +260,7 @@ func run() -> void:
 	saw = place(world,Types.SAWMILL,Vector3(4,0,14))
 	worker = world.resident_runtimes[1]
 	world.player_control.assign_workplace(worker.data.id,saw.id)
-	drop = world.ground_resources.create_drop(R.LOG,1,C.to_sim(Vector3(1,0,10)))
+	drop = Stacks.create(world.ground_resources,R.LOG,1,C.to_sim(Vector3(1,0,10)))
 	var interrupt = func(resource):
 		if resource==R.LOG: worker.commands.move_to(Vector2(0,500))
 	saw.resources.reservations_changed.connect(interrupt)
@@ -282,7 +283,7 @@ func run() -> void:
 	walk(worker,&"haul_source")
 	worker.decision._deciding=false
 	worker.data.fatigue=100
-	check(worker.data.inventory.amount==0 and world.ground_resources.drops.size()==1 and saw.resources.get_reserved_in(R.LOG)==0 and world.logistics.get_job(worker.data.id)==null,"Critical need after pickup drops cargo without loss")
+	check(worker.data.inventory.amount==0 and Stacks.total(world.ground_resources)==1 and saw.resources.get_reserved_in(R.LOG)==0 and world.logistics.get_job(worker.data.id)==null,"Critical need after pickup drops cargo without loss")
 	worker.decision._deciding=true
 	idle(worker)
 	worker.data.fatigue=0
@@ -296,7 +297,7 @@ func run() -> void:
 	site = place(world,Types.HOME,Vector3(-12,0,14),false)
 	worker = world.resident_runtimes[1]
 	world.player_control.assign_profession(worker.data.id,P.BUILDER)
-	world.ground_resources.create_drop(R.PLANK,10,world.world_locations.get_position(site.id))
+	Stacks.create(world.ground_resources,R.PLANK,10,world.world_locations.get_position(site.id))
 	worker.builder._on_world_changed()
 	for cycle in range(3):
 		check(world._request_work(worker),"Ground-only construction normal work cycle")

@@ -1,4 +1,5 @@
 extends SceneTree
+const Stacks=preload("res://tests/ground_stack_fixture.gd")
 const Profession = preload("res://scripts/resident_profession.gd")
 const Balance = preload("res://scripts/balance_config.gd")
 const Modifiers = preload("res://scripts/resident_modifiers.gd")
@@ -53,8 +54,8 @@ func run() -> void:
 			if not marina.view.movement.is_moving(): break
 		check(worker.chopping and marina.view.get_sim_position().distance_to(worker.target)<8,"Real executor reaches access point and begins work")
 		scene.game_time.debug_skip_minutes(60)
-		check(tree.state==tree.State.DEPLETED and scene.ground_resources.drops.size()==3,"Normal AI-selected tree yields exactly three LOG")
-		check(scene.ground_resources.drops.all(func(drop): return drop.resource_type==Resources.Type.LOG and drop.amount==1),"Physical LOG unit representation preserved")
+		check(tree.state==tree.State.DEPLETED and Stacks.total(scene.ground_resources)==3,"Normal AI-selected tree yields exactly three LOG")
+		check(scene.ground_resources.drops.all(func(drop): return drop.resource_type==Resources.Type.LOG and drop.amount>0 and drop.amount<=drop.capacity),"Physical LOG stack representation")
 	scene.free()
 	lines.clear()
 	scene = world()

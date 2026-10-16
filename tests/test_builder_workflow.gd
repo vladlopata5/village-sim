@@ -1,4 +1,5 @@
 extends SceneTree
+const Stacks=preload("res://tests/ground_stack_fixture.gd")
 const Setup = preload("res://tests/behavior_test_setup.gd")
 const Definition = preload("res://scripts/building_definition.gd")
 const Instance = preload("res://scripts/building_instance.gd")
@@ -103,7 +104,7 @@ func _run() -> void:
 	var drop_position: Vector2 = second.view.global_position
 	second.commands.move_to(Vector2(100, 0))
 	check(scene.warehouse_data.resources.get_amount(PLANK) == 34 and second.data.inventory.amount == 0 and site.get_construction_reserved_in(PLANK) == 0 and site.active_builder_ids.is_empty(), "PlayerCommand after pickup keeps source consumed, releases inbound/slot")
-	check(scene.ground_resources.drops.size() == 1 and scene.ground_resources.drops[0].resource_type == PLANK and scene.ground_resources.drops[0].world_position == drop_position, "Carried PLANK drops physically at interruption position")
+	check(Stacks.total(scene.ground_resources) == 1 and scene.ground_resources.drops[0].resource_type == PLANK and scene.ground_resources.drops[0].world_position == drop_position, "Carried PLANK drops physically at interruption position")
 	check(scene.logistics.jobs.all(func(job): return job.resource_type == FOOD), "Builder transport creates no Porter HaulJob")
 	scene.free()
 
@@ -115,7 +116,7 @@ func _run() -> void:
 		if after_pickup: arrive(actor)
 		actor.data.fatigue = 100
 		check(actor.builder.phase == Builder.Phase.NONE and site.active_builder_ids.is_empty() and site.get_construction_reserved_in(PLANK) == 0 and scene.warehouse_data.resources.get_reserved_out(PLANK) == 0, "Critical fatigue cleans reservations and slot in either transport phase")
-		check(scene.ground_resources.drops.size() == (1 if after_pickup else 0), "Critical fatigue drops only physically picked-up cargo")
+		check(Stacks.total(scene.ground_resources) == (1 if after_pickup else 0), "Critical fatigue drops only physically picked-up cargo")
 		scene.free()
 
 	scene = scenario()
@@ -177,7 +178,7 @@ func _run() -> void:
 			scene.warehouse_data.resources.try_take(PLANK, 34)
 			arrive(actor)
 		check(actor.builder.phase == Builder.Phase.NONE and site.active_builder_ids.is_empty() and site.get_construction_reserved_in(PLANK) == 0, "Missing site or exhausted source ends task and releases ownership")
-		check(scene.ground_resources.drops.size() == (1 if lost_target else 0), "Missing site drops picked-up cargo; valid final delivery does not")
+		check(Stacks.total(scene.ground_resources) == (1 if lost_target else 0), "Missing site drops picked-up cargo; valid final delivery does not")
 		scene.free()
 
 	# Critical hunger is the existing forced eat bypass, not a builder hierarchy.
@@ -188,7 +189,7 @@ func _run() -> void:
 	arrive(actor)
 	scene.kitchen_data.resources.add(FOOD, 1)
 	actor.data.hunger = 100
-	check(actor.intents.current_intent.reason_id == &"eat" and actor.builder.phase == Builder.Phase.NONE and scene.ground_resources.drops.size() == 1, "Critical hunger uses ordinary forced cleanup and drops PLANK")
+	check(actor.intents.current_intent.reason_id == &"eat" and actor.builder.phase == Builder.Phase.NONE and Stacks.total(scene.ground_resources) == 1, "Critical hunger uses ordinary forced cleanup and drops PLANK")
 	scene.free()
 
 	# Full unassisted pipeline, ten physical trips and three normal work selections.

@@ -275,11 +275,9 @@ func _on_haul_cancelled(resident_id: String, runtime: ResidentRuntime) -> void:
 	if resident_id == runtime.data.id and is_instance_valid(runtime.decision):
 		runtime.decision.call_deferred("request_decision", "job_cancelled")
 
-func _drop_cargo(resource: ResourceType.Type, amount: int, runtime: ResidentRuntime) -> int:
-	if amount!=1 or resource not in ResourceType.Type.values() or not is_instance_valid(runtime) or not is_instance_valid(runtime.view): return DropResult.Status.FAILED
-	var point: Vector2=runtime.view.get_sim_position()
-	if not point.is_finite(): return DropResult.Status.FAILED
-	return DropResult.Status.PLACED if ground_resources.create_drop(resource,amount,point)!=null else DropResult.Status.FAILED
+func _drop_cargo(_resource: ResourceType.Type, _amount: int, _runtime: ResidentRuntime) -> int:
+	# The canonical presentation supplies geometry-aware placement.
+	return DropResult.Status.FAILED
 
 func _ground_position(drop: RefCounted) -> Vector2: return drop.world_position
 

@@ -1,4 +1,5 @@
 extends SceneTree
+const Stacks=preload("res://tests/ground_stack_fixture.gd")
 const Fixture = preload("res://tests/settlement_3d_fixture.gd")
 const Step = preload("res://tests/handling_test_step.gd")
 const C = preload("res://scripts/world_3d/world_coordinates.gd")
@@ -54,7 +55,7 @@ func run() -> void:
 	var actor = world.resident_runtimes[1]
 	world.player_control.assign_profession(actor.data.id,P.BUILDER)
 	actor.view.global_position=Vector3(-30,0,25)
-	var loose = world.ground_resources.create_drop(R.PLANK,1,C.to_sim(Vector3(-10,0,25)))
+	var loose = Stacks.create(world.ground_resources,R.PLANK,1,C.to_sim(Vector3(-10,0,25)))
 	check(not actor.builder.has_work(),"Builder excludes ground beyond both radii")
 	var searches: int = actor.builder.source_search_count
 	for repeat in range(10): check(not actor.builder.has_work(),"Unchanged negative remains negative")
@@ -67,9 +68,11 @@ func run() -> void:
 	check(actor.builder.has_work(),"Resident movement discovers previously distant resource")
 	actor.view.global_position=Vector3(-30,0,25)
 	check(not actor.builder.has_work(),"Moving away excludes resource from new search")
-	loose.world_position=C.to_sim(Vector3(-28,0,25))
+	world.ground_resources.remove_drop(loose)
+	loose=Stacks.create(world.ground_resources,R.PLANK,1,C.to_sim(Vector3(-28,0,25)))
 	check(actor.builder.has_work(),"Moved resource invalidates negative without stock change")
-	loose.world_position=C.to_sim(Vector3(-10,0,25))
+	world.ground_resources.remove_drop(loose)
+	loose=Stacks.create(world.ground_resources,R.PLANK,1,C.to_sim(Vector3(-10,0,25)))
 	actor.view.global_position=Vector3(-12,0,25)
 	check(actor.builder.request_work(),"Local ground becomes a real Builder claim")
 	actor.view.global_position=Vector3(-30,0,25)
@@ -86,7 +89,7 @@ func run() -> void:
 	world.player_control.assign_profession(actor.data.id,P.BUILDER)
 	site.definition.ground_search_radius=0
 	actor.view.global_position=Vector3(-12,0,25)
-	loose=world.ground_resources.create_drop(R.PLANK,1,C.to_sim(Vector3(-10,0,25)))
+	loose=Stacks.create(world.ground_resources,R.PLANK,1,C.to_sim(Vector3(-10,0,25)))
 	var move_during_claim := func():
 		if not loose.reservation_owner_id.is_empty(): actor.view.global_position=Vector3(-30,0,25)
 	loose.availability_changed.connect(move_during_claim)
@@ -107,7 +110,7 @@ func run() -> void:
 	world=fixture(); actor=world.resident_runtimes[0]
 	world.player_control.assign_workplace(actor.data.id,world.warehouse_data.id,P.PORTER)
 	actor.view.global_position=Vector3(35,0,25)
-	loose=world.ground_resources.create_drop(R.LOG,1,C.to_sim(Vector3(20,0,25)))
+	loose=Stacks.create(world.ground_resources,R.LOG,1,C.to_sim(Vector3(20,0,25)))
 	check(not world.logistics.collect_candidates(actor.data.id).any(func(row): return row.source_ref.id==loose.id),"Porter excludes distant ground even with a global own container")
 	actor.view.global_position=Vector3(19,0,25)
 	check(world.logistics.collect_candidates(actor.data.id).any(func(row): return row.source_ref.id==loose.id),"Porter resident circle adds new cleanup candidate")
@@ -122,7 +125,7 @@ func run() -> void:
 	# Food admission follows the actual resident, not their far workplace or home.
 	world=fixture(); actor=world.resident_runtimes[1]
 	actor.data.hunger=80; actor.view.global_position=Vector3(25,0,25)
-	loose=world.ground_resources.create_drop(R.FOOD,1,C.to_sim(Vector3(12,0,25)))
+	loose=Stacks.create(world.ground_resources,R.FOOD,1,C.to_sim(Vector3(12,0,25)))
 	check(not actor.needs.has_food_action(),"Food on ground beyond resident circle is excluded")
 	searches=actor.needs.food_probe_count
 	check(not actor.needs.has_food_action() and actor.needs.food_probe_count==searches,"Unchanged negative food query is cached")
@@ -139,7 +142,7 @@ func run() -> void:
 		var workplace = place(world,row[0],row[3])
 		check(world.player_control.assign_workplace(actor.data.id,workplace.id),"Natural worker gets real workplace")
 		actor.view.global_position=Vector3(0,0,25)
-		loose=world.ground_resources.create_drop(row[2],1,C.to_sim(Vector3(1,0,25)))
+		loose=Stacks.create(world.ground_resources,row[2],1,C.to_sim(Vector3(1,0,25)))
 		var controller = actor.get_node(row[1])
 		check(not controller._context().area.contains(loose.world_position),"Fixture source outside unchanged extraction area")
 		check(controller.best_task().get("kind")==&"COLLECT" and controller.has_work(),"Resident circle OR extraction WorkArea allows loose collection")

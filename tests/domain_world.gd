@@ -55,3 +55,9 @@ func cancel_construction(id: StringName) -> bool:
 	world_locations._locations.erase(id)
 	if view!=null: view.queue_free()
 	return true
+
+# This isolated fixture has domain actors and no world geometry/cell mode.
+# Canonical placement is covered by test_ground_stacks_world, not this adapter.
+func _drop_cargo(resource: ResourceType.Type, amount: int, runtime: ResidentRuntime) -> int:
+	if amount!=1 or not is_instance_valid(runtime): return DropResult.Status.FAILED
+	return DropResult.Status.PLACED if ground_resources.create_drop(resource,amount,runtime.view.get_sim_position())!=null else DropResult.Status.FAILED

@@ -1,4 +1,5 @@
 extends SceneTree
+const Stacks=preload("res://tests/ground_stack_fixture.gd")
 const P = preload("res://scripts/resident_profession.gd").Type
 const R = preload("res://scripts/resource_type.gd").Type
 const C = preload("res://scripts/world_3d/world_coordinates.gd")
@@ -36,7 +37,7 @@ func fixture() -> void:
 	hut=preload("res://tests/forestry_fixture.gd").hut(world)
 	world.player_control.assign_workplace(actor.data.id,hut.id)
 func drop_at(point: Vector3 = Vector3(-24,0,-4)) -> RefCounted:
-	return world.ground_resources.create_drop(R.LOG,1,C.to_sim(point))
+	return Stacks.create(world.ground_resources,R.LOG,1,C.to_sim(point))
 func start() -> RefCounted:
 	actor.decision._deciding=false
 	actor.decision.request_decision("forestry_internal_test")
@@ -62,7 +63,7 @@ func run() -> void:
 	var close = drop_at()
 	var occupied = drop_at(Vector3(-23,0,-4))
 	occupied.reserve(&"competitor")
-	world.ground_resources.create_drop(R.STONE,1,close.world_position)
+	Stacks.create(world.ground_resources,R.STONE,1,close.world_position+Vector2(0,12.5)) # Different type requires a different cell.
 	var area = worker._context().area
 	var expected: Array = world.logistics.sources.find(R.LOG,actor.view.get_sim_position(),world.world_locations.get_position(hut.id),hut.id,hut,area).filter(func(ref): return ref.kind==Source.Kind.GROUND and area.contains(world.logistics.sources.point(ref)))
 	check(worker.has_work() and worker._available_task.kind==&"COLLECT","COLLECT before CHOP")
@@ -135,8 +136,10 @@ func run() -> void:
 	var expiring = drop_at()
 	job=await start()
 	world.ground_resources._on_minute(expiring.created_at+expiring.lifetime)
+	check(expiring.reserved_amount(job.id)==1 and expiring.amount==1,"Expiry keeps an owned forestry unit")
+	world.ground_resources.remove_drop(expiring)
 	world.logistics.recalculate()
-	check(job.state==Job.State.CANCELLED and hut.resources.get_reserved_in(R.LOG)==0 and expiring.reservation_owner_id.is_empty(),"Expiry before pickup cleans promises")
+	check(job.state==Job.State.CANCELLED and hut.resources.get_reserved_in(R.LOG)==0 and expiring.reservation_owner_id.is_empty(),"Explicit removal before pickup cleans promises")
 	world.free()
 	fixture()
 	drop_at()

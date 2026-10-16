@@ -1,4 +1,5 @@
 extends SceneTree
+const Stacks=preload("res://tests/ground_stack_fixture.gd")
 const ResidentView = preload("res://scripts/world_3d/resident_view_3d.gd")
 const Def = preload("res://scripts/building_definition.gd")
 const Types = preload("res://scripts/building_type.gd").Type
@@ -173,13 +174,13 @@ func run() -> void:
 	world.building_uses.release(center.id,held_courier,"transient_courier")
 	held_courier=world.building_uses.acquire(kitchen.id,1,"transient_courier",Vector3.ZERO)
 	var stock_before: int=center.resources.get_amount(Resources.FOOD)
-	var drops_before: int=world.ground_resources.drops.size()
+	var drops_before: int=Stacks.total(world.ground_resources)
 	job=world.logistics.claim_transport(courier.data.id,Source.new(Source.Kind.CONTAINER,center.id),kitchen,Resources.FOOD,func(): return true)
 	world.logistics.start_claimed_job(job,courier.data.id)
 	walk(courier)
 	check(courier.view._waiting and courier.data.inventory.amount==1,"After-pickup courier waits while physically carrying resource")
 	reset(courier)
-	check(world.ground_resources.drops.size()==drops_before+1 and courier.data.inventory.amount==0 and center.resources.get_amount(Resources.FOOD)==stock_before-1 and kitchen.resources.get_reserved_in(Resources.FOOD)==0,"After-pickup waiting interrupt drops resource without restoring source")
+	check(Stacks.total(world.ground_resources)==drops_before+1 and courier.data.inventory.amount==0 and center.resources.get_amount(Resources.FOOD)==stock_before-1 and kitchen.resources.get_reserved_in(Resources.FOOD)==0,"After-pickup waiting interrupt drops resource without restoring source")
 	world.building_uses.release(kitchen.id,held_courier,"transient_courier")
 	# Visitors acquire on arrival; fifth meal cancels without consuming FOOD.
 	kitchen.resources.add(Resources.FOOD,10)

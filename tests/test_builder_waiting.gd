@@ -1,4 +1,5 @@
 extends SceneTree
+const Stacks=preload("res://tests/ground_stack_fixture.gd")
 ## Isolated domain controllers/reserves; controlled movement isolates waiting boundaries.
 const Builder = preload("res://scripts/resident_builder_controller.gd")
 const Definition = preload("res://scripts/building_definition.gd")
@@ -123,7 +124,7 @@ func _run() -> void:
 		await process_frame
 		check(actor.builder.site == a and actor.builder.phase == Builder.Phase.GOING_TO_SOURCE, "Actual carrier cancellation wakes A waiter into fetch")
 		check(a.get_construction_reserved_in(Resources.PLANK) == 1 and scene.warehouse_data.resources.get_reserved_out(Resources.PLANK) == 1, "Cleanup and resumed fetch leave exactly one current reservation")
-		check(scene.ground_resources.drops.size() == (1 if after_pickup else 0), "Carrier cleanup preserves physical before/after pickup semantics")
+		check(Stacks.total(scene.ground_resources) == (1 if after_pickup else 0), "Carrier cleanup preserves physical before/after pickup semantics")
 		scene.free()
 
 	# Reservation loss resumes the same fetch flow, or releases impossible commitment.
