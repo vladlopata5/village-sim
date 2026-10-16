@@ -11,6 +11,20 @@ class CountedLocations extends Locations:
 	func resolve(tree: RefCounted,origin: Vector2) -> Variant:
 		queried.append(tree.id)
 		return super.resolve(tree,origin)
+class PlantArea extends "res://scripts/world_3d/forestry_area_3d.gd":
+	var probes := 0
+	var searches := 0
+	func spot_valid(building: RefCounted, position: Vector2, worker_id: String = "") -> bool:
+		probes += 1
+		return super.spot_valid(building,position,worker_id)
+	func planting_target(building: RefCounted, origin: Vector2) -> Dictionary:
+		searches += 1
+		return super.planting_target(building,origin)
+class RejectFirstLocations extends Locations:
+	var positions: Array[Vector2] = []
+	func resolve(source: RefCounted, origin: Vector2) -> Variant:
+		positions.append(source.position)
+		return null if positions.size()==1 else super.resolve(source,origin)
 func check(ok: bool,message: String) -> void:
 	checks += 1
 	if not ok:
@@ -149,5 +163,102 @@ func run() -> void:
 	scene.game_time.total_minutes=420
 	check(not worker.has_work() and not worker.request_work(),"No trees/plant/export returns unavailable without forced action")
 	scene.free()
+	await planting_checks()
 	print("Forestry selection: %d checks, %d failures"%[checks,failures])
 	quit(1 if failures else 0)
+
+func planting_checks() -> void:
+	var scene = load("res://scenes/main_3d.tscn").instantiate()
+	root.add_child(scene)
+	scene.game_time.set_process(false)
+	scene.game_logger.console_enabled=false
+	for resident in scene.resident_runtimes:
+		resident.decision._deciding=true
+		resident.intents.abort_current(resident.intents.current_intent)
+		resident.view.set_physics_process(false)
+	await physics_frame
+	scene.game_time.total_minutes=420
+	Fixture.clear_drops(scene)
+	var building = Fixture.hut(scene)
+	building.definition.target_tree_count=30
+	var actor = scene.resident_runtimes[3]
+	actor.view.global_position=Vector3(-28,0,-8)
+	check(scene.player_control.assign_workplace(actor.data.id,building.id),"Plant fixture uses normal assignment")
+	var worker = actor.get_node("Lumberjack")
+	worker.trees=[]
+	var area = PlantArea.new()
+	area.setup(scene)
+	scene.forestry_area=area
+	var first: Dictionary = area.planting_target(building,actor.view.get_sim_position())
+	check(not first.is_empty() and area.probes<112,"Lazy PLANT stops before the full sample pass")
+	var reject = RejectFirstLocations.new()
+	reject.navigation=scene.navigation
+	var normal_locations = scene.tree_locations
+	scene.tree_locations=reject
+	var next: Dictionary = area.planting_target(building,actor.view.get_sim_position())
+	check(not next.is_empty() and reject.positions.size()>1 and next.spot!=reject.positions[0],"A refused approach is skipped, not reported as no work")
+	scene.tree_locations=normal_locations
+	# A real disconnected pocket: the seed spot is clear, its approach ring is unreachable.
+	var center := C.world_plane(C.to_world(first.spot))
+	scene.navigation.add_blocker(&"plant_north",Rect2(center+Vector2(-3,-3),Vector2(6,0.5)))
+	scene.navigation.add_blocker(&"plant_south",Rect2(center+Vector2(-3,2.5),Vector2(6,0.5)))
+	scene.navigation.add_blocker(&"plant_west",Rect2(center+Vector2(-3,-3),Vector2(0.5,6)))
+	scene.navigation.add_blocker(&"plant_east",Rect2(center+Vector2(2.5,-3),Vector2(0.5,6)))
+	var isolated = TreeData.new(&"isolated_plant",first.spot)
+	isolated.physical_radius=preload("res://scripts/balance_config.gd").SAPLING_PHYSICAL_RADIUS
+	check(area.spot_valid(building,first.spot) and normal_locations.resolve(isolated,actor.view.get_sim_position())==null,"Real navigation rejects the clear but disconnected planting approach")
+	next=area.planting_target(building,actor.view.get_sim_position())
+	check(not next.is_empty() and next.spot!=first.spot,"PLANT continues after a real unreachable sample")
+	for blocker_id in [&"plant_north",&"plant_south",&"plant_west",&"plant_east"]: scene.navigation.remove_blocker(blocker_id)
+	scene.runtime_placement_blockers.register_circle(&"all_plant_samples",func():return Vector3(-20,0,-8),40.0)
+	area.probes=0
+	check(area.planting_target(building,actor.view.get_sim_position()).is_empty() and area.probes==112,"All blocked samples terminate after exactly 112 checks")
+	scene.runtime_placement_blockers.unregister(&"all_plant_samples")
+	area.searches=0
+	check(worker.has_work() and worker.request_work() and worker.kind==&"PLANT" and area.searches==1,"PLANT availability offer avoids the second full search")
+	var spot: Vector2 = area.claims[actor.data.id]
+	check(not area.claim("competitor",building,spot),"Two owners cannot claim one planting place")
+	worker.abort(false)
+	check(area.claims.is_empty(),"Aborting an offered plant releases its claim")
+	check(worker.has_work(),"Plant offer before competing claim")
+	spot=worker._available_task.spot
+	check(area.claim("competitor",building,spot),"Competitor claims the unowned offer first")
+	check(worker.request_work() and area.claims[actor.data.id]!=spot,"Stale offer falls back after another owner claims its spot")
+	worker.abort(false)
+	area.release("competitor")
+	check(worker.has_work(),"Plant offer before a moving blocker")
+	spot=worker._available_task.spot
+	var moving := {"position":Vector3(50,0,30)}
+	scene.runtime_placement_blockers.register_circle(&"moving_plant_blocker",func():return moving.position,0.5)
+	moving.position=C.to_world(spot)
+	check(worker.request_work() and area.claims[actor.data.id]!=spot,"Live blocker without navigation revision invalidates a plant offer")
+	worker.abort(false)
+	scene.runtime_placement_blockers.unregister(&"moving_plant_blocker")
+	check(worker.has_work(),"Plant offer before navigation edit")
+	var searches_before: int=area.searches
+	scene.navigation.add_blocker(&"offer_revision",Rect2(40,20,1,1))
+	check(worker.request_work() and area.searches==searches_before+1,"Navigation revision discards the one-use offer")
+	worker.abort(false)
+	scene.navigation.remove_blocker(&"offer_revision")
+	check(worker.has_work(),"Plant offer before new CHOP task")
+	var priority_tree = TreeData.new(&"new_priority_tree",C.to_sim(Vector3(-27,0,-5)))
+	worker.trees=[priority_tree]
+	check(worker.request_work() and worker.kind==&"CHOP" and worker.tree==priority_tree,"New reachable CHOP takes priority over a saved PLANT")
+	worker.abort(false)
+	worker.trees=[]
+	check(worker.has_work(),"Plant offer before a new loose LOG")
+	var logs := preload("res://scripts/resource_type.gd").Type.LOG
+	scene.ground_resources.create_drop(logs,1,C.to_sim(Vector3(-27,0,-8)))
+	check(worker.request_work() and scene.logistics.get_job(actor.data.id)!=null,"New COLLECT takes priority over a saved PLANT")
+	scene.logistics._executors[actor.data.id].cancel("test cleanup")
+	Fixture.clear_drops(scene)
+	check(worker.has_work(),"Plant offer before assignment removal")
+	scene.player_control.assign_profession(actor.data.id,P.Type.NONE)
+	check(not worker.request_work() and area.claims.is_empty(),"Assignment removal cannot claim an old offer")
+	check(scene.player_control.assign_workplace(actor.data.id,building.id) and worker.request_work() and worker.kind==&"PLANT","Assignment cleanup fixture owns an active planting claim")
+	scene.player_control.assign_profession(actor.data.id,P.Type.NONE)
+	check(area.claims.has(actor.data.id),"Reassignment preserves the already committed operation until normal completion")
+	walk(actor)
+	scene.game_time.debug_skip_minutes(preload("res://scripts/balance_config.gd").TREE_PLANTING_MINUTES)
+	check(area.claims.is_empty() and worker.kind.is_empty(),"Completion after reassignment releases the committed planting claim")
+	scene.free()

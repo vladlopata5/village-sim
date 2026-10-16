@@ -115,7 +115,7 @@ func has_work() -> bool:
 	_available_task = {}
 	if clock.get_phase()!="День": return false
 	var candidate := best_task()
-	if candidate.get("kind") in [&"CHOP",&"COLLECT"]:
+	if candidate.get("kind") in [&"CHOP",&"COLLECT",&"PLANT"]:
 		_available_task = candidate
 		_availability_frame = Engine.get_process_frames()
 		_availability_minute = clock.total_minutes
@@ -135,6 +135,18 @@ func _take_available_task() -> Dictionary:
 	if candidate.kind==&"COLLECT":
 		if context.mode!=Context.Mode.BUILDING or context_room(context)<1 or not world.logistics.sources.available(candidate.reference,Resources.Type.LOG): return {}
 		return candidate if world.logistics.sources.ground_allowed(candidate.reference,runtime.view.get_sim_position(),context.hut,context.area) else {}
+	if candidate.kind==&"PLANT":
+		if context.mode!=Context.Mode.BUILDING or world.forestry_area.tree_count(context.hut)>=context.hut.definition.target_tree_count: return {}
+		# Trees/claims and moving blockers have no common revision. Check live state.
+		if context_room(context)>=1:
+			var origin: Vector2 = runtime.view.get_sim_position()
+			var home: Vector2 = world.world_locations.get_position(context.hut.id)
+			if not world.logistics.sources.find_ground_in_area(Resources.Type.LOG,context.area,origin,home,context.hut).is_empty(): return {}
+		if not best_target().is_empty() or not world.forestry_area.spot_valid(context.hut,candidate.spot): return {}
+		var temporary = TreeData.new(&"planting_candidate",candidate.spot)
+		temporary.physical_radius = Balance.SAPLING_PHYSICAL_RADIUS
+		if not locations.in_range(temporary,candidate.point) or not _path(runtime.view.get_sim_position(),candidate.point): return {}
+		return candidate
 	if not _eligible_tree(candidate.tree,context) or not locations.is_available(candidate.point) or not locations.in_range(candidate.tree,candidate.point): return {}
 	return candidate
 func context_room(context: RefCounted) -> int:

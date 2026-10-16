@@ -25,19 +25,16 @@ func spot_valid(hut: RefCounted, position: Vector2, worker_id: String = "") -> b
 	return world.runtime_placement_blockers.first_overlap(rect).is_empty()
 func planting_target(hut: RefCounted, from_position: Vector2) -> Dictionary:
 	var world: Node = _world.get_ref()
-	var samples: Array[Vector2] = []
-	# Deterministic samples, ordered by travel proximity before bounded access queries.
+	# First valid, reachable sample in the existing deterministic ring order.
 	for ring in range(1,8):
 		for index in range(16):
 			var offset := Vector2.from_angle(index*TAU/16.0)*(ring*Balance.TREE_MINIMUM_SPACING)
 			var position: Vector2 = hut.position+offset*Coordinates.SIM_UNITS_PER_WORLD_UNIT
-			if spot_valid(hut,position): samples.append(position)
-	samples.sort_custom(func(a,b): return a.distance_squared_to(from_position) < b.distance_squared_to(from_position))
-	for position in samples:
-		var temporary = TreeData.new(&"planting_candidate",position)
-		temporary.physical_radius = Balance.SAPLING_PHYSICAL_RADIUS
-		var access: Variant = world.tree_locations.resolve(temporary,from_position)
-		if access is Vector2: return {"kind":&"PLANT","point":access,"spot":position}
+			if not spot_valid(hut,position): continue
+			var temporary = TreeData.new(&"planting_candidate",position)
+			temporary.physical_radius = Balance.SAPLING_PHYSICAL_RADIUS
+			var access: Variant = world.tree_locations.resolve(temporary,from_position)
+			if access is Vector2: return {"kind":&"PLANT","point":access,"spot":position}
 	return {}
 func claim(worker_id: String, hut: RefCounted, position: Vector2) -> bool:
 	if claims.has(worker_id) or not spot_valid(hut,position): return false
