@@ -287,8 +287,11 @@ func cancel_construction(id: StringName) -> bool:
 	navigation.remove_blocker(id)
 	game_logger.info(GameLogger.BUILDING, "стройка отменена — %s" % id)
 	return true
-func _drop_cargo(resource: ResourceType.Type, amount: int, runtime: ResidentRuntime) -> void:
-	ground_resources.create_drop(resource, amount, runtime.view.get_drop_sim_position())
+func _drop_cargo(resource: ResourceType.Type, amount: int, runtime: ResidentRuntime) -> int:
+	if amount!=1 or resource not in ResourceType.Type.values() or not is_instance_valid(runtime) or not is_instance_valid(runtime.view): return DropResult.Status.FAILED
+	var point: Vector2=runtime.view.get_drop_sim_position()
+	if not point.is_finite(): return DropResult.Status.FAILED
+	return DropResult.Status.PLACED if ground_resources.create_drop(resource,amount,point)!=null else DropResult.Status.FAILED
 func _on_movement_failed(intent: RefCounted, data: ResidentData) -> void:
 	var runtime = get_resident_runtime(data)
 	if runtime == null or runtime.intents.current_intent != intent: return

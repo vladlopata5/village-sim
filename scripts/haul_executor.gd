@@ -1,4 +1,7 @@
 extends RefCounted
+const ResourceType = preload("res://scripts/resource_type.gd")
+const DropResult = preload("res://scripts/cargo_drop_result.gd")
+var last_drop_result: int = DropResult.Status.FAILED
 const Purpose = preload("res://scripts/building_slot_purpose.gd").Type
 ## Physical execution of one already-claimed delivery for one resident.
 const Job = preload("res://scripts/haul_job.gd")
@@ -95,6 +98,7 @@ func _on_forced_interrupt(_previous: Intent) -> void:
 		cancel("forced interrupt")
 
 func _on_arrival(intent: Intent) -> void:
+	if _mutating or _exiting: return
 	if intent != _haul_intent or job == null or handling.is_active() or not validate_job(): return
 	var loading := job.state == Job.State.GOING_TO_SOURCE
 	intent.interruptible = false
@@ -111,6 +115,7 @@ func _on_minute(now: int) -> void:
 		arrived.resource_handling = &""
 
 func _complete_arrival(intent: Intent) -> void:
+	if _mutating or _exiting: return
 	if intent != _haul_intent or job == null or not validate_job(): return
 	if job.state == Job.State.GOING_TO_SOURCE:
 		_pickup(intent)
@@ -123,10 +128,9 @@ func _pickup(intent: Intent) -> void:
 		return
 	intent.interruptible = false
 	_mutating = true
-	var taken: bool = service.sources.pickup(job.source_ref,job.resource_type,job.id)
+	var taken: bool = resident.inventory.receive(job.resource_type,job.amount,service.sources.pickup.bind(job.source_ref,job.resource_type,job.id))
 	if taken:
 		_source_reserved = false
-		resident.inventory.put(job.resource_type, job.amount)
 		job.state = Job.State.CARRYING
 		resident.activity = Activity.Type.HAULING
 	_mutating = false
@@ -148,10 +152,8 @@ func _deliver(intent: Intent) -> void:
 		cancel("доставка невозможна")
 		return
 	_mutating = true
-	resident.inventory.clear()
-	var delivered: bool = service.deliver_inbound(job)
+	var delivered: bool = resident.inventory.deliver(job.resource_type,job.amount,service.deliver_inbound.bind(job))
 	if delivered: _destination_reserved = false
-	else: resident.inventory.put(job.resource_type, job.amount)
 	_mutating = false
 	if not delivered:
 		_interrupt_pending = false
@@ -182,17 +184,24 @@ func cancel(reason: String) -> bool:
 	cancelled.state = Job.State.CANCELLED
 	job = null
 	_haul_intent = null
-	if _source_reserved: service.sources.release(cancelled.source_ref,cancelled.resource_type,cancelled.id)
-	if _destination_reserved: service.release_inbound(cancelled)
-	_source_reserved = false
-	_destination_reserved = false
-	var amount: int = resident.inventory.amount
-	var resource = resident.inventory.resource_type
-	resident.inventory.clear()
-	if amount > 0: service.drop_cargo(resource, amount, resident.id)
+	if resident.inventory.amount>0:
+		last_drop_result=resident.inventory.drop_cargo(_drop_cancelled_cargo.bind(cancelled))
+	_release_cancelled_reservations(cancelled)
 	if old != null and intents.current_intent == old: intents.cancel_current(old)
 	if service.logger != null: service.logger.info(EventLog.LOGISTICS, "%s: HaulJob %s отменён — %s" % [resident.resident_name, cancelled.id, reason])
 	service.finish_job(cancelled)
 	_exiting = false
 	service.job_cancelled.emit(resident.id)
 	return true
+
+func _release_cancelled_reservations(cancelled: Job) -> void:
+	if _source_reserved:
+		_source_reserved=false
+		service.sources.release(cancelled.source_ref,cancelled.resource_type,cancelled.id)
+	if _destination_reserved:
+		_destination_reserved=false
+		service.release_inbound(cancelled)
+func _drop_cancelled_cargo(resource: ResourceType.Type, amount: int, cancelled: Job) -> int:
+	# Reservation callbacks run while Inventory is guarded too.
+	_release_cancelled_reservations(cancelled)
+	return service.drop_cargo(resource,amount,resident.id)

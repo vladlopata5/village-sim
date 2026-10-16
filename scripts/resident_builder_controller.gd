@@ -1,4 +1,7 @@
 extends Node
+const DropResult = preload("res://scripts/cargo_drop_result.gd")
+var cargo_drop_handler: Callable
+var last_drop_result: int = DropResult.Status.FAILED
 const Purpose = preload("res://scripts/building_slot_purpose.gd").Type
 ## Resident-owned construction workflow. Site score selects a task only after WORK wins.
 const Instance = preload("res://scripts/building_instance.gd")
@@ -322,6 +325,7 @@ func _set_task_intent(next: Intent) -> bool:
 	return accepted
 
 func _on_arrival(intent: Intent) -> void:
+	if _mutating or _exiting: return
 	if intent != _intent or handling.is_active(): return
 	if phase in [Phase.GOING_TO_SOURCE,Phase.CARRYING_TO_SITE]:
 		if not _valid_site():
@@ -335,6 +339,7 @@ func _on_arrival(intent: Intent) -> void:
 	_complete_arrival(intent)
 
 func _complete_arrival(intent: Intent) -> void:
+	if _mutating or _exiting: return
 	if intent != _intent: return
 	if not _valid_site():
 		abort("стройка недоступна при прибытии")
@@ -344,10 +349,9 @@ func _complete_arrival(intent: Intent) -> void:
 			abort("источник недоступен")
 			return
 		_mutating = true
-		var taken: bool = sources.pickup(source_ref,_resource,_source_owner())
+		var taken: bool = _data.inventory.receive(_resource,1,sources.pickup.bind(source_ref,_resource,_source_owner()))
 		if taken:
 			_source_reserved = false
-			_data.inventory.put(_resource, 1)
 		_mutating = false
 		if _interrupt_pending:
 			_interrupt_pending = false
@@ -363,10 +367,8 @@ func _complete_arrival(intent: Intent) -> void:
 		_move(&"builder_delivery", _locations.get_position(site.id),prepared)
 	elif phase == Phase.CARRYING_TO_SITE:
 		_mutating = true
-		_data.inventory.clear()
-		var delivered: bool = site.deliver_reserved_construction_material(_resource, 1)
+		var delivered: bool = _data.inventory.deliver(_resource,1,site.deliver_reserved_construction_material.bind(_resource,1))
 		if delivered: _site_reserved = false
-		else: _data.inventory.put(_resource, 1)
 		_mutating = false
 		if _interrupt_pending:
 			_interrupt_pending = false
@@ -445,6 +447,7 @@ func _flush_work() -> void:
 		logger.info(EventLog.BUILDING,"%s: %s (%d мин уже начислено)" % [_data.resident_name,message,work_minutes])
 
 func _cleanup(reason: String) -> Intent:
+	if _exiting: return null
 	_trip_offer = {}
 	_work_offer = null
 	_offer_site = null
@@ -457,15 +460,12 @@ func _cleanup(reason: String) -> Intent:
 	if old!=null: old.resource_handling=&""
 	_intent = null
 	_flush_work()
-	if _source_reserved: sources.release(source_ref,_resource,_source_owner())
-	if _site_reserved and site != null: site.release_construction_material(_resource, 1)
-	_source_reserved = false
-	_site_reserved = false
-	if _data.inventory.amount > 0:
-		var amount: int = _data.inventory.amount
-		var resource: ResourceType.Type = _data.inventory.resource_type
-		_data.inventory.clear()
-		cargo_dropped.emit(resource, amount)
+	if _data.inventory.amount>0:
+		var resource: ResourceType.Type=_data.inventory.resource_type
+		var quantity: int=_data.inventory.amount
+		last_drop_result=_data.inventory.drop_cargo(_drop_cleanup_cargo)
+		if last_drop_result==DropResult.Status.PLACED: cargo_dropped.emit(resource,quantity)
+	_release_material_reservations()
 	if site != null: site.release_builder_slot(_data.id)
 	site = null
 	source = null
@@ -477,12 +477,16 @@ func _cleanup(reason: String) -> Intent:
 	return old
 
 func _finish_task(reason: String, completed_work_cycle: bool = false) -> void:
+	if _exiting: return
 	var old := _cleanup(reason)
 	if completed_work_cycle: _data.add_skill_xp(Skill.Type.CONSTRUCTION, 1)
 	if old != null and _intents.current_intent == old: _intents.clear_completed(old)
 
 func abort(reason: String, request_decision: bool = true) -> void:
-	if phase == Phase.NONE and site == null: return
+	if _exiting or (phase == Phase.NONE and site == null): return
+	if _mutating:
+		_interrupt_pending=true
+		return
 	var old := _cleanup(reason)
 	if old != null and _intents.current_intent == old: _intents.cancel_current(old)
 	if request_decision: _decision.call_deferred("request_decision", "builder_aborted")
@@ -520,3 +524,16 @@ func _on_world_changed() -> void:
 
 func _exit_tree() -> void:
 	if site != null: _cleanup("удаление исполнителя")
+
+func _release_material_reservations() -> void:
+	if _source_reserved:
+		_source_reserved=false
+		sources.release(source_ref,_resource,_source_owner())
+	if _site_reserved:
+		_site_reserved=false
+		if site!=null: site.release_construction_material(_resource,1)
+func _drop_cleanup_cargo(resource: ResourceType.Type, amount: int) -> int:
+	_release_material_reservations()
+	if not cargo_drop_handler.is_valid(): return DropResult.Status.FAILED
+	var result: Variant=cargo_drop_handler.call(resource,amount)
+	return result if DropResult.completed(result) else DropResult.Status.FAILED

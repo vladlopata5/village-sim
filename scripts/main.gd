@@ -9,6 +9,7 @@ const BuildingType = preload("res://scripts/building_type.gd")
 const ResourceType = preload("res://scripts/resource_type.gd")
 const Profession = preload("res://scripts/resident_profession.gd")
 const LogisticsController = preload("res://scripts/logistics_controller.gd")
+const DropResult = preload("res://scripts/cargo_drop_result.gd")
 const GroundResources = preload("res://scripts/ground_resources.gd")
 var ground_resources = GroundResources.new()
 var food_availability = preload("res://scripts/food_availability.gd").new()
@@ -240,7 +241,7 @@ func _configure_logistics() -> void:
 	for runtime in resident_runtimes:
 		_bind_resident_logistics(runtime)
 	logistics.position_provider = _production_position_2d
-	logistics.cargo_dropped.connect(_drop_executor_cargo)
+	logistics.cargo_drop_handler = _drop_executor_cargo
 	logistics.job_cancelled.connect(_on_job_cancelled)
 	logistics.bind_world(game_time, world_locations)
 	logistics.sources.bind_ground(ground_resources)
@@ -254,9 +255,9 @@ func _on_resident_unregistered(resident_id: String) -> void:
 
 func _resource_route_available(_start: Vector2, _target: Vector2) -> bool: return true
 
-func _drop_executor_cargo(resource: ResourceType.Type, amount: int, resident_id: String) -> void:
+func _drop_executor_cargo(resource: ResourceType.Type, amount: int, resident_id: String) -> int:
 	var runtime = get_resident_runtime(find_resident(resident_id))
-	if runtime != null: _drop_cargo(resource, amount, runtime)
+	return _drop_cargo(resource,amount,runtime) if runtime!=null else DropResult.Status.FAILED
 
 func _on_job_cancelled(resident_id: String) -> void:
 	var runtime = get_resident_runtime(find_resident(resident_id))
@@ -274,8 +275,11 @@ func _on_haul_cancelled(resident_id: String, runtime: ResidentRuntime) -> void:
 	if resident_id == runtime.data.id and is_instance_valid(runtime.decision):
 		runtime.decision.call_deferred("request_decision", "job_cancelled")
 
-func _drop_cargo(resource: ResourceType.Type, amount: int, runtime: ResidentRuntime) -> void:
-	ground_resources.create_drop(resource, amount, runtime.view.get_sim_position())
+func _drop_cargo(resource: ResourceType.Type, amount: int, runtime: ResidentRuntime) -> int:
+	if amount!=1 or resource not in ResourceType.Type.values() or not is_instance_valid(runtime) or not is_instance_valid(runtime.view): return DropResult.Status.FAILED
+	var point: Vector2=runtime.view.get_sim_position()
+	if not point.is_finite(): return DropResult.Status.FAILED
+	return DropResult.Status.PLACED if ground_resources.create_drop(resource,amount,point)!=null else DropResult.Status.FAILED
 
 func _ground_position(drop: RefCounted) -> Vector2: return drop.world_position
 
@@ -377,7 +381,7 @@ func _bind_resident_social(runtime: ResidentRuntime) -> void:
 	runtime.builder.position_provider = _production_position_2d
 	runtime.needs.position_provider = _food_position_2d
 	runtime.needs.ground_position_provider = _production_position_2d
-	runtime.builder.cargo_dropped.connect(_drop_cargo.bind(runtime))
+	runtime.builder.cargo_drop_handler = _drop_cargo.bind(runtime)
 	runtime.social.world = social_world
 	runtime.assignments.bind_social_world()
 	runtime.wander.target_provider = _wander_target_2d.bind(runtime.data.id)

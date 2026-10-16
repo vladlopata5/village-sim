@@ -18,6 +18,9 @@ var _inbound: Dictionary = {} # Owned inbound reservations for committed hauls.
 const FOOD = ResourceType.Type.FOOD
 signal changed
 signal availability_changed
+const DropResult = preload("res://scripts/cargo_drop_result.gd")
+var cargo_drop_handler: Callable
+# Informational only; the handler above is the sole placement authority.
 signal cargo_dropped(resource: ResourceType.Type, amount: int, resident_id: String)
 signal job_cancelled(resident_id: String)
 signal delivered
@@ -396,8 +399,12 @@ func unbind_execution() -> void:
 	_executors.clear()
 func has_work() -> bool: return _resident != null and has_available_job(_resident.id)
 
-func drop_cargo(resource: ResourceType.Type, amount: int, resident_id: String) -> void:
-	cargo_dropped.emit(resource, amount, resident_id)
+func drop_cargo(resource: ResourceType.Type, amount: int, resident_id: String) -> int:
+	if amount!=1 or resource not in ResourceType.Type.values() or resident_id.is_empty() or not cargo_drop_handler.is_valid(): return DropResult.Status.FAILED
+	var result: Variant=cargo_drop_handler.call(resource,amount,resident_id)
+	if not DropResult.completed(result): return DropResult.Status.FAILED
+	if result==DropResult.Status.PLACED: cargo_dropped.emit(resource,amount,resident_id)
+	return result
 func notify_delivery() -> void:
 	delivered.emit()
 

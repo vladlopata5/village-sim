@@ -3232,3 +3232,36 @@ place_near использует NATURAL radius=2 либо WORKER radius=8 кле
 Повторные expiry/release/pickup не могут списать чужие резервы или отрицательный amount.
 Добыча, стройки, еда, cleanup, UI/визуальные счётчики на новое размещение не переключены.
 Измерения/проверки и план подключения: внешний resource-stacks-e1-1/REPORT.md.
+
+
+## 2026-10-16 — E1.2a: подтверждаемая передача переносимого ресурса
+
+ResidentInventory.receive/deliver/drop_cargo защищают одноединичную передачу от
+повторного put/clear/transfer во время commit и changed callbacks. Receive заранее
+проверяет свободный слот, затем вызывает существующий bool pickup; deliver очищает
+amount только после bool подтверждения получателя. HaulExecutor и Builder используют
+эти операции под прежними _mutating/_interrupt_pending guards. Прямой Builder.abort
+во время мутации также откладывает cleanup до безопасной границы.
+
+CargoDropResult.Status различает FAILED, PLACED и DISCARDED. Только два последних
+подтверждают выбытие inventory. Неверный тип/код результата, отсутствующий handler или
+некорректное состояние — FAILED; bool true не считается PLACED автоматически.
+Logistics.cargo_drop_handler и Builder.cargo_drop_handler — единственные вызываемые
+обработчики размещения. Старые cargo_dropped сигналы сохранены лишь как уведомления
+о PLACED, а не как команды создания ресурса; Main больше не размещает по этим сигналам.
+
+Cleanup освобождает свои source/inbound promises ровно один раз; при наличии груза
+release callbacks выполняются внутри защиты inventory. Повторный cancel/abort не
+повторяет сброс. При FAILED job/slot/reservations освобождаются, а реальная единица
+остаётся в существующем inventory: ошибка API не разрешает её уничтожить. Результат
+доступен как last_drop_result. Автоматического retry, нового cargo-state/dispatcher
+или долгоживущей системы переноса не добавлено; исправленная операция может быть
+вызвана явно, нормальный путь размещения при этом по-прежнему успешен.
+
+В canonical Main3D handler использует прежний create_drop в наружной позиции через
+get_drop_sim_position и возвращает PLACED/FAILED. Он никогда не выдаёт DISCARDED.
+Стопки, поиск клеток и правила core placement E1.1 не подключены и не менялись.
+В E1.2b этот handler после действительной попытки размещения по 8 клеткам сможет
+возвращать PLACED либо утверждённый DISCARDED; ошибка API останется FAILED.
+Рецепты, маршруты, приоритеты, таймеры обработки ресурсов, AI/IDLE и UI сохранены.
+Проверки и ограничения: внешний resource-stacks-e1-2a/REPORT.md.
