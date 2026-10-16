@@ -37,6 +37,12 @@ func move_to(target: Vector2, prepared: Dictionary = {}) -> void:
 	_active = null
 	movement.set_target(Coordinates.to_world(target),prepared)
 func apply_intent(intent: Intent) -> void:
+	if intent.courier_outside and is_instance_valid(_marker) and _marker.purpose == Slot.Purpose.COURIER and _building == intent.building_id:
+		movement.stop()
+		global_position = _entry_position
+		_active = intent
+		_finish_arrival()
+		return
 	if intent.type == Intent.Type.NONE:
 		_active = null
 		movement.stop()
@@ -138,7 +144,7 @@ func _enter_or_wait() -> void:
 	_marker=marker
 	_entry_position=global_position
 	# This transition can later animate/internal-navigate without changing actions.
-	if marker.purpose!=Slot.Purpose.CONSTRUCTION: global_position=marker.global_position
+	if marker.purpose!=Slot.Purpose.CONSTRUCTION and not _active.courier_outside: global_position=marker.global_position
 	_finish_arrival()
 func _slot_changed(id: StringName, purpose: int) -> void:
 	if _waiting and _active!=null and _active.building_id==id and _active.slot_purpose==purpose: call_deferred("_enter_or_wait")

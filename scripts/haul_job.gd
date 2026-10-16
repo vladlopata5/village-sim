@@ -2,6 +2,9 @@ extends RefCounted
 ## Successfully claimed delivery, owned by one resident from creation.
 const ResourceType = preload("res://scripts/resource_type.gd")
 enum State { ASSIGNED, GOING_TO_SOURCE, CARRYING, GOING_TO_DESTINATION, COMPLETED, CANCELLED }
+enum Receiver { CONTAINER, GROUND }
+var receiver_kind: Receiver = Receiver.CONTAINER
+
 enum Admission { EXTERNAL, INTERNAL, SURPLUS }
 var admission: Admission = Admission.EXTERNAL
 var workplace_location_id: StringName = &"" # Committed porter base; no auto reassignment.

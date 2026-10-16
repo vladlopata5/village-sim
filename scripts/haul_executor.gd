@@ -24,7 +24,7 @@ var job: Job:
 		if value != null:
 			destination = service._buildings.get(value.destination_location_id)
 			_source_reserved = true
-			_destination_reserved = true
+			_destination_reserved = value.receiver_kind == Job.Receiver.CONTAINER
 var _haul_intent: Intent
 var _source_reserved := false
 var _destination_reserved := false
@@ -145,12 +145,16 @@ func _pickup(intent: Intent) -> void:
 	service.changed.emit()
 	if job == null or intents.current_intent != intent: return
 	job.state = Job.State.GOING_TO_DESTINATION
-	_haul_intent = Intent.new(Intent.Type.MOVE_TO, &"haul_destination", service._point(destination), job.execution_priority, false)
+	_haul_intent = Intent.new(Intent.Type.MOVE_TO, &"haul_destination", service.sources.point(job.source_ref) if job.receiver_kind == Job.Receiver.GROUND else service._point(destination), job.execution_priority, false)
 	if locations.has_method("configure_intent"): locations.configure_intent(_haul_intent,destination.id,Purpose.COURIER,resident.id)
+	_haul_intent.courier_outside = job.receiver_kind == Job.Receiver.GROUND
 	intents.continue_intent(intent, _haul_intent)
 	service.changed.emit()
 
 func _deliver(intent: Intent) -> void:
+	if job.receiver_kind == Job.Receiver.GROUND:
+		_deliver_ground(intent)
+		return
 	if resident.inventory.amount != job.amount or destination.resources.get_reserved_in(job.resource_type) < job.amount:
 		cancel("доставка невозможна")
 		return
@@ -162,9 +166,25 @@ func _deliver(intent: Intent) -> void:
 		_interrupt_pending = false
 		cancel("доставка невозможна")
 		return
+	_finish_delivery(intent)
+
+func _deliver_ground(intent: Intent) -> void:
+	if resident.inventory.amount != job.amount or resident.inventory.resource_type != job.resource_type:
+		cancel("груз недоступен")
+		return
+	_mutating = true
+	last_drop_result = resident.inventory.drop_cargo(service.dispose_surplus.bind(job))
+	_mutating = false
+	if last_drop_result == DropResult.Status.FAILED:
+		_interrupt_pending = false
+		cancel("ошибка наземной выгрузки",false)
+		return
+	_finish_delivery(intent)
+
+func _finish_delivery(intent: Intent) -> void:
 	var completed := job
 	completed.state = Job.State.COMPLETED
-	if service.logger != null: service.logger.info(EventLog.LOGISTICS, "%s: доставил 1 %s — %s" % [resident.resident_name,preload("res://scripts/resource_type.gd").Type.keys()[job.resource_type], destination.display_name])
+	if service.logger != null: service.logger.info(EventLog.LOGISTICS, "%s: доставил 1 %s — %s" % [resident.resident_name,preload("res://scripts/resource_type.gd").Type.keys()[job.resource_type], "земля у источника" if job.receiver_kind == Job.Receiver.GROUND else destination.display_name])
 	job = null
 	_haul_intent = null
 	_interrupt_pending = false
@@ -174,7 +194,7 @@ func _deliver(intent: Intent) -> void:
 	service.notify_delivery()
 	service.changed.emit()
 
-func cancel(reason: String) -> bool:
+func cancel(reason: String, drop_inventory: bool = true) -> bool:
 	if job == null or _exiting: return false
 	if _mutating:
 		_interrupt_pending = true
@@ -187,7 +207,7 @@ func cancel(reason: String) -> bool:
 	cancelled.state = Job.State.CANCELLED
 	job = null
 	_haul_intent = null
-	if resident.inventory.amount>0:
+	if drop_inventory and resident.inventory.amount>0:
 		last_drop_result=resident.inventory.drop_cargo(_drop_cancelled_cargo.bind(cancelled))
 	_release_cancelled_reservations(cancelled)
 	if old != null and intents.current_intent == old: intents.cancel_current(old)

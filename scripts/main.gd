@@ -242,6 +242,7 @@ func _configure_logistics() -> void:
 		_bind_resident_logistics(runtime)
 	logistics.position_provider = _production_position_2d
 	logistics.cargo_drop_handler = _drop_executor_cargo
+	logistics.surplus_ground_handler = _place_worker_cargo
 	logistics.job_cancelled.connect(_on_job_cancelled)
 	logistics.bind_world(game_time, world_locations)
 	logistics.sources.bind_ground(ground_resources)
@@ -277,6 +278,9 @@ func _on_haul_cancelled(resident_id: String, runtime: ResidentRuntime) -> void:
 
 func _drop_cargo(_resource: ResourceType.Type, _amount: int, _runtime: ResidentRuntime) -> int:
 	# The canonical presentation supplies geometry-aware placement.
+	return DropResult.Status.FAILED
+
+func _place_worker_cargo(_resource: ResourceType.Type, _amount: int, _point: Vector2) -> int:
 	return DropResult.Status.FAILED
 
 func _ground_position(drop: RefCounted) -> Vector2: return drop.world_position

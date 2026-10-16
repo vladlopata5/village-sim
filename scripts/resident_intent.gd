@@ -4,6 +4,7 @@ enum Type { NONE, MOVE_TO }
 
 var building_id: StringName = &""
 var slot_purpose := -1
+var courier_outside := false # Ground surplus unload: keep the acquired source slot at its exterior.
 # Optional one-use Builder route hint. Geometry only; no resource ownership.
 var prepared_path: Dictionary = {}
 var resource_handling: StringName = &"" # Committed stationary resource operation.

@@ -293,6 +293,9 @@ func _drop_cargo(resource: ResourceType.Type, amount: int, runtime: ResidentRunt
 	if amount!=1 or resource not in ResourceType.Type.values() or not is_instance_valid(runtime) or not is_instance_valid(runtime.view): return DropResult.Status.FAILED
 	var point: Vector2=runtime.view.get_drop_sim_position()
 	if not point.is_finite(): return DropResult.Status.FAILED
+	return _place_worker_cargo(resource,amount,point)
+
+func _place_worker_cargo(resource: ResourceType.Type, amount: int, point: Vector2) -> int:
 	var result:=place_ground_resources(resource,amount,point,GroundResources.PlacementMode.WORKER)
 	if result.remaining!=0: return DropResult.Status.FAILED
 	if result.placed==1 and result.discarded==0: return DropResult.Status.PLACED
