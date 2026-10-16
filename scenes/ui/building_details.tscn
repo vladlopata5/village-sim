@@ -152,8 +152,21 @@ text = ""
 layout_mode = 2
 unique_name_in_owner = true
 autowrap_mode = 3
-[node name="StorageAmounts" type="Label" parent="Column/Scroll/Content/Storage"]
+[node name="StorageSummary" type="Label" parent="Column/Scroll/Content/Storage"]
 layout_mode = 2
 unique_name_in_owner = true
 autowrap_mode = 3
 text = ""
+[node name="StorageAmounts" type="VBoxContainer" parent="Column/Scroll/Content/Storage"]
+layout_mode = 2
+unique_name_in_owner = true
+[node name="StorageHint" type="Label" parent="Column/Scroll/Content/Storage"]
+layout_mode = 2
+autowrap_mode = 3
+text = "Enter или ✓ — применить максимум"
+theme_override_font_sizes/font_size = 12
+[node name="StorageError" type="Label" parent="Column/Scroll/Content/Storage"]
+layout_mode = 2
+unique_name_in_owner = true
+autowrap_mode = 3
+theme_override_colors/font_color = Color(1, 0.65, 0.55, 1)

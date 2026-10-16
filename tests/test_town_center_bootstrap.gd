@@ -108,6 +108,8 @@ func run() -> void:
 		world.game_time.debug_skip_minutes(Balance.WORK_CYCLE_MINUTES)
 	check(gather.resources.get_amount(R.FOOD)==5,"Gatherer unchanged production fills five-unit output")
 	builder.intents.abort_current(builder.intents.current_intent)
+	check(not world._request_work(builder),"Full Town Center FOOD quota prevents another self-export")
+	check(world.player_control.set_warehouse_quota(center.id,R.PLANK,59).ok and world.player_control.set_warehouse_quota(center.id,R.FOOD,21).ok,"Player reallocates one quota slot for the next FOOD delivery")
 	check(world._request_work(builder),"Full output starts Gatherer self-export")
 	walk(builder)
 	check(center.resources.get_amount(R.FOOD)==21,"Gatherer FOOD physically reaches Town Center")

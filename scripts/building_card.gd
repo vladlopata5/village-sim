@@ -7,7 +7,7 @@ var _refresh_elapsed := 0.0
 func _widget(id: String) -> Node:
 	return get_node(close_path) if id == "Close" else get_node("%" + id)
 
-## Reads the selected instance. Only presentation is updated; there are no management rules.
+## Presents the selected instance; quota commands use PlayerControl and container rules.
 const Selection = preload("res://scripts/resident_selection.gd")
 const Instance = preload("res://scripts/building_instance.gd")
 const Types = preload("res://scripts/building_type.gd")
@@ -24,6 +24,8 @@ signal settlement_management_requested
 signal staffing_requested(profession: int)
 var staffing_buttons: Dictionary = {}
 var management_button: Button
+var storage_rows: Dictionary = {}
+var _quota_dirty: Dictionary = {}
 @onready var name_label: Label = _widget("Name")
 @onready var resources_label: Label = _widget("Resources")
 @onready var production_section: VBoxContainer = _widget("Production")
@@ -35,6 +37,7 @@ var management_button: Button
 @onready var close_button: Button = _widget("Close")
 func _ready() -> void:
 	hide()
+	_setup_storage_rows()
 	management_button = Button.new()
 	management_button.text = "Управление поселением"
 	_info_body().add_child(management_button)
@@ -50,15 +53,23 @@ func _on_selection_changed() -> void:
 		_building.construction_changed.disconnect(_refresh)
 	if _building != null and _building.resources != null:
 		_building.resources.changed.disconnect(_on_resources_changed)
+		_building.resources.reservations_changed.disconnect(_on_reservations_changed)
+		_building.resources.quotas_changed.disconnect(_refresh)
+	_quota_dirty.clear()
+	for row in storage_rows.values(): row.editor.release_focus()
+	get_node("%StorageError").text = ""
 	_building = _selection.selected_building
 	_presented_tabs.clear()
 	_last_snapshot = []
 	if _building != null: _building.construction_changed.connect(_refresh)
 	if _building != null and _building.resources != null:
 		_building.resources.changed.connect(_on_resources_changed)
+		_building.resources.reservations_changed.connect(_on_reservations_changed)
+		_building.resources.quotas_changed.connect(_refresh)
 	_widget("Scroll").scroll_vertical = 0
 	_refresh()
 func _on_resources_changed(_resource: ResourceType.Type, _amount: int) -> void: _refresh()
+func _on_reservations_changed(_resource: ResourceType.Type) -> void: _refresh()
 func _process(delta: float) -> void:
 	# Same live-data pattern as ResidentCard; no node/list rebuilding per frame.
 	if not is_visible_in_tree(): return
@@ -177,7 +188,7 @@ func _refresh_details(resource_lines: PackedStringArray) -> void:
 		buffer_lines.append("%s • %s: %d / %d" % [role,ResourceType.display_name(resource),_building.resources.get_amount(resource),capacity])
 	resources_label.text = "\n".join(buffer_lines)
 	resources_label.visible = not buffer_lines.is_empty()
-	get_node("%StorageAmounts").text = "\n".join(resource_lines)
+	_refresh_storage()
 	get_node("%OtherStocks").text = "\n".join(resource_lines)
 	get_node("%OtherStocks").visible = _building.is_built() and available_tabs().size() == 1 and not resource_lines.is_empty()
 	var recipe_lines := PackedStringArray()
@@ -193,6 +204,65 @@ func _refresh_details(resource_lines: PackedStringArray) -> void:
 	get_node("%NaturalProgress").text = "\n".join(natural)
 	get_node("%NaturalProgress").visible = not natural.is_empty()
 	_refresh_people(producers, porters)
+
+func _setup_storage_rows() -> void:
+	for resource in [ResourceType.Type.LOG,ResourceType.Type.STONE,ResourceType.Type.PLANK,ResourceType.Type.FOOD]:
+		var row := HBoxContainer.new()
+		get_node("%StorageAmounts").add_child(row)
+		var label := Label.new()
+		label.text = {ResourceType.Type.FOOD:"Еда",ResourceType.Type.LOG:"Брёвна"}.get(resource,ResourceType.display_name(resource))
+		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(label)
+		var amount := Label.new()
+		amount.custom_minimum_size.x = 44
+		amount.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		row.add_child(amount)
+		var editor := LineEdit.new()
+		editor.custom_minimum_size.x = 56
+		editor.max_length = 20
+		editor.keep_editing_on_text_submit = true
+		editor.tooltip_text = "Максимум товара. Enter или ✓ — применить."
+		row.add_child(editor)
+		editor.text_changed.connect(_on_quota_edited.bind(resource))
+		editor.text_submitted.connect(_submit_quota.bind(resource))
+		var apply := Button.new()
+		apply.text = "✓"
+		apply.tooltip_text = "Применить максимум"
+		row.add_child(apply)
+		apply.pressed.connect(_apply_quota.bind(resource))
+		storage_rows[resource] = {"row":row,"amount":amount,"editor":editor,"apply":apply}
+
+func _on_quota_edited(_text: String, resource: int) -> void:
+	_quota_dirty[resource] = true
+
+func _apply_quota(resource: int) -> void:
+	_submit_quota(storage_rows[resource].editor.text,resource)
+
+func _submit_quota(text: String, resource: int) -> void:
+	if _building == null or _control == null: return
+	var value: Variant = text
+	# Bound parsing before conversion; very large input must not overflow an int.
+	if text.is_valid_int() and text.length() <= 18: value = text.to_int()
+	var result: Dictionary = _control.set_warehouse_quota(_building.id,resource,value)
+	get_node("%StorageError").text = result.error
+	if result.ok:
+		_quota_dirty.erase(resource)
+		storage_rows[resource].editor.release_focus()
+		_refresh_storage()
+
+func _refresh_storage() -> void:
+	if _building == null: return
+	var container = _building.resources
+	if not container.is_warehouse(): return
+	get_node("%StorageSummary").text = "Занято: %d / %d\nВ пути: %d\nРаспределено: %d / %d" % [container.get_total_amount(),container.shared_capacity,container.get_total_reserved_in(),container.get_allocated_capacity(),container.shared_capacity]
+	for resource in storage_rows:
+		var row: Dictionary = storage_rows[resource]
+		row.row.visible = container.allows_resource(resource)
+		row.amount.text = "%d /" % container.get_amount(resource)
+		row.editor.editable = _control != null and _building.is_built()
+		row.apply.disabled = not row.editor.editable
+		if not row.editor.has_focus() and not _quota_dirty.has(resource):
+			row.editor.text = str(container.get_capacity(resource))
 func _refresh_people(producers: Array, porters: Array) -> void:
 	if _control == null: return
 	var residents: Array = _control.get_home_occupants(_building.id) if _control.is_housing_target(_building) else []

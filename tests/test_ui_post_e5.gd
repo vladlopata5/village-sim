@@ -120,7 +120,7 @@ func run() -> void:
 		check(card.resources_label.text.contains("Вход") and card.resources_label.text.contains("Выход") and not card.get_node("%Info").visible,"Production has actual buffers, no duplicate header/personnel blocks")
 		await capture(prefix+"production")
 		selection.select_building(world.warehouse_data);info.select_tab(&"storage");await settle()
-		check(card.get_node("%StorageAmounts").text.contains("60 / 100"),"Actual storage amount and per-resource capacity")
+		check(card.storage_rows[R.PLANK].amount.text=="60 /" and card.storage_rows[R.PLANK].editor.text=="60","Actual storage amount and per-resource quota")
 		await capture(prefix+"storage")
 		world.player_control.assign_home(worker.id,home.id)
 		selection.select_building(home);await settle()

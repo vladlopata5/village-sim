@@ -1,6 +1,6 @@
 extends RefCounted
 const ResourceType = preload("res://scripts/resource_type.gd")
-# E2.2a: prepared only; canonical building setup keeps its current capacities.
+# Warehouse presets; production containers keep independent resource capacities.
 const WAREHOUSE_SHARED_CAPACITY := 100
 const STORAGE_RESOURCE_QUOTAS := {
 	ResourceType.Type.LOG:40, ResourceType.Type.STONE:20,

@@ -48,7 +48,7 @@ func run() -> void:
 	worker.locations = counted
 	check(R.FOOD==0 and R.LOG==1 and R.PLANK==2 and R.STONE==3,"Existing resource IDs preserved")
 	check(scene.rocks.size()==10 and scene.rock_views.size()==10,"Ten starter rocks with views")
-	check(scene.warehouse_data.resources.get_capacity(R.STONE)==100 and scene.warehouse_data.resources.get_amount(R.STONE)==0,"Town Center stone capacity and initial zero")
+	check(scene.warehouse_data.resources.get_capacity(R.STONE)==10 and scene.warehouse_data.resources.get_amount(R.STONE)==0,"Town Center stone quota and initial zero")
 	check(scene.player_control.assign_profession(actor.data.id,P.MINER),"MINER without building allowed")
 	scene.game_time.total_minutes = 420
 	check(not actor.decision._has_work(),"No area means no WORK")

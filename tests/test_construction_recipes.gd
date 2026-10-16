@@ -55,7 +55,9 @@ func run() -> void:
 		var world = fixture()
 		# Controlled supply for integration of each recipe, not a new-game economic fixture.
 		var source = world.warehouse_data
-		for resource in R.values(): source.resources.add(resource,100-source.resources.get_amount(resource))
+		for resource in R.values():
+			var missing: int = source.resources.get_capacity(resource)-source.resources.get_amount(resource)
+			if missing>0: check(source.resources.add(resource,missing),"Controlled recipe supply fits the approved warehouse quota")
 		var site = place(world,category)
 		check(site != null and site.state == B.State.UNDER_CONSTRUCTION,"Real placement creates construction")
 		if site == null:
@@ -94,7 +96,9 @@ func run() -> void:
 
 		world = fixture()
 		source = world.warehouse_data
-		for resource in R.values(): source.resources.add(resource,100-source.resources.get_amount(resource))
+		for resource in R.values():
+			var missing: int = source.resources.get_capacity(resource)-source.resources.get_amount(resource)
+			if missing>0: check(source.resources.add(resource,missing),"Controlled recipe supply fits the approved warehouse quota")
 		site = place(world,category)
 		world.resident_selection.select_building(site)
 		actor = world.resident_runtimes[1]
@@ -106,7 +110,7 @@ func run() -> void:
 			walk(actor,actor.builder.phase)
 		check(site.are_construction_materials_complete(),"All required materials physically delivered")
 		for resource in R.values():
-			check(site.get_delivered_amount(resource) == cost.get(resource,0) and source.resources.get_amount(resource) == 100-cost.get(resource,0),"Exact consumption, no absent or surplus resource spent")
+			check(site.get_delivered_amount(resource) == cost.get(resource,0) and source.resources.get_amount(resource) == source.resources.get_capacity(resource)-cost.get(resource,0),"Exact consumption from the filled quota, no absent or surplus resource spent")
 			check(source.resources.get_reserved_out(resource) == 0 and site.get_construction_reserved_in(resource) == 0,"Full delivery clears resource reservations")
 			check(not site.add_delivered_material(resource,1),"No extra material accepted after exact supply")
 		await capture("recipe_%s_supplied" % definition.id)

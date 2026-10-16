@@ -275,7 +275,7 @@ func _run() -> void:
 		if category == Types.FOOD:
 			check(site.resources.get_capacity(FOOD) == 20 and scene.resident_runtimes[1].needs.get_food_target(site.id) == site and scene.logistics._buildings.has(site.id), "Completed kitchen supports eating and food logistics")
 		elif category == Types.STORAGE:
-			check(site.resources.get_capacity(FOOD) == 20 and site.resources.get_capacity(PLANK) == 35 and scene.player_control.assign_workplace(scene.residents[1].id, site.id), "Completed warehouse supports storage and workplace API")
+			check(site.resources.is_warehouse() and site.resources.get_capacity(FOOD) == 15 and site.resources.get_capacity(PLANK) == 25 and scene.player_control.assign_workplace(scene.residents[1].id, site.id), "Completed warehouse supports shared storage and workplace API")
 		else:
 			check(scene.player_control.assign_workplace(scene.residents[1].id, site.id) and scene.production.can_work(scene.residents[1]), "Completed hut offers gatherer work")
 			var gatherer = scene.resident_runtimes[1]

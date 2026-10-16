@@ -25,9 +25,9 @@ func run() -> void:
 	check(card.name_label.text==building.display_name,"Common header name")
 	world.game_ui.info_panel.set_expanded(true)
 	world.game_ui.info_panel.select_tab(&"storage")
-	check(card.get_node("%StorageAmounts").text.contains("Доски: %d / %d" % [building.resources.get_amount(R.PLANK),building.resources.get_capacity(R.PLANK)]),"Real stock and per-resource capacity")
+	check(card.storage_rows[R.PLANK].amount.text=="%d /" % building.resources.get_amount(R.PLANK) and card.storage_rows[R.PLANK].editor.text==str(building.resources.get_capacity(R.PLANK)),"Real stock and per-resource quota")
 	building.resources.try_take(R.PLANK,1)
-	check(card.get_node("%StorageAmounts").text.contains("Доски: %d / %d" % [building.resources.get_amount(R.PLANK),building.resources.get_capacity(R.PLANK)]),"Resource signal updates current card")
+	check(card.storage_rows[R.PLANK].amount.text=="%d /" % building.resources.get_amount(R.PLANK) and card.storage_rows[R.PLANK].editor.text==str(building.resources.get_capacity(R.PLANK)),"Resource signal updates current card")
 	F.click(self,card.name_label.get_global_rect().get_center())
 	await physics_frame
 	await physics_frame

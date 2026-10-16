@@ -1,6 +1,7 @@
 extends SceneTree
 const Types = preload("res://scripts/building_type.gd").Type
 const Definition = preload("res://scripts/building_definition.gd")
+const Balance = preload("res://scripts/balance_config.gd")
 const Building = preload("res://scripts/building_instance.gd")
 const Resources = preload("res://scripts/resource_type.gd").Type
 const Profession = preload("res://scripts/resident_profession.gd").Type
@@ -34,7 +35,8 @@ func run() -> void:
 	check(center.definition.is_storage and center.definition.fallback_housing_capacity==10,"Data-driven storage and fallback capacity")
 	check(center.resources.get_amount(Resources.PLANK)==60 and center.resources.get_amount(Resources.FOOD)==20 and center.resources.get_amount(Resources.LOG)==0,"Initial stock 60 PLANK / 20 FOOD / 0 LOG")
 	for resource in Resources.values():
-		check(center.resources.get_capacity(resource)==100 and center.definition.allows_external_import(resource) and center.definition.allows_external_export(resource),"All current resources have capacity and external policies")
+		check(center.resources.get_capacity(resource)==Balance.TOWN_CENTER_RESOURCE_QUOTAS[resource] and center.definition.allows_external_import(resource) and center.definition.allows_external_export(resource),"All current resources have approved quotas and external policies")
+	check(center.resources.is_warehouse() and center.resources.shared_capacity==100,"Town Center opts into shared warehouse capacity")
 	check(Definition.for_type(Types.STORAGE).is_storage and not Definition.for_type(Types.SAWMILL).is_storage,"Storage capability preserves ordinary warehouse")
 	check(world.build_grid.occupied_cells(center.id).size()==192 and not world.navigation.is_world_walkable(Coordinates.to_world(center.position)),"Town Center uses common build/nav footprint")
 	check(world.world_locations.resolve_action_position(center) is Vector2,"Town Center has ordinary default access point")
@@ -50,7 +52,10 @@ func run() -> void:
 	check(world.logistics.sources.available(source,Resources.PLANK),"Builder source service can obtain Town Center PLANK")
 	var producer = Building.new(&"fixture_producer",Definition.for_type(Types.SAWMILL),Vector2(800,400))
 	world.logistics.register_building(producer)
-	check(center in world.logistics.sources.storage_destinations(Source.new(Source.Kind.CONTAINER,producer.id),Resources.PLANK,producer.position),"Producer storage destination selection includes Town Center")
+	check(center not in world.logistics.sources.storage_destinations(Source.new(Source.Kind.CONTAINER,producer.id),Resources.PLANK,producer.position),"Full PLANK quota blocks new incoming deliveries")
+	center.resources.try_take(Resources.PLANK,1)
+	check(center in world.logistics.sources.storage_destinations(Source.new(Source.Kind.CONTAINER,producer.id),Resources.PLANK,producer.position),"Producer storage destination selection includes Town Center with quota room")
+	center.resources.add(Resources.PLANK,1)
 	check(world.residents.all(func(data): return data.home_location_id.is_empty()),"Town Center never assigned as permanent home")
 	for index in range(10):
 		check(world.fallback_housing.claim("capacity_%d"%index)==center.id,"Ten deterministic fallback claims succeed")

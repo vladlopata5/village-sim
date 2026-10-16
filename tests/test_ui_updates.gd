@@ -103,10 +103,10 @@ func run() -> void:
 	var people_rebuilds: int=building.people_rebuild_count
 	world.warehouse_data.resources.add(R.STONE,2)
 	world.warehouse_data.resources.reserve_out(R.STONE,1)
-	check(building.get_node("%StorageAmounts").text.contains("Камень: 2 / 100"),"Actual amount, never availability minus reservations")
-	world.warehouse_data.resources.set_capacity(R.STONE,120)
+	check(building.storage_rows[R.STONE].amount.text=="2 /" and building.storage_rows[R.STONE].editor.text=="10","Actual amount, never availability minus reservations")
+	world.player_control.set_warehouse_quota(world.warehouse_data.id,R.STONE,8)
 	building._process(0.25)
-	check(building.get_node("%StorageAmounts").text.contains("2 / 120"),"Per-resource capacity visible fallback")
+	check(building.storage_rows[R.STONE].editor.text=="8","Current per-resource quota visible without replacing rows")
 	for step in range(10): building._process(0.25)
 	check(building.people_rebuild_count==people_rebuilds and ui.info_panel.tab_rebuild_count==tab_rebuilds,"Resource/visible updates reuse unchanged people and tabs")
 	var house=F.building(world,T.HOME,Vector3(-18,0,12))

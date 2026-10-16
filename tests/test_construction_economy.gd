@@ -97,12 +97,13 @@ func run() -> void:
 	var porter = world.resident_runtimes[0]
 	for drop in world.ground_resources.drops.duplicate():
 		for unit in range(drop.amount):
+			if center.resources.get_available_free_capacity(drop.resource_type)<1: break
 			window()
 			porter.commands.move_to(drop.world_position)
 			walk(porter)
 			check(world._request_work(porter),"Nearby Porter claims actual extraction output")
 			walk(porter); walk(porter)
-	check(center.resources.get_amount(R.LOG)==15 and center.resources.get_amount(R.STONE)==10 and world.ground_resources.drops.is_empty(),"All extracted materials physically stocked before remote construction")
+	check(center.resources.get_amount(R.LOG)==10 and center.resources.get_amount(R.STONE)==10 and Stacks.total(world.ground_resources,R.LOG)==5,"Initial quotas and total 100 preserve the remaining five logs on the ground")
 	check(world.player_control.assign_profession(builder.data.id,P.BUILDER),"Builder assigned normally")
 	var saw = await construct(builder,T.SAWMILL,Vector3(-10,0,16))
 	if saw == null:
@@ -110,6 +111,19 @@ func run() -> void:
 		quit(1)
 		return
 	check(saw.construction_delivered == {R.LOG:6,R.STONE:6} and center.resources.get_amount(R.PLANK) == 60,"Sawmill consumes six LOG/six STONE, no boards")
+	# Construction frees physical room; redistribute quota and fetch the remaining
+	# extraction output before manufacturing. Preserve every unit, including FOOD.
+	check(center.resources.set_quotas({R.LOG:15,R.STONE:4,R.PLANK:61}),"Reallocate shared quota after consuming construction materials")
+	check(saw.resources.reserve_in(R.LOG,12),"Hold Sawmill input while isolating the remaining Ground collection")
+	for drop in world.ground_resources.drops.duplicate():
+		for unit in range(drop.amount):
+			window()
+			porter.commands.move_to(drop.world_position)
+			walk(porter)
+			check(world._request_work(porter),"Nearby Porter claims remaining extraction output after room is freed")
+			walk(porter); walk(porter)
+	check(saw.resources.release_in(R.LOG,12),"Release the controlled input hold")
+	check(center.resources.get_amount(R.LOG)==9 and center.resources.get_amount(R.STONE)==4 and world.ground_resources.drops.is_empty() and center.resources.get_amount(R.FOOD)==20,"All extracted units accounted for after construction, without consuming starting FOOD")
 	check(world.player_control.assign_workplace(miner.data.id,saw.id),"Sawyer assigned to physically constructed Sawmill")
 	for cycle in range(6):
 		window()
@@ -119,6 +133,7 @@ func run() -> void:
 		walk(miner)
 		world.game_time.debug_skip_minutes(Balance.SAWMILL_WORK_MINUTES)
 	check(saw.resources.get_amount(R.PLANK) == 6,"Six real LOG become six PLANK")
+	check(center.resources.set_quotas({R.LOG:10,R.PLANK:66}),"Allocate room for all six manufactured boards without exceeding total capacity")
 	# Hold remaining timber for the next construction fixture, just as starter
 	# PLANK is held above; ordinary Porter input supply must not consume that fixture stock.
 	var held_logs: int = center.resources.get_available_amount(R.LOG)

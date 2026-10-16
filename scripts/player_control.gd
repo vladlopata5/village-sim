@@ -4,6 +4,7 @@ const Profession = preload("res://scripts/resident_profession.gd")
 const BuildingInstance = preload("res://scripts/building_instance.gd")
 const BuildingType = preload("res://scripts/building_type.gd")
 const EventLog = preload("res://scripts/game_logger.gd")
+const ResourceType = preload("res://scripts/resource_type.gd")
 var logger: EventLog
 signal building_unregistered(building_id: StringName)
 signal resident_unregistered(resident_id: String)
@@ -20,6 +21,18 @@ var _commands: Dictionary = {}
 var _assignments: Dictionary = {}
 var _workplace_professions: Dictionary = {}
 const Assignment = preload("res://scripts/resident_assignment.gd")
+
+func set_warehouse_quota(building_id: StringName, resource: Variant, quota: Variant) -> Dictionary:
+	var building := get_building(building_id)
+	if building == null or not building.is_built() or not building.definition.is_storage or not building.resources.is_warehouse():
+		return {"ok":false,"error":"Настройки доступны только у действующего склада или Городского центра."}
+	if typeof(resource) != TYPE_INT or resource not in ResourceType.Type.values() or not building.resources.allows_resource(resource):
+		return {"ok":false,"error":"Этот товар не поддерживается складом."}
+	if typeof(quota) != TYPE_INT or quota < 0:
+		return {"ok":false,"error":"Введите целое неотрицательное число."}
+	if not building.resources.set_quota(resource,quota):
+		return {"ok":false,"error":"Сумма максимумов не должна превышать %d." % building.resources.shared_capacity}
+	return {"ok":true,"error":""}
 
 func register_assignments(resident_id: String, controller: Node) -> void:
 	_assignments[resident_id] = controller

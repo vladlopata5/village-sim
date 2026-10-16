@@ -92,6 +92,7 @@ func run() -> void:
 	check(not world.player_control.assign_workplace(miner.data.id,quarry.id) and miner.data.work_area_id==area.id,"Unbuilt assignment rejected atomically")
 	# Collect distant extraction output locally, then build from real global stock.
 	var porter = world.resident_runtimes[0]
+	check(world.player_control.set_warehouse_quota(world.warehouse_data.id,R.STONE,8).ok and world.player_control.set_warehouse_quota(world.warehouse_data.id,R.LOG,12).ok,"Reallocate two quota places for all twelve extracted LOG within total 100")
 	for dropped in world.ground_resources.drops.duplicate():
 		for unit in range(dropped.amount):
 			world.game_time.total_minutes=420

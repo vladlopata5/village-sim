@@ -123,7 +123,7 @@ func allows_external_delivery(source: BuildingInstance, destination: BuildingIns
 	if not source.is_built() or not destination.is_built(): return false
 	# Storage balancing needs explicit future demand, never ordinary hauling.
 	if source.definition.is_storage and destination.definition.is_storage: return false
-	return source.definition.allows_external_export(resource) and destination.definition.allows_external_import(resource) and source.resources.allows_resource(resource) and destination.resources.allows_resource(resource) and source.resources.get_capacity(resource)>0 and destination.resources.get_capacity(resource)>0
+	return source.definition.allows_external_export(resource) and destination.definition.allows_external_import(resource) and source.resources.allows_resource(resource) and destination.resources.allows_resource(resource) and (source.definition.is_storage or source.resources.get_capacity(resource)>0) and destination.resources.get_capacity(resource)>0
 func external_destinations(source: BuildingInstance, resource: int) -> Array:
 	return _buildings.values().filter(func(destination): return allows_external_delivery(source,destination,resource) and destination.resources.get_available_free_capacity(resource)>0)
 func _porter_pair(resident: ResidentData, source: BuildingInstance, destination: BuildingInstance) -> bool:
