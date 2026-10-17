@@ -1,6 +1,7 @@
 extends PanelContainer
 ## Owns only presentation state. Selection and simulation objects remain external.
 signal preview_close_requested
+signal presentation_changed # Read-only map overlays; never an action request.
 const TITLES = {&"bio":"Био",&"work":"Работа",&"relations":"Отношения",&"info":"Инфо",&"production":"Производство",&"storage":"Склад"}
 var tab_rebuild_count := 0
 var selection: Node
@@ -89,6 +90,7 @@ func _apply() -> void:
 	building_details.apply_presentation(expanded,active_tab)
 	preview.apply_presentation(expanded)
 	_layout()
+	presentation_changed.emit()
 func _layout() -> void:
 	var height := 52.0 if day_summary.visible else (568.0 if expanded else 208.0)
 	reset_size()

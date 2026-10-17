@@ -18,6 +18,7 @@ var _road_events: Array[Dictionary] = []
 var _road_dragging := false
 var building_ghost: Node3D
 var work_areas = preload("res://scripts/work_areas.gd").new()
+var work_highlight = preload("res://scripts/world_3d/resident_work_highlight_3d.gd").new()
 var work_area_tool = preload("res://scripts/world_3d/work_area_tool_3d.gd").new()
 var area_confirm: Button
 var forestry_area = preload("res://scripts/world_3d/forestry_area_3d.gd").new()
@@ -61,6 +62,8 @@ func _ready() -> void:
 	game_ui.blocking_ui_changed.connect(_clear_world_input)
 	$World/Camera3D.ui_input_context = game_ui.input_context
 	$World.add_child(work_area_tool)
+	$World.add_child(work_highlight)
+	work_highlight.setup(game_ui.info_panel,player_control,work_areas,world_locations)
 	area_confirm = Button.new()
 	area_confirm.text = "Подтвердить область (Enter) • ПКМ/Esc: отмена"
 	area_confirm.position = Vector2(12,170)

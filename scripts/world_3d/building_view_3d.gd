@@ -3,6 +3,8 @@ extends StaticBody3D
 const Geometry = preload("res://scripts/world_3d/world_geometry.gd")
 var building_data: RefCounted
 var indicator: MeshInstance3D
+var _selected := false
+var _workplace_highlighted := false
 var material: StandardMaterial3D
 var work_area: MeshInstance3D
 var layout: Node3D
@@ -60,7 +62,12 @@ func _refresh() -> void:
 	material.albedo_color = colors[building_data.type] if building_data.is_built() else Color("8b7357")
 	set_inside_count(inside_count)
 	caption.text = building_data.display_name + ("" if building_data.is_built() else " — строится")
-func set_selected(value: bool) -> void: indicator.visible = value
+func set_selected(value: bool) -> void:
+	_selected = value
+	indicator.visible = _selected or _workplace_highlighted
+func set_workplace_highlighted(value: bool) -> void:
+	_workplace_highlighted = value
+	indicator.visible = _selected or _workplace_highlighted
 
 func rebuild_marker_index() -> void:
 	_clear_marker_index()
@@ -108,8 +115,7 @@ func _clear_marker_index() -> void:
 func _exit_tree() -> void:
 	_clear_marker_index()
 
-func _create_work_area(radius: float) -> void:
-	work_area = MeshInstance3D.new()
+static func make_work_area_mesh(radius: float) -> ImmediateMesh:
 	var mesh := ImmediateMesh.new()
 	var color := StandardMaterial3D.new()
 	color.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
@@ -119,7 +125,11 @@ func _create_work_area(radius: float) -> void:
 		for angle in [index*TAU/64.0,(index+1)*TAU/64.0]:
 			mesh.surface_add_vertex(Vector3(cos(angle)*radius,0.04,sin(angle)*radius))
 	mesh.surface_end()
-	work_area.mesh = mesh
+	return mesh
+
+func _create_work_area(radius: float) -> void:
+	work_area = MeshInstance3D.new()
+	work_area.mesh = make_work_area_mesh(radius)
 	work_area.visible = false
 	add_child(work_area)
 func set_work_area_debug(enabled: bool) -> void:
