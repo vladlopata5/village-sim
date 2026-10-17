@@ -115,6 +115,7 @@ const TREE_LOG_YIELD := 3
 
 const LUMBERJACK_LOG_CAPACITY := 12
 const FREE_WORK_AREA_RADIUS := 15.0 # World units.
+const MAX_WORK_AREA_RADIUS := 30.0 # Player-created/edited areas; world units.
 const LUMBERJACK_WORK_RADIUS := 15.0
 const LUMBERJACK_TARGET_TREE_COUNT := 12
 const LUMBERJACK_WORKER_CAPACITY := 1

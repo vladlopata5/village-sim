@@ -82,9 +82,11 @@ func bind_control(control: RefCounted) -> void:
 	if _control != null and _control.residents_changed.is_connected(_on_roster_changed): _control.residents_changed.disconnect(_on_roster_changed)
 	if _control != null and _control.has_signal("work_assignment_changed") and _control.work_assignment_changed.is_connected(_work_changed): _control.work_assignment_changed.disconnect(_work_changed)
 	if _control != null and _control.get("work_areas") != null and _control.get("work_areas").changed.is_connected(_areas_changed): _control.get("work_areas").changed.disconnect(_areas_changed)
+	if _control != null and _control.get("work_areas") != null and _control.get("work_areas").presentation_changed.is_connected(_areas_changed): _control.get("work_areas").presentation_changed.disconnect(_areas_changed)
 	_control = control
 	if _control.has_signal("work_assignment_changed"): _control.work_assignment_changed.connect(_work_changed)
 	if _control.get("work_areas") != null: _control.get("work_areas").changed.connect(_areas_changed)
+	if _control.get("work_areas") != null: _control.get("work_areas").presentation_changed.connect(_areas_changed)
 	_areas_changed()
 	_control.residents_changed.connect(_on_roster_changed)
 	_on_roster_changed()
@@ -299,7 +301,7 @@ func _areas_changed() -> void:
 	area_choice.add_item("Использовать созданную область…")
 	if _control != null and _control.get("work_areas") != null:
 		for area in _control.get("work_areas").all():
-			area_choice.add_item(String(area.id))
+			area_choice.add_item("%s (%s)" % [area.display_name,area.id])
 			area_choice.set_item_metadata(area_choice.item_count-1,area.id)
 	_refresh_work_place()
 func _choose_area(index: int) -> void:
@@ -314,7 +316,8 @@ func _refresh_work_place() -> void:
 		var building = _control.get_building(data.work_location_id)
 		if building != null: label = "При здании: %s (%s)" % [building.display_name,building.id]
 	elif _control != null and _control.get("work_areas") != null and _control.get("work_areas").get_area(data.work_area_id) != null:
-		label = "Свободная область: " + String(data.work_area_id)
+		var area = _control.work_areas.get_area(data.work_area_id)
+		label = "Свободная область: %s (%s)" % [area.display_name,area.id]
 	work_place_label.text = label
 	var enabled: bool = data.profession in [Profession.Type.LUMBERJACK,Profession.Type.MINER] and _control != null and _control.get("work_areas") != null
 	area_button.visible = enabled
@@ -399,4 +402,5 @@ func _exit_tree() -> void:
 		for pair in [["home_changed",_on_home_changed],["residents_changed",_on_roster_changed],["work_assignment_changed",_work_changed]]:
 			if _control.is_connected(pair[0],pair[1]): _control.disconnect(pair[0],pair[1])
 		if _control.get("work_areas") != null and _control.get("work_areas").changed.is_connected(_areas_changed): _control.get("work_areas").changed.disconnect(_areas_changed)
+		if _control.get("work_areas") != null and _control.get("work_areas").presentation_changed.is_connected(_areas_changed): _control.get("work_areas").presentation_changed.disconnect(_areas_changed)
 	if _selection != null and _selection.selection_changed.is_connected(_on_selection_changed): _selection.selection_changed.disconnect(_on_selection_changed)

@@ -312,3 +312,17 @@ func clear_work_assignment(resident_id: String) -> bool:
 	resident.work_area_id = &""
 	work_assignment_changed.emit(resident_id)
 	return true
+
+func get_work_area_residents(area_id: StringName) -> Array:
+	return get_residents().filter(func(resident): return not area_id.is_empty() and resident.work_area_id == area_id)
+func rename_work_area(area_id: StringName, label: String) -> bool:
+	var area = work_areas.get_area(area_id) if work_areas != null else null
+	return area != null and area.rename(label)
+func edit_work_area(area_id: StringName, center: Vector2, radius: float) -> bool:
+	return work_areas != null and work_areas.update_area(area_id,center,radius)
+func remove_work_area(area_id: StringName) -> bool:
+	if work_areas == null or not work_areas.remove(area_id): return false
+	# Remove first: callbacks cannot reassign anyone to the deleted ID.
+	# This is assignment cleanup, not cancellation of committed CHOP/MINE.
+	for resident in get_work_area_residents(area_id): clear_work_assignment(resident.id)
+	return true

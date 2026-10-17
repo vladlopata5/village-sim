@@ -21,6 +21,10 @@ var work_areas = preload("res://scripts/work_areas.gd").new()
 var work_highlight = preload("res://scripts/world_3d/resident_work_highlight_3d.gd").new()
 var work_area_tool = preload("res://scripts/world_3d/work_area_tool_3d.gd").new()
 var area_confirm: Button
+var area_edit_controls: PanelContainer
+var area_radius_input: LineEdit
+var area_edit_feedback: Label
+var work_area_dialog: PanelContainer
 var forestry_area = preload("res://scripts/world_3d/forestry_area_3d.gd").new()
 var _next_tree_id := 17
 var _last_growth_minute := 0
@@ -72,6 +76,7 @@ func _ready() -> void:
 	area_confirm.pressed.connect(_confirm_work_area)
 	$HUD.add_child(area_confirm)
 	game_ui.register_pointer_control(area_confirm)
+	_setup_area_edit_controls()
 	resident_card_view().work_area_requested.connect(_start_work_area)
 	player_control.work_assignment_changed.connect(_work_assignment_updated)
 	work_areas.changed.connect(_work_areas_updated)
@@ -87,6 +92,12 @@ func _ready() -> void:
 	work_areas_window.area_selected.connect(_view_work_area)
 	work_areas_window.create_requested.connect(_start_work_area)
 	game_ui.info_panel.area_details.focus_requested.connect(_focus_work_area)
+	game_ui.info_panel.area_details.edit_requested.connect(_edit_work_area)
+	work_area_dialog = preload("res://scripts/ui/work_area_dialog.gd").new()
+	game_ui.get_node("Windows").add_child(work_area_dialog)
+	work_area_dialog.setup(player_control,resident_selection,game_ui)
+	game_ui.info_panel.area_details.rename_requested.connect(work_area_dialog.open_rename)
+	game_ui.info_panel.area_details.delete_requested.connect(work_area_dialog.open_delete)
 	assignment_dialog=preload("res://scenes/ui/assignment_dialog.tscn").instantiate()
 	game_ui.get_node("Windows").add_child(assignment_dialog)
 	assignment_dialog.setup(player_control,resident_selection,game_ui)
@@ -203,7 +214,7 @@ func _placement_ui_changed() -> void:
 func _construction_collapsed(collapsed: bool) -> void:
 	if collapsed and (placement.is_active() or _confirming_placement or road_tool.active): _cancel_active_world_tool()
 func _selection_tool_changed() -> void:
-	if resident_selection.selected_entity!=null: _cancel_active_world_tool()
+	if resident_selection.selected_entity!=null or work_area_tool.edited_area!=null: _cancel_active_world_tool()
 func _cancel_building_placement() -> void:
 	# Also records cancellation while base confirm has cleared its definition.
 	_tool_generation+=1
@@ -435,6 +446,7 @@ func handle_world_click(button: int, hit: Dictionary, screen: Vector2 = Vector2.
 	if work_area_tool.active():
 		if button == MOUSE_BUTTON_RIGHT: _cancel_work_area()
 		elif button == MOUSE_BUTTON_LEFT and hit.has("position"):
+			if work_area_tool.edited_area != null: work_area_tool.locked = false
 			work_area_tool.update_world(hit.position)
 			work_area_tool.locked = true
 			area_confirm.show()
@@ -617,15 +629,71 @@ func _start_work_area(resident_id: String = "") -> void:
 	interaction_menu.hide()
 	_clicks.clear()
 	area_confirm.hide()
+	area_confirm.disabled = false
+	area_confirm.text = "Подтвердить область (Enter) • ПКМ/Esc: отмена"
+	area_edit_controls.hide()
 	work_area_tool.start(resident_id,preload("res://scripts/balance_config.gd").FREE_WORK_AREA_RADIUS)
+func _setup_area_edit_controls() -> void:
+	area_edit_controls = PanelContainer.new()
+	area_edit_controls.theme_type_variation = &"BluePanel"
+	area_edit_controls.position = Vector2(12,212)
+	var column := VBoxContainer.new()
+	area_edit_controls.add_child(column)
+	var hint := Label.new()
+	hint.text = "ЛКМ на карте — новый центр • ПКМ/Esc — отмена"
+	column.add_child(hint)
+	var row := HBoxContainer.new()
+	column.add_child(row)
+	var caption := Label.new()
+	caption.text = "Радиус (мир):"
+	row.add_child(caption)
+	area_radius_input = LineEdit.new()
+	area_radius_input.custom_minimum_size.x = 110
+	area_radius_input.text_changed.connect(_area_radius_changed)
+	area_radius_input.text_submitted.connect(func(_text): _confirm_work_area())
+	row.add_child(area_radius_input)
+	area_edit_feedback = Label.new()
+	column.add_child(area_edit_feedback)
+	$HUD.add_child(area_edit_controls)
+	game_ui.register_pointer_control(area_edit_controls)
+	area_edit_controls.hide()
+func _edit_work_area(id: StringName) -> void:
+	var area = work_areas.get_area(id)
+	if area == null or resident_selection.selected_work_area != area: return
+	_start_work_area()
+	work_area_tool.start_edit(area)
+	area_radius_input.text = str(Coordinates.length_to_world(area.radius))
+	area_edit_feedback.text = "0 < радиус ≤ 30. Действующая область изменится после подтверждения."
+	area_confirm.text = "Применить изменения (Enter) • ПКМ/Esc: отмена"
+	area_confirm.show()
+	area_edit_controls.show()
+func _area_radius_changed(text: String) -> void:
+	if work_area_tool.edited_area == null: return
+	var value := text.strip_edges().replace(",",".")
+	# Godot warns before returning infinity for extreme exponents. Reject those
+	# strings before conversion; this is numeric parsing, not a minimum radius.
+	var exponent := value.to_lower().get_slice("e",1) if "e" in value.to_lower() else ""
+	var convertible: bool = value.is_valid_float() and (exponent.is_empty() or (exponent.length() <= 4 and absi(exponent.to_int()) <= 324))
+	var accepted: bool = convertible and work_area_tool.set_radius_world(value.to_float())
+	area_confirm.disabled = not accepted
+	area_edit_feedback.text = "Изменения ещё не применены." if accepted else "Введите конечное число больше 0 и не больше 30."
 func _cancel_work_area() -> void:
 	_tool_generation+=1
 	_clear_world_input()
 	work_area_tool.cancel()
 	if area_confirm != null: area_confirm.hide()
+	if area_edit_controls != null: area_edit_controls.hide()
 	_clicks.clear()
 func _confirm_work_area() -> void:
-	if not work_area_tool.active() or not work_area_tool.locked: return
+	if not work_area_tool.active() or not work_area_tool.locked or area_confirm.disabled: return
+	if work_area_tool.edited_area != null:
+		var current = work_area_tool.edited_area
+		if work_areas.get_area(current.id) != current or current.revision != work_area_tool.edited_revision:
+			area_edit_feedback.text = "Область изменилась. Отмените редактирование и начните заново."
+			area_confirm.disabled = true
+			return
+		if player_control.edit_work_area(current.id,work_area_tool.preview.center,work_area_tool.preview.radius): _cancel_work_area()
+		return
 	var independent: bool = work_area_tool.resident_id.is_empty()
 	var resident = player_control.get_resident(work_area_tool.resident_id)
 	if not independent and (resident == null or resident.profession not in [Profession.Type.LUMBERJACK,Profession.Type.MINER]):

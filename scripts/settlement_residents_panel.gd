@@ -146,6 +146,7 @@ func setup(player: RefCounted, selected: Node) -> void:
 	_connect(control,&"building_unregistered",_building_removed)
 	_connect(selection,&"selection_changed",_selection_changed)
 	if control.work_areas!=null: _connect(control.work_areas,&"changed",_registry_changed)
+	if control.work_areas!=null: _connect(control.work_areas,&"presentation_changed",_registry_changed)
 	_selection_changed()
 func _connect(source: Object, event: StringName, callback: Callable) -> void:
 	source.connect(event,callback)
@@ -198,7 +199,7 @@ func workplace_label(resident: RefCounted) -> String:
 		return building.display_name if building!=null else "Здание недоступно"
 	if not resident.work_area_id.is_empty():
 		var area = control.work_areas.get_area(resident.work_area_id) if control.work_areas!=null else null
-		return "Свободная область: %s" % resident.work_area_id if area!=null else "Область недоступна: %s" % resident.work_area_id
+		return "Свободная область: %s (%s)" % [area.display_name,area.id] if area!=null else "Область недоступна: %s" % resident.work_area_id
 	if resident.profession==Profession.Type.PORTER: return "Носильщик без рабочего места"
 	if resident.profession==Profession.Type.BUILDER: return "Работа в мире • без закреплённого места"
 	return "Место работы не назначено"

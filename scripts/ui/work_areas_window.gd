@@ -64,6 +64,7 @@ func setup(registry: RefCounted, player: RefCounted, selected: Node) -> void:
 	control = player
 	selection = selected
 	areas.changed.connect(_changed)
+	areas.presentation_changed.connect(_changed)
 	control.residents_changed.connect(_changed)
 	control.work_assignment_changed.connect(_assignment_changed)
 	selection.selection_changed.connect(_selection_changed)
@@ -114,7 +115,8 @@ func _flush() -> void:
 			rows[area.id] = item
 			row_creation_count += 1
 		var row: TreeItem = rows[area.id]
-		row.set_text(0,str(area.id))
+		row.set_text(0,area.display_name)
+		row.set_tooltip_text(0,str(area.id))
 		row.set_text(1,"%.1f" % Coordinates.length_to_world(area.radius))
 		row.set_text(2,str(counts.get(area.id,0)))
 	empty_label.visible = rows.is_empty()
@@ -139,6 +141,7 @@ func _table_input(event: InputEvent) -> void:
 
 func _exit_tree() -> void:
 	if areas != null and areas.changed.is_connected(_changed): areas.changed.disconnect(_changed)
+	if areas != null and areas.presentation_changed.is_connected(_changed): areas.presentation_changed.disconnect(_changed)
 	if control != null:
 		if control.residents_changed.is_connected(_changed): control.residents_changed.disconnect(_changed)
 		if control.work_assignment_changed.is_connected(_assignment_changed): control.work_assignment_changed.disconnect(_assignment_changed)
