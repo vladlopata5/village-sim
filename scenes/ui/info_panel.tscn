@@ -1,8 +1,9 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=6 format=3]
 [ext_resource type="Script" path="res://scripts/ui/info_panel.gd" id="1"]
 [ext_resource type="PackedScene" path="res://scenes/ui/resident_details.tscn" id="2"]
 [ext_resource type="PackedScene" path="res://scenes/ui/building_details.tscn" id="3"]
 [ext_resource type="PackedScene" path="res://scenes/ui/building_type_preview.tscn" id="4"]
+[ext_resource type="PackedScene" path="res://scenes/ui/work_area_details.tscn" id="5"]
 [node name="InfoPanel" type="PanelContainer"]
 anchor_left = 1.0
 anchor_top = 1.0
@@ -46,6 +47,7 @@ layout_mode = 2
 text = ""
 [node name="ResidentDetails" parent="Column/Body" instance=ExtResource("2")]
 [node name="BuildingDetails" parent="Column/Body" instance=ExtResource("3")]
+[node name="WorkAreaDetails" parent="Column/Body" instance=ExtResource("5")]
 [node name="PreviewScroll" type="ScrollContainer" parent="Column/Body"]
 layout_mode = 2
 size_flags_vertical = 3

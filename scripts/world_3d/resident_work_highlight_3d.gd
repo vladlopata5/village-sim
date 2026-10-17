@@ -45,7 +45,16 @@ func _assignment_changed(resident_id: String) -> void:
 func _building_removed(_building_id: StringName) -> void: refresh()
 
 func refresh() -> void:
-	if not is_instance_valid(_panel) or _panel.selection == null or not _panel.is_visible_in_tree() or not _panel.expanded or _panel.active_tab != &"work":
+	if not is_instance_valid(_panel) or _panel.selection == null or not _panel.is_visible_in_tree() or not _panel.expanded:
+		_show(null,Vector2.ZERO,0.0,[])
+		return
+	var selected_area: RefCounted = _panel.selection.selected_work_area
+	if selected_area != null:
+		if _areas.get_area(selected_area.id) == selected_area:
+			_show(null,selected_area.center,Coordinates.length_to_world(selected_area.radius),[selected_area.get_instance_id(),selected_area.revision,selected_area.center,selected_area.radius])
+		else: _show(null,Vector2.ZERO,0.0,[])
+		return
+	if _panel.active_tab != &"work":
 		_show(null,Vector2.ZERO,0.0,[])
 		return
 	var resident: RefCounted = _panel.selection.selected_resident

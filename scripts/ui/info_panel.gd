@@ -14,6 +14,7 @@ var _preview_definition: RefCounted
 var _last_day := -1
 @onready var resident_details: PanelContainer = $Column/Body/ResidentDetails
 @onready var building_details: PanelContainer = $Column/Body/BuildingDetails
+@onready var area_details: VBoxContainer = $Column/Body/WorkAreaDetails
 @onready var preview: VBoxContainer = $Column/Body/PreviewScroll/BuildingTypePreview
 @onready var day_summary: Label = $Column/Body/DaySummary
 func _ready() -> void:
@@ -29,6 +30,7 @@ func setup(time: Node, selected: Node, player: RefCounted, job_provider: Callabl
 	resident_details.job_provider = job_provider
 	building_details.visitors_provider = visitors_provider
 	building_details.natural_progress_provider = natural_progress
+	area_details.setup(selection,control)
 	clock.minute_changed.connect(_minute)
 	selection.selection_changed.connect(_selection_changed)
 	control.resident_unregistered.connect(_resident_removed)
@@ -48,6 +50,7 @@ func _sync_tabs() -> void:
 	var tabs: Array[StringName] = []
 	if selection.selected_resident != null: tabs.assign([&"bio",&"work",&"relations"])
 	elif selection.selected_building != null: tabs = building_details.available_tabs()
+	elif selection.selected_work_area != null: tabs.assign([&"info"])
 	if active_tab not in tabs: active_tab = tabs[0] if not tabs.is_empty() else &""
 	if tabs != _tabs:
 		tab_rebuild_count += 1
@@ -77,11 +80,13 @@ func set_expanded(value: bool) -> void:
 func _apply() -> void:
 	var resident: bool = selection != null and selection.selected_resident != null
 	var building: bool = selection != null and selection.selected_building != null
+	var area: bool = selection != null and selection.selected_work_area != null
 	var is_preview := _preview_definition != null
 	resident_details.visible = resident
 	building_details.visible = building
+	area_details.visible = area
 	$Column/Body/PreviewScroll.visible = is_preview
-	day_summary.visible = not resident and not building and not is_preview
+	day_summary.visible = not resident and not building and not area and not is_preview
 	$Column/Header.visible = not day_summary.visible
 	$Column/Tabs.visible = expanded and not _tabs.is_empty()
 	$Column/Header/Expand.text = "▼" if expanded else "▲"
@@ -89,6 +94,7 @@ func _apply() -> void:
 	resident_details.apply_presentation(expanded,active_tab)
 	building_details.apply_presentation(expanded,active_tab)
 	preview.apply_presentation(expanded)
+	area_details.apply_presentation(expanded)
 	_layout()
 	presentation_changed.emit()
 func _layout() -> void:

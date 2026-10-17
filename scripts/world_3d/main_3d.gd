@@ -34,6 +34,7 @@ var tree_locations = preload("res://scripts/world_3d/tree_locations_3d.gd").new(
 var entrance_zones = preload("res://scripts/world_3d/building_entrance_zones_3d.gd").new()
 var building_uses = preload("res://scripts/world_3d/building_use_3d.gd").new()
 var settlement_panel: PanelContainer
+var work_areas_window: PanelContainer
 var assignment_dialog: PanelContainer
 var debug_spawn: RefCounted
 var developer_panel: PanelContainer
@@ -79,6 +80,13 @@ func _ready() -> void:
 	game_ui.register_window(&"residents", settlement_panel)
 	settlement_panel.set_canonical_layout()
 	settlement_panel.setup(player_control,resident_selection)
+	work_areas_window = preload("res://scenes/ui/work_areas_window.tscn").instantiate()
+	$HUD.add_child(work_areas_window)
+	game_ui.register_window(&"areas",work_areas_window)
+	work_areas_window.setup(work_areas,player_control,resident_selection)
+	work_areas_window.area_selected.connect(_view_work_area)
+	work_areas_window.create_requested.connect(_start_work_area)
+	game_ui.info_panel.area_details.focus_requested.connect(_focus_work_area)
 	assignment_dialog=preload("res://scenes/ui/assignment_dialog.tscn").instantiate()
 	game_ui.get_node("Windows").add_child(assignment_dialog)
 	assignment_dialog.setup(player_control,resident_selection,game_ui)
@@ -588,12 +596,24 @@ func _create_starting_buildings() -> void:
 	buildings.append(warehouse_data)
 	var view = _create_building_presentation(warehouse_data)
 	_register_building_location(warehouse_data,view)
-func _start_work_area(resident_id: String) -> void:
+func _view_work_area(area_id: StringName) -> void:
+	var area = work_areas.get_area(area_id)
+	if area == null: return
+	resident_selection.select_work_area(area)
+	game_ui.info_panel.set_expanded(true)
+
+func _focus_work_area(center: Vector2) -> void:
+	game_ui.close_window()
+	var camera = $World/Camera3D
+	camera.global_position += Coordinates.to_world(center)-camera.get_focus_position()
+
+func _start_work_area(resident_id: String = "") -> void:
 	_cancel_debug_placement()
 	var resident = player_control.get_resident(resident_id)
-	if resident == null or resident.profession not in [Profession.Type.LUMBERJACK,Profession.Type.MINER]: return
+	if not resident_id.is_empty() and (resident == null or resident.profession not in [Profession.Type.LUMBERJACK,Profession.Type.MINER]): return
 	_cancel_building_placement()
 	_cancel_road_tool()
+	game_ui.close_window()
 	interaction_menu.hide()
 	_clicks.clear()
 	area_confirm.hide()
@@ -606,13 +626,15 @@ func _cancel_work_area() -> void:
 	_clicks.clear()
 func _confirm_work_area() -> void:
 	if not work_area_tool.active() or not work_area_tool.locked: return
+	var independent: bool = work_area_tool.resident_id.is_empty()
 	var resident = player_control.get_resident(work_area_tool.resident_id)
-	if resident == null or resident.profession not in [Profession.Type.LUMBERJACK,Profession.Type.MINER]:
+	if not independent and (resident == null or resident.profession not in [Profession.Type.LUMBERJACK,Profession.Type.MINER]):
 		_cancel_work_area()
 		return
 	var area = work_areas.create(work_area_tool.preview.center,work_area_tool.preview.radius)
-	if area != null and not player_control.assign_work_area(resident.id,area.id): work_areas.remove(area.id)
+	if area != null and not independent and not player_control.assign_work_area(resident.id,area.id): work_areas.remove(area.id)
 	_cancel_work_area()
+	if independent and area != null: game_ui.open_window(&"areas")
 var _work_updates: Dictionary = {}
 func _work_assignment_updated(id: String) -> void:
 	decision_dispatcher.cancel(id)
@@ -623,9 +645,20 @@ func _flush_work_update(id: String) -> void:
 	_work_updates.erase(id)
 	for runtime in resident_runtimes:
 		if is_instance_valid(runtime) and is_instance_valid(runtime.decision) and runtime.data.id == id and not runtime.intents.has_current_action(): runtime.decision.request_decision("work_assignment")
+var _work_area_versions: Dictionary = {}
 func _work_areas_updated() -> void:
+	# Creating an unrelated, unassigned area is presentation, not an AI wake-up.
+	var versions: Dictionary = {}
+	var changed: Dictionary = {}
+	for area in work_areas.all():
+		var version: Array = [area.get_instance_id(),area.revision]
+		versions[area.id] = version
+		if _work_area_versions.get(area.id) != version: changed[area.id] = true
+	for id in _work_area_versions:
+		if not versions.has(id): changed[id] = true
+	_work_area_versions = versions
 	for runtime in resident_runtimes:
-		if not runtime.data.work_area_id.is_empty(): _work_assignment_updated(runtime.data.id)
+		if changed.has(runtime.data.work_area_id): _work_assignment_updated(runtime.data.id)
 
 func _setup_rocks() -> void:
 	rock_locations.navigation = navigation

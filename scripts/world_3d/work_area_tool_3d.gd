@@ -14,7 +14,7 @@ func start(id: String, radius: float) -> void:
 	preview = Area.new(&"preview",Vector2.ZERO,Coordinates.length_to_sim(radius))
 	locked = false
 	show()
-func active() -> bool: return not resident_id.is_empty()
+func active() -> bool: return preview != null
 func cancel() -> void:
 	resident_id = ""
 	preview = null
@@ -23,16 +23,12 @@ func cancel() -> void:
 func update_world(point: Vector3) -> void:
 	if not active() or locked: return
 	var center := Coordinates.to_sim(point)
-	if outline.mesh != null and preview.center == center: return
+	if preview.center == center and position == Coordinates.to_world(center) and outline.mesh != null: return
 	preview.update(center,preview.radius)
-	var mesh := ImmediateMesh.new()
-	mesh.surface_begin(Mesh.PRIMITIVE_LINE_STRIP)
 	var radius := Coordinates.length_to_world(preview.radius)
-	for i in range(65):
-		var angle := TAU * i / 64.0
-		mesh.surface_add_vertex(Vector3(cos(angle)*radius,0.08,sin(angle)*radius))
-	mesh.surface_end()
-	outline.mesh = mesh
+	if outline.mesh == null or not is_equal_approx(outline.mesh.get_aabb().size.x,2*radius):
+		outline.mesh = preload("res://scripts/world_3d/building_view_3d.gd").make_work_area_mesh(radius)
+	outline.position.y = 0.04
 	var material := StandardMaterial3D.new()
 	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	material.albedo_color = Color(0.3,0.9,1)
