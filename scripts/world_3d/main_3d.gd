@@ -80,6 +80,7 @@ func _ready() -> void:
 	_setup_area_edit_controls()
 	resident_card_view().work_area_requested.connect(_start_work_area)
 	player_control.work_assignment_changed.connect(_work_assignment_updated)
+	player_control.building_work_area_changed.connect(_building_work_area_updated)
 	work_areas.changed.connect(_work_areas_updated)
 	settlement_panel = preload("res://scenes/ui/residents_window.tscn").instantiate()
 	$HUD.add_child(settlement_panel)
@@ -734,6 +735,9 @@ func _flush_work_update(id: String) -> void:
 	for runtime in resident_runtimes:
 		if is_instance_valid(runtime) and is_instance_valid(runtime.decision) and runtime.data.id == id and not runtime.intents.has_current_action(): runtime.decision.request_decision("work_assignment")
 var _work_area_versions: Dictionary = {}
+func _building_work_area_updated(building_id: StringName) -> void:
+	for runtime in resident_runtimes:
+		if runtime.data.profession in [Profession.Type.LUMBERJACK,Profession.Type.MINER] and runtime.data.work_location_id == building_id: _work_assignment_updated(runtime.data.id)
 func _work_areas_updated() -> void:
 	# Creating an unrelated, unassigned area is presentation, not an AI wake-up.
 	var versions: Dictionary = {}
@@ -746,7 +750,8 @@ func _work_areas_updated() -> void:
 		if not versions.has(id): changed[id] = true
 	_work_area_versions = versions
 	for runtime in resident_runtimes:
-		if changed.has(runtime.data.work_area_id): _work_assignment_updated(runtime.data.id)
+		var building = player_control.get_building(runtime.data.work_location_id) if runtime.data.profession in [Profession.Type.LUMBERJACK,Profession.Type.MINER] else null
+		if changed.has(runtime.data.work_area_id) or (building != null and changed.has(building.work_area_override_id)): _work_assignment_updated(runtime.data.id)
 
 func _setup_rocks() -> void:
 	rock_locations.navigation = navigation

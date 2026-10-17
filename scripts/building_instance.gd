@@ -7,6 +7,7 @@ enum State { UNDER_CONSTRUCTION, BUILT }
 var id: StringName
 var definition: Definition
 var position: Vector2
+var work_area_override_id: StringName = &"" # Per-instance reference; empty uses definition radius.
 # Orientation is fixed on placement; only quarter turns are supported.
 var quarter_turns: int = 0:
 	set(value): quarter_turns = posmod(value, 4)

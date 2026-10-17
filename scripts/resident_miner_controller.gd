@@ -32,7 +32,7 @@ func _context() -> RefCounted:
 	if not runtime.data.work_location_id.is_empty():
 		var place = world.player_control.get_building(runtime.data.work_location_id)
 		if place==null or not place.is_built() or place.type!=Types.QUARRY or not world.world_locations.get_position(place.id) is Vector2: return null
-		return Context.for_building(place)
+		return Context.for_building(place,world.work_areas)
 	var area = world.work_areas.get_area(runtime.data.work_area_id)
 	return Context.new(area) if area!=null else null
 func _room(context: RefCounted) -> bool:

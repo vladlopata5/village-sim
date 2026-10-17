@@ -34,7 +34,7 @@ func _context() -> RefCounted:
 	if world == null or runtime.data.profession != Profession.Type.LUMBERJACK: return null
 	if not runtime.data.work_location_id.is_empty():
 		var building = _current_hut()
-		return Context.for_building(building) if building != null else null
+		return Context.for_building(building,world.work_areas) if building != null else null
 	var area = world.work_areas.get_area(runtime.data.work_area_id)
 	return Context.new(area) if area != null else null
 func _context_valid() -> bool:

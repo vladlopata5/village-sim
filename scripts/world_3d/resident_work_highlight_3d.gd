@@ -32,6 +32,7 @@ func setup(panel: Control, control: RefCounted, areas: RefCounted, locations: Re
 	_control.work_assignment_changed.connect(_assignment_changed)
 	_control.profession_changed.connect(_assignment_changed)
 	_control.building_unregistered.connect(_building_removed)
+	_control.building_work_area_changed.connect(_building_removed)
 	_areas.changed.connect(refresh)
 	refresh()
 
@@ -70,8 +71,11 @@ func refresh() -> void:
 		if building != null and building.is_built() and resident.profession in _control.get_workplace_roles(building.id):
 			presentation = _locations.get_view(building.id)
 			if presentation != null and ((resident.profession == Profession.LUMBERJACK and building.type == Types.LUMBERJACK_HUT) or (resident.profession == Profession.MINER and building.type == Types.QUARRY)):
-				center = building.position
-				radius = building.definition.work_radius
+				var area: RefCounted = _control.get_building_work_area(building.id)
+				if area != null:
+					center = area.center
+					radius = Coordinates.length_to_world(area.radius)
+					area_identity = [area.id,area.revision]
 	elif resident.profession in [Profession.LUMBERJACK,Profession.MINER]:
 		var area: RefCounted = _areas.get_area(resident.work_area_id)
 		if area != null:
@@ -103,6 +107,6 @@ func _exit_tree() -> void:
 		if _panel.presentation_changed.is_connected(refresh): _panel.presentation_changed.disconnect(refresh)
 		if _panel.visibility_changed.is_connected(refresh): _panel.visibility_changed.disconnect(refresh)
 	if _control != null:
-		for pair in [[_control.work_assignment_changed,_assignment_changed],[_control.profession_changed,_assignment_changed],[_control.building_unregistered,_building_removed]]:
+		for pair in [[_control.work_assignment_changed,_assignment_changed],[_control.profession_changed,_assignment_changed],[_control.building_unregistered,_building_removed],[_control.building_work_area_changed,_building_removed]]:
 			if pair[0].is_connected(pair[1]): pair[0].disconnect(pair[1])
 	if _areas != null and _areas.changed.is_connected(refresh): _areas.changed.disconnect(refresh)

@@ -5,6 +5,7 @@ const BuildingInstance = preload("res://scripts/building_instance.gd")
 const BuildingType = preload("res://scripts/building_type.gd")
 const EventLog = preload("res://scripts/game_logger.gd")
 const ResourceType = preload("res://scripts/resource_type.gd")
+const BuildingArea = preload("res://scripts/building_work_area.gd")
 var logger: EventLog
 signal building_unregistered(building_id: StringName)
 signal building_registered(building_id: StringName) # Registry observation; no AI wake-up.
@@ -12,6 +13,7 @@ signal resident_unregistered(resident_id: String)
 signal residents_changed
 signal profession_changed(resident_id: String)
 signal work_assignment_changed(resident_id: String)
+signal building_work_area_changed(building_id: StringName)
 var work_areas: RefCounted
 signal home_changed(resident_id: String, previous: StringName, current: StringName)
 var _buildings: Array = [] # Shared world collection, not a separate housing registry.
@@ -318,6 +320,22 @@ func clear_work_assignment(resident_id: String) -> bool:
 
 func get_work_area_residents(area_id: StringName) -> Array:
 	return get_residents().filter(func(resident): return not area_id.is_empty() and resident.work_area_id == area_id)
+func get_work_area_buildings(area_id: StringName) -> Array:
+	return _buildings.filter(func(building): return not area_id.is_empty() and BuildingArea.supports(building) and building.work_area_override_id == area_id)
+func get_building_work_area(building_id: StringName) -> RefCounted:
+	return BuildingArea.resolve(get_building(building_id),work_areas)
+func assign_building_work_area(building_id: StringName, area_id: StringName) -> bool:
+	if area_id.is_empty() or work_areas == null or work_areas.get_area(area_id) == null: return false
+	return _set_building_work_area(building_id,area_id)
+func reset_building_work_area(building_id: StringName) -> bool:
+	return _set_building_work_area(building_id,&"")
+func _set_building_work_area(building_id: StringName, area_id: StringName) -> bool:
+	var building := get_building(building_id)
+	if not BuildingArea.supports(building): return false
+	if building.work_area_override_id == area_id: return true
+	building.work_area_override_id = area_id
+	building_work_area_changed.emit(building_id)
+	return true
 func rename_work_area(area_id: StringName, label: String) -> bool:
 	var area = work_areas.get_area(area_id) if work_areas != null else null
 	return area != null and area.rename(label)
@@ -326,6 +344,8 @@ func edit_work_area(area_id: StringName, center: Vector2, radius: float) -> bool
 func remove_work_area(area_id: StringName) -> bool:
 	if work_areas == null or not work_areas.remove(area_id): return false
 	# Remove first: callbacks cannot reassign anyone to the deleted ID.
-	# This is assignment cleanup, not cancellation of committed CHOP/MINE.
+	# This is assignment cleanup, not cancellation of committed CHOP/MINE/PLANT.
 	for resident in get_work_area_residents(area_id): clear_work_assignment(resident.id)
+	for building in get_work_area_buildings(area_id):
+		if building.work_area_override_id == area_id: reset_building_work_area(building.id)
 	return true

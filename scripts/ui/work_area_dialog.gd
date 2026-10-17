@@ -56,6 +56,8 @@ func setup(player: RefCounted, selected: Node, ui: Control) -> void:
 	control.work_areas.presentation_changed.connect(_refresh)
 	control.residents_changed.connect(_refresh)
 	control.work_assignment_changed.connect(_assignment_changed)
+	control.building_work_area_changed.connect(_building_changed)
+	control.building_unregistered.connect(_building_changed)
 	get_parent().resized.connect(_layout)
 
 func open_rename(id: StringName) -> void: _open(id,false)
@@ -82,6 +84,7 @@ func _layout() -> void:
 	position = (get_parent().size-size)/2
 
 func _assignment_changed(_id: String) -> void: _refresh()
+func _building_changed(_id: StringName) -> void: _refresh()
 func _refresh() -> void:
 	if not visible or area == null: return
 	if selection.selected_work_area != area or control.work_areas.get_area(area.id) != area:
@@ -94,6 +97,9 @@ func _refresh() -> void:
 	var names: Array[String] = []
 	for resident in control.get_work_area_residents(area.id): names.append("• %s (%s)" % [resident.resident_name,resident.id])
 	warning.text = "Прямых назначений нет." if names.is_empty() else "Будут сняты прямые назначения:\n"+"\n".join(names)
+	var buildings: Array[String] = []
+	for building in control.get_work_area_buildings(area.id): buildings.append("• %s (%s)" % [building.display_name,building.id])
+	if not buildings.is_empty(): warning.text += "\nВернутся к стандартной области:\n"+"\n".join(buildings)
 	warning.text += "\nПрофессии сохранятся. Принятая работа не прерывается. Новая область автоматически не назначается."
 
 func execute() -> void:
@@ -118,3 +124,5 @@ func _exit_tree() -> void:
 		for source in [control.work_areas.changed,control.work_areas.presentation_changed,control.residents_changed]:
 			if source.is_connected(_refresh): source.disconnect(_refresh)
 		if control.work_assignment_changed.is_connected(_assignment_changed): control.work_assignment_changed.disconnect(_assignment_changed)
+		for source in [control.building_work_area_changed,control.building_unregistered]:
+			if source.is_connected(_building_changed): source.disconnect(_building_changed)
