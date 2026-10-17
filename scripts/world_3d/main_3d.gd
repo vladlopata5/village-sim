@@ -39,6 +39,7 @@ var entrance_zones = preload("res://scripts/world_3d/building_entrance_zones_3d.
 var building_uses = preload("res://scripts/world_3d/building_use_3d.gd").new()
 var settlement_panel: PanelContainer
 var work_areas_window: PanelContainer
+var buildings_window: PanelContainer
 var assignment_dialog: PanelContainer
 var debug_spawn: RefCounted
 var developer_panel: PanelContainer
@@ -91,6 +92,12 @@ func _ready() -> void:
 	work_areas_window.setup(work_areas,player_control,resident_selection)
 	work_areas_window.area_selected.connect(_view_work_area)
 	work_areas_window.create_requested.connect(_start_work_area)
+	buildings_window = preload("res://scenes/ui/buildings_window.tscn").instantiate()
+	$HUD.add_child(buildings_window)
+	game_ui.register_window(&"buildings",buildings_window)
+	buildings_window.setup(player_control,resident_selection,game_ui.info_panel)
+	buildings_window.building_selected.connect(_view_registered_building)
+	buildings_window.focus_requested.connect(_focus_registered_building)
 	game_ui.info_panel.area_details.focus_requested.connect(_focus_work_area)
 	game_ui.info_panel.area_details.edit_requested.connect(_edit_work_area)
 	work_area_dialog = preload("res://scripts/ui/work_area_dialog.gd").new()
@@ -613,6 +620,19 @@ func _view_work_area(area_id: StringName) -> void:
 	if area == null: return
 	resident_selection.select_work_area(area)
 	game_ui.info_panel.set_expanded(true)
+
+func _show_building(building: BuildingInstance) -> void:
+	super._show_building(building)
+	# Sites enter the shared registry before workplace activation; expose the same object.
+	if is_instance_valid(buildings_window): buildings_window.observe(building)
+func _view_registered_building(id: StringName) -> void:
+	var building = player_control.get_building(id)
+	if building == null: return
+	resident_selection.select_building(building)
+	game_ui.info_panel.set_expanded(true)
+func _focus_registered_building(id: StringName) -> void:
+	var building = player_control.get_building(id)
+	if building != null and resident_selection.selected_building == building: _focus_work_area(building.position)
 
 func _focus_work_area(center: Vector2) -> void:
 	game_ui.close_window()

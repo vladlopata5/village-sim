@@ -7,6 +7,7 @@ const EventLog = preload("res://scripts/game_logger.gd")
 const ResourceType = preload("res://scripts/resource_type.gd")
 var logger: EventLog
 signal building_unregistered(building_id: StringName)
+signal building_registered(building_id: StringName) # Registry observation; no AI wake-up.
 signal resident_unregistered(resident_id: String)
 signal residents_changed
 signal profession_changed(resident_id: String)
@@ -63,6 +64,7 @@ func setup(population: Array, buildings: Array) -> void:
 
 func register_building(building: RefCounted) -> void:
 	if building not in _buildings: _buildings.append(building)
+	building_registered.emit(building.id)
 	if not building.is_built(): return
 	var primary := _default_profession(building)
 	if primary != Profession.Type.NONE:
@@ -145,6 +147,7 @@ func get_building(building_id: StringName) -> RefCounted:
 	for building in _buildings:
 		if building.id == building_id: return building
 	return null
+func get_buildings() -> Array: return _buildings.duplicate() # Same instances, caller-owned array.
 
 func _is_housing_definition(building: RefCounted) -> bool:
 	return building is BuildingInstance and building.type == BuildingType.Type.HOME and building.definition.housing_capacity > 0

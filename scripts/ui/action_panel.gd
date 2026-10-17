@@ -51,6 +51,7 @@ func _ready() -> void:
 	register_section(&"construction","Строительство",Kind.TAB,catalogue)
 	register_section(&"residents","Жители",Kind.QUICK_WINDOW)
 	register_section(&"areas","Области",Kind.QUICK_WINDOW)
+	register_section(&"buildings","Здания",Kind.QUICK_WINDOW)
 	collapse_button=buttons[&"construction"]
 	_apply()
 	_layout_surfaces()
