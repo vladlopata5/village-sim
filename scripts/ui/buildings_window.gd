@@ -1,7 +1,12 @@
 extends PanelContainer
-## Browsing projection of the real building registry. Row activation is not assignment.
+## VIEW selects buildings; ASSIGN emits a target while preserving the source card.
 signal building_selected(building_id: StringName)
+signal assignment_selected(building_id: StringName)
 signal focus_requested(building_id: StringName)
+const BuildingArea = preload("res://scripts/building_work_area.gd")
+enum Mode { VIEW, ASSIGN }
+var mode := Mode.VIEW
+var mode_label: Label
 const Profession = preload("res://scripts/resident_profession.gd")
 var control: RefCounted
 var selection: Node
@@ -27,6 +32,10 @@ func _ready() -> void:
 	var title := Label.new()
 	title.text = "Здания поселения"
 	column.add_child(title)
+	mode_label = Label.new()
+	mode_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	column.add_child(mode_label)
+	mode_label.hide()
 	empty_label = Label.new()
 	empty_label.text = "Зданий пока нет."
 	column.add_child(empty_label)
@@ -88,9 +97,27 @@ func _layout() -> void:
 	size = Vector2(maxf(420,available_width),maxf(260,get_parent().size.y-244))
 func _shown() -> void:
 	_pressed_id = &""
-	if not is_visible_in_tree(): return
+	if not is_visible_in_tree(): end_assignment(); return
 	_flush()
 	_queue_layout()
+
+func begin_assignment(caption: String) -> void:
+	mode = Mode.ASSIGN
+	mode_label.text = caption
+	mode_label.show()
+	focus_button.hide()
+	close_button.text = "Отмена"
+	_refresh_modes()
+func end_assignment() -> void:
+	if mode == Mode.VIEW: return
+	mode = Mode.VIEW
+	mode_label.hide()
+	focus_button.show()
+	close_button.text = "Закрыть"
+	_refresh_modes()
+func _refresh_modes() -> void:
+	for id in _tracked: _dirty[id] = true
+	_queue_refresh()
 
 func _registered(id: StringName) -> void: observe(control.get_building(id))
 func observe(building: RefCounted) -> void:
@@ -153,6 +180,11 @@ func _flush() -> void:
 		row.set_tooltip_text(0,str(id))
 		row.set_text(1,snapshot[1])
 		row.set_text(2,"Построено" if snapshot[2] else "Строится")
+		if mode == Mode.ASSIGN:
+			var supported := BuildingArea.supports(control.get_building(id))
+			row.set_text(2,"Можно назначить" if supported else ("Строится" if not snapshot[2] else "Нет рабочей области"))
+			row.set_custom_color(2,Color("b8e5b5") if supported else Color("a5a5a5"))
+		else: row.clear_custom_color(2)
 	_dirty.clear()
 	empty_label.visible = rows.is_empty()
 	_selection_changed()
@@ -163,7 +195,11 @@ func _selection_changed() -> void:
 	focus_button.disabled = building == null or control.get_building(building.id) != building
 	if building != null and rows.has(building.id): rows[building.id].select(0)
 func activate_row(id: StringName) -> void:
-	if control.get_building(id) != null: building_selected.emit(id)
+	var building = control.get_building(id)
+	if building == null: return
+	if mode == Mode.ASSIGN:
+		if BuildingArea.supports(building): assignment_selected.emit(id)
+	else: building_selected.emit(id)
 func _focus() -> void:
 	var building: RefCounted = selection.selected_building
 	if building != null and control.get_building(building.id) == building: focus_requested.emit(building.id)

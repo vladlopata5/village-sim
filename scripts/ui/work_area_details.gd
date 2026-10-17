@@ -4,6 +4,7 @@ signal focus_requested(center: Vector2)
 signal rename_requested(area_id: StringName)
 signal edit_requested(area_id: StringName)
 signal delete_requested(area_id: StringName)
+signal assign_building_requested(area_id: StringName)
 const Coordinates = preload("res://scripts/world_3d/world_coordinates.gd")
 var selection: Node
 var control: RefCounted
@@ -11,6 +12,8 @@ var title: Label
 var center_label: Label
 var radius_label: Label
 var assignments_label: Label
+var buildings_label: Label
+var assign_building_button: Button
 var focus_button: Button
 var rename_button: Button
 var edit_button: Button
@@ -31,6 +34,8 @@ func _ready() -> void:
 	center_label = _label(column)
 	radius_label = _label(column)
 	assignments_label = _label(column)
+	buildings_label = _label(column)
+	assign_building_button = _action(column,"Назначить здание",assign_building_requested)
 	focus_button = Button.new()
 	focus_button.text = "Показать на карте"
 	focus_button.pressed.connect(_focus)
@@ -62,9 +67,12 @@ func setup(selected: Node, player: RefCounted) -> void:
 	if control.work_areas != null: control.work_areas.presentation_changed.connect(refresh)
 	control.residents_changed.connect(refresh)
 	control.work_assignment_changed.connect(_assignment_changed)
+	control.building_work_area_changed.connect(_building_changed)
+	control.building_unregistered.connect(_building_changed)
 	refresh()
 
 func _assignment_changed(_resident_id: String) -> void: refresh()
+func _building_changed(_building_id: StringName) -> void: refresh()
 func refresh() -> void:
 	var area: RefCounted = selection.selected_work_area
 	if area == null:
@@ -76,7 +84,9 @@ func refresh() -> void:
 	var people: Array[String] = []
 	for resident in control.get_residents():
 		if resident.work_area_id == area.id: people.append("%s (%s)" % [resident.resident_name,resident.id])
-	var snapshot: Array = [area.id,area.display_name,area.center,area.radius,people]
+	var buildings: Array[String] = []
+	for building in control.get_work_area_buildings(area.id): buildings.append("%s (%s)" % [building.display_name,building.id])
+	var snapshot: Array = [area.id,area.display_name,area.center,area.radius,people,buildings]
 	if snapshot == _snapshot: return
 	_snapshot = snapshot
 	refresh_count += 1
@@ -85,6 +95,8 @@ func refresh() -> void:
 	center_label.text = "Центр (мир): X %.1f, Z %.1f" % [point.x,point.z]
 	radius_label.text = "Радиус: %.1f мировых единиц" % Coordinates.length_to_world(area.radius)
 	assignments_label.text = "Не используется" if people.is_empty() else "Жители:\n"+"\n".join(people)
+	if people.is_empty() and not buildings.is_empty(): assignments_label.text = "Прямых назначений жителей нет."
+	buildings_label.text = "Здания: нет назначений" if buildings.is_empty() else "Здания:\n"+"\n".join(buildings)
 
 func apply_presentation(expanded: bool) -> void: body.visible = expanded
 func _focus() -> void:
@@ -98,3 +110,5 @@ func _exit_tree() -> void:
 		if control.work_areas != null and control.work_areas.presentation_changed.is_connected(refresh): control.work_areas.presentation_changed.disconnect(refresh)
 		if control.residents_changed.is_connected(refresh): control.residents_changed.disconnect(refresh)
 		if control.work_assignment_changed.is_connected(_assignment_changed): control.work_assignment_changed.disconnect(_assignment_changed)
+		for source in [control.building_work_area_changed,control.building_unregistered]:
+			if source.is_connected(_building_changed): source.disconnect(_building_changed)

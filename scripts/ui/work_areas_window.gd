@@ -1,7 +1,13 @@
 extends PanelContainer
-## Browsing only: row activation is separate from any future assignment command.
+## VIEW opens cards; ASSIGN emits a target without changing world selection.
 signal area_selected(area_id: StringName)
+signal assignment_selected(area_id: StringName)
 signal create_requested
+enum Mode { VIEW, ASSIGN }
+var mode := Mode.VIEW
+var mode_label: Label
+var close_button: Button
+var _info_panel: Control
 const Coordinates = preload("res://scripts/world_3d/world_coordinates.gd")
 var areas: RefCounted
 var control: RefCounted
@@ -24,6 +30,10 @@ func _ready() -> void:
 	var title := Label.new()
 	title.text = "Рабочие области"
 	column.add_child(title)
+	mode_label = Label.new()
+	mode_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	column.add_child(mode_label)
+	mode_label.hide()
 	empty_label = Label.new()
 	empty_label.text = "Областей пока нет. Создайте область на карте."
 	empty_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -52,17 +62,19 @@ func _ready() -> void:
 	var spacer := Control.new()
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	footer.add_child(spacer)
-	var close := Button.new()
-	close.text = "Закрыть"
-	close.pressed.connect(hide)
-	footer.add_child(close)
+	close_button = Button.new()
+	close_button.text = "Закрыть"
+	close_button.pressed.connect(hide)
+	footer.add_child(close_button)
 	visibility_changed.connect(_shown)
 	hide()
 
-func setup(registry: RefCounted, player: RefCounted, selected: Node) -> void:
+func setup(registry: RefCounted, player: RefCounted, selected: Node, info_panel: Control = null) -> void:
 	areas = registry
 	control = player
 	selection = selected
+	_info_panel = info_panel
+	if _info_panel != null: _info_panel.resized.connect(_queue_layout)
 	areas.changed.connect(_changed)
 	areas.presentation_changed.connect(_changed)
 	control.residents_changed.connect(_changed)
@@ -80,13 +92,32 @@ func _layout() -> void:
 	_layout_pending = false
 	if not get_parent() is Control: return
 	position = Vector2(12,12)
-	size = Vector2(maxf(420,get_parent().size.x-356),maxf(260,get_parent().size.y-244))
+	var available_width: float = get_parent().size.x-356
+	if is_instance_valid(_info_panel) and _info_panel.is_visible_in_tree():
+		available_width = minf(available_width,_info_panel.get_global_rect().position.x-get_parent().global_position.x-24)
+	size = Vector2(maxf(420,available_width),maxf(260,get_parent().size.y-244))
+
+func begin_assignment(caption: String) -> void:
+	mode = Mode.ASSIGN
+	mode_label.text = caption
+	mode_label.show()
+	create_button.hide()
+	empty_label.text = "Областей пока нет. Создайте область в обычном режиме окна."
+	close_button.text = "Отмена"
+func end_assignment() -> void:
+	if mode == Mode.VIEW: return
+	mode = Mode.VIEW
+	mode_label.hide()
+	create_button.show()
+	empty_label.text = "Областей пока нет. Создайте область на карте."
+	close_button.text = "Закрыть"
 
 func _shown() -> void:
 	_pressed_id = &""
 	if is_visible_in_tree():
 		_flush()
 		_queue_layout()
+	else: end_assignment()
 
 func _assignment_changed(_resident_id: String) -> void: _changed()
 func _changed() -> void:
@@ -128,7 +159,9 @@ func _selection_changed() -> void:
 	if rows.has(id): rows[id].select(0)
 
 func activate_row(id: StringName) -> void:
-	if areas.get_area(id) != null: area_selected.emit(id)
+	if areas.get_area(id) == null: return
+	if mode == Mode.ASSIGN: assignment_selected.emit(id)
+	else: area_selected.emit(id)
 
 func _table_input(event: InputEvent) -> void:
 	if not event is InputEventMouseButton or event.button_index != MOUSE_BUTTON_LEFT: return
@@ -146,5 +179,6 @@ func _exit_tree() -> void:
 		if control.residents_changed.is_connected(_changed): control.residents_changed.disconnect(_changed)
 		if control.work_assignment_changed.is_connected(_assignment_changed): control.work_assignment_changed.disconnect(_assignment_changed)
 	if is_instance_valid(selection) and selection.selection_changed.is_connected(_selection_changed): selection.selection_changed.disconnect(_selection_changed)
+	if is_instance_valid(_info_panel) and _info_panel.resized.is_connected(_queue_layout): _info_panel.resized.disconnect(_queue_layout)
 	if get_parent() is Control and get_parent().resized.is_connected(_queue_layout): get_parent().resized.disconnect(_queue_layout)
 	if get_tree().process_frame.is_connected(_layout): get_tree().process_frame.disconnect(_layout)

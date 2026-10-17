@@ -22,6 +22,12 @@ var _building: Instance
 var _last_snapshot: Array = []
 signal settlement_management_requested
 signal staffing_requested(profession: int)
+signal work_area_requested(building_id: StringName)
+const BuildingArea = preload("res://scripts/building_work_area.gd")
+var work_area_section: VBoxContainer
+var work_area_label: Label
+var assign_area_button: Button
+var reset_area_button: Button
 var staffing_buttons: Dictionary = {}
 var management_button: Button
 var storage_rows: Dictionary = {}
@@ -38,6 +44,7 @@ var _quota_dirty: Dictionary = {}
 func _ready() -> void:
 	hide()
 	_setup_storage_rows()
+	_setup_work_area()
 	management_button = Button.new()
 	management_button.text = "Управление поселением"
 	_info_body().add_child(management_button)
@@ -79,6 +86,7 @@ func _process(delta: float) -> void:
 	_refresh()
 func _refresh() -> void:
 	refresh_count += 1
+	_refresh_work_area()
 	if management_button != null: management_button.visible = _building != null and _building.is_built() and _building.type == Types.Type.TOWN_CENTER
 	if _building == null:
 		return
@@ -119,9 +127,49 @@ func _refresh() -> void:
 		presentation_changed.emit()
 func bind_control(control: RefCounted) -> void:
 	if _control != null and _control.home_changed.is_connected(_on_home_changed): _control.home_changed.disconnect(_on_home_changed)
+	_disconnect_work_area()
 	_control = control
 	_control.home_changed.connect(_on_home_changed)
+	_control.building_work_area_changed.connect(_building_area_changed)
+	if _control.work_areas != null:
+		_control.work_areas.changed.connect(_refresh_work_area)
+		_control.work_areas.presentation_changed.connect(_refresh_work_area)
+	_refresh_work_area()
 	_refresh_housing()
+
+func _setup_work_area() -> void:
+	work_area_section = VBoxContainer.new()
+	_info_body().add_child(work_area_section)
+	_info_body().move_child(work_area_section,0)
+	work_area_label = Label.new()
+	work_area_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	work_area_section.add_child(work_area_label)
+	assign_area_button = Button.new()
+	assign_area_button.text = "Назначить область"
+	assign_area_button.pressed.connect(func():
+		if _building != null: work_area_requested.emit(_building.id))
+	work_area_section.add_child(assign_area_button)
+	reset_area_button = Button.new()
+	reset_area_button.text = "Вернуть стандартную"
+	reset_area_button.pressed.connect(func():
+		if _building != null and _control != null and _control.get_building(_building.id)==_building: _control.reset_building_work_area(_building.id))
+	work_area_section.add_child(reset_area_button)
+	work_area_section.hide()
+func _building_area_changed(id: StringName) -> void:
+	if _building != null and _building.id==id: _refresh_work_area()
+func _refresh_work_area() -> void:
+	if work_area_section == null: return
+	work_area_section.visible = _control != null and BuildingArea.supports(_building) and _control.get_building(_building.id)==_building
+	if not work_area_section.visible: return
+	var area: RefCounted = _control.work_areas.get_area(_building.work_area_override_id) if _control.work_areas != null else null
+	reset_area_button.visible = area != null
+	work_area_label.text = "Рабочая область: Пользовательская\n%s\nID: %s" % [area.display_name,area.id] if area != null else "Рабочая область: Стандартная\nРадиус: %.1f мировых единиц" % _building.definition.work_radius
+func _disconnect_work_area() -> void:
+	if _control == null: return
+	if _control.building_work_area_changed.is_connected(_building_area_changed): _control.building_work_area_changed.disconnect(_building_area_changed)
+	if _control.work_areas != null:
+		for source in [_control.work_areas.changed,_control.work_areas.presentation_changed]:
+			if source.is_connected(_refresh_work_area): source.disconnect(_refresh_work_area)
 
 func _on_home_changed(_resident_id: String, previous: StringName, current: StringName) -> void:
 	if _building != null and _building.id in [previous, current]:
@@ -365,6 +413,7 @@ func _clear_person(id: String, building_id: StringName, housing: bool, role: int
 	elif current.work_location_id == building_id and current.profession==role: _control.clear_work_assignment(id)
 	_refresh()
 func _exit_tree() -> void:
+	_disconnect_work_area()
 	if _building != null:
 		if _building.construction_changed.is_connected(_refresh): _building.construction_changed.disconnect(_refresh)
 		if _building.resources.changed.is_connected(_on_resources_changed): _building.resources.changed.disconnect(_on_resources_changed)

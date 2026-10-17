@@ -90,7 +90,7 @@ func _ready() -> void:
 	work_areas_window = preload("res://scenes/ui/work_areas_window.tscn").instantiate()
 	$HUD.add_child(work_areas_window)
 	game_ui.register_window(&"areas",work_areas_window)
-	work_areas_window.setup(work_areas,player_control,resident_selection)
+	work_areas_window.setup(work_areas,player_control,resident_selection,game_ui.info_panel)
 	work_areas_window.area_selected.connect(_view_work_area)
 	work_areas_window.create_requested.connect(_start_work_area)
 	buildings_window = preload("res://scenes/ui/buildings_window.tscn").instantiate()
@@ -101,6 +101,15 @@ func _ready() -> void:
 	buildings_window.focus_requested.connect(_focus_registered_building)
 	game_ui.info_panel.area_details.focus_requested.connect(_focus_work_area)
 	game_ui.info_panel.area_details.edit_requested.connect(_edit_work_area)
+	building_card_view().work_area_requested.connect(_choose_building_area)
+	game_ui.info_panel.area_details.assign_building_requested.connect(_choose_area_building)
+	work_areas_window.assignment_selected.connect(_assign_chosen_area)
+	buildings_window.assignment_selected.connect(_assign_chosen_building)
+	for window in [work_areas_window,buildings_window]: window.visibility_changed.connect(_validate_area_assignment)
+	resident_selection.selection_changed.connect(_validate_area_assignment)
+	player_control.building_unregistered.connect(_assignment_building_removed)
+	work_areas.changed.connect(_validate_area_assignment)
+	work_areas.presentation_changed.connect(_validate_area_assignment)
 	work_area_dialog = preload("res://scripts/ui/work_area_dialog.gd").new()
 	game_ui.get_node("Windows").add_child(work_area_dialog)
 	work_area_dialog.setup(player_control,resident_selection,game_ui)
@@ -621,6 +630,49 @@ func _view_work_area(area_id: StringName) -> void:
 	if area == null: return
 	resident_selection.select_work_area(area)
 	game_ui.info_panel.set_expanded(true)
+
+# Short-lived UI source identity only; domain links still belong to PlayerControl.
+var _area_assignment_source: RefCounted
+var _area_assignment_from_building := false
+func _choose_building_area(id: StringName) -> void:
+	var building = player_control.get_building(id)
+	if building == null or resident_selection.selected_building != building or player_control.get_building_work_area(id)==null: return
+	game_ui.open_window(&"areas")
+	_area_assignment_source = building
+	_area_assignment_from_building = true
+	work_areas_window.begin_assignment("Выберите область для здания «%s» (%s)" % [building.display_name,building.id])
+func _choose_area_building(id: StringName) -> void:
+	var area = work_areas.get_area(id)
+	if area == null or resident_selection.selected_work_area != area: return
+	game_ui.open_window(&"buildings")
+	_area_assignment_source = area
+	_area_assignment_from_building = false
+	buildings_window.begin_assignment("Выберите здание для области «%s»" % area.display_name)
+func _assignment_building_removed(_id: StringName) -> void: _validate_area_assignment()
+func _validate_area_assignment() -> bool:
+	if _area_assignment_source == null: return false
+	var source = _area_assignment_source
+	var window: Control = work_areas_window if _area_assignment_from_building else buildings_window
+	var valid: bool = resident_selection.selected_entity == source and window.visible
+	if _area_assignment_from_building:
+		valid = valid and player_control.get_building(source.id)==source and player_control.get_building_work_area(source.id)!=null
+	else:
+		valid = valid and work_areas.get_area(source.id)==source
+		if valid: buildings_window.mode_label.text = "Выберите здание для области «%s»" % source.display_name
+	if not valid: _end_area_assignment()
+	return valid
+func _end_area_assignment() -> void:
+	var window: Control = work_areas_window if _area_assignment_from_building else buildings_window
+	_area_assignment_source = null
+	work_areas_window.end_assignment()
+	buildings_window.end_assignment()
+	if window.visible: game_ui.close_window()
+func _assign_chosen_area(id: StringName) -> void:
+	if not _area_assignment_from_building or not _validate_area_assignment(): return
+	if player_control.assign_building_work_area(_area_assignment_source.id,id): _end_area_assignment()
+func _assign_chosen_building(id: StringName) -> void:
+	if _area_assignment_from_building or not _validate_area_assignment(): return
+	if player_control.assign_building_work_area(id,_area_assignment_source.id): _end_area_assignment()
 
 func _show_building(building: BuildingInstance) -> void:
 	super._show_building(building)
