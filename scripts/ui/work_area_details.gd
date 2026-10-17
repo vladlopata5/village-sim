@@ -5,6 +5,7 @@ signal rename_requested(area_id: StringName)
 signal edit_requested(area_id: StringName)
 signal delete_requested(area_id: StringName)
 signal assign_building_requested(area_id: StringName)
+signal assign_resident_requested(area_id: StringName)
 const Coordinates = preload("res://scripts/world_3d/world_coordinates.gd")
 var selection: Node
 var control: RefCounted
@@ -14,6 +15,7 @@ var radius_label: Label
 var assignments_label: Label
 var buildings_label: Label
 var assign_building_button: Button
+var assign_resident_button: Button
 var focus_button: Button
 var rename_button: Button
 var edit_button: Button
@@ -36,6 +38,7 @@ func _ready() -> void:
 	assignments_label = _label(column)
 	buildings_label = _label(column)
 	assign_building_button = _action(column,"Назначить здание",assign_building_requested)
+	assign_resident_button = _action(column,"Назначить жителя",assign_resident_requested)
 	focus_button = Button.new()
 	focus_button.text = "Показать на карте"
 	focus_button.pressed.connect(_focus)

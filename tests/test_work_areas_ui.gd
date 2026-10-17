@@ -136,7 +136,11 @@ func run() -> void:
 	selection.select(actor.data)
 	panel.set_expanded(true);panel.select_tab(&"work")
 	world.resident_card_view().area_button.pressed.emit()
-	check(world.work_area_tool.resident_id==actor.data.id,"Original resident button still starts resident-targeted creation")
+	check(window.visible and window.mode==window.Mode.ASSIGN and selection.selected_resident==actor.data,"Resident button chooses an existing area without changing the source selection")
+	world.game_ui.close_window()
+	# Legacy tool API remains covered; creation in ordinary VIEW is still independent.
+	world._start_work_area(actor.data.id)
+	check(world.work_area_tool.resident_id==actor.data.id,"Existing resident-targeted tool API keeps its explicit creation context")
 	world.handle_world_click(MOUSE_BUTTON_LEFT,{"position":Vector3(-24,0,-20)})
 	world._confirm_work_area()
 	await settle()

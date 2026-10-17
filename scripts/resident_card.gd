@@ -27,6 +27,7 @@ var _assignment_resident: ResidentData
 @onready var skills_label: Label = _widget("Skills")
 @onready var assignment_list: VBoxContainer = _widget("Assignments")
 signal work_area_requested(resident_id: String)
+signal existing_area_requested(resident_id: String, area_id: StringName)
 var work_place_label: Label
 var area_button: Button
 var area_choice: OptionButton
@@ -61,13 +62,13 @@ func _ready() -> void:
 	work_place_label = Label.new()
 	work_place_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	area_button = Button.new()
-	area_button.text = "Назначить рабочую область"
+	area_button.text = "Назначить область"
 	area_button.pressed.connect(func(): work_area_requested.emit(_selection.selected_resident.id))
 	area_choice = OptionButton.new()
 	area_choice.item_selected.connect(_choose_area)
 	clear_work_button = Button.new()
 	clear_work_button.text = "Снять место работы"
-	clear_work_button.pressed.connect(func(): _control.clear_work_assignment(_selection.selected_resident.id))
+	clear_work_button.pressed.connect(_clear_work_assignment)
 	for control in [work_place_label,area_button,area_choice,clear_work_button]:
 		_work_body().add_child(control)
 	intent_label = Label.new()
@@ -306,8 +307,11 @@ func _areas_changed() -> void:
 	_refresh_work_place()
 func _choose_area(index: int) -> void:
 	if index > 0 and _selection != null and _selection.selected_resident != null:
-		_control.assign_work_area(_selection.selected_resident.id,area_choice.get_item_metadata(index))
+		existing_area_requested.emit(_selection.selected_resident.id,area_choice.get_item_metadata(index))
 	area_choice.select(0)
+func _clear_work_assignment() -> void:
+	var resident = _selection.selected_resident if _selection != null else null
+	if resident != null and _control != null and _control.get_resident(resident.id)==resident: _control.clear_work_assignment(resident.id)
 func _refresh_work_place() -> void:
 	if work_place_label == null or _selection == null or _selection.selected_resident == null: return
 	var data = _selection.selected_resident
@@ -319,10 +323,11 @@ func _refresh_work_place() -> void:
 		var area = _control.work_areas.get_area(data.work_area_id)
 		label = "Свободная область: %s (%s)" % [area.display_name,area.id]
 	work_place_label.text = label
-	var enabled: bool = data.profession in [Profession.Type.LUMBERJACK,Profession.Type.MINER] and _control != null and _control.get("work_areas") != null
+	var enabled: bool = _control != null and _control.can_assign_work_area(data.id)
 	area_button.visible = enabled
 	area_choice.visible = enabled
 	clear_work_button.visible = enabled or data.profession == Profession.Type.PORTER or ((not data.work_location_id.is_empty() or not data.work_area_id.is_empty()))
+	clear_work_button.text = "Снять назначение области" if not data.work_area_id.is_empty() else "Снять место работы"
 
 var job_provider: Callable
 var _needs_connected: Array = []

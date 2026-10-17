@@ -11,6 +11,7 @@ const FOOD = preload("res://scripts/resource_type.gd").Type.FOOD
 var failures := 0
 var lines: Array[String] = []
 class ControlSpy extends RefCounted:
+	func can_assign_work_area(_resident_id: String) -> bool: return false # No work-area registry in this spy.
 	signal residents_changed
 	func get_residents() -> Array: return []
 	signal home_changed(resident_id: String, previous: StringName, current: StringName)

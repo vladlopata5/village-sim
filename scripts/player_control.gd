@@ -303,9 +303,12 @@ func unregister_resident(resident_id: String) -> void:
 	resident_unregistered.emit(resident_id)
 	residents_changed.emit()
 
+func can_assign_work_area(resident_id: String) -> bool:
+	var resident: RefCounted = get_resident(resident_id)
+	return resident != null and resident.profession in [Profession.Type.LUMBERJACK,Profession.Type.MINER] and work_areas != null
 func assign_work_area(resident_id: String, area_id: StringName) -> bool:
 	var resident: RefCounted = get_resident(resident_id)
-	if resident == null or resident.profession not in [Profession.Type.LUMBERJACK,Profession.Type.MINER] or work_areas == null or work_areas.get_area(area_id) == null: return false
+	if not can_assign_work_area(resident_id) or work_areas.get_area(area_id) == null: return false
 	resident.work_location_id = &""
 	resident.work_area_id = area_id
 	work_assignment_changed.emit(resident_id)

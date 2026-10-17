@@ -78,14 +78,15 @@ func _ready() -> void:
 	$HUD.add_child(area_confirm)
 	game_ui.register_pointer_control(area_confirm)
 	_setup_area_edit_controls()
-	resident_card_view().work_area_requested.connect(_start_work_area)
+	resident_card_view().work_area_requested.connect(_choose_resident_area)
+	resident_card_view().existing_area_requested.connect(_choose_existing_resident_area)
 	player_control.work_assignment_changed.connect(_work_assignment_updated)
 	player_control.building_work_area_changed.connect(_building_work_area_updated)
 	work_areas.changed.connect(_work_areas_updated)
 	settlement_panel = preload("res://scenes/ui/residents_window.tscn").instantiate()
 	$HUD.add_child(settlement_panel)
 	game_ui.register_window(&"residents", settlement_panel)
-	settlement_panel.set_canonical_layout()
+	settlement_panel.set_canonical_layout(game_ui.info_panel)
 	settlement_panel.setup(player_control,resident_selection)
 	work_areas_window = preload("res://scenes/ui/work_areas_window.tscn").instantiate()
 	$HUD.add_child(work_areas_window)
@@ -103,13 +104,25 @@ func _ready() -> void:
 	game_ui.info_panel.area_details.edit_requested.connect(_edit_work_area)
 	building_card_view().work_area_requested.connect(_choose_building_area)
 	game_ui.info_panel.area_details.assign_building_requested.connect(_choose_area_building)
+	game_ui.info_panel.area_details.assign_resident_requested.connect(_choose_area_resident)
+	settlement_panel.area_assignment_selected.connect(_assign_chosen_resident)
 	work_areas_window.assignment_selected.connect(_assign_chosen_area)
 	buildings_window.assignment_selected.connect(_assign_chosen_building)
-	for window in [work_areas_window,buildings_window]: window.visibility_changed.connect(_validate_area_assignment)
+	for window in [work_areas_window,buildings_window,settlement_panel]: window.visibility_changed.connect(_validate_area_assignment)
 	resident_selection.selection_changed.connect(_validate_area_assignment)
 	player_control.building_unregistered.connect(_assignment_building_removed)
 	work_areas.changed.connect(_validate_area_assignment)
 	work_areas.presentation_changed.connect(_validate_area_assignment)
+	player_control.profession_changed.connect(_area_resident_changed)
+	player_control.work_assignment_changed.connect(_area_resident_changed)
+	player_control.resident_unregistered.connect(_area_resident_changed)
+	player_control.residents_changed.connect(_validate_area_assignment)
+	area_departure_dialog=preload("res://scripts/ui/work_area_departure_dialog.gd").new()
+	game_ui.get_node("Windows").add_child(area_departure_dialog)
+	area_departure_dialog.coordinator=game_ui
+	area_departure_dialog.confirmed.connect(_confirm_resident_area)
+	area_departure_dialog.visibility_changed.connect(func():
+		if not area_departure_dialog.visible: _resident_area_offer.clear())
 	work_area_dialog = preload("res://scripts/ui/work_area_dialog.gd").new()
 	game_ui.get_node("Windows").add_child(work_area_dialog)
 	work_area_dialog.setup(player_control,resident_selection,game_ui)
@@ -633,46 +646,111 @@ func _view_work_area(area_id: StringName) -> void:
 
 # Short-lived UI source identity only; domain links still belong to PlayerControl.
 var _area_assignment_source: RefCounted
-var _area_assignment_from_building := false
+enum AreaAssignment { BUILDING, AREA_BUILDING, RESIDENT, AREA_RESIDENT }
+var _area_assignment_kind := AreaAssignment.BUILDING
+var area_departure_dialog: PanelContainer
+var _resident_area_offer: Dictionary = {}
+func _area_assignment_window() -> Control:
+	if _area_assignment_kind==AreaAssignment.AREA_BUILDING: return buildings_window
+	if _area_assignment_kind==AreaAssignment.AREA_RESIDENT: return settlement_panel
+	return work_areas_window
 func _choose_building_area(id: StringName) -> void:
 	var building = player_control.get_building(id)
 	if building == null or resident_selection.selected_building != building or player_control.get_building_work_area(id)==null: return
 	game_ui.open_window(&"areas")
 	_area_assignment_source = building
-	_area_assignment_from_building = true
+	_area_assignment_kind = AreaAssignment.BUILDING
 	work_areas_window.begin_assignment("Выберите область для здания «%s» (%s)" % [building.display_name,building.id])
 func _choose_area_building(id: StringName) -> void:
 	var area = work_areas.get_area(id)
 	if area == null or resident_selection.selected_work_area != area: return
 	game_ui.open_window(&"buildings")
 	_area_assignment_source = area
-	_area_assignment_from_building = false
+	_area_assignment_kind = AreaAssignment.AREA_BUILDING
 	buildings_window.begin_assignment("Выберите здание для области «%s»" % area.display_name)
+func _choose_resident_area(id: String) -> void:
+	var resident = player_control.get_resident(id)
+	if resident==null or resident_selection.selected_resident!=resident or not player_control.can_assign_work_area(id): return
+	game_ui.open_window(&"areas")
+	_area_assignment_source=resident
+	_area_assignment_kind=AreaAssignment.RESIDENT
+	work_areas_window.begin_assignment("Выберите область для жителя «%s»" % resident.resident_name)
+func _choose_existing_resident_area(id: String, area_id: StringName) -> void:
+	_choose_resident_area(id)
+	if _area_assignment_kind==AreaAssignment.RESIDENT: _assign_chosen_area(area_id)
+func _choose_area_resident(id: StringName) -> void:
+	var area = work_areas.get_area(id)
+	if area==null or resident_selection.selected_work_area!=area: return
+	game_ui.open_window(&"residents")
+	_area_assignment_source=area
+	_area_assignment_kind=AreaAssignment.AREA_RESIDENT
+	settlement_panel.begin_assignment("Выберите жителя для области «%s»" % area.display_name)
+func _area_resident_changed(_id: String) -> void: _validate_area_assignment()
 func _assignment_building_removed(_id: StringName) -> void: _validate_area_assignment()
 func _validate_area_assignment() -> bool:
 	if _area_assignment_source == null: return false
 	var source = _area_assignment_source
-	var window: Control = work_areas_window if _area_assignment_from_building else buildings_window
+	var window: Control = _area_assignment_window()
 	var valid: bool = resident_selection.selected_entity == source and window.visible
-	if _area_assignment_from_building:
+	if _area_assignment_kind==AreaAssignment.BUILDING:
 		valid = valid and player_control.get_building(source.id)==source and player_control.get_building_work_area(source.id)!=null
+	elif _area_assignment_kind==AreaAssignment.RESIDENT:
+		valid = valid and player_control.get_resident(source.id)==source and player_control.can_assign_work_area(source.id)
 	else:
 		valid = valid and work_areas.get_area(source.id)==source
-		if valid: buildings_window.mode_label.text = "Выберите здание для области «%s»" % source.display_name
+		if valid and _area_assignment_kind==AreaAssignment.AREA_BUILDING: buildings_window.mode_label.text = "Выберите здание для области «%s»" % source.display_name
+		elif valid: settlement_panel.set_assignment_caption("Выберите жителя для области «%s»" % source.display_name)
 	if not valid: _end_area_assignment()
+	elif not _resident_area_offer.is_empty() and not _resident_offer_current(_resident_area_offer):
+		_resident_area_offer.clear()
+		area_departure_dialog.close()
+		var label: Label = settlement_panel.context_label if _area_assignment_kind==AreaAssignment.AREA_RESIDENT else work_areas_window.mode_label
+		label.text += "\nНазначение изменилось. Выберите заново."
 	return valid
 func _end_area_assignment() -> void:
-	var window: Control = work_areas_window if _area_assignment_from_building else buildings_window
+	var window: Control = _area_assignment_window()
 	_area_assignment_source = null
+	_resident_area_offer.clear()
+	if is_instance_valid(area_departure_dialog): area_departure_dialog.close()
 	work_areas_window.end_assignment()
 	buildings_window.end_assignment()
+	settlement_panel.end_assignment()
 	if window.visible: game_ui.close_window()
 func _assign_chosen_area(id: StringName) -> void:
-	if not _area_assignment_from_building or not _validate_area_assignment(): return
-	if player_control.assign_building_work_area(_area_assignment_source.id,id): _end_area_assignment()
+	if not _validate_area_assignment(): return
+	if _area_assignment_kind==AreaAssignment.BUILDING:
+		if player_control.assign_building_work_area(_area_assignment_source.id,id): _end_area_assignment()
+	elif _area_assignment_kind==AreaAssignment.RESIDENT: _offer_resident_area(_area_assignment_source,work_areas.get_area(id))
 func _assign_chosen_building(id: StringName) -> void:
-	if _area_assignment_from_building or not _validate_area_assignment(): return
+	if _area_assignment_kind!=AreaAssignment.AREA_BUILDING or not _validate_area_assignment(): return
 	if player_control.assign_building_work_area(id,_area_assignment_source.id): _end_area_assignment()
+func _assign_chosen_resident(id: String) -> void:
+	if _area_assignment_kind!=AreaAssignment.AREA_RESIDENT or not _validate_area_assignment(): return
+	_offer_resident_area(player_control.get_resident(id),_area_assignment_source)
+func _offer_resident_area(resident: RefCounted, area: RefCounted) -> void:
+	if area_departure_dialog.visible or resident==null or area==null or not player_control.can_assign_work_area(resident.id): return
+	var building = player_control.get_building(resident.work_location_id)
+	var offer := {"resident":resident,"area":area,"revision":resident.work_assignment_revision,"building":building}
+	if resident.work_location_id.is_empty():
+		_apply_resident_area(offer)
+		return
+	if building==null: return # Do not silently dismiss an unresolved workplace reference.
+	_resident_area_offer=offer
+	area_departure_dialog.open("Назначение области «%s» снимет жителя «%s» с работы в здании «%s».\nПрофессия сохранится. Принятая работа продолжится.\n\nПродолжить?" % [area.display_name,resident.resident_name,building.display_name])
+func _resident_offer_current(offer: Dictionary) -> bool:
+	var resident = offer.resident
+	var area = offer.area
+	return player_control.get_resident(resident.id)==resident and player_control.can_assign_work_area(resident.id) and work_areas.get_area(area.id)==area and resident.work_assignment_revision==offer.revision and player_control.get_building(resident.work_location_id)==offer.building
+func _apply_resident_area(offer: Dictionary) -> void:
+	if not _validate_area_assignment() or not _resident_offer_current(offer): return
+	var resident = offer.resident
+	if (resident.work_location_id.is_empty() and resident.work_area_id==offer.area.id) or player_control.assign_work_area(resident.id,offer.area.id): _end_area_assignment()
+func _confirm_resident_area() -> void:
+	if not area_departure_dialog.visible or _resident_area_offer.is_empty(): return
+	var offer := _resident_area_offer
+	_resident_area_offer={}
+	area_departure_dialog.close()
+	_apply_resident_area(offer) # Recheck after closing: UI callbacks may change the context.
 
 func _show_building(building: BuildingInstance) -> void:
 	super._show_building(building)

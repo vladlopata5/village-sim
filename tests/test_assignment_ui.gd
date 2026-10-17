@@ -6,6 +6,7 @@ const Need = preload("res://scripts/need_type.gd").Type
 class ControlSpy extends RefCounted:
 	signal residents_changed
 	func get_residents() -> Array: return []
+	func can_assign_work_area(_resident_id: String) -> bool: return false # This spy has no work-area registry.
 	signal home_changed(resident_id: String, previous: StringName, current: StringName)
 	func get_home(_resident_id: String) -> RefCounted: return null
 	func notify_home() -> void:
