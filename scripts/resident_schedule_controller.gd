@@ -10,6 +10,10 @@ const HOME_PRIORITY := 10000
 const WORK_PRIORITY := preload("res://scripts/balance_config.gd").WORK_PRIORITY
 const MANUAL_PRIORITY := 10
 const Balance = preload("res://scripts/balance_config.gd")
+var production_continues: Callable # Only the current accepted recipe action.
+func keeps_production_action() -> bool:
+	return production_continues.is_valid() and production_continues.call()
+
 var before_work: Callable
 var work_decision: Callable
 var _locations: RefCounted
@@ -55,6 +59,7 @@ func _on_phase_changed(phase: String) -> void:
 	var changed_phase := phase != _phase
 	_phase = phase
 	if _intents.player_controlled: return # Track phase, defer AI until command completion.
+	if keeps_production_action(): return # Track the new phase without evicting accepted production.
 	# A route belonging to the previous phase must not finish in the new phase.
 	_intents.clear_reason(&"day_work")
 	_intents.clear_reason(&"night_home")

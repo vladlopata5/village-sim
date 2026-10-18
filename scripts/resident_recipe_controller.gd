@@ -1,7 +1,8 @@
 extends Node
 const Purpose = preload("res://scripts/building_slot_purpose.gd").Type
-## Generic input-consuming recipe execution. Work/progress use the existing building data.
+## Physical worker for building-owned batches; no resource or progress ledger here.
 const Intent = preload("res://scripts/resident_intent.gd")
+const Batch = preload("res://scripts/production_batch.gd")
 const Profession = preload("res://scripts/resident_profession.gd")
 const Activity = preload("res://scripts/resident_activity.gd")
 const Balance = preload("res://scripts/balance_config.gd")
@@ -12,18 +13,19 @@ var logger: EventLog
 var position_provider: Callable
 var phase := Phase.NONE
 var building: RefCounted
+var batch: Batch
 var _runtime: Node
 var _clock: Node
 var _locations: RefCounted
 var _buildings: Array
 var _intent: Intent
-var _inputs: Dictionary = {}
-var _outputs: Dictionary = {}
 var _mutating := false
 var _interrupted := false
 var _exiting := false
 var _last_minute := 0
+var _assignment_revision := 0
 var _availability_queued := false
+
 func setup(runtime: Node, clock: Node, locations: RefCounted, buildings: Array) -> void:
 	_runtime = runtime
 	_clock = clock
@@ -33,127 +35,146 @@ func setup(runtime: Node, clock: Node, locations: RefCounted, buildings: Array) 
 	runtime.intents.intent_changed.connect(_on_intent_changed)
 	runtime.intents.intent_arrived.connect(_on_arrival)
 	clock.minute_changed.connect(_on_minute)
-	clock.phase_changed.connect(_on_phase)
 	for target in buildings: register_building(target)
+
 func register_building(target: RefCounted) -> void:
 	if target.definition.production_recipe == null: return
 	if not target.resources.availability_changed.is_connected(_on_resource):
 		target.resources.availability_changed.connect(_on_resource)
 		target.resources.reservations_changed.connect(_on_reservation)
 		target.construction_changed.connect(_queue_availability)
+
+func _eligible(target: RefCounted) -> bool:
+	return target != null and target.is_built() and not target.production_removed and target.definition.production_recipe != null and target.definition.worker_profession != Profession.Type.NONE and _runtime.data.profession == target.definition.worker_profession and _runtime.data.work_location_id == target.id and _runtime.data.inventory.amount == 0
+
 func _workplace() -> RefCounted:
 	for target in _buildings:
-		if target.id == _runtime.data.work_location_id and target.is_built() and target.definition.production_recipe != null and _locations.get_position(target.id) is Vector2: return target
+		if _eligible(target) and _locations.get_position(target.id) is Vector2: return target
 	return null
+
 func has_work() -> bool:
-	if phase != Phase.NONE or _runtime.data.profession != Profession.Type.SAWYER or _runtime.data.inventory.amount != 0: return false
+	if phase != Phase.NONE: return false
 	var target := _workplace()
-	if target == null or not target.production_worker_id.is_empty(): return false
+	if target == null: return false
+	# The batch claims the logical work place. Physical occupancy may wait at arrival.
+	if target.resumable_production_batch() != null: return true
+	if not target.production_batches.is_empty(): return false
 	var recipe: RefCounted = target.definition.production_recipe
 	for resource in recipe.inputs:
 		if target.resources.get_available_amount(resource) < int(recipe.inputs[resource]): return false
 	for resource in recipe.outputs:
 		if target.resources.get_available_free_capacity(resource) < int(recipe.outputs[resource]): return false
 	return true
+
 func request_work() -> bool:
-	if _clock.get_phase() != "День" or _runtime.intents.has_current_action() or not has_work(): return false
+	if _clock.get_phase() != "День" or _runtime.intents.player_controlled or _runtime.intents.forced_priority>0 or _runtime.intents.has_current_action() or not has_work(): return false
 	building = _workplace()
-	building.production_worker_id = _runtime.data.id
+	_assignment_revision = _runtime.data.work_assignment_revision
+	phase = Phase.GOING_TO_WORK
 	_mutating = true
-	var recipe: RefCounted = building.definition.production_recipe
-	var reserved := true
-	for resource in recipe.inputs:
-		if not building.resources.reserve_out(resource,recipe.inputs[resource]):
-			reserved = false
-			break
-		_inputs[resource] = recipe.inputs[resource]
-	if reserved:
-		for resource in recipe.outputs:
-			if not building.resources.reserve_in(resource,recipe.outputs[resource]):
-				reserved = false
-				break
-			_outputs[resource] = recipe.outputs[resource]
+	batch = building.resumable_production_batch()
+	if batch != null:
+		if not batch.claim(_runtime.data.id): batch = null
+	else:
+		batch = building.prepare_production_batch(_runtime.data.id)
 	_mutating = false
-	if not reserved or _interrupted:
+	if batch == null or _interrupted or not _valid() or _clock.get_phase() != "День" or _runtime.intents.has_current_action():
 		abort()
 		return false
-	phase = Phase.GOING_TO_WORK
 	_intent = Intent.new(Intent.Type.MOVE_TO,&"recipe_work",_locations.get_position(building.id),Balance.WORK_PRIORITY,false)
 	if _locations.has_method("configure_intent"): _locations.configure_intent(_intent,building.id,Purpose.WORKER,_runtime.data.id)
 	if not _runtime.intents.submit(_intent):
 		abort()
 		return false
-	return true
+	return phase != Phase.NONE
+
+func _valid() -> bool:
+	return _eligible(building) and building in _buildings and batch != null and building.owns_production_batch(batch) and batch.worker_id == _runtime.data.id and batch.reserves_valid() and _runtime.data.work_assignment_revision == _assignment_revision and _locations.get_position(building.id) is Vector2
+
+func keeps_shift_action() -> bool:
+	return phase in [Phase.GOING_TO_WORK,Phase.WORKING] and _intent != null and _intent == _runtime.intents.current_intent and _valid()
+
+func _at_workplace() -> bool:
+	var point: Variant = position_provider.call(_runtime.data.id) if position_provider.is_valid() else null
+	if not point is Vector2 or building == null: return false
+	return _locations.at_action(_runtime.data.id,building.id,Purpose.WORKER,point,8.0) if _locations.has_method("at_action") else point.distance_to(_locations.get_position(building.id))<=8.0
+
 func _on_arrival(intent: Intent) -> void:
-	if intent != _intent or phase != Phase.GOING_TO_WORK: return
-	if not _valid():
+	if _mutating or intent != _intent or phase != Phase.GOING_TO_WORK: return
+	if not _valid() or not _at_workplace():
+		abort()
+		return
+	_mutating = true
+	var started := batch.begin(_runtime.data.id)
+	_mutating = false
+	if not started or _interrupted or not _valid():
 		abort()
 		return
 	phase = Phase.WORKING
 	_last_minute = _clock.total_minutes
 	_runtime.data.activity = Activity.Type.WORKING
+	if phase != Phase.WORKING: return
 	work_cycle_started.emit(building.id)
-	if logger != null: logger.info(EventLog.PRODUCTION,"%s: начал recipe cycle — %s (%d/%d мин)" % [_runtime.data.resident_name,building.display_name,building.production_progress,building.definition.production_recipe.work_required])
-func _valid() -> bool:
-	return building != null and building in _buildings and building.is_built() and building.production_worker_id == _runtime.data.id and _locations.get_position(building.id) is Vector2
+	if phase == Phase.WORKING and logger != null: logger.info(EventLog.PRODUCTION,"%s: начал партию %s — %s (%d/%d мин)" % [_runtime.data.resident_name,batch.id,building.display_name,batch.progress,batch.work_required])
+
 func _accrue() -> void:
 	if phase != Phase.WORKING or not _valid(): return
-	var point: Variant = position_provider.call(_runtime.data.id) if position_provider.is_valid() else null
-	var target: Vector2 = _locations.get_position(building.id)
-	if point is Vector2 and (_locations.at_action(_runtime.data.id,building.id,Purpose.WORKER,point,8.0) if _locations.has_method("at_action") else point.distance_to(target)<=8.0) and _runtime.data.activity == Activity.Type.WORKING:
-		building.production_progress = mini(building.production_progress+maxi(_clock.total_minutes-_last_minute,0),building.definition.production_recipe.work_required)
+	if _at_workplace() and _runtime.data.activity == Activity.Type.WORKING:
+		batch.advance(_runtime.data.id,maxi(_clock.total_minutes-_last_minute,0))
 	_last_minute = _clock.total_minutes
+
 func _on_minute(_minute: int) -> void:
-	if phase == Phase.NONE: return
+	if phase == Phase.NONE or _mutating or _exiting: return
 	if not _valid():
 		abort()
 		return
 	_accrue()
-	if phase != Phase.WORKING or building.production_progress < building.definition.production_recipe.work_required: return
+	if phase != Phase.WORKING or batch.progress < batch.work_required: return
 	_mutating = true
-	var done: bool = building.resources.transform_reserved(_inputs,_outputs)
-	if done:
-		_inputs.clear()
-		_outputs.clear()
-		building.production_progress = 0
-		if logger != null: logger.info(EventLog.PRODUCTION,"%s: recipe завершён — %s" % [_runtime.data.resident_name,building.display_name])
+	var done := batch.finish(_runtime.data.id)
 	_mutating = false
 	var interrupted := _interrupted
+	if done and logger != null: logger.info(EventLog.PRODUCTION,"%s: партия %s завершена — %s" % [_runtime.data.resident_name,batch.id,building.display_name])
 	var previous := _cleanup()
 	if previous != null and _runtime.intents.current_intent == previous:
 		if done and not interrupted: _runtime.intents.clear_completed(previous)
 		else: _runtime.intents.cancel_current(previous)
 	if not done: _runtime.decision.call_deferred("request_decision","recipe_unavailable")
+
 func _cleanup() -> Intent:
 	_exiting = true
 	_accrue()
-	var previous: Intent = _intent
+	var previous := _intent
+	var place := building
+	var previous_batch := batch
 	_intent = null
-	if building != null:
-		for resource in _inputs: building.resources.release_out(resource,_inputs[resource])
-		for resource in _outputs: building.resources.release_in(resource,_outputs[resource])
-		if building.production_worker_id == _runtime.data.id: building.production_worker_id = ""
-	_inputs.clear()
-	_outputs.clear()
 	building = null
+	batch = null
 	phase = Phase.NONE
+	if place != null:
+		if place not in _buildings: place.dispose_production()
+		if previous_batch != null:
+			previous_batch.release_worker(_runtime.data.id)
+			place.retire_production_batch(previous_batch)
 	_interrupted = false
 	_exiting = false
 	_queue_availability()
 	return previous
+
 func abort() -> void:
+	if _exiting: return
+	if _mutating:
+		_interrupted = true
+		return
 	if building == null: return
 	var previous := _cleanup()
 	if previous != null and _runtime.intents.current_intent == previous: _runtime.intents.cancel_current(previous)
-func _on_forced(_previous: Intent) -> void:
-	if _mutating: _interrupted = true
-	else: abort()
+
+func _on_forced(_previous: Intent) -> void: abort()
 func _on_intent_changed(intent: Intent) -> void:
-	if _exiting or _intent == null or intent == _intent: return
-	if _mutating: _interrupted = true
-	else: abort()
-func _on_phase(phase_name: String) -> void:
-	if phase_name != "День": abort()
+	if not _exiting and _intent != null and intent != _intent: abort()
+func on_assignment_changed(id: String) -> void:
+	if id == _runtime.data.id and building != null and not _eligible(building): abort()
 func _on_resource(_resource: int, _amount: int) -> void: _queue_availability()
 func _on_reservation(_resource: int) -> void: _queue_availability()
 func _queue_availability() -> void:

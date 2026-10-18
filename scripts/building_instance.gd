@@ -2,6 +2,7 @@ extends RefCounted
 ## One entity for the entire lifecycle; changing state never replaces its identity.
 const Definition = preload("res://scripts/building_definition.gd")
 const ResourceContainer = preload("res://scripts/resource_container.gd")
+const Batch = preload("res://scripts/production_batch.gd")
 const Balance = preload("res://scripts/balance_config.gd")
 enum State { UNDER_CONSTRUCTION, BUILT }
 var id: StringName
@@ -34,8 +35,21 @@ var construction_progress: int = 0:
 		construction_progress = clamped
 		_notify_construction_changed()
 var resources: ResourceContainer
-var production_worker_id: String = "" # Active recipe owner, not workplace assignment.
-var production_progress: int = 0
+var _production_batches: Array[Batch] = []
+var production_batches: Array[Batch]:
+	get: return _production_batches.duplicate()
+var production_removed := false
+var _next_batch_id := 1
+var production_worker_id: String:
+	get: return _production_batches[0].worker_id if not _production_batches.is_empty() else ""
+var _simple_production_progress := 0 # Original gatherer/non-recipe state is unchanged.
+var production_progress: int:
+	get:
+		if definition.production_recipe == null: return _simple_production_progress
+		return _production_batches[0].progress if not _production_batches.is_empty() and not _production_batches[0].is_terminal() else 0
+	set(value):
+		if definition.production_recipe == null: _simple_production_progress = value
+
 var logistics_weight: float = Balance.DEFAULT_BUILDING_LOGISTICS_WEIGHT
 # Compatibility accessors keep existing systems using the same instance data.
 var display_name: String:
@@ -50,6 +64,37 @@ func _init(instance_id: StringName, building_definition: Definition, world_posit
 	for resource in definition.construction_requirements:
 		_construction_delivered[resource] = 0
 	resources = ResourceContainer.new(id)
+func prepare_production_batch(worker: String) -> Batch:
+	# F5a deliberately permits one batch. The collection keeps future slots independent.
+	if production_removed or not is_built() or definition.production_recipe == null or not _production_batches.is_empty(): return null
+	var created := Batch.new(StringName("%s:batch_%04d" % [id,_next_batch_id]),definition.production_recipe,resources)
+	_next_batch_id += 1
+	_production_batches.append(created) # Publish identity before reservations emit signals.
+	if not created.prepare(worker):
+		created.cancel()
+		retire_production_batch(created)
+		return null
+	return created
+
+func owns_production_batch(batch: Batch) -> bool:
+	return not production_removed and batch in _production_batches
+
+func resumable_production_batch() -> Batch:
+	if production_removed: return null
+	for batch in _production_batches:
+		if batch.can_resume(): return batch
+	return null
+
+func retire_production_batch(batch: Batch) -> void:
+	if batch.is_terminal(): _production_batches.erase(batch)
+
+func dispose_production() -> void:
+	if production_removed: return
+	production_removed = true
+	var previous := _production_batches
+	_production_batches = []
+	for batch in previous: batch.cancel()
+
 func is_built() -> bool: return state == State.BUILT
 func footprint() -> Rect2: return Rect2(position - definition.size / 2.0, definition.size)
 

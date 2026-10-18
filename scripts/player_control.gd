@@ -84,7 +84,9 @@ func _default_profession(building: RefCounted) -> int:
 func unregister_building(building_id: StringName) -> void:
 	var building := get_building(building_id)
 	if building == null and not _workplace_professions.has(building_id): return
-	if building != null: _buildings.erase(building)
+	if building != null:
+		building.dispose_production()
+		_buildings.erase(building)
 	_workplace_professions.erase(building_id)
 	for role in _workplaces.keys():
 		if _workplaces[role] == building_id: _workplaces.erase(role)

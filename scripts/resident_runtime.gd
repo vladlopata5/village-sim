@@ -43,6 +43,7 @@ func setup(resident: RefCounted, presentation: Node, clock: Node, locations: Ref
 	commands.setup(data, intents)
 	schedule.fallback_housing = housing
 	schedule.setup(clock, locations, intents, buildings)
+	schedule.production_continues = recipe_work.keeps_shift_action
 	if view.has_signal("building_use_unavailable"):
 		view.building_use_unavailable.connect(_on_building_use_unavailable)
 	intents.intent_changed.connect(view.apply_intent)

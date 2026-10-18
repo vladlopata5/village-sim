@@ -86,12 +86,12 @@ func run() -> void:
 	saw.resources.add(Resources.LOG,3)
 	check(world._work_available(actor) and actor.decision.collect_actions(true).any(func(row): return row.id=="WORK" and row.priority==7000),"SAWYER participates in normal WORK category")
 	begin(world,actor)
-	check(saw.resources.get_amount(Resources.LOG)==3 and saw.resources.get_reserved_out(Resources.LOG)==1 and saw.resources.get_reserved_in(Resources.PLANK)==1,"Start protects input and output capacity without consumption")
+	check(saw.resources.get_amount(Resources.LOG)==2 and saw.resources.get_reserved_out(Resources.LOG)==0 and saw.resources.get_reserved_in(Resources.PLANK)==1 and actor.recipe_work.batch.inputs_spent,"Physical start consumes one input and keeps only the result reservation")
 	check(not world.resident_runtimes[2].recipe_work.has_work(),"Recipe cannot have second owner")
 	minute(world,actor,15)
 	check(saw.production_progress==15 and saw.resources.get_amount(Resources.PLANK)==0,"15 actual minutes preserve incomplete recipe")
 	actor.commands.move_to(Vector2(0,500))
-	check(saw.production_progress==15 and saw.resources.get_amount(Resources.LOG)==3 and saw.resources.get_reserved_out(Resources.LOG)==0 and saw.resources.get_reserved_in(Resources.PLANK)==0,"PlayerCommand releases both reservations; partial work/input preserved")
+	check(saw.production_progress==15 and saw.resources.get_amount(Resources.LOG)==2 and saw.resources.get_reserved_out(Resources.LOG)==0 and saw.resources.get_reserved_in(Resources.PLANK)==1 and saw.resumable_production_batch()!=null,"PlayerCommand pauses paid batch, preserves progress and output reservation")
 	actor.commands.cancel_current()
 	actor.intents.abort_current(actor.intents.current_intent)
 	begin(world,actor)
@@ -112,7 +112,7 @@ func run() -> void:
 	minute(world,actor,7)
 	actor.decision._deciding=false
 	actor.data.fatigue=100
-	check(actor.recipe_work.phase==RecipeWork.Phase.NONE and saw.production_progress==7 and saw.resources.get_reserved_out(Resources.LOG)==0,"Critical interrupt preserves work/releases input")
+	check(actor.recipe_work.phase==RecipeWork.Phase.NONE and saw.production_progress==7 and saw.resources.get_reserved_out(Resources.LOG)==0,"Critical interrupt preserves paid work; no input is reserved twice")
 	actor.decision._deciding=true
 	actor.intents.abort_current(actor.intents.current_intent)
 	actor.data.fatigue=0
@@ -120,7 +120,7 @@ func run() -> void:
 	minute(world,actor,8)
 	world.game_time.total_minutes=1020
 	world.game_time.phase_changed.emit("Вечер")
-	check(actor.recipe_work.phase==RecipeWork.Phase.NONE and saw.resources.get_reserved_in(Resources.PLANK)==0 and saw.production_progress==15,"Schedule end releases task, preserves partial progress")
+	check(actor.recipe_work.phase==RecipeWork.Phase.WORKING and saw.resources.get_reserved_in(Resources.PLANK)==1 and saw.production_progress==15,"Schedule end retains accepted action, progress and promised output")
 	check(not actor.recipe_work.request_work(),"No production after WORK phase")
 	world.resident_selection.select_building(saw)
 	var card = world.building_card_view()
@@ -156,7 +156,7 @@ func run() -> void:
 	actor.decision._deciding = true
 	world.player_control.assign_profession(actor.data.id,Profession.NONE)
 	minute(world,actor,30)
-	check(saw.resources.get_amount(Resources.LOG)==0 and not actor.recipe_work.has_work(),"Profession change finishes safe recipe but cannot begin another")
+	check(saw.resources.get_amount(Resources.LOG)==0 and not actor.recipe_work.has_work() and saw.resumable_production_batch()!=null and saw.resources.get_reserved_in(Resources.PLANK)==1,"Profession change pauses the paid batch and cannot begin another")
 	world.free()
 
 	# Storage-owned outbound LOG uses the same physical Porter executor.
@@ -177,7 +177,7 @@ func run() -> void:
 	begin(world,actor)
 	# Force interrupt inside synchronous completion callbacks: conversion must remain atomic.
 	saw.resources.changed.connect(func(resource,amount):
-		if resource==Resources.LOG and amount==0: actor.commands.move_to(Vector2(0,500)))
+		if resource==Resources.PLANK and amount==1: actor.commands.move_to(Vector2(0,500)))
 	minute(world,actor,30)
 	check(saw.resources.get_amount(Resources.LOG)==0 and saw.resources.get_amount(Resources.PLANK)==1 and saw.production_progress==0,"Interrupt inside completion cannot duplicate/lose output")
 	check(actor.commands.active_command!=null and saw.production_worker_id.is_empty() and saw.resources.get_reserved_in(Resources.PLANK)==0 and saw.resources.get_reserved_out(Resources.LOG)==0,"Atomic completion preserves PlayerCommand and cleans recipe ownership")

@@ -190,6 +190,7 @@ func _queue_context() -> Dictionary:
 		"profession": _data.profession, "assignment_revision": _data.work_assignment_revision}
 
 func _ordinary_ready() -> bool:
+	if _schedule.keeps_production_action(): return false
 	if _intents.player_controlled or _data.activity == Activity.Type.SLEEPING: return false
 	if _clock.get_phase() != _schedule.get_phase(): return false
 	if _clock.get_phase() == "Ночь" and _intents.forced_priority == 0: return true
@@ -227,6 +228,9 @@ func execute_queued_decision(reason: String, context: Dictionary) -> bool:
 func _can_decide() -> bool:
 	if _intents.player_controlled: return false
 	if _deciding: return false
+	if _schedule.keeps_production_action():
+		check_critical()
+		return false
 	if _work_cycle_active and _data.activity == Activity.Type.WORKING: return false
 	if not _intents.has_current_action() and _data.hunger == 100 and _needs.has_food_action():
 		_critical_hunger_attempted = false

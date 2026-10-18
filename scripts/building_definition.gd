@@ -112,7 +112,7 @@ static func for_type(category: BuildingType.Type, label: String = ""):
 		result.internal_resources = [ResourceType.Type.STONE]
 	if category == BuildingType.Type.SAWMILL:
 		result.worker_capacity = Balance.SAWMILL_WORKER_CAPACITY
-		result.production_recipe = Recipe.new({ResourceType.Type.LOG:1},{ResourceType.Type.PLANK:1},Balance.SAWMILL_WORK_MINUTES)
+		result.production_recipe = Recipe.new({ResourceType.Type.LOG:1},{ResourceType.Type.PLANK:1},Balance.SAWMILL_WORK_MINUTES,&"sawmill_plank")
 	return result
 
 func get_ground_search_radius() -> float:

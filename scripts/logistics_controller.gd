@@ -71,6 +71,7 @@ func register_building(building: BuildingInstance) -> void:
 func remove_building(id: StringName) -> void:
 	var building: BuildingInstance = _buildings.get(id)
 	if building == null: return
+	building.dispose_production()
 	for active in jobs.duplicate():
 		if active.source_location_id == id or active.destination_location_id == id or (active.admission == HaulJob.Admission.SURPLUS and active.workplace_location_id == id):
 			var owner = _executors.get(active.assigned_resident_id)
