@@ -632,7 +632,7 @@ func _resource_route_available(start: Vector2, target: Vector2) -> bool:
 func _create_starting_buildings() -> void:
 	warehouse_data = BuildingData.new(&"town_center", "Городской центр", BuildingType.Type.TOWN_CENTER)
 	warehouse_data.position = Vector2(300,237.5)
-	warehouse_data.resources.configure_warehouse(Balance.WAREHOUSE_SHARED_CAPACITY, Balance.TOWN_CENTER_RESOURCE_QUOTAS)
+	warehouse_data.resources.configure_warehouse(Balance.WAREHOUSE_SHARED_CAPACITY, Balance.TOWN_CENTER_CATEGORY_QUOTAS)
 	warehouse_data.resources.add(ResourceType.Type.PLANK,Balance.TOWN_CENTER_STARTING_PLANK)
 	warehouse_data.resources.add(ResourceType.Type.FOOD,Balance.TOWN_CENTER_STARTING_FOOD)
 	buildings.append(warehouse_data)

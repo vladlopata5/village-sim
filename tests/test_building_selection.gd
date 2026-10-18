@@ -1,4 +1,5 @@
 extends SceneTree
+const C = preload("res://scripts/resource_category.gd").Type
 const F=preload("res://tests/canonical_ui_fixture.gd")
 const D=preload("res://scripts/building_definition.gd")
 const T=preload("res://scripts/building_type.gd").Type
@@ -25,9 +26,9 @@ func run() -> void:
 	check(card.name_label.text==building.display_name,"Common header name")
 	world.game_ui.info_panel.set_expanded(true)
 	world.game_ui.info_panel.select_tab(&"storage")
-	check(card.storage_rows[R.PLANK].amount.text=="%d /" % building.resources.get_amount(R.PLANK) and card.storage_rows[R.PLANK].editor.text==str(building.resources.get_capacity(R.PLANK)),"Real stock and per-resource quota")
+	check(card.storage_rows[C.PLANK].amount.text=="%d /" % building.resources.get_amount(R.PLANK) and card.storage_rows[C.PLANK].editor.text==str(building.resources.get_capacity(R.PLANK)),"Real stock and per-resource quota")
 	building.resources.try_take(R.PLANK,1)
-	check(card.storage_rows[R.PLANK].amount.text=="%d /" % building.resources.get_amount(R.PLANK) and card.storage_rows[R.PLANK].editor.text==str(building.resources.get_capacity(R.PLANK)),"Resource signal updates current card")
+	check(card.storage_rows[C.PLANK].amount.text=="%d /" % building.resources.get_amount(R.PLANK) and card.storage_rows[C.PLANK].editor.text==str(building.resources.get_capacity(R.PLANK)),"Resource signal updates current card")
 	F.click(self,card.name_label.get_global_rect().get_center())
 	await physics_frame
 	await physics_frame

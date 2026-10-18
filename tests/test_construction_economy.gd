@@ -1,4 +1,5 @@
 extends SceneTree
+const Categories = preload("res://scripts/resource_category.gd").Type
 const Stacks=preload("res://tests/ground_stack_fixture.gd")
 ## Real canonical extraction and construction; no debug/resource spawn.
 const Def = preload("res://scripts/building_definition.gd")
@@ -113,7 +114,7 @@ func run() -> void:
 	check(saw.construction_delivered == {R.LOG:6,R.STONE:6} and center.resources.get_amount(R.PLANK) == 60,"Sawmill consumes six LOG/six STONE, no boards")
 	# Construction frees physical room; redistribute quota and fetch the remaining
 	# extraction output before manufacturing. Preserve every unit, including FOOD.
-	check(center.resources.set_quotas({R.LOG:15,R.STONE:4,R.PLANK:61}),"Reallocate shared quota after consuming construction materials")
+	check(center.resources.set_category_quotas({Categories.LOG:15,Categories.STONE:4,Categories.PLANK:61}),"Reallocate shared quota after consuming construction materials")
 	check(saw.resources.reserve_in(R.LOG,12),"Hold Sawmill input while isolating the remaining Ground collection")
 	for drop in world.ground_resources.drops.duplicate():
 		for unit in range(drop.amount):
@@ -133,7 +134,7 @@ func run() -> void:
 		walk(miner)
 		world.game_time.debug_skip_minutes(Balance.SAWMILL_WORK_MINUTES)
 	check(saw.resources.get_amount(R.PLANK) == 6,"Six real LOG become six PLANK")
-	check(center.resources.set_quotas({R.LOG:10,R.PLANK:66}),"Allocate room for all six manufactured boards without exceeding total capacity")
+	check(center.resources.set_category_quotas({Categories.LOG:10,Categories.PLANK:66}),"Allocate room for all six manufactured boards without exceeding total capacity")
 	# Hold remaining timber for the next construction fixture, just as starter
 	# PLANK is held above; ordinary Porter input supply must not consume that fixture stock.
 	var held_logs: int = center.resources.get_available_amount(R.LOG)

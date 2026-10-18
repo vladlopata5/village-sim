@@ -1,4 +1,5 @@
 extends SceneTree
+const C = preload("res://scripts/resource_category.gd").Type
 const F=preload("res://tests/residents_ui_fixture.gd")
 const T=preload("res://scripts/building_type.gd").Type
 const P=preload("res://scripts/resident_profession.gd").Type
@@ -120,7 +121,7 @@ func run() -> void:
 		check(card.resources_label.text.contains("Вход") and card.resources_label.text.contains("Выход") and not card.get_node("%Info").visible,"Production has actual buffers, no duplicate header/personnel blocks")
 		await capture(prefix+"production")
 		selection.select_building(world.warehouse_data);info.select_tab(&"storage");await settle()
-		check(card.storage_rows[R.PLANK].amount.text=="60 /" and card.storage_rows[R.PLANK].editor.text=="60","Actual storage amount and per-resource quota")
+		check(card.storage_rows[C.PLANK].amount.text=="60 /" and card.storage_rows[C.PLANK].editor.text=="60","Actual storage amount and per-resource quota")
 		await capture(prefix+"storage")
 		world.player_control.assign_home(worker.id,home.id)
 		selection.select_building(home);await settle()

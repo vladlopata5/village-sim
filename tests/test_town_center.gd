@@ -35,7 +35,7 @@ func run() -> void:
 	check(center.definition.is_storage and center.definition.fallback_housing_capacity==10,"Data-driven storage and fallback capacity")
 	check(center.resources.get_amount(Resources.PLANK)==60 and center.resources.get_amount(Resources.FOOD)==20 and center.resources.get_amount(Resources.LOG)==0,"Initial stock 60 PLANK / 20 FOOD / 0 LOG")
 	for resource in Resources.values():
-		check(center.resources.get_capacity(resource)==Balance.TOWN_CENTER_RESOURCE_QUOTAS[resource] and center.definition.allows_external_import(resource) and center.definition.allows_external_export(resource),"All current resources have approved quotas and external policies")
+		check(center.resources.get_capacity(resource)==Balance.TOWN_CENTER_CATEGORY_QUOTAS[preload("res://scripts/resource_catalog.gd").get_category(resource)] and center.definition.allows_external_import(resource) and center.definition.allows_external_export(resource),"All current resources have approved quotas and external policies")
 	check(center.resources.is_warehouse() and center.resources.shared_capacity==100,"Town Center opts into shared warehouse capacity")
 	check(Definition.for_type(Types.STORAGE).is_storage and not Definition.for_type(Types.SAWMILL).is_storage,"Storage capability preserves ordinary warehouse")
 	check(world.build_grid.occupied_cells(center.id).size()==192 and not world.navigation.is_world_walkable(Coordinates.to_world(center.position)),"Town Center uses common build/nav footprint")

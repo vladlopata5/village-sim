@@ -1,6 +1,8 @@
 extends RefCounted
 ## Local quantities and reservations. Reservations never transfer resources.
 const ResourceType = preload("res://scripts/resource_type.gd")
+const Categories = preload("res://scripts/resource_category.gd")
+const Catalog = preload("res://scripts/resource_catalog.gd")
 signal reservations_changed(resource: ResourceType.Type)
 signal changed(resource: ResourceType.Type, amount: int)
 signal availability_changed(resource: ResourceType.Type, available_amount: int)
@@ -12,7 +14,8 @@ var shared_capacity: int:
 var owner_id: StringName
 var _allowed_resource_types: Array = [] # Empty means unrestricted; capacities still required.
 var _amounts: Dictionary = {}
-var _capacity_per_resource: Dictionary = {}
+var _capacity_per_resource: Dictionary = {} # Production buffers only.
+var _category_quotas: Dictionary = {}
 var _reserved_out: Dictionary = {}
 var _reserved_in: Dictionary = {}
 
@@ -36,37 +39,85 @@ func allows_resource(resource: ResourceType.Type) -> bool:
 func is_warehouse() -> bool:
 	return _shared_capacity >= 0
 
-func configure_warehouse(capacity: Variant, quotas: Dictionary) -> bool:
+func configure_warehouse(capacity: Variant, category_quotas: Dictionary) -> bool:
 	# Opt in once. Existing stock/promises must physically fit, even with lower quotas.
 	if is_warehouse() or typeof(capacity) != TYPE_INT or capacity < 0: return false
-	if get_total_amount() + get_total_reserved_in() > capacity or not _valid_quotas(quotas,capacity): return false
+	if get_total_amount() + get_total_reserved_in() > capacity or not _valid_category_quotas(category_quotas,capacity): return false
 	_shared_capacity = capacity
-	_capacity_per_resource = quotas.duplicate()
+	_category_quotas = category_quotas.duplicate()
+	_capacity_per_resource.clear()
 	_notify_quotas_changed()
 	return true
 
-func set_quota(resource: Variant, quota: Variant) -> bool:
-	return set_quotas({resource:quota})
+func set_category_quota(category: Variant, quota: Variant) -> bool:
+	return set_category_quotas({category:quota})
 
-func set_quotas(updates: Dictionary) -> bool:
-	# Patch all requested quotas atomically; unspecified resources retain their quota.
+func set_category_quotas(updates: Dictionary) -> bool:
+	# Patch all requested quotas atomically; unspecified categories retain their quota.
 	if not is_warehouse(): return false
-	var next := _capacity_per_resource.duplicate()
-	for resource in updates: next[resource] = updates[resource]
-	if not _valid_quotas(next,_shared_capacity): return false
-	if next == _capacity_per_resource: return true
-	_capacity_per_resource = next
+	var next := _category_quotas.duplicate()
+	for category in updates: next[category] = updates[category]
+	if not _valid_category_quotas(next,_shared_capacity): return false
+	if next == _category_quotas: return true
+	_category_quotas = next
 	_notify_quotas_changed()
 	return true
 
-func _valid_quotas(quotas: Dictionary, capacity: int) -> bool:
+func _valid_category_quotas(quotas: Dictionary, capacity: int) -> bool:
 	var allocated := 0
-	for resource in quotas:
-		if typeof(resource) != TYPE_INT or resource not in ResourceType.Type.values() or not allows_resource(resource): return false
-		var quota: Variant = quotas[resource]
+	for category in quotas:
+		if not supports_category(category): return false
+		var quota: Variant = quotas[category]
 		if typeof(quota) != TYPE_INT or quota < 0 or quota > capacity - allocated: return false
 		allocated += quota
 	return true
+
+func get_resource_category(resource: int) -> int:
+	return Catalog.get_category(resource)
+
+func supports_category(category: Variant) -> bool:
+	if typeof(category) != TYPE_INT or category not in Categories.Type.values(): return false
+	for resource in ResourceType.Type.values():
+		if allows_resource(resource) and get_resource_category(resource) == category: return true
+	return false
+
+func get_category_quota(category: Variant) -> int:
+	if not is_warehouse() or typeof(category) != TYPE_INT or category not in Categories.Type.values(): return 0
+	return _category_quotas.get(category,0)
+
+func _category_total(values: Dictionary, category: int) -> int:
+	if category not in Categories.Type.values(): return 0
+	var total := 0
+	for resource: int in values:
+		if get_resource_category(resource) == category: total += values[resource]
+	return total
+
+func get_category_amount(category: int) -> int:
+	return _category_total(_amounts,category)
+
+func get_category_reserved_in(category: int) -> int:
+	return _category_total(_reserved_in,category)
+
+func get_category_reserved_out(category: int) -> int:
+	return _category_total(_reserved_out,category)
+
+func get_category_available_capacity(category: int) -> int:
+	if not is_warehouse(): return 0
+	return maxi(0,mini(get_category_quota(category)-get_category_amount(category)-get_category_reserved_in(category),_shared_capacity-get_total_amount()-get_total_reserved_in()))
+
+func get_category_contents(category: int) -> Dictionary:
+	# A detached view of concrete physical stock, never a second ledger.
+	var contents: Dictionary = {}
+	for resource: int in _amounts:
+		if get_resource_category(resource) == category and get_amount(resource)>0: contents[resource] = get_amount(resource)
+	return contents
+
+func get_category_surplus(category: int) -> int:
+	if not is_warehouse(): return 0
+	return maxi(0,get_category_amount(category)-get_category_quota(category)-get_category_reserved_out(category))
+
+func get_surplus_amount(resource: ResourceType.Type) -> int:
+	return mini(get_available_amount(resource),get_category_surplus(get_resource_category(resource)))
 
 func _notify_quotas_changed() -> void:
 	quota_revision += 1
@@ -84,7 +135,8 @@ func get_total_reserved_in() -> int:
 
 func get_allocated_capacity() -> int:
 	var total := 0
-	for capacity in _capacity_per_resource.values(): total += capacity
+	var limits: Dictionary = _category_quotas if is_warehouse() else _capacity_per_resource
+	for capacity in limits.values(): total += capacity
 	return total
 
 func get_shared_free_capacity() -> int:
@@ -99,6 +151,8 @@ func set_capacity(resource: ResourceType.Type, capacity: int) -> bool:
 	return true
 
 func get_capacity(resource: ResourceType.Type) -> int:
+	# Concrete-type query retained for legacy admission/needs. Not per-type warehouse space.
+	if is_warehouse(): return get_category_quota(get_resource_category(resource)) if allows_resource(resource) else 0
 	return _capacity_per_resource.get(resource, 0) if allows_resource(resource) else 0
 
 func get_amount(resource: ResourceType.Type) -> int:
@@ -114,14 +168,16 @@ func get_available_amount(resource: ResourceType.Type) -> int:
 	return get_amount(resource) - get_reserved_out(resource)
 
 func get_free_capacity(resource: ResourceType.Type) -> int:
-	if is_warehouse(): return maxi(0,mini(get_capacity(resource)-get_amount(resource),get_shared_free_capacity()))
+	if is_warehouse():
+		if not allows_resource(resource): return 0
+		var category := get_resource_category(resource)
+		return maxi(0,mini(get_category_quota(category)-get_category_amount(category),get_shared_free_capacity()))
 	return get_capacity(resource) - get_amount(resource)
 
 func get_available_free_capacity(resource: ResourceType.Type) -> int:
 	if is_warehouse():
-		var individual := get_capacity(resource)-get_amount(resource)-get_reserved_in(resource)
-		var shared := _shared_capacity-get_total_amount()-get_total_reserved_in()
-		return maxi(0,mini(individual,shared))
+		if not allows_resource(resource): return 0
+		return get_category_available_capacity(get_resource_category(resource))
 	return get_free_capacity(resource) - get_reserved_in(resource)
 
 func add(resource: ResourceType.Type, amount: int) -> bool:

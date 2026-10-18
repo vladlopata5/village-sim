@@ -51,9 +51,9 @@ func run() -> void:
 
 func quantity_compatibility() -> void:
 	var balance = preload("res://scripts/balance_config.gd")
-	check(balance.STORAGE_RESOURCE_QUOTAS=={R.LOG:40,R.STONE:20,R.PLANK:25,R.FOOD:15} and balance.TOWN_CENTER_RESOURCE_QUOTAS=={R.LOG:10,R.STONE:10,R.PLANK:60,R.FOOD:20},"Existing four concrete warehouse quotas are unchanged")
+	check(balance.STORAGE_CATEGORY_QUOTAS=={C.LOG:40,C.STONE:20,C.PLANK:25,C.SIMPLE_FOOD:15} and balance.TOWN_CENTER_CATEGORY_QUOTAS=={C.LOG:10,C.STONE:10,C.PLANK:60,C.SIMPLE_FOOD:20},"Existing four category warehouse quotas are unchanged")
 	var building = preload("res://scripts/building_instance.gd").new(&"catalog_store",preload("res://scripts/building_definition.gd").for_type(preload("res://scripts/building_type.gd").Type.STORAGE))
-	check(building.resources.configure_warehouse(100,balance.STORAGE_RESOURCE_QUOTAS) and building.resources.add(R.LOG,2),"Warehouse remains configured by concrete resource types")
+	check(building.resources.configure_warehouse(100,balance.STORAGE_CATEGORY_QUOTAS) and building.resources.add(R.LOG,2),"Warehouse category preset preserves concrete stock")
 	var sources = preload("res://scripts/resource_sources.gd").new()
 	sources.buildings={building.id:building}
 	var source_ref = preload("res://scripts/resource_source_ref.gd").new(preload("res://scripts/resource_source_ref.gd").Kind.CONTAINER,building.id)

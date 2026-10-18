@@ -1,4 +1,5 @@
 extends SceneTree
+const C = preload("res://scripts/resource_category.gd").Type
 const Def = preload("res://scripts/building_definition.gd")
 const Types = preload("res://scripts/building_type.gd").Type
 const P = preload("res://scripts/resident_profession.gd").Type
@@ -51,13 +52,13 @@ func run() -> void:
 	selection.select_building(world.warehouse_data)
 	check(panel.expanded and panel.active_tab==&"info" and not resident.visible and building.visible,"Resident to building preserves expansion, falls back to Info")
 	check(panel._tabs==[&"info",&"storage"],"Town Center has storage and no production")
-	var stocks: String=building.storage_rows[R.FOOD].amount.text
+	var stocks: String=building.storage_rows[C.SIMPLE_FOOD].amount.text
 	world.warehouse_data.resources.reserve_out(R.FOOD,3)
 	building._refresh()
-	check(building.storage_rows[R.FOOD].amount.text==stocks and stocks=="20 /" and building.storage_rows[R.FOOD].editor.text=="20" and building.storage_rows[R.PLANK].amount.text=="60 /" and building.storage_rows[R.PLANK].editor.text=="60","Storage rows show actual stock and quotas, reserves not subtracted")
+	check(building.storage_rows[C.SIMPLE_FOOD].amount.text==stocks and stocks=="20 /" and building.storage_rows[C.SIMPLE_FOOD].editor.text=="20" and building.storage_rows[C.PLANK].amount.text=="60 /" and building.storage_rows[C.PLANK].editor.text=="60","Storage rows show actual stock and quotas, reserves not subtracted")
 	world.warehouse_data.resources.release_out(R.FOOD,3)
 	world.warehouse_data.resources.add(R.STONE,2)
-	check(building.storage_rows[R.STONE].amount.text=="2 /" and building.storage_rows[R.STONE].editor.text=="10","ResourceContainer.changed updates immediately")
+	check(building.storage_rows[C.STONE].amount.text=="2 /" and building.storage_rows[C.STONE].editor.text=="10","ResourceContainer.changed updates immediately")
 	var demolish: Button=building.get_node("%Demolish")
 	check(demolish.disabled and demolish.pressed.get_connections().is_empty(),"Demolish disabled with no removal callbacks")
 	selection.select(a)
@@ -126,7 +127,7 @@ func run() -> void:
 	check(site!=null,"Real placement creates construction instance")
 	selection.select_building(site)
 	check(panel.active_tab==&"info" and panel._tabs==[&"info"] and building.construction_section.visible,"UC has Info/materials/work, no production/storage")
-	check(not world.player_control.set_warehouse_quota(site.id,R.LOG,1).ok,"Unfinished Storage cannot edit quotas")
+	check(not world.player_control.set_warehouse_category_quota(site.id,C.LOG,1).ok,"Unfinished Storage cannot edit quotas")
 	for resource in site.definition.construction_requirements: site.add_delivered_material(resource,site.get_required_amount(resource))
 	site.add_construction_work(10)
 	check(building.construction_work.text.contains("10 / 240"),"Actual incremental construction signal reaches card")

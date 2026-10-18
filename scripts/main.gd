@@ -308,7 +308,7 @@ func _activate_completed_building(building: BuildingInstance) -> void:
 	building.construction_changed.disconnect(_activate_completed_building.bind(building))
 	match building.type:
 		BuildingType.Type.STORAGE:
-			building.resources.configure_warehouse(Balance.WAREHOUSE_SHARED_CAPACITY, Balance.STORAGE_RESOURCE_QUOTAS)
+			building.resources.configure_warehouse(Balance.WAREHOUSE_SHARED_CAPACITY, Balance.STORAGE_CATEGORY_QUOTAS)
 			logistics.add_warehouse(building)
 		BuildingType.Type.FOOD:
 			if kitchen_data == null:

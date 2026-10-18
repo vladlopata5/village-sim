@@ -1,4 +1,5 @@
 extends SceneTree
+const C = preload("res://scripts/resource_category.gd").Type
 const F = preload("res://tests/residents_ui_fixture.gd")
 const R = preload("res://scripts/resource_type.gd").Type
 const T = preload("res://scripts/building_type.gd").Type
@@ -19,11 +20,11 @@ func capture(label: String) -> void:
 	if "--render-qa" not in OS.get_cmdline_user_args(): return
 	await settle()
 	await RenderingServer.frame_post_draw
-	var folder := "C:/Users/SW/Documents/Codex/outputs/warehouse-e2-2b/rendered"
+	var folder := "C:/Users/SW/Documents/Codex/outputs/food-f3/rendered"
 	DirAccess.make_dir_recursive_absolute(folder)
 	root.get_texture().get_image().save_png(folder+"/"+label+".png")
-func edit(card: Node, resource: int, text: String) -> void:
-	var editor: LineEdit = card.storage_rows[resource].editor
+func edit(card: Node, category: int, text: String) -> void:
+	var editor: LineEdit = card.storage_rows[category].editor
 	editor.text = text
 	editor.text_changed.emit(text)
 	editor.grab_focus()
@@ -52,23 +53,26 @@ func run() -> void:
 	panel.select_tab(&"storage")
 	await settle()
 	check(town.resources.is_warehouse() and town.resources.shared_capacity==100 and town.resources.get_total_amount()==80,"Canonical Town Center preserves initial stock in shared capacity")
-	for resource in R.values(): check(town.resources.get_capacity(resource)==Balance.TOWN_CENTER_RESOURCE_QUOTAS[resource],"Approved Town Center preset")
-	check(card.storage_rows.size()==4 and card.get_node("%StorageSummary").text=="Занято: 80 / 100\nВ пути: 0\nРаспределено: 100 / 100","Four persistent resource rows and all warehouse totals")
+	for category in C.values(): check(town.resources.get_category_quota(category)==Balance.TOWN_CENTER_CATEGORY_QUOTAS[category],"Approved Town Center preset")
+	check(card.storage_rows.size()==4 and card.get_node("%StorageSummary").text=="Занято: 80 / 100\nВ пути: 0\nРаспределено: 100 / 100","Four persistent category rows and all warehouse totals")
 	await capture("town-initial")
+	card.storage_rows[C.SIMPLE_FOOD].expand.button_pressed = true
+	check(card.storage_rows[C.SIMPLE_FOOD].contents.visible and card.storage_rows[C.SIMPLE_FOOD].contents.text == "  FOOD: 20","Expanded category shows real concrete stock")
+	await capture("town-food-expanded")
 	var tab_rebuilds: int = panel.tab_rebuild_count
-	var row = card.storage_rows[R.PLANK]
-	await edit(card,R.PLANK,"10")
+	var row = card.storage_rows[C.PLANK]
+	await edit(card,C.PLANK,"10")
 	check(town.resources.get_amount(R.PLANK)==60 and town.resources.get_capacity(R.PLANK)==10 and row.amount.text=="60 /" and row.editor.text=="10","Inline edit preserves and displays over-quota stock")
 	check(card.get_node("%StorageSummary").text.contains("Распределено: 50 / 100") and panel.tab_rebuild_count==tab_rebuilds,"Quota edit updates totals without rebuilding tabs")
 	await capture("town-surplus")
 	for invalid in ["-1","1.5","abc","100","99999999999999999999"]:
-		await edit(card,R.PLANK,invalid)
+		await edit(card,C.PLANK,invalid)
 		check(town.resources.get_capacity(R.PLANK)==10 and not card.get_node("%StorageError").text.is_empty(),"Invalid edit rejected with an explanation")
 		check(card.get_node("%StorageError").text.contains("Сумма") if invalid=="100" else card.get_node("%StorageError").text.contains("целое"),"Error for %s: %s" % [invalid,card.get_node("%StorageError").text])
-	await edit(card,R.PLANK,"100")
+	await edit(card,C.PLANK,"100")
 	await capture("town-invalid")
-	await edit(card,R.PLANK,"10")
-	var editor: LineEdit = card.storage_rows[R.LOG].editor
+	await edit(card,C.PLANK,"10")
+	var editor: LineEdit = card.storage_rows[C.LOG].editor
 	editor.grab_focus()
 	editor.text="17"
 	editor.text_changed.emit("17")
@@ -76,36 +80,40 @@ func run() -> void:
 	town.resources.reserve_in(R.FOOD,0) # Invalid operations must not disturb the draft either.
 	card._process(0.3)
 	check(editor.text=="17" and town.resources.get_capacity(R.LOG)==10,"Resource updates preserve an unfinished draft")
-	card.storage_rows[R.LOG].apply.pressed.emit()
+	card.storage_rows[C.LOG].apply.pressed.emit()
 	check(town.resources.get_capacity(R.LOG)==17 and card.get_node("%StorageError").text.is_empty(),"Inline apply button uses PlayerControl")
-	await edit(card,R.LOG,"0")
-	check(card.storage_rows[R.LOG].row.visible and card.storage_rows[R.LOG].editor.text=="0","Zero quota remains visible")
+	await edit(card,C.LOG,"0")
+	check(card.storage_rows[C.LOG].row.visible and card.storage_rows[C.LOG].editor.text=="0","Zero quota remains visible")
 	var store = F.building(world,T.STORAGE,Vector3(30,0,24))
-	for resource in R.values(): check(store.resources.get_capacity(resource)==Balance.STORAGE_RESOURCE_QUOTAS[resource],"Activated Storage gets its approved preset")
+	for category in C.values(): check(store.resources.get_category_quota(category)==Balance.STORAGE_CATEGORY_QUOTAS[category],"Activated Storage gets its approved preset")
 	check(store.resources.is_warehouse() and store.resources.get_total_amount()==0 and store.resources.shared_capacity==100,"New Storage starts empty with shared capacity")
 	selection.select_building(store)
+	check(not card.storage_rows[C.SIMPLE_FOOD].contents.visible and not card.storage_rows[C.SIMPLE_FOOD].expand.button_pressed,"Selection clears category expansion")
 	check(not town.resources.changed.is_connected(card._on_resources_changed) and not town.resources.reservations_changed.is_connected(card._on_reservations_changed) and not town.resources.quotas_changed.is_connected(card._refresh),"Changing selection disconnects all old container callbacks")
-	await edit(card,R.LOG,"5")
+	await edit(card,C.LOG,"5")
 	check(store.resources.get_capacity(R.LOG)==5 and town.resources.get_capacity(R.LOG)==0,"Warehouse settings are independent")
 	var refreshes: int = card.refresh_count
-	control.set_warehouse_quota(town.id,R.LOG,1)
-	check(card.refresh_count==refreshes and card.storage_rows[R.LOG].editor.text=="5","Old warehouse quota notifications cannot refresh the selected warehouse")
+	control.set_warehouse_category_quota(town.id,C.LOG,1)
+	check(card.refresh_count==refreshes and card.storage_rows[C.LOG].editor.text=="5","Old warehouse quota notifications cannot refresh the selected warehouse")
 	for index in range(5): selection.select_building(town); selection.select_building(store)
 	check(store.resources.quotas_changed.get_connections().filter(func(c): return c.callable==card._refresh).size()==1,"Repeated selection does not duplicate local subscriptions")
-	var editor_before = card.storage_rows[R.FOOD].editor
+	var editor_before = card.storage_rows[C.SIMPLE_FOOD].editor
 	store.resources.reserve_in(R.FOOD,1)
-	check(card.get_node("%StorageSummary").text.contains("В пути: 1") and card.storage_rows[R.FOOD].editor==editor_before,"Inbound-only event updates totals while retaining widgets")
+	check(card.get_node("%StorageSummary").text.contains("В пути: 1") and card.storage_rows[C.SIMPLE_FOOD].editor==editor_before,"Inbound-only event updates totals while retaining widgets")
 	store.resources.release_in(R.FOOD,1)
 	check(card.get_node("%StorageSummary").text.contains("В пути: 0"),"Inbound release immediately refreshes totals")
 	var saw = F.building(world,T.SAWMILL,Vector3(-15,0,-14))
 	check(not saw.resources.is_warehouse() and saw.resources.get_capacity(R.LOG)==12 and saw.resources.get_capacity(R.PLANK)==12,"Production buffers remain independent and unchanged")
-	check(not control.set_warehouse_quota(saw.id,R.LOG,1).ok and not control.set_warehouse_quota(&"missing",R.LOG,1).ok,"Management API rejects production and absent targets")
-	for invalid in [-1,1.5,true,"5"]: check(not control.set_warehouse_quota(store.id,R.LOG,invalid).ok,"Management API rejects invalid quota types")
+	check(not control.set_warehouse_category_quota(saw.id,C.LOG,1).ok and not control.set_warehouse_category_quota(&"missing",C.LOG,1).ok,"Management API rejects production and absent targets")
+	for invalid_category in [-1,99,null,true,0.0,"0"]:
+		var before: int = store.resources.quota_revision
+		check(not control.set_warehouse_category_quota(store.id,invalid_category,1).ok and store.resources.quota_revision==before,"Unknown category is rejected without fallback or notification")
+	for invalid in [-1,1.5,true,"5"]: check(not control.set_warehouse_category_quota(store.id,C.LOG,invalid).ok,"Management API rejects invalid quota types")
 	# A warehouse at capacity cannot accept another type just because that quota has room.
-	check(store.resources.set_quotas({R.LOG:0,R.STONE:0,R.PLANK:100,R.FOOD:0}) and store.resources.add(R.PLANK,100),"Fill real shared warehouse")
-	check(store.resources.set_quotas({R.PLANK:0,R.FOOD:100}) and store.resources.get_available_free_capacity(R.FOOD)==0 and not store.resources.reserve_in(R.FOOD,1),"Physical surplus prevents a new reservation of a different resource")
+	check(store.resources.set_category_quotas({C.LOG:0,C.STONE:0,C.PLANK:100,C.SIMPLE_FOOD:0}) and store.resources.add(R.PLANK,100),"Fill real shared warehouse")
+	check(store.resources.set_category_quotas({C.PLANK:0,C.SIMPLE_FOOD:100}) and store.resources.get_available_free_capacity(R.FOOD)==0 and not store.resources.reserve_in(R.FOOD,1),"Physical surplus prevents a new reservation of a different resource")
 	store.resources.try_take(R.PLANK,100)
-	store.resources.set_quotas({R.FOOD:15,R.LOG:40,R.PLANK:25,R.STONE:20})
+	store.resources.set_category_quotas({C.SIMPLE_FOOD:15,C.LOG:40,C.PLANK:25,C.STONE:20})
 	# An accepted real delivery completes physically after the recipient quota becomes zero.
 	var gatherer = F.building(world,T.GATHERER_HUT,Vector3(-15,0,20))
 	gatherer.resources.add(R.FOOD,2)
@@ -119,7 +127,7 @@ func run() -> void:
 	var delivery = world.logistics._claim_delivery(actor.data,candidate)
 	check(delivery!=null,"Ordinary new delivery reserves one shared slot")
 	if delivery!=null:
-		check(control.set_warehouse_quota(store.id,R.FOOD,0).ok and world.logistics.inbound_valid(delivery),"Confirmed inbound survives quota reduction")
+		check(control.set_warehouse_category_quota(store.id,C.SIMPLE_FOOD,0).ok and world.logistics.inbound_valid(delivery),"Confirmed inbound survives quota reduction")
 		check(control.assign_workplace(world.resident_runtimes[1].data.id,store.id,P.PORTER),"Second porter legally assigned to the same store")
 		check(world.logistics._claim_delivery(world.resident_runtimes[1].data,candidate)==null,"Further eligible worker cannot accept a new shipment above quota")
 		check(world.logistics.start_claimed_job(delivery,actor.data.id),"Existing delivery starts with its own reservation, not fresh room")

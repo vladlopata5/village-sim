@@ -12,6 +12,7 @@ const Selection = preload("res://scripts/resident_selection.gd")
 const Instance = preload("res://scripts/building_instance.gd")
 const Types = preload("res://scripts/building_type.gd")
 const ResourceType = preload("res://scripts/resource_type.gd")
+const Categories = preload("res://scripts/resource_category.gd")
 const Balance = preload("res://scripts/balance_config.gd")
 const FOOD = ResourceType.Type.FOOD
 var _control: RefCounted
@@ -63,7 +64,11 @@ func _on_selection_changed() -> void:
 		_building.resources.reservations_changed.disconnect(_on_reservations_changed)
 		_building.resources.quotas_changed.disconnect(_refresh)
 	_quota_dirty.clear()
-	for row in storage_rows.values(): row.editor.release_focus()
+	for row in storage_rows.values():
+		row.editor.release_focus()
+		row.expand.set_pressed_no_signal(false)
+		row.contents.hide()
+		row.expand.text = "▸ " + Categories.display_name(storage_rows.find_key(row))
 	get_node("%StorageError").text = ""
 	_building = _selection.selected_building
 	_presented_tabs.clear()
@@ -254,11 +259,17 @@ func _refresh_details(resource_lines: PackedStringArray) -> void:
 	_refresh_people(producers, porters)
 
 func _setup_storage_rows() -> void:
-	for resource in [ResourceType.Type.LOG,ResourceType.Type.STONE,ResourceType.Type.PLANK,ResourceType.Type.FOOD]:
+	for category in [Categories.Type.LOG,Categories.Type.STONE,Categories.Type.PLANK,Categories.Type.SIMPLE_FOOD]:
+		var section := VBoxContainer.new()
+		get_node("%StorageAmounts").add_child(section)
 		var row := HBoxContainer.new()
-		get_node("%StorageAmounts").add_child(row)
-		var label := Label.new()
-		label.text = {ResourceType.Type.FOOD:"Еда",ResourceType.Type.LOG:"Брёвна"}.get(resource,ResourceType.display_name(resource))
+		section.add_child(row)
+		var label := Button.new()
+		label.text = "▸ " + Categories.display_name(category)
+		label.toggle_mode = true
+		label.flat = true
+		label.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		label.tooltip_text = "Показать конкретные товары"
 		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		row.add_child(label)
 		var amount := Label.new()
@@ -269,33 +280,43 @@ func _setup_storage_rows() -> void:
 		editor.custom_minimum_size.x = 56
 		editor.max_length = 20
 		editor.keep_editing_on_text_submit = true
-		editor.tooltip_text = "Максимум товара. Enter или ✓ — применить."
+		editor.tooltip_text = "Квота категории. Enter или ✓ — применить."
 		row.add_child(editor)
-		editor.text_changed.connect(_on_quota_edited.bind(resource))
-		editor.text_submitted.connect(_submit_quota.bind(resource))
+		editor.text_changed.connect(_on_quota_edited.bind(category))
+		editor.text_submitted.connect(_submit_quota.bind(category))
 		var apply := Button.new()
 		apply.text = "✓"
 		apply.tooltip_text = "Применить максимум"
 		row.add_child(apply)
-		apply.pressed.connect(_apply_quota.bind(resource))
-		storage_rows[resource] = {"row":row,"amount":amount,"editor":editor,"apply":apply}
+		apply.pressed.connect(_apply_quota.bind(category))
+		var contents := Label.new()
+		contents.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		contents.hide()
+		section.add_child(contents)
+		label.toggled.connect(_toggle_category.bind(category))
+		storage_rows[category] = {"row":section,"amount":amount,"editor":editor,"apply":apply,"expand":label,"contents":contents}
 
-func _on_quota_edited(_text: String, resource: int) -> void:
-	_quota_dirty[resource] = true
+func _toggle_category(expanded: bool, category: int) -> void:
+	var row: Dictionary = storage_rows[category]
+	row.contents.visible = expanded
+	row.expand.text = ("▾ " if expanded else "▸ ") + Categories.display_name(category)
 
-func _apply_quota(resource: int) -> void:
-	_submit_quota(storage_rows[resource].editor.text,resource)
+func _on_quota_edited(_text: String, category: int) -> void:
+	_quota_dirty[category] = true
 
-func _submit_quota(text: String, resource: int) -> void:
+func _apply_quota(category: int) -> void:
+	_submit_quota(storage_rows[category].editor.text,category)
+
+func _submit_quota(text: String, category: int) -> void:
 	if _building == null or _control == null: return
 	var value: Variant = text
 	# Bound parsing before conversion; very large input must not overflow an int.
 	if text.is_valid_int() and text.length() <= 18: value = text.to_int()
-	var result: Dictionary = _control.set_warehouse_quota(_building.id,resource,value)
+	var result: Dictionary = _control.set_warehouse_category_quota(_building.id,category,value)
 	get_node("%StorageError").text = result.error
 	if result.ok:
-		_quota_dirty.erase(resource)
-		storage_rows[resource].editor.release_focus()
+		_quota_dirty.erase(category)
+		storage_rows[category].editor.release_focus()
 		_refresh_storage()
 
 func _refresh_storage() -> void:
@@ -303,14 +324,18 @@ func _refresh_storage() -> void:
 	var container = _building.resources
 	if not container.is_warehouse(): return
 	get_node("%StorageSummary").text = "Занято: %d / %d\nВ пути: %d\nРаспределено: %d / %d" % [container.get_total_amount(),container.shared_capacity,container.get_total_reserved_in(),container.get_allocated_capacity(),container.shared_capacity]
-	for resource in storage_rows:
-		var row: Dictionary = storage_rows[resource]
-		row.row.visible = container.allows_resource(resource)
-		row.amount.text = "%d /" % container.get_amount(resource)
+	for category in storage_rows:
+		var row: Dictionary = storage_rows[category]
+		row.row.visible = container.supports_category(category)
+		row.amount.text = "%d /" % container.get_category_amount(category)
+		var lines := PackedStringArray()
+		var contents: Dictionary = container.get_category_contents(category)
+		for concrete_type in contents: lines.append("  %s: %d" % [ResourceType.display_name(concrete_type),contents[concrete_type]])
+		row.contents.text = "\n".join(lines) if not lines.is_empty() else "  Нет запасов"
 		row.editor.editable = _control != null and _building.is_built()
 		row.apply.disabled = not row.editor.editable
-		if not row.editor.has_focus() and not _quota_dirty.has(resource):
-			row.editor.text = str(container.get_capacity(resource))
+		if not row.editor.has_focus() and not _quota_dirty.has(category):
+			row.editor.text = str(container.get_category_quota(category))
 func _refresh_people(producers: Array, porters: Array) -> void:
 	if _control == null: return
 	var residents: Array = _control.get_home_occupants(_building.id) if _control.is_housing_target(_building) else []

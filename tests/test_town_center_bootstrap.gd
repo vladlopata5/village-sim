@@ -1,4 +1,5 @@
 extends SceneTree
+const C = preload("res://scripts/resource_category.gd").Type
 const Stacks=preload("res://tests/ground_stack_fixture.gd")
 const Types = preload("res://scripts/building_type.gd").Type
 const Def = preload("res://scripts/building_definition.gd")
@@ -109,7 +110,7 @@ func run() -> void:
 	check(gather.resources.get_amount(R.FOOD)==5,"Gatherer unchanged production fills five-unit output")
 	builder.intents.abort_current(builder.intents.current_intent)
 	check(not world._request_work(builder),"Full Town Center FOOD quota prevents another self-export")
-	check(world.player_control.set_warehouse_quota(center.id,R.PLANK,59).ok and world.player_control.set_warehouse_quota(center.id,R.FOOD,21).ok,"Player reallocates one quota slot for the next FOOD delivery")
+	check(world.player_control.set_warehouse_category_quota(center.id,C.PLANK,59).ok and world.player_control.set_warehouse_category_quota(center.id,C.SIMPLE_FOOD,21).ok,"Player reallocates one quota slot for the next FOOD delivery")
 	check(world._request_work(builder),"Full output starts Gatherer self-export")
 	walk(builder)
 	check(center.resources.get_amount(R.FOOD)==21,"Gatherer FOOD physically reaches Town Center")

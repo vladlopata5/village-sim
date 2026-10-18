@@ -1,4 +1,5 @@
 extends SceneTree
+const Categories = preload("res://scripts/resource_category.gd").Type
 const Service = preload("res://scripts/logistics_controller.gd")
 const Building = preload("res://scripts/building_instance.gd")
 const Definition = preload("res://scripts/building_definition.gd")
@@ -21,12 +22,12 @@ func check(ok: bool, message: String) -> void:
 	if not ok: failures += 1; push_error(message)
 func warehouse(id: StringName, position: Vector2, quota: int = 0):
 	var building = Building.new(id,Definition.for_type(T.STORAGE),position)
-	building.resources.configure_warehouse(100,{R.LOG:quota})
+	building.resources.configure_warehouse(100,{Categories.LOG:quota})
 	return building
 func fixture(foreign: bool = false) -> Dictionary:
 	var a = warehouse(&"a",Vector2.ZERO,3)
 	a.resources.add(R.LOG,3)
-	a.resources.set_quota(R.LOG,2)
+	a.resources.set_category_quota(Categories.LOG,2)
 	var b = warehouse(&"b",Vector2(30,0))
 	var first = Resident.new("first","First",30,P.PORTER)
 	var second = Resident.new("second","Second",30,P.PORTER)
@@ -64,7 +65,7 @@ func domain_checks() -> void:
 		check(job!=null and job.receiver_kind==Job.Receiver.GROUND and job.source_location_id==f.a.id and job.destination_location_id==f.a.id,"Own/foreign porter disposes at source, not base")
 		check(job!=null and f.s.surplus_job_valid(job) and f.a.resources.get_reserved_out(R.LOG)==1 and f.s._inbound.is_empty(),"Ground claim owns only one surplus outgoing unit")
 		check(f.s.claim_best_job(f.second.id)==null,"Last surplus unit is exclusive between porters")
-		f.b.resources.set_quota(R.LOG,10)
+		f.b.resources.set_category_quota(Categories.LOG,10)
 		check(f.s.surplus_job_valid(job),"New receiving container does not invalidate committed ground job")
 		f.s.cancel_job(job)
 		check(f.a.resources.get_reserved_out(R.LOG)==0 and f.s.sources._claims.is_empty(),"Unstarted cancellation releases outgoing exactly once")
@@ -74,7 +75,7 @@ func domain_checks() -> void:
 	saw.resources.set_capacity(R.LOG,12)
 	f.s.register_building(saw)
 	check(selected(f).destination==saw,"Allowed reachable production input precedes ground")
-	f.b.resources.set_quota(R.LOG,10)
+	f.b.resources.set_category_quota(Categories.LOG,10)
 	f.s.sources.route_available = func(_start,target): return target!=f.b.position
 	check(selected(f).destination==saw,"One unreachable warehouse does not skip reachable production")
 	var other = warehouse(&"other",Vector2(40,0),10)
@@ -90,7 +91,7 @@ func domain_checks() -> void:
 	f.s.sources.route_available = Callable()
 	f = fixture()
 	job = f.s.claim_best_job(f.first.id)
-	f.a.resources.set_quota(R.LOG,3)
+	f.a.resources.set_category_quota(Categories.LOG,3)
 	check(job!=null and job.state==Job.State.CANCELLED and f.a.resources.get_reserved_out(R.LOG)==0,"Quota increase before pickup cancels owned ground reservation")
 	for change in ["source","base","assignment"]:
 		f = fixture(true)
@@ -101,13 +102,13 @@ func domain_checks() -> void:
 		check(job!=null and job.state==Job.State.CANCELLED and f.s.sources._claims.is_empty() and f.s._inbound.is_empty(),"Owned cleanup on "+change)
 	f = fixture()
 	var mutate = func(_resource):
-		if f.a.resources.get_reserved_out(R.LOG)>0: f.a.resources.set_quota(R.LOG,3)
+		if f.a.resources.get_reserved_out(R.LOG)>0: f.a.resources.set_category_quota(Categories.LOG,3)
 	f.a.resources.reservations_changed.connect(mutate)
 	check(f.s.claim_best_job(f.first.id)==null and f.s.sources._claims.is_empty() and f.a.resources.get_reserved_out(R.LOG)==0,"Quota callback during claim rolls back without a phantom ground job")
 	f.a.resources.reservations_changed.disconnect(mutate)
 	f = fixture()
 	var receiver = func(_resource):
-		if f.a.resources.get_reserved_out(R.LOG)>0: f.b.resources.set_quota(R.LOG,10)
+		if f.a.resources.get_reserved_out(R.LOG)>0: f.b.resources.set_category_quota(Categories.LOG,10)
 	f.a.resources.reservations_changed.connect(receiver)
 	check(f.s._claim_delivery(f.first,ground_offer(f.a))==null and f.s.sources._claims.is_empty(),"Receiver appearing before publication prevents stale ground fallback")
 	f.a.resources.reservations_changed.disconnect(receiver)
@@ -115,7 +116,7 @@ func domain_checks() -> void:
 	var fake = ground_offer(f.a)
 	fake.surplus_export = false
 	check(f.s._claim_delivery(f.first,fake)==null,"No general-purpose ground hauling admission")
-	f.a.resources.set_quota(R.LOG,3)
+	f.a.resources.set_category_quota(Categories.LOG,3)
 	check(f.s._claim_delivery(f.first,ground_offer(f.a))==null,"Normal stock cannot be discarded through forged surplus offer")
 
 func walk(actor: Node) -> void:
@@ -125,9 +126,9 @@ func walk(actor: Node) -> void:
 func units(world: Node) -> int:
 	return world.ground_resources.drops.reduce(func(total,drop): return total+drop.amount,0)
 func seed_source(source: RefCounted) -> void:
-	source.resources.set_quota(R.LOG,10)
+	source.resources.set_category_quota(Categories.LOG,10)
 	source.resources.add(R.LOG,1)
-	source.resources.set_quota(R.LOG,0)
+	source.resources.set_category_quota(Categories.LOG,0)
 func claim(world: Node, actor: Node):
 	check(world._request_work(actor),"Ordinary AI work hook starts surplus task")
 	return world.logistics.get_job(actor.data.id)
@@ -150,7 +151,7 @@ func physical_checks() -> void:
 	await process_frame
 	var source = F.building(world,T.STORAGE,Vector3(30,0,24))
 	var town = world.warehouse_data
-	town.resources.set_quota(R.LOG,0)
+	town.resources.set_category_quota(Categories.LOG,0)
 	var actor = world.resident_runtimes[0]
 	check(world.player_control.assign_workplace(actor.data.id,town.id,P.PORTER),"Foreign warehouse porter assignment")
 	var origin: Vector2 = world.world_locations.get_resource_position(source.id)
@@ -177,7 +178,7 @@ func physical_checks() -> void:
 	check(actor.view._marker==marker and marker.occupant==actor.data.id and actor.view.get_sim_position().is_equal_approx(origin),"Exterior unloading retains source COURIER ownership without a new trip")
 	check(actor.intents.current_intent.courier_outside and actor.intents.current_intent.resource_handling==&"unloading" and not actor.view.movement.is_moving(),"Ground unloading starts outside without walking to a cell")
 	# New quota and receiving warehouse after pickup do not steal committed cargo.
-	source.resources.set_quota(R.LOG,1)
+	source.resources.set_category_quota(Categories.LOG,1)
 	var receiver = F.building(world,T.STORAGE,Vector3(-15,0,24))
 	check(job.is_active() and actor.data.inventory.amount==1,"Quota and new receiver preserve the confirmed ground trip")
 	await capture(world,"03-unloading",source)
@@ -193,7 +194,7 @@ func physical_checks() -> void:
 	check(stack.amount==2 and not executor.cancel("again"),"Later minute/repeated cancel cannot drop a second unit")
 	await capture(world,"04-completed-stack",source)
 	# Repeated physical cancellation at each lifecycle boundary.
-	receiver.resources.set_quota(R.LOG,0)
+	receiver.resources.set_category_quota(Categories.LOG,0)
 	var before: int
 	for phase in ["assigned","loading","unloading"]:
 		seed_source(source)
@@ -234,7 +235,7 @@ func physical_checks() -> void:
 	seed_source(source)
 	job = claim(world,actor)
 	walk(actor)
-	source.resources.set_quota(R.LOG,1)
+	source.resources.set_category_quota(Categories.LOG,1)
 	check(job!=null and job.state==Job.State.CANCELLED and actor.data.inventory.amount==0 and actor.view._marker==null,"Quota edit during loading releases source and occupied slot immediately")
 	source.resources.try_take(R.LOG,1)
 	# Assignment and player interruption during unloading use the established cleanup.

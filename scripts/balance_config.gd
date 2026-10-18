@@ -1,14 +1,15 @@
 extends RefCounted
 const ResourceType = preload("res://scripts/resource_type.gd")
+const Categories = preload("res://scripts/resource_category.gd")
 # Warehouse presets; production containers keep independent resource capacities.
 const WAREHOUSE_SHARED_CAPACITY := 100
-const STORAGE_RESOURCE_QUOTAS := {
-	ResourceType.Type.LOG:40, ResourceType.Type.STONE:20,
-	ResourceType.Type.PLANK:25, ResourceType.Type.FOOD:15,
+const STORAGE_CATEGORY_QUOTAS := {
+	Categories.Type.LOG:40, Categories.Type.STONE:20,
+	Categories.Type.PLANK:25, Categories.Type.SIMPLE_FOOD:15,
 }
-const TOWN_CENTER_RESOURCE_QUOTAS := {
-	ResourceType.Type.LOG:10, ResourceType.Type.STONE:10,
-	ResourceType.Type.PLANK:60, ResourceType.Type.FOOD:20,
+const TOWN_CENTER_CATEGORY_QUOTAS := {
+	Categories.Type.LOG:10, Categories.Type.STONE:10,
+	Categories.Type.PLANK:60, Categories.Type.SIMPLE_FOOD:20,
 }
 # Ground admission only: 25 simulation units = 1 world unit; build cell = 12.5.
 const RESIDENT_GROUND_SEARCH_RADIUS := 100.0 # 4 world units / 8 cells.

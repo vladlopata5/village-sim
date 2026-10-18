@@ -4,7 +4,7 @@ const Profession = preload("res://scripts/resident_profession.gd")
 const BuildingInstance = preload("res://scripts/building_instance.gd")
 const BuildingType = preload("res://scripts/building_type.gd")
 const EventLog = preload("res://scripts/game_logger.gd")
-const ResourceType = preload("res://scripts/resource_type.gd")
+const Categories = preload("res://scripts/resource_category.gd")
 const BuildingArea = preload("res://scripts/building_work_area.gd")
 var logger: EventLog
 signal building_unregistered(building_id: StringName)
@@ -25,15 +25,15 @@ var _assignments: Dictionary = {}
 var _workplace_professions: Dictionary = {}
 const Assignment = preload("res://scripts/resident_assignment.gd")
 
-func set_warehouse_quota(building_id: StringName, resource: Variant, quota: Variant) -> Dictionary:
+func set_warehouse_category_quota(building_id: StringName, category: Variant, quota: Variant) -> Dictionary:
 	var building := get_building(building_id)
 	if building == null or not building.is_built() or not building.definition.is_storage or not building.resources.is_warehouse():
 		return {"ok":false,"error":"Настройки доступны только у действующего склада или Городского центра."}
-	if typeof(resource) != TYPE_INT or resource not in ResourceType.Type.values() or not building.resources.allows_resource(resource):
-		return {"ok":false,"error":"Этот товар не поддерживается складом."}
+	if typeof(category) != TYPE_INT or category not in Categories.Type.values() or not building.resources.supports_category(category):
+		return {"ok":false,"error":"Эта категория не поддерживается складом."}
 	if typeof(quota) != TYPE_INT or quota < 0:
 		return {"ok":false,"error":"Введите целое неотрицательное число."}
-	if not building.resources.set_quota(resource,quota):
+	if not building.resources.set_category_quota(category,quota):
 		return {"ok":false,"error":"Сумма максимумов не должна превышать %d." % building.resources.shared_capacity}
 	return {"ok":true,"error":""}
 

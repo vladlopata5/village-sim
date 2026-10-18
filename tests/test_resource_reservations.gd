@@ -1,4 +1,5 @@
 extends SceneTree
+const C = preload("res://scripts/resource_category.gd").Type
 const LocalResources = preload("res://scripts/resource_container.gd")
 const Resources = preload("res://scripts/resource_type.gd")
 const Buildings = preload("res://scripts/building_type.gd")
@@ -76,20 +77,20 @@ func _run() -> void:
 func check_shared_inbound() -> void:
 	const R = Resources.Type
 	var stock = LocalResources.new(&"shared")
-	stock.configure_warehouse(2,{R.LOG:1,R.FOOD:1})
+	stock.configure_warehouse(2,{C.LOG:1,C.SIMPLE_FOOD:1})
 	stock.add(R.LOG,1)
 	var observed: Array = []
 	stock.reservations_changed.connect(func(_resource):
 		observed.append([stock.get_total_amount(),stock.get_total_reserved_in()])
-		stock.set_quotas({R.LOG:2,R.FOOD:0})
+		stock.set_category_quotas({C.LOG:2,C.SIMPLE_FOOD:0})
 		observed.append(stock.reserve_in(R.LOG,1)),CONNECT_ONE_SHOT)
 	check(stock.reserve_in(R.FOOD,1) and observed==[[1,1],false],"Reservation commits before callback; changed quotas cannot reserve the same final place for another type")
 	check(stock.get_reserved_in(R.FOOD)==1 and stock.add_reserved(R.FOOD,1) and stock.get_amount(R.FOOD)==1,"Accepted inbound survives quota reduction inside callback")
 	check(stock.get_total_amount()==2 and stock.get_total_reserved_in()==0 and not stock.reserve_in(R.LOG,1),"Grandfathered delivery still occupies shared physical capacity")
 	var promised = LocalResources.new(&"promised")
-	promised.configure_warehouse(3,{R.LOG:1,R.FOOD:2})
+	promised.configure_warehouse(3,{C.LOG:1,C.SIMPLE_FOOD:2})
 	check(promised.reserve_in(R.LOG,1) and promised.reserve_in(R.FOOD,1),"Different resources reserve separate shared places")
-	check(promised.set_quotas({R.LOG:0,R.FOOD:0}),"Quotas may fall below all incoming promises")
+	check(promised.set_category_quotas({C.LOG:0,C.SIMPLE_FOOD:0}),"Quotas may fall below all incoming promises")
 	check(promised.release_in(R.LOG,1) and promised.get_reserved_in(R.FOOD)==1 and promised.get_total_reserved_in()==1,"Rollback releases only the requested inbound amount")
 	check(not promised.release_in(R.LOG,1) and promised.add_reserved(R.FOOD,1) and not promised.add_reserved(R.FOOD,1),"Repeated rollback/delivery cannot consume another promise or duplicate stock")
 	check(promised.get_amount(R.FOOD)==1 and promised.get_available_free_capacity(R.FOOD)==0,"Existing over-quota stock blocks fresh inbound")
@@ -98,7 +99,7 @@ func check_shared_inbound() -> void:
 	origin.resources.set_capacity(R.FOOD,5)
 	origin.resources.add(R.FOOD,2)
 	var destination = preload("res://scripts/building_data.gd").new(&"store","Store",Buildings.Type.STORAGE)
-	destination.resources.configure_warehouse(2,{R.FOOD:2})
+	destination.resources.configure_warehouse(2,{C.SIMPLE_FOOD:2})
 	var first = preload("res://scripts/resident_data.gd").new("first","First",30,Profession.Type.PORTER)
 	var second = preload("res://scripts/resident_data.gd").new("second","Second",30,Profession.Type.PORTER)
 	first.work_location_id=destination.id
@@ -111,7 +112,7 @@ func check_shared_inbound() -> void:
 	var second_job = logistics.claim_best_job(second.id)
 	check(first_job!=null and second_job!=null and destination.resources.get_reserved_in(R.FOOD)==2,"Two real jobs own separate inbound and outbound promises")
 	if first_job==null or second_job==null: return
-	destination.resources.set_quotas({R.FOOD:0,R.LOG:2})
+	destination.resources.set_category_quotas({C.SIMPLE_FOOD:0,C.LOG:2})
 	check(logistics.inbound_valid(first_job) and logistics.inbound_valid(second_job) and logistics.delivery_allowed(second_job),"Quota edit does not invalidate confirmed job admission")
 	check(logistics.cancel_job(first_job) and not logistics.cancel_job(first_job) and logistics.inbound_valid(second_job),"Cancelling one owner leaves the other inbound valid, including repeated cancel")
 	check(origin.resources.get_reserved_out(R.FOOD)==1 and destination.resources.get_reserved_in(R.FOOD)==1,"Owner rollback preserves exactly the other job's reservations")

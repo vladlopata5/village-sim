@@ -291,7 +291,7 @@ func _candidate_scan(resident_id: String, first_reachable_only: bool) -> Array:
 
 func surplus_available(source: BuildingInstance, resource: int) -> int:
 	if source == null or _buildings.get(source.id) != source or not source.is_built() or not source.definition.is_storage or not source.resources.is_warehouse(): return 0
-	return maxi(0,source.resources.get_amount(resource)-source.resources.get_capacity(resource)-source.resources.get_reserved_out(resource))
+	return source.resources.get_surplus_amount(resource)
 func _surplus_source_allowed(source: BuildingInstance, resource: int) -> bool:
 	return source != null and _buildings.get(source.id) == source and source.is_built() and source.definition.is_storage and source.resources.is_warehouse() and source.resources.allows_resource(resource) and source.definition.allows_external_export(resource) and _point(source) is Vector2
 func _surplus_admission_allowed(source: BuildingInstance, destination: BuildingInstance, resource: int, receiver: int) -> bool:
@@ -356,7 +356,9 @@ func _reserved_surplus_valid(source_ref: Source, resource: int, owner: StringNam
 	if source_ref == null or source_ref.kind != Source.Kind.CONTAINER or not sources.reserved(source_ref,resource,owner): return false
 	var source: BuildingInstance = sources.resolve(source_ref)
 	# Includes this job's own reserved unit; all other outbound promises still count.
-	return source != null and source.resources.get_amount(resource)-source.resources.get_capacity(resource)-source.resources.get_reserved_out(resource)+1 >= 1
+	if source == null: return false
+	var category: int = source.resources.get_resource_category(resource)
+	return source.resources.get_category_amount(category)-source.resources.get_category_quota(category)-source.resources.get_category_reserved_out(category)+1 >= 1
 func surplus_job_valid(job: HaulJob) -> bool:
 	if job.admission != HaulJob.Admission.SURPLUS: return true
 	if job.source_ref == null or job.source_ref.kind != Source.Kind.CONTAINER: return false
