@@ -164,6 +164,23 @@ func get_reserved_out(resource: ResourceType.Type) -> int:
 func get_reserved_in(resource: ResourceType.Type) -> int:
 	return _reserved_in.get(resource, 0)
 
+func get_supported_resource_types() -> Array[int]:
+	# Capability for queued target actions: stock and temporary access may be absent.
+	var types: Array = _capacity_per_resource.keys()
+	if is_warehouse(): types = _allowed_resource_types if not _allowed_resource_types.is_empty() else ResourceType.Type.values()
+	var result: Array[int] = []
+	for resource: int in types:
+		if allows_resource(resource) and (is_warehouse() or get_capacity(resource)>0): result.append(resource)
+	return result
+
+func get_available_resource_types() -> Array[int]:
+	# Local concrete contents only: no scan of all catalog types or world stock.
+	var result: Array[int] = []
+	for resource: int in _amounts:
+		if allows_resource(resource) and get_available_amount(resource)>0: result.append(resource)
+	result.sort()
+	return result
+
 func get_available_amount(resource: ResourceType.Type) -> int:
 	return get_amount(resource) - get_reserved_out(resource)
 

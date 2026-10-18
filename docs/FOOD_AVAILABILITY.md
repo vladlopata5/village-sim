@@ -1,4 +1,4 @@
-# Предварительная доступность еды — P2
+# Предварительная доступность еды — P2 / F4
 
 FoodAvailability — общий RefCounted в Main. Это производное уведомительное
 представление существующих источников; источники, их количества и резервы остаются
@@ -6,7 +6,7 @@ FoodAvailability — общий RefCounted в Main. Это производно�
 
 ## Поток данных
 
-ResourceContainer.availability_changed(FOOD) → FoodAvailability invalidation →
+ResourceContainer.availability_changed(готовый тип) → FoodAvailability invalidation →
 прежние индивидуальные callbacks в прежнем порядке. Первый Needs получает общий
 пересчёт, остальные используют актуальный кэш. Needs сравнивает
 своё предыдущее значение с общим текущим итогом и при увеличении эмитит food_available.
@@ -22,9 +22,9 @@ ResourceSources.changed → один общий Ground scan и инвалиди�
 
 | Событие | Действие |
 |---|---|
-| Add/take/reserve_out/release_out FOOD | Синхронный invalidate перед индивидуальными callbacks |
+| Add/take/reserve_out/release_out готового товара | Синхронный invalidate перед индивидуальными callbacks |
 | Take_reserved | Free quantity обычно не меняется; физическая выдача остаётся в ResourceContainer, aggregate source event при наличии прежнего caller |
-| Reserve_in/release_in | Free FOOD не меняется; новый пересчёт для него не требуется |
+| Reserve_in/release_in | Свободная готовая еда не меняется; новый пересчёт для него не требуется |
 | Ground create/remove/reserve/release/move | Существующий source revision сразу меняет ключ выбора; coalesced notification один раз обновляет Ground total |
 | Registration / completion | Register/конструкционный сигнал инвалидирует общий итог; существующая активация уведомляет Needs |
 | Navigation/access topology | navigation.changed инвалидирует; актуальный navigation revision остаётся в индивидуальном ключе выбора |
@@ -39,14 +39,14 @@ ResourceSources.changed → один общий Ground scan и инвалиди�
 
 ## Что не кэшируется как разрешение
 
-Общий свободный запас включает Ground FOOD всей карты, как прежний notification
+Общий свободный запас включает готовые Ground товары всей карты, как прежний notification
 hint, и потому не равен доступному запасу конкретного жителя. Два жителя могут
 получить одинаковую подсказку и разные has_food_action. Kitchen → Other Buildings
 → Ground остаются прежними tiers. Контейнеры глобальны по действующим правилам,
 личная Ground еда допускается только в круге actual position радиуса4 world units.
 Дом, workplace и WorkArea не добавляют кругов личному питанию.
 
-Выбор/начало питания проверяет текущий тип, BUILT, FOOD policy/capacity, действие,
+Выбор/начало питания проверяет текущий тип, BUILT, допуск конкретного типа (без ограничения квотой ввоза), действие,
 количество, достижимость и ownership. Резервирование и физическое получение всегда
 идут через исходные APIs. Вложенное уведомление может изменить итог внутри внешнего
 сигнала; каждый Needs читает total() заново и видит последнюю инвалидацию. Payload
@@ -60,7 +60,7 @@ source/nav/slots/position ключами. Уже полученная еда з�
 
 Вместо O(N×B) building scans на каждое FOOD изменение — один O(B) и N дешёвых
 чтений/уведомлений. Ground scan на aggregate world change — один O(G), а не N.
-Кэш добавляет два целых итога, dirty-флаг и B subscription references; это не
+Кэш содержит два целых итога, dirty-флаг, content_revision, сигнатуру состава и B subscription references; это не
 копия ресурсов на каждого жителя. Старые индивидуальные подписки сохранены;
 уменьшение их количества или объёма памяти всей игры не является результатом P2. Ground total не пересчитывается контейнерными
 изменениями. Source events иных ресурсов могут вызвать один дополнительный общий
@@ -72,3 +72,27 @@ scan: отдельный food-only source revision/index не добавлен �
 
 Проверки: test_food_updates и прежние food/critical/outdoor/ground/resource suites.
 Подробные before/after и исходные логи — вне Git в performance-optimization-p2.
+
+## F4: конкретные блюда и актуальность состава
+
+FoodAvailability.is_ready_food делегирует ResourceCatalog.is_ready_food. В зданиях
+сначала проверяются BUILT/позиция, затем готовые товары из локального
+get_available_resource_types; отсутствующие типы каталога не перебираются. Квота
+приёма не ограничивает употребление уже имеющегося запаса. Ground фильтруется
+по тому же признаку готовности; сырые ингредиенты не прибавляются к итогу.
+
+Во время единственного lazy scan сравнивается сигнатура свободных запасов:
+физический источник, concrete_type, available_amount. Её изменение увеличивает
+content_revision даже при прежнем total; одинаковое уведомление версию не меняет.
+Это метаданные того же общего снимка, не новый независимый ledger или кэш блюда.
+Индивидуальный search key включает эту версию. Положительное MealSelection
+дополнительно проверяет свой тип перед reserve: другого блюда на месте недостаточно,
+чтобы подтвердить старый выбор. Для нескольких товаров здания выполняется один
+route probe. При увеличении total действует прежний food_available; смена состава
+не порождает нового массового уведомления. Неизменный отрицательный probe по-прежнему
+не повторяет маршруты, актуальный состав читается при обычном решении AI.
+
+Тип сохраняется в MealSelection и EAT intent.meal_concrete_type, включая outcome
+после исчезновения Ground стопки. Социальный meal_begun(building_id) прежний.
+Проверки: test_concrete_meals, test_food_updates, прежние food/critical/outdoor
+и полный regression suite. Новых товаров и изменений насыщения в F4 нет.

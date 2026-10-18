@@ -76,7 +76,7 @@ func food_compatibility() -> void:
 	actor.decision._deciding=true
 	actor.intents.abort_current(actor.intents.current_intent)
 	actor.data.hunger=80
-	check(actor.needs.FOOD==R.FOOD and actor.needs.try_eat(10000),"Existing Needs continues to reserve concrete FOOD")
+	check(actor.needs.try_eat(10000) and actor.needs._meal_selection.concrete_type==R.FOOD,"Existing Needs continues to reserve concrete FOOD")
 	actor.view._process(20)
 	check(world.kitchen_data.resources.get_amount(R.FOOD)==0 and world.kitchen_data.resources.get_reserved_out(R.FOOD)==0 and actor.data.activity==preload("res://scripts/resident_activity.gd").Type.EATING,"Real meal still consumes one FOOD on arrival")
 	world.game_time.debug_skip_minutes(30)

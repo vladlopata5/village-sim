@@ -50,11 +50,13 @@ func ground_allowed(source_ref: Source, origin: Variant, workplace: RefCounted =
 	# Removed/replaced work objects cannot contribute a stale search circle.
 	var live_workplace: RefCounted = _current_work_object(workplace)
 	return target is Vector2 and GroundAreas.contains(target,origin,live_workplace,area)
-func ground_candidates(resource: int, origin: Variant, workplace: RefCounted = null, area: RefCounted = null) -> Array:
+func ground_candidates(resource: int, origin: Variant, workplace: RefCounted = null, area: RefCounted = null, resource_filter: Callable = Callable()) -> Array:
 	var result: Array = []
 	if not is_instance_valid(ground): return result
 	var live_workplace: RefCounted = _current_work_object(workplace)
 	for drop in ground.drops:
+		# Filter a family of concrete types before spatial checks; ordinary callers unchanged.
+		if resource_filter.is_valid() and not resource_filter.call(drop.resource_type): continue
 		if (resource < 0 or drop.resource_type == resource) and drop.available_amount() > 0 and GroundAreas.contains(drop.world_position,origin,live_workplace,area):
 			result.append(Source.new(Source.Kind.GROUND,drop.id))
 	return result

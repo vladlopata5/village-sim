@@ -1,7 +1,10 @@
 extends RefCounted
 ## Shared preliminary stock for notifications, never permission to reserve or eat.
 ## One lazy scan per resource/world change replaces one scan per resident.
-const FOOD = preload("res://scripts/resource_type.gd").Type.FOOD
+const Catalog = preload("res://scripts/resource_catalog.gd")
+var content_revision := 0 # Includes composition changes with an unchanged total.
+var _signature: Array = []
+var _ground_signature: Array = []
 var _buildings: Array
 var _locations: RefCounted
 var _sources: RefCounted
@@ -43,22 +46,37 @@ func total() -> int:
 		_dirty = false
 	return _total
 
+func is_ready_food(resource: int) -> bool:
+	return Catalog.is_ready_food(resource)
+
 func _count() -> int:
 	var amount := 0
+	var signature: Array = []
 	for building in _buildings:
-		if building.is_built() and building.resources.allows_resource(FOOD) and building.resources.get_capacity(FOOD)>0 and _locations.get_position(building.id) is Vector2:
-			amount += building.resources.get_available_amount(FOOD)
+		if not building.is_built() or not _locations.get_position(building.id) is Vector2: continue
+		for resource in building.resources.get_available_resource_types():
+			if not is_ready_food(resource): continue
+			var available: int = building.resources.get_available_amount(resource)
+			amount += available
+			signature.append([building.get_instance_id(),resource,available])
+	signature.append(_ground_signature)
+	if signature != _signature:
+		_signature = signature
+		content_revision += 1
 	return amount + _ground_amount
 
 func _count_ground() -> int:
 	var amount := 0
+	_ground_signature = []
 	if _sources != null and is_instance_valid(_sources.ground):
 		for drop in _sources.ground.drops:
-			if drop.resource_type == FOOD: amount += drop.available_amount()
+			if is_ready_food(drop.resource_type) and drop.available_amount()>0:
+				amount += drop.available_amount()
+				_ground_signature.append([drop.id,drop.resource_type,drop.available_amount()])
 	return amount
 
 func _resource_changed(resource: int, _amount: int) -> void:
-	if resource != FOOD: return
+	if not is_ready_food(resource): return
 	invalidate() # Runs before Needs subscribers; nested changes invalidate again.
 
 func _world_changed() -> void:

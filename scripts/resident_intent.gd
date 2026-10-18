@@ -2,6 +2,7 @@ extends RefCounted
 ## Intent data contains no resident, scene, UI or movement implementation.
 enum Type { NONE, MOVE_TO }
 
+var meal_concrete_type := -1 # EAT identity survives source removal and outcome callbacks.
 var building_id: StringName = &""
 var slot_purpose := -1
 var courier_outside := false # Ground surplus unload: keep the acquired source slot at its exterior.
