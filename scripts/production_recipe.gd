@@ -9,3 +9,7 @@ func _init(required_inputs: Dictionary, produced_outputs: Dictionary, minutes: i
 	inputs = required_inputs.duplicate()
 	outputs = produced_outputs.duplicate()
 	work_required = minutes
+
+# Quantity modes currently require one unambiguous product, exactly one unit.
+func counted_product() -> int:
+	return int(outputs.keys()[0]) if outputs.size()==1 and int(outputs.values()[0])==1 else -1

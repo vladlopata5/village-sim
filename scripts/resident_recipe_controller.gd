@@ -47,36 +47,26 @@ func register_building(target: RefCounted) -> void:
 func _eligible(target: RefCounted) -> bool:
 	return target != null and target.is_built() and not target.production_removed and target.definition.production_recipe != null and target.definition.worker_profession != Profession.Type.NONE and _runtime.data.profession == target.definition.worker_profession and _runtime.data.work_location_id == target.id and _runtime.data.inventory.amount == 0
 
+
 func _workplace() -> RefCounted:
-	for target in _buildings:
-		if _eligible(target) and _locations.get_position(target.id) is Vector2: return target
-	return null
+	# Canonical location registry already indexes the assigned building presentation.
+	var presentation: Node = _locations.get_view(_runtime.data.work_location_id)
+	var target: RefCounted = presentation.building_data if presentation!=null else null
+	return target if _eligible(target) and _locations.get_position(target.id) is Vector2 else null
 
 func has_work() -> bool:
-	if phase != Phase.NONE: return false
+	if phase!=Phase.NONE: return false
 	var target := _workplace()
-	if target == null: return false
-	# The batch claims the logical work place. Physical occupancy may wait at arrival.
-	if target.resumable_production_batch() != null: return true
-	if not target.production_batches.is_empty(): return false
-	var recipe: RefCounted = target.definition.production_recipe
-	for resource in recipe.inputs:
-		if target.resources.get_available_amount(resource) < int(recipe.inputs[resource]): return false
-	for resource in recipe.outputs:
-		if target.resources.get_available_free_capacity(resource) < int(recipe.outputs[resource]): return false
-	return true
+	return target!=null and not target.select_production_work(_runtime.data.id).is_empty()
 
 func request_work() -> bool:
 	if _clock.get_phase() != "День" or _runtime.intents.player_controlled or _runtime.intents.forced_priority>0 or _runtime.intents.has_current_action() or not has_work(): return false
 	building = _workplace()
+	building.production_changed.connect(_on_production_changed)
 	_assignment_revision = _runtime.data.work_assignment_revision
 	phase = Phase.GOING_TO_WORK
 	_mutating = true
-	batch = building.resumable_production_batch()
-	if batch != null:
-		if not batch.claim(_runtime.data.id): batch = null
-	else:
-		batch = building.prepare_production_batch(_runtime.data.id)
+	batch = building.claim_production_work(_runtime.data.id)
 	_mutating = false
 	if batch == null or _interrupted or not _valid() or _clock.get_phase() != "День" or _runtime.intents.has_current_action():
 		abort()
@@ -86,7 +76,9 @@ func request_work() -> bool:
 	if not _runtime.intents.submit(_intent):
 		abort()
 		return false
-	return phase != Phase.NONE
+	if phase==Phase.NONE: return false
+	building.accept_production_batch(batch)
+	return true
 
 func _valid() -> bool:
 	return _eligible(building) and building in _buildings and batch != null and building.owns_production_batch(batch) and batch.worker_id == _runtime.data.id and batch.reserves_valid() and _runtime.data.work_assignment_revision == _assignment_revision and _locations.get_position(building.id) is Vector2
@@ -101,7 +93,7 @@ func _at_workplace() -> bool:
 
 func _on_arrival(intent: Intent) -> void:
 	if _mutating or intent != _intent or phase != Phase.GOING_TO_WORK: return
-	if not _valid() or not _at_workplace():
+	if not _valid() or not building.validate_production_batch(batch) or not _valid() or not _at_workplace():
 		abort()
 		return
 	_mutating = true
@@ -152,6 +144,7 @@ func _cleanup() -> Intent:
 	batch = null
 	phase = Phase.NONE
 	if place != null:
+		if place.production_changed.is_connected(_on_production_changed): place.production_changed.disconnect(_on_production_changed)
 		if place not in _buildings: place.dispose_production()
 		if previous_batch != null:
 			previous_batch.release_worker(_runtime.data.id)
@@ -175,6 +168,8 @@ func _on_intent_changed(intent: Intent) -> void:
 	if not _exiting and _intent != null and intent != _intent: abort()
 func on_assignment_changed(id: String) -> void:
 	if id == _runtime.data.id and building != null and not _eligible(building): abort()
+func _on_production_changed() -> void:
+	if building!=null and not _valid(): abort()
 func _on_resource(_resource: int, _amount: int) -> void: _queue_availability()
 func _on_reservation(_resource: int) -> void: _queue_availability()
 func _queue_availability() -> void:

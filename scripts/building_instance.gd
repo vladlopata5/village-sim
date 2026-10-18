@@ -46,7 +46,7 @@ var _simple_production_progress := 0 # Original gatherer/non-recipe state is unc
 var production_progress: int:
 	get:
 		if definition.production_recipe == null: return _simple_production_progress
-		return _production_batches[0].progress if not _production_batches.is_empty() and not _production_batches[0].is_terminal() else 0
+		return _production_batches[0].progress if _production_batches.size()==1 and not _production_batches[0].is_terminal() else 0
 	set(value):
 		if definition.production_recipe == null: _simple_production_progress = value
 
@@ -64,10 +64,14 @@ func _init(instance_id: StringName, building_definition: Definition, world_posit
 	for resource in definition.construction_requirements:
 		_construction_delivered[resource] = 0
 	resources = ResourceContainer.new(id)
-func prepare_production_batch(worker: String) -> Batch:
-	# F5a deliberately permits one batch. The collection keeps future slots independent.
-	if production_removed or not is_built() or definition.production_recipe == null or not _production_batches.is_empty(): return null
-	var created := Batch.new(StringName("%s:batch_%04d" % [id,_next_batch_id]),definition.production_recipe,resources)
+	for recipe in definition.production_recipes:
+		_recipe_settings[recipe.id] = {"mode":ProductionMode.UNLIMITED,"target":0,"produced":0,"revision":0,"order":false}
+func prepare_production_batch(worker: String, recipe_id: StringName = &"") -> Batch:
+	var selected := select_production_work(worker)
+	if worker.is_empty() or selected.is_empty() or selected.kind!=&"START" or (not recipe_id.is_empty() and selected.recipe_id!=recipe_id): return null
+	var recipe = definition.get_production_recipe(selected.recipe_id)
+	var created := Batch.new(StringName("%s:batch_%04d" % [id,_next_batch_id]),recipe,resources)
+	created.order_revision = _recipe_settings[recipe.id].revision
 	_next_batch_id += 1
 	_production_batches.append(created) # Publish identity before reservations emit signals.
 	if not created.prepare(worker):
@@ -86,7 +90,13 @@ func resumable_production_batch() -> Batch:
 	return null
 
 func retire_production_batch(batch: Batch) -> void:
-	if batch.is_terminal(): _production_batches.erase(batch)
+	if batch not in _production_batches or not batch.is_terminal(): return
+	if batch.state==Batch.State.COMPLETED:
+		var settings: Dictionary = _recipe_settings[batch.recipe_id]
+		if settings.order and batch.order_revision==settings.revision:
+			settings.produced += int(batch.outputs.get(definition.get_production_recipe(batch.recipe_id).counted_product(),0))
+			if settings.produced>=settings.target and settings.mode==ProductionMode.ORDER: settings.mode=ProductionMode.OFF
+	_production_batches.erase(batch)
 
 func dispose_production() -> void:
 	if production_removed: return
@@ -173,3 +183,168 @@ func get_construction_material_ratio() -> float:
 func _notify_construction_changed() -> void:
 	construction_revision += 1
 	construction_changed.emit()
+
+# Local recipe settings and selection; neither a world scheduler nor resource stock.
+enum ProductionMode { OFF, UNLIMITED, MAINTAIN, ORDER }
+signal production_changed
+var _recipe_settings: Dictionary = {}
+var _recipe_cursors: Dictionary = {}
+
+func get_recipe_settings(recipe_id: StringName) -> Dictionary:
+	if production_removed or not _recipe_settings.has(recipe_id): return {}
+	var result: Dictionary = _recipe_settings[recipe_id].duplicate()
+	result.mode = get_recipe_mode(recipe_id)
+	result.remaining = get_order_remaining(recipe_id)
+	result.produced = _order_produced(recipe_id)
+	result.excess = maxi(0,result.produced-result.target) if result.order else 0
+	return result
+
+func get_recipe_mode(recipe_id: StringName) -> int:
+	if production_removed or not _recipe_settings.has(recipe_id): return -1
+	var settings: Dictionary = _recipe_settings[recipe_id]
+	# A completion callback already sees the committed product before retirement.
+	if settings.mode == ProductionMode.ORDER and get_order_remaining(recipe_id)==0: return ProductionMode.OFF
+	return settings.mode
+
+func get_order_remaining(recipe_id: StringName) -> int:
+	if production_removed or not _recipe_settings.has(recipe_id): return -1
+	var settings: Dictionary = _recipe_settings[recipe_id]
+	return maxi(0,settings.target-_order_produced(recipe_id)) if settings.order else 0
+
+func _order_produced(recipe_id: StringName) -> int:
+	var settings: Dictionary = _recipe_settings[recipe_id]
+	var produced: int = settings.produced
+	if not settings.order: return 0
+	for batch in _production_batches:
+		if batch.recipe_id==recipe_id and batch.order_revision==settings.revision and batch.state==Batch.State.COMPLETED:
+			produced += int(batch.outputs.get(definition.get_production_recipe(recipe_id).counted_product(),0))
+	return produced
+
+func set_recipe_mode(recipe_id: StringName, mode: int, amount: int = 0) -> bool:
+	var recipe = definition.get_production_recipe(recipe_id)
+	if production_removed or not is_built() or recipe==null or not _recipe_settings.has(recipe_id) or mode not in ProductionMode.values() or amount<0: return false
+	if mode in [ProductionMode.OFF,ProductionMode.UNLIMITED] and amount!=0: return false
+	if mode in [ProductionMode.ORDER,ProductionMode.MAINTAIN] and recipe.counted_product()<0: return false
+	var revision: int = _recipe_settings[recipe_id].revision+1
+	_recipe_settings[recipe_id] = {"mode":mode,"target":amount,"produced":0,"revision":revision,"order":mode==ProductionMode.ORDER}
+	# New ORDER replaces the old remainder; only not-yet-completed work joins it.
+	if mode==ProductionMode.ORDER:
+		for batch in _production_batches:
+			if batch.recipe_id==recipe_id and not batch.is_terminal(): batch.order_revision=revision
+	_reconcile_preparations(recipe_id)
+	production_changed.emit()
+	return true
+
+func set_maintain_target(recipe_id: StringName, amount: int) -> bool:
+	return set_recipe_mode(recipe_id,ProductionMode.MAINTAIN,amount)
+
+func set_production_order(recipe_id: StringName, amount: int) -> bool:
+	return set_recipe_mode(recipe_id,ProductionMode.ORDER,amount)
+
+func production_capacity() -> int:
+	return maxi(0,definition.worker_capacity)
+
+func _active_batch_count() -> int:
+	var count := 0
+	for batch in _production_batches:
+		if not batch.is_terminal(): count += 1
+	return count
+
+func _worker_has_batch(worker: String) -> bool:
+	return _production_batches.any(func(batch): return not batch.is_terminal() and batch.worker_id==worker)
+
+func _promised_for_recipe(recipe_id: StringName, paid_only: bool = false) -> int:
+	var product: int = definition.get_production_recipe(recipe_id).counted_product()
+	var promised := 0
+	for batch in _production_batches:
+		if batch.recipe_id==recipe_id and not batch.is_terminal() and (not paid_only or batch.inputs_spent): promised += int(batch.outputs.get(product,0))
+	return promised
+
+func _maintain_stock(product: int, excluding_prepared: StringName = &"") -> int:
+	# reserve_in already contains outputs promised by production AND external hauls.
+	var total: int = resources.get_amount(product)+resources.get_reserved_in(product)
+	for batch in _production_batches:
+		if batch.is_terminal(): continue
+		var reserved: int = batch.reserved_output(product)
+		if batch.recipe_id==excluding_prepared and not batch.inputs_spent:
+			total -= reserved
+		else:
+			# PREPARING is published before all reserve_in calls can emit callbacks.
+			total += maxi(0,int(batch.outputs.get(product,0))-reserved)
+	return total
+
+func can_start_production(recipe_id: StringName) -> bool:
+	var recipe = definition.get_production_recipe(recipe_id)
+	if production_removed or not is_built() or recipe==null or _active_batch_count()>=production_capacity(): return false
+	var mode := get_recipe_mode(recipe_id)
+	if mode<=ProductionMode.OFF: return false
+	if mode==ProductionMode.ORDER and get_order_remaining(recipe_id)-_promised_for_recipe(recipe_id)<1: return false
+	if mode==ProductionMode.MAINTAIN and _maintain_stock(recipe.counted_product())>=int(_recipe_settings[recipe_id].target): return false
+	for resource in recipe.inputs:
+		if resources.get_available_amount(resource)<int(recipe.inputs[resource]): return false
+	for resource in recipe.outputs:
+		if resources.get_available_free_capacity(resource)<int(recipe.outputs[resource]): return false
+	return true
+
+func select_production_work(worker: String = "") -> Dictionary:
+	if production_removed or not is_built() or (not worker.is_empty() and _worker_has_batch(worker)): return {}
+	var paused := resumable_production_batch()
+	if paused!=null: return {"kind":&"RESUME","batch":paused,"recipe_id":paused.recipe_id}
+	if _active_batch_count()>=production_capacity(): return {}
+	var recipes: Array = definition.production_recipes
+	for mode in [ProductionMode.ORDER,ProductionMode.MAINTAIN,ProductionMode.UNLIMITED]:
+		for offset in range(recipes.size()):
+			var index: int = (int(_recipe_cursors.get(mode,0))+offset)%recipes.size()
+			var recipe = recipes[index]
+			if get_recipe_mode(recipe.id)==mode and can_start_production(recipe.id): return {"kind":&"START","recipe_id":recipe.id}
+	return {}
+
+func claim_production_work(worker: String) -> Batch:
+	if worker.is_empty(): return null
+	var selected := select_production_work(worker)
+	if selected.is_empty(): return null
+	if selected.kind==&"RESUME":
+		return selected.batch if selected.batch.claim(worker) else null
+	return prepare_production_batch(worker,selected.recipe_id)
+
+func accept_production_batch(batch: Batch) -> void:
+	# Preparation can still fail to submit a movement intent. Only acceptance rotates.
+	if not owns_production_batch(batch) or batch.is_terminal() or batch.selection_accepted: return
+	batch.selection_accepted = true
+	var mode := get_recipe_mode(batch.recipe_id)
+	if mode<=ProductionMode.OFF: return
+	for index in range(definition.production_recipes.size()):
+		if definition.production_recipes[index].id==batch.recipe_id:
+			_recipe_cursors[mode] = (index+1)%definition.production_recipes.size()
+			return
+
+func _preparation_allowed(batch: Batch) -> bool:
+	if not owns_production_batch(batch) or batch.is_terminal(): return false
+	if batch.inputs_spent: return true # Paid WIP is never destroyed by a recipe setting.
+	var mode := get_recipe_mode(batch.recipe_id)
+	if mode==ProductionMode.UNLIMITED: return true
+	if mode<=ProductionMode.OFF: return false
+	var budget: int
+	if mode==ProductionMode.ORDER:
+		budget = get_order_remaining(batch.recipe_id)-_promised_for_recipe(batch.recipe_id,true)
+	else:
+		var product: int = definition.get_production_recipe(batch.recipe_id).counted_product()
+		budget = int(_recipe_settings[batch.recipe_id].target)-_maintain_stock(product,batch.recipe_id)
+	for candidate in _production_batches:
+		if candidate.recipe_id!=batch.recipe_id or candidate.inputs_spent or candidate.is_terminal(): continue
+		budget -= 1 # Limited modes explicitly accept a single unit output only.
+		if candidate==batch: return budget>=0
+	return false
+
+func _reconcile_preparations(recipe_id: StringName) -> void:
+	for batch in _production_batches.duplicate():
+		if batch.recipe_id==recipe_id and not batch.inputs_spent and not batch.is_terminal() and not _preparation_allowed(batch):
+			batch.cancel()
+			retire_production_batch(batch)
+
+func validate_production_batch(batch: Batch) -> bool:
+	if not owns_production_batch(batch): return false
+	var previous_size := _production_batches.size()
+	_reconcile_preparations(batch.recipe_id)
+	if _production_batches.size()!=previous_size: production_changed.emit()
+	return owns_production_batch(batch) and not batch.is_terminal()

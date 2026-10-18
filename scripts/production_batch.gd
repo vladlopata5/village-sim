@@ -7,6 +7,8 @@ var recipe: RefCounted
 var state := State.PREPARING
 var progress := 0
 var inputs_spent := false
+var order_revision := -1 # Which current building order may receive this output.
+var selection_accepted := false
 var worker_id := ""
 var work_required: int
 var inputs: Dictionary
@@ -145,3 +147,6 @@ func _settle() -> void:
 	_release_pending = false
 	if cancelled: cancel()
 	elif released: release_worker(worker_id)
+
+func reserved_output(resource: int) -> int:
+	return int(_outputs.get(resource,0))

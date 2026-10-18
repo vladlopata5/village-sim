@@ -51,7 +51,9 @@ const LOGISTICS_FLOW = {
 const Profession = preload("res://scripts/resident_profession.gd")
 var worker_profession: int = Profession.Type.NONE
 var internal_resources: Array = []
-var production_recipe: Recipe
+var production_recipes: Array[Recipe] = []
+var production_recipe: Recipe: # Read-only compatibility for the unchanged single-recipe UI/supply.
+	get: return production_recipes[0] if not production_recipes.is_empty() else null
 var logistics_flow: Dictionary
 var visitor_capacity := 0
 var worker_capacity := 0 # Zero keeps existing unlimited workplace semantics.
@@ -112,7 +114,7 @@ static func for_type(category: BuildingType.Type, label: String = ""):
 		result.internal_resources = [ResourceType.Type.STONE]
 	if category == BuildingType.Type.SAWMILL:
 		result.worker_capacity = Balance.SAWMILL_WORKER_CAPACITY
-		result.production_recipe = Recipe.new({ResourceType.Type.LOG:1},{ResourceType.Type.PLANK:1},Balance.SAWMILL_WORK_MINUTES,&"sawmill_plank")
+		result.production_recipes.append(Recipe.new({ResourceType.Type.LOG:1},{ResourceType.Type.PLANK:1},Balance.SAWMILL_WORK_MINUTES,&"sawmill_plank"))
 	return result
 
 func get_ground_search_radius() -> float:
@@ -125,3 +127,12 @@ func allows_external_export(resource: int) -> bool:
 
 func allows_internal_import(resource: int) -> bool:
 	return resource in internal_resources
+
+func get_production_recipe(recipe_id: StringName) -> Recipe:
+	if recipe_id.is_empty(): return null
+	var found: Recipe = null
+	for recipe in production_recipes:
+		if recipe.id==recipe_id:
+			if found!=null: return null # Duplicate IDs cannot identify a recipe safely.
+			found=recipe
+	return found
