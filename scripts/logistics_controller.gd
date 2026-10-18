@@ -514,8 +514,10 @@ func get_job(resident_id: String) -> HaulJob:
 		if job.assigned_resident_id == resident_id: return job
 	return null
 func finish_job(job: HaulJob) -> void:
+	if job not in jobs: return
 	_internal.erase(job.id)
 	jobs.erase(job)
+	job.notify_finished()
 	_on_state_changed()
 func cancel_job(job: HaulJob) -> bool:
 	if job == null or job not in jobs or not job.is_active() or job.state in [HaulJob.State.CARRYING, HaulJob.State.GOING_TO_DESTINATION]: return false
@@ -595,3 +597,11 @@ func dispose_surplus(resource: ResourceType.Type, amount: int, job: HaulJob) -> 
 	if not DropResult.completed(result): return DropResult.Status.FAILED
 	if result == DropResult.Status.PLACED: cargo_dropped.emit(resource,amount,job.assigned_resident_id)
 	return result
+
+func cancel_transport(job: HaulJob, reason: String) -> bool:
+	# Workflow cancellation uses the existing executor, including CARRYING/FAILED.
+	if job==null or job not in jobs or not job.is_active(): return false
+	var executor = _executors.get(job.assigned_resident_id)
+	return executor.cancel(reason) if executor!=null and executor.job==job else cancel_job(job)
+
+func availability_revision() -> int: return _recalculate_revision

@@ -175,3 +175,18 @@ func find_ground_in_area(resource: int, area: RefCounted, origin: Vector2, desti
 		var target: Vector2 = point(source_ref)
 		if reachable(origin,target) and reachable(target,destination): return [source_ref]
 	return []
+
+# Same nearest-trip ordering as find; routes only until the first valid source.
+func find_first(resource: int, origin: Vector2, destination: Vector2, excluded: StringName, workplace: RefCounted) -> Source:
+	var candidates: Array=[]
+	for building in buildings.values():
+		if building.id!=excluded: candidates.append(Source.new(Source.Kind.CONTAINER,building.id))
+	candidates.append_array(ground_candidates(resource,origin,workplace))
+	candidates=candidates.filter(func(ref): return available(ref,resource))
+	candidates.sort_custom(func(a,b):
+		var da: float=origin.distance_to(point(a))+point(a).distance_to(destination)
+		var db: float=origin.distance_to(point(b))+point(b).distance_to(destination)
+		return da<db or (is_equal_approx(da,db) and a.stable_key()<b.stable_key()))
+	for source_ref in candidates:
+		if reachable(origin,point(source_ref)) and reachable(point(source_ref),destination): return source_ref
+	return null

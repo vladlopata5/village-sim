@@ -1,6 +1,7 @@
 extends RefCounted
 ## Successfully claimed delivery, owned by one resident from creation.
 const ResourceType = preload("res://scripts/resource_type.gd")
+signal finished(job: RefCounted) # Local workflow cleanup, not work availability.
 enum State { ASSIGNED, GOING_TO_SOURCE, CARRYING, GOING_TO_DESTINATION, COMPLETED, CANCELLED }
 enum Receiver { CONTAINER, GROUND }
 var receiver_kind: Receiver = Receiver.CONTAINER
@@ -37,3 +38,5 @@ func _init(job_id: StringName, source_id: StringName, destination_id: StringName
 
 func is_active() -> bool:
 	return state not in [State.CANCELLED, State.COMPLETED]
+
+func notify_finished() -> void: finished.emit(self)
