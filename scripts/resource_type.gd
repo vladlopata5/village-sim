@@ -1,11 +1,9 @@
 extends RefCounted
-## Settlement resource categories, independent of building categories.
-enum Type { FOOD, LOG, PLANK, STONE }
+## Concrete, interchangeable goods. Warehouse grouping lives in ResourceCategory.
+enum Type { FOOD = 0, LOG = 1, PLANK = 2, STONE = 3 }
 
 static func display_name(resource: Type) -> String:
-	match resource:
-		Type.FOOD: return "FOOD"
-		Type.LOG: return "Бревно"
-		Type.PLANK: return "Доски"
-		Type.STONE: return "Камень"
-		_: return "Ресурс"
+	# Runtime load avoids a preload cycle: the catalog itself uses this enum.
+	# Godot reuses the loaded script; its static definitions are built only once.
+	var label: String = load("res://scripts/resource_catalog.gd").get_display_name(resource)
+	return label if not label.is_empty() else "Ресурс"
