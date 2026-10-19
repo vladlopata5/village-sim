@@ -1,5 +1,6 @@
 extends PanelContainer
 ## VIEW opens cards; ASSIGN emits a target without changing world selection.
+signal context_requested(area_id: StringName)
 signal area_selected(area_id: StringName)
 signal assignment_selected(area_id: StringName)
 signal create_requested
@@ -25,6 +26,8 @@ var _layout_pending := false
 var _pressed_id: StringName = &""
 
 func _ready() -> void:
+	# Avoid measuring wrapped children against a zero-width new panel.
+	size = Vector2(680,400)
 	var column := VBoxContainer.new()
 	add_child(column)
 	var title := Label.new()
@@ -90,12 +93,15 @@ func _queue_layout() -> void:
 
 func _layout() -> void:
 	_layout_pending = false
+	_apply_layout()
+func _apply_layout() -> void:
 	if not get_parent() is Control: return
 	position = Vector2(12,12)
 	var available_width: float = get_parent().size.x-356
 	if is_instance_valid(_info_panel) and _info_panel.is_visible_in_tree():
 		available_width = minf(available_width,_info_panel.get_global_rect().position.x-get_parent().global_position.x-24)
-	size = Vector2(maxf(420,available_width),maxf(260,get_parent().size.y-244))
+	size.x = maxf(420,available_width)
+	size.y = get_combined_minimum_size().y if rows.is_empty() else maxf(260,get_parent().size.y-244)
 
 func begin_assignment(caption: String) -> void:
 	mode = Mode.ASSIGN
@@ -115,6 +121,7 @@ func end_assignment() -> void:
 func _shown() -> void:
 	_pressed_id = &""
 	if is_visible_in_tree():
+		_apply_layout()
 		_flush()
 		_queue_layout()
 	else: end_assignment()
@@ -151,6 +158,8 @@ func _flush() -> void:
 		row.set_text(1,"%.1f" % Coordinates.length_to_world(area.radius))
 		row.set_text(2,str(counts.get(area.id,0)))
 	empty_label.visible = rows.is_empty()
+	table.visible = not rows.is_empty()
+	_queue_layout()
 	_selection_changed()
 
 func _selection_changed() -> void:
@@ -161,6 +170,7 @@ func _selection_changed() -> void:
 func activate_row(id: StringName) -> void:
 	if areas.get_area(id) == null: return
 	if mode == Mode.ASSIGN: assignment_selected.emit(id)
+	elif selection.selected_resident!=null or selection.selected_building!=null: context_requested.emit(id)
 	else: area_selected.emit(id)
 
 func _table_input(event: InputEvent) -> void:

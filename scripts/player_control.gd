@@ -19,7 +19,6 @@ signal home_changed(resident_id: String, previous: StringName, current: StringNa
 var _buildings: Array = [] # Shared world collection, not a separate housing registry.
 var _residents: Dictionary = {}
 var _intents: Dictionary = {}
-var _workplaces: Dictionary = {}
 var _commands: Dictionary = {}
 var _assignments: Dictionary = {}
 var _workplace_professions: Dictionary = {}
@@ -90,10 +89,6 @@ func register_building(building: RefCounted) -> void:
 	var primary := _default_profession(building)
 	if primary != Profession.Type.NONE:
 		_workplace_professions[building.id] = primary # Registered primary role, never personnel membership.
-		if not _workplaces.has(primary): _workplaces[primary] = building.id
-	var preferred := get_building(_workplaces.get(Profession.Type.PORTER,&""))
-	if building.definition.porter_capacity > 0 and (preferred == null or (building.definition.is_storage and not preferred.definition.is_storage)):
-		_workplaces[Profession.Type.PORTER] = building.id
 
 func _default_profession(building: RefCounted) -> int:
 	if building == null: return Profession.Type.NONE
@@ -107,8 +102,6 @@ func unregister_building(building_id: StringName) -> void:
 		building.dispose_production()
 		_buildings.erase(building)
 	_workplace_professions.erase(building_id)
-	for role in _workplaces.keys():
-		if _workplaces[role] == building_id: _workplaces.erase(role)
 	# Assignment invalidation is management, not a second haul cancellation path.
 	for resident in _residents.values():
 		if resident.work_location_id == building_id: clear_work_assignment(resident.id)
@@ -124,9 +117,9 @@ func move_to(resident_id: String, destination: Vector2) -> bool:
 	var controller: Node = _commands.get(resident_id)
 	return is_instance_valid(controller) and controller.move_to(destination)
 
-func assign_workplace(resident_id: String, location_id: StringName, profession: int = -1) -> bool:
+func assign_workplace(resident_id: String, location_id: StringName, profession: int = -1, keep_profession: bool = false) -> bool:
 	var role := _default_profession(get_building(location_id)) if profession == -1 else profession
-	if not can_assign_workplace(resident_id,location_id,role): return false
+	if not can_assign_workplace(resident_id,location_id,role,keep_profession): return false
 	return _assign(resident_id,role,location_id)
 
 func register_intents(resident_id: String, controller: Node) -> void:
@@ -137,20 +130,14 @@ func current_intent(resident_id: String):
 	return controller.current_intent if is_instance_valid(controller) else null
 
 func assign_profession(resident_id: String, profession: Profession.Type) -> bool:
-	# True means the profession was accepted; workplace may remain empty for Porter.
 	var resident: RefCounted = _residents.get(resident_id)
 	if not profession_eligibility_error(resident_id,profession).is_empty(): return false
 	if profession in [Profession.Type.LUMBERJACK,Profession.Type.MINER] and resident.profession == profession and not resident.work_area_id.is_empty(): return true
-	if profession in [Profession.Type.NONE,Profession.Type.BUILDER]: return _assign(resident_id,profession,&"")
-	if resident.profession == profession and can_assign_workplace(resident_id,resident.work_location_id,profession): return true
-	var preferred: StringName = _workplaces.get(profession,&"")
-	if can_assign_workplace(resident_id,preferred,profession): return _assign(resident_id,profession,preferred)
-	var ids: Array = _buildings.map(func(building): return building.id)
-	ids.sort_custom(func(a,b): return String(a)<String(b))
-	for location in ids:
-		if can_assign_workplace(resident_id,location,profession): return _assign(resident_id,profession,location)
-	if profession in [Profession.Type.PORTER,Profession.Type.LUMBERJACK,Profession.Type.MINER]: return _assign(resident_id,profession,&"")
-	return false
+	# Preserve only the explicit current workplace if its new role remains valid.
+	var current: StringName = resident.work_location_id
+	if not current.is_empty() and can_assign_workplace(resident_id,current,profession):
+		return _assign(resident_id,profession,current)
+	return _assign(resident_id,profession,&"")
 
 func _assign(resident_id: String, profession: Profession.Type, location_id: StringName) -> bool:
 	var resident: RefCounted = _residents.get(resident_id)
@@ -258,13 +245,14 @@ func get_free_staff_places(location_id: StringName, profession: int) -> int:
 		if building != null and profession != Profession.Type.NONE and building.definition.worker_profession == profession: return -1 # Existing unlimited production capacity.
 	return maxi(0,capacity-workers.size())
 
-func workplace_assignment_error(resident_id: String, location_id: StringName, profession: int = -1) -> String:
+func workplace_assignment_error(resident_id: String, location_id: StringName, profession: int = -1, keep_profession: bool = false) -> String:
 	var resident = _residents.get(resident_id)
 	var building = get_building(location_id)
 	if resident == null: return "Житель не найден"
 	if building == null: return "Здание недоступно"
 	if not building.is_built(): return "Здание ещё строится"
 	var role := _default_profession(building) if profession == -1 else profession
+	if keep_profession and resident.profession != role: return "Сначала назначьте профессию: " + Profession.display_name(role)
 	if role == Profession.Type.PORTER:
 		if building.definition.porter_capacity <= 0: return "Здание не поддерживает назначение носильщиков"
 	elif role == Profession.Type.NONE or role != building.definition.worker_profession:
@@ -276,8 +264,8 @@ func workplace_assignment_error(resident_id: String, location_id: StringName, pr
 		return ("Места носильщиков заняты: %d/%d" if role == Profession.Type.PORTER else "Рабочие места заняты: %d/%d") % [workers.size(),capacity]
 	return ""
 
-func can_assign_workplace(resident_id: String, location_id: StringName, profession: int = -1) -> bool:
-	return workplace_assignment_error(resident_id,location_id,profession).is_empty()
+func can_assign_workplace(resident_id: String, location_id: StringName, profession: int = -1, keep_profession: bool = false) -> bool:
+	return workplace_assignment_error(resident_id,location_id,profession,keep_profession).is_empty()
 
 func normalize_porter_assignments() -> Array[String]:
 	# Admission of pre-existing data only. New assignment attempts never evict anyone.

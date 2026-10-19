@@ -43,28 +43,28 @@ func _current_work_object(workplace: RefCounted) -> RefCounted:
 	if workplace == null: return null
 	if work_object_current.is_valid(): return workplace if work_object_current.call(workplace) else null
 	return workplace if buildings.get(workplace.id) == workplace else null
-func ground_allowed(source_ref: Source, origin: Variant, workplace: RefCounted = null, area: RefCounted = null) -> bool:
+func ground_allowed(source_ref: Source, origin: Variant, workplace: RefCounted = null, area: RefCounted = null, radius_multiplier: float = 1.0) -> bool:
 	if source_ref == null: return false
 	if source_ref.kind == Source.Kind.CONTAINER: return true
 	var target: Variant = point(source_ref)
 	# Removed/replaced work objects cannot contribute a stale search circle.
 	var live_workplace: RefCounted = _current_work_object(workplace)
-	return target is Vector2 and GroundAreas.contains(target,origin,live_workplace,area)
-func ground_candidates(resource: int, origin: Variant, workplace: RefCounted = null, area: RefCounted = null, resource_filter: Callable = Callable()) -> Array:
+	return target is Vector2 and GroundAreas.contains(target,origin,live_workplace,area,radius_multiplier)
+func ground_candidates(resource: int, origin: Variant, workplace: RefCounted = null, area: RefCounted = null, resource_filter: Callable = Callable(), radius_multiplier: float = 1.0) -> Array:
 	var result: Array = []
 	if not is_instance_valid(ground): return result
 	var live_workplace: RefCounted = _current_work_object(workplace)
 	for drop in ground.drops:
 		# Filter a family of concrete types before spatial checks; ordinary callers unchanged.
 		if resource_filter.is_valid() and not resource_filter.call(drop.resource_type): continue
-		if (resource < 0 or drop.resource_type == resource) and drop.available_amount() > 0 and GroundAreas.contains(drop.world_position,origin,live_workplace,area):
+		if (resource < 0 or drop.resource_type == resource) and drop.available_amount() > 0 and GroundAreas.contains(drop.world_position,origin,live_workplace,area,radius_multiplier):
 			result.append(Source.new(Source.Kind.GROUND,drop.id))
 	return result
-func find(resource: int, origin: Vector2, destination: Vector2, excluded: StringName = &"", workplace: RefCounted = null, area: RefCounted = null) -> Array:
+func find(resource: int, origin: Vector2, destination: Vector2, excluded: StringName = &"", workplace: RefCounted = null, area: RefCounted = null, radius_multiplier: float = 1.0) -> Array:
 	var result: Array = []
 	for building in buildings.values():
 		if building.id != excluded: result.append(Source.new(Source.Kind.CONTAINER,building.id))
-	result.append_array(ground_candidates(resource,origin,workplace,area))
+	result.append_array(ground_candidates(resource,origin,workplace,area,Callable(),radius_multiplier))
 	result = result.filter(func(ref): return available(ref,resource) and reachable(origin,point(ref)) and reachable(point(ref),destination))
 	result.sort_custom(func(a,b):
 		var da: float = origin.distance_to(point(a))+point(a).distance_to(destination)
@@ -78,7 +78,7 @@ func find_construction_trip(resource: int, origin: Vector2, destination: Vector2
 	var references: Array = []
 	for building in buildings.values():
 		if building.id != excluded: references.append(Source.new(Source.Kind.CONTAINER,building.id))
-	references.append_array(ground_candidates(resource,origin,workplace,area))
+	references.append_array(ground_candidates(resource,origin,workplace,area,Callable(),preload("res://scripts/balance_config.gd").BUILDER_GROUND_SEARCH_MULTIPLIER))
 	var candidates: Array[Dictionary] = []
 	for source_ref in references:
 		if not available(source_ref,resource): continue

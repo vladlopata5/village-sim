@@ -43,6 +43,7 @@ func run() -> void:
 	var a=world.residents[1]
 	var b=world.residents[2]
 	var c=world.residents[3]
+	pc.assign_profession(a.id,P.SAWYER);pc.assign_profession(b.id,P.SAWYER)
 	var baseline:=state(world)
 	var observer:=func(_id): notifications+=1
 	pc.profession_changed.connect(observer);pc.work_assignment_changed.connect(observer)
@@ -79,16 +80,18 @@ func run() -> void:
 	var area=world.work_areas.create(Vector2(-700,-250),375)
 	pc.assign_work_area(b.id,area.id)
 	dialog.open_for(b.id)
-	check(dialog.buttons[P.SAWYER].disabled and dialog.reasons[P.SAWYER].text.contains("заняты"),"Full applicable role remains visible")
+	check(dialog.buttons[P.SAWYER].disabled and dialog.reasons[P.SAWYER].text.contains("профессию"),"A FREE lumberjack is not implicitly changed to Sawyer")
 	var old: Array=[b.profession,b.work_location_id,b.work_area_id,b.work_assignment_revision]
 	check(not dialog.execute(P.SAWYER) and old==[b.profession,b.work_location_id,b.work_area_id,b.work_assignment_revision],"Capacity refusal preserves previous FREE assignment atomically")
 	check(dialog.visible and window.visible and world.resident_selection.selected_building==saw,"Refusal preserves all context")
+	check(not pc.assign_workplace(b.id,saw.id,P.SAWYER) and old==[b.profession,b.work_location_id,b.work_area_id,b.work_assignment_revision],"Explicit bootstrap also preserves FREE assignment on full capacity")
 	dialog.close()
 	pc.clear_work_assignment(a.id)
+	pc.assign_profession(b.id,P.SAWYER) # A separate explicit player choice, before the workplace offer.
 	dialog.open_for(b.id)
 	check(not dialog.buttons[P.SAWYER].disabled,"Freed role available")
 	pc.assign_workplace(c.id,saw.id,P.SAWYER)
-	check(dialog.buttons[P.SAWYER].disabled and not dialog.execute(P.SAWYER) and b.work_area_id==area.id,"Fresh recheck rejects capacity occupied while dialog open")
+	check(dialog.buttons[P.SAWYER].disabled and not dialog.execute(P.SAWYER) and b.work_area_id.is_empty(),"Fresh recheck rejects capacity occupied while dialog open")
 	world.resident_selection.select_building(gather)
 	check(not dialog.visible and window.visible,"A2 closes stale dialog on building change")
 	dialog.open_for(b.id)

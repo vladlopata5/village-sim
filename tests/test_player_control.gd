@@ -30,6 +30,10 @@ func check(condition: bool, message: String) -> void:
 	if not condition:
 		failures += 1
 		push_error(message)
+func assign_job(scene: Node, id: String, profession: int) -> void:
+	check(scene.player_control.assign_profession(id,profession),"Explicit fixture profession")
+	var building = scene.warehouse_data if profession==Profession.PORTER else scene.gatherer_hut_data
+	check(scene.player_control.assign_workplace(id,building.id,profession),"Separate explicit fixture workplace")
 func work_api(scene: Node, runtime: Node) -> void:
 	runtime.decision.work_available = scene._work_available.bind(runtime)
 	runtime.decision.work_request = scene._request_work.bind(runtime)
@@ -68,12 +72,12 @@ func _run() -> void:
 	for profession in [Profession.PORTER, Profession.GATHERER, Profession.NONE]:
 		card.profession_choice.item_selected.emit(card.profession_choice.get_item_index(profession))
 		check(resident.data.profession == profession and profession_text(profession) in card.profession_label.text, "Panel changes profession and reads live result")
-		check(resident.data.work_location_id == ({Profession.PORTER: scene.warehouse_data.id, Profession.GATHERER: scene.gatherer_hut_data.id}.get(profession, &"")), "Simulation API resolves profession workplace ID")
+		check(resident.data.work_location_id.is_empty(), "Profession selection does not choose a workplace")
 	check(not scene.player_control.assign_profession("missing", Profession.PORTER), "Unknown ID cannot mutate anyone")
 	check(not scene._work_available(resident), "NONE has no professional work")
-	scene.player_control.assign_profession(resident.data.id, Profession.PORTER)
+	assign_job(scene,resident.data.id,Profession.PORTER)
 	check(scene._work_available(resident), "New PORTER can request haul work independent of Stepan")
-	scene.player_control.assign_profession(resident.data.id, Profession.GATHERER)
+	assign_job(scene,resident.data.id,Profession.GATHERER)
 	check(scene._work_available(resident), "New GATHERER can request gatherer work")
 	var order = Assignment.new(&"test_order", resident.data.id)
 	check(order.state == Assignment.State.QUEUED and order.target == null and order.type == &"", "ResidentAssignment is inert persistent-task data, no invented concrete types")
@@ -102,14 +106,14 @@ func _run() -> void:
 		var activity: int = resident.data.activity
 		var position: Vector2 = resident.view.global_position
 		var decisions: int = resident.decision.decision_count
-		scene.player_control.assign_profession(resident.data.id, Profession.GATHERER)
+		assign_job(scene,resident.data.id,Profession.GATHERER)
 		check(resident.intents.current_intent == previous and resident.data.activity == activity and resident.view.global_position == position and resident.decision.decision_count == decisions, "Profession is not forced interrupt/teleport/re-decision during " + action)
 		scene.free()
 	# Already-started safe work contributes until its original 60-minute boundary.
 	scene = Setup.make_scene(self)
 	resident = scene.resident_runtimes[2]
 	work_api(scene, resident)
-	scene.player_control.assign_profession(resident.data.id, Profession.GATHERER)
+	assign_job(scene,resident.data.id,Profession.GATHERER)
 	scene.game_time.debug_next_phase()
 	preload("res://tests/handling_test_step.gd").move_domain(resident,20)
 	scene.game_time.debug_skip_minutes(45)
@@ -128,7 +132,7 @@ func _run() -> void:
 	work_api(scene, resident)
 	scene.game_time.debug_next_phase()
 	resident.social.try_leisure(5000)
-	scene.player_control.assign_profession(resident.data.id, Profession.GATHERER)
+	assign_job(scene,resident.data.id,Profession.GATHERER)
 	scene.game_time.debug_skip_minutes(30)
 	check(resident.intents.current_intent.reason_id == &"day_work", "New profession is used on next normal action completion")
 	preload("res://tests/handling_test_step.gd").move_domain(resident,20)
@@ -138,7 +142,7 @@ func _run() -> void:
 	scene = Setup.make_scene(self)
 	resident = scene.resident_runtimes[2]
 	work_api(scene, resident)
-	scene.player_control.assign_profession(resident.data.id, Profession.GATHERER)
+	assign_job(scene,resident.data.id,Profession.GATHERER)
 	scene.game_time.debug_next_phase()
 	var old_route = resident.intents.current_intent
 	scene.player_control.assign_profession(resident.data.id, Profession.NONE)
@@ -151,7 +155,7 @@ func _run() -> void:
 		scene = Setup.make_scene(self)
 		resident = scene.resident_runtimes[0]
 		work_api(scene, resident)
-		scene.player_control.assign_profession(resident.data.id, Profession.PORTER)
+		assign_job(scene,resident.data.id,Profession.PORTER)
 		scene.game_time.debug_next_phase()
 		var job = scene.logistics.current_job
 		if picked_up: preload("res://tests/handling_test_step.gd").move_domain(resident,20)
@@ -168,7 +172,7 @@ func _run() -> void:
 	resident = scene.resident_runtimes[1]
 	work_api(scene, resident)
 	scene.player_control.assign_profession(scene.residents[0].id, Profession.NONE)
-	scene.player_control.assign_profession(resident.data.id, Profession.PORTER)
+	assign_job(scene,resident.data.id,Profession.PORTER)
 	scene.game_time.debug_next_phase()
 	var claimed = scene.logistics.current_job
 	check(claimed.assigned_resident_id == resident.data.id and claimed.state == Job.State.GOING_TO_SOURCE, "Anna claims the same logistics API as Stepan")
@@ -182,11 +186,11 @@ func _run() -> void:
 	scene = Setup.make_scene(self)
 	resident = scene.resident_runtimes[2]
 	work_api(scene, resident)
-	scene.player_control.assign_profession(resident.data.id, Profession.GATHERER)
+	assign_job(scene,resident.data.id,Profession.GATHERER)
 	scene.game_time.debug_next_phase()
 	preload("res://tests/handling_test_step.gd").move_domain(resident,20)
 	scene.game_time.debug_skip_minutes(45)
-	scene.player_control.assign_profession(resident.data.id, Profession.PORTER)
+	assign_job(scene,resident.data.id,Profession.PORTER)
 	scene.game_time.debug_skip_minutes(15)
 	check(scene.gatherer_hut_data.resources.get_amount(preload("res://scripts/resource_type.gd").Type.MUSHROOM) == 2 and not resident.decision._work_cycle_active and resident.intents.current_intent.reason_id == &"haul_source", "GATHERER -> PORTER finishes old cycle, then claims new profession work")
 	scene.free()
@@ -194,7 +198,7 @@ func _run() -> void:
 	scene = Setup.make_scene(self)
 	resident = scene.resident_runtimes[1]
 	work_api(scene, resident)
-	scene.player_control.assign_profession(resident.data.id, Profession.PORTER)
+	assign_job(scene,resident.data.id,Profession.PORTER)
 	scene.game_time.debug_next_phase()
 	preload("res://tests/handling_test_step.gd").move_domain(resident,20)
 	var loaded_job = scene.logistics.current_job
@@ -209,7 +213,7 @@ func _run() -> void:
 		resident = scene.resident_runtimes[1]
 		scene.kitchen_data.resources.add(FOOD, 1)
 		resident.social.try_leisure(5000)
-		scene.player_control.assign_profession(resident.data.id, Profession.PORTER)
+		assign_job(scene,resident.data.id,Profession.PORTER)
 		if critical == "hunger": resident.data.hunger = 100
 		else: resident.data.fatigue = 100
 		check(resident.intents.forced_priority > 0 and resident.intents.current_intent.reason_id != &"leisure", "Critical survival still overrides committed action after profession change")

@@ -1,5 +1,12 @@
 extends PanelContainer
 ## Captured identity and read-only admission. All writes go through PlayerControl.
+signal focus_requested(target: RefCounted)
+var view_button: Button
+var focus_button: Button
+var _context: WeakRef
+var _owner_window: Control
+var _reverse := false
+var _offer_generation := 0
 const Profession = preload("res://scripts/resident_profession.gd")
 var control: RefCounted
 var selection: Node
@@ -48,6 +55,12 @@ func _ready() -> void:
 	feedback.add_theme_font_size_override("font_size",13)
 	feedback.hide()
 	column.add_child(feedback)
+	var inspect := HBoxContainer.new()
+	column.add_child(inspect)
+	view_button=Button.new();inspect.add_child(view_button)
+	view_button.pressed.connect(_view_target)
+	focus_button=Button.new();focus_button.text="Показать на карте";inspect.add_child(focus_button)
+	focus_button.pressed.connect(_focus_target)
 	cancel_button=Button.new()
 	cancel_button.text="Отмена"
 	cancel_button.focus_mode=Control.FOCUS_NONE
@@ -62,36 +75,54 @@ func setup(player: RefCounted, selected: Node, ui: Control) -> void:
 		_connections.append([control,pair[0],pair[1]])
 	selection.selection_changed.connect(_context_changed)
 	_connections.append([selection,&"selection_changed",_context_changed])
-func open_for(id: String) -> bool:
-	var resident = control.get_resident(id)
-	var building = selection.selected_building
-	if resident==null or building==null or control.get_building(building.id)!=building: return false
+func open_for(id: String, owner_window: Control = null) -> bool:
+	return _open(control.get_resident(id),selection.selected_building,selection.selected_building,owner_window,false)
+func open_for_building(id: StringName, owner_window: Control = null) -> bool:
+	return _open(selection.selected_resident,control.get_building(id),selection.selected_resident,owner_window,true)
+func _open(resident: RefCounted, building: RefCounted, context: RefCounted, owner_window: Control, reverse: bool) -> bool:
+	if resident==null or building==null or context==null or control.get_building(building.id)!=building: return false
 	close()
-	resident_id=id;building_id=building.id
-	_resident=weakref(resident);_building=weakref(building)
+	_offer_generation += 1
+	resident_id=resident.id;building_id=building.id
+	_resident=weakref(resident);_building=weakref(building);_context=weakref(context)
+	_owner_window=owner_window;_reverse=reverse
+	if _owner_window!=null: _owner_window.visibility_changed.connect(_context_changed)
 	building.construction_changed.connect(_availability_changed)
-	title_label.text="Назначение жителя «%s»\nЗдание: «%s»" % [resident.resident_name,building.display_name]
+	view_button.text="Открыть карточку здания" if reverse else "Открыть карточку жителя"
 	feedback.hide()
 	for child in _actions.get_children():
-		_actions.remove_child(child)
-		child.queue_free()
+		_actions.remove_child(child);child.queue_free()
 	buttons.clear();reasons.clear()
-	for role in control.get_workplace_roles(building_id): _add_action(role,"Назначить: "+Profession.display_name(role))
-	if control.has_housing_role(building_id):
+	for role in control.get_workplace_roles(building_id):
+		_add_action(role,"Назначить работать здесь" if role==resident.profession else "Назначить: "+Profession.display_name(role))
+	# Housing in BuildingCard -> Residents already exists; do not add a new inverse relation.
+	if not reverse and control.has_housing_role(building_id):
 		_add_action(&"home","Поселить в выбранный дом")
 		_add_action(&"clear_home","Выселить из выбранного дома")
 	if buttons.is_empty():
-		feedback.text="У этого здания нет применимых назначений."
-		feedback.show()
+		feedback.text="У этого здания нет применимых рабочих назначений.";feedback.show()
 	coordinator.open_top_dialog(self)
+	size=Vector2(440,320);position=(get_parent().size-size)/2
 	_refresh()
 	return true
+func _view_target() -> void:
+	if not visible or not _valid_context(): return
+	var target = _building.get_ref() if _reverse else _resident.get_ref()
+	var reverse := _reverse
+	close()
+	if reverse: selection.select_building(target)
+	else: selection.select(target)
+func _focus_target() -> void:
+	if not visible or not _valid_context(): return
+	var target = _building.get_ref() if _reverse else _resident.get_ref()
+	_view_target()
+	focus_requested.emit(target)
 func _add_action(key: Variant, title: String) -> void:
 	var button := Button.new()
 	button.text=title
 	button.add_theme_font_size_override("font_size",14)
 	button.focus_mode=Control.FOCUS_NONE
-	button.pressed.connect(execute.bind(key))
+	button.pressed.connect(_execute_offer.bind(key,_offer_generation))
 	_actions.add_child(button)
 	buttons[key]=button
 	var reason := Label.new()
@@ -100,14 +131,14 @@ func _add_action(key: Variant, title: String) -> void:
 	_actions.add_child(reason)
 	reasons[key]=reason
 func _valid_context() -> bool:
-	return _resident!=null and _building!=null and _resident.get_ref()!=null and _building.get_ref()!=null and control.get_resident(resident_id)==_resident.get_ref() and control.get_building(building_id)==_building.get_ref() and selection.selected_building==_building.get_ref()
+	return _resident!=null and _building!=null and _context!=null and _context.get_ref()!=null and control.get_resident(resident_id)==_resident.get_ref() and control.get_building(building_id)==_building.get_ref() and selection.selected_entity==_context.get_ref() and (_owner_window==null or _owner_window.visible)
 func _error(key: Variant) -> String:
 	if not _valid_context(): return "Контекст назначения устарел"
 	var resident = control.get_resident(resident_id)
 	if key is StringName and key==&"home": return control.home_assignment_error(resident_id,building_id)
 	if key is StringName and key==&"clear_home": return "Житель не живёт в выбранном доме" if resident.home_location_id!=building_id else ""
 	if key not in control.get_workplace_roles(building_id): return "Роль недоступна"
-	var error: String=control.workplace_assignment_error(resident_id,building_id,key)
+	var error: String=control.workplace_assignment_error(resident_id,building_id,key,true)
 	if error.is_empty() and resident.work_location_id==building_id and resident.profession==key: return "Житель уже работает здесь в этой роли"
 	return error
 func _refresh() -> void:
@@ -122,6 +153,8 @@ func _refresh() -> void:
 		buttons[key].disabled=not error.is_empty()
 		reasons[key].text=error
 		reasons[key].visible=not error.is_empty()
+func _execute_offer(key: Variant, generation: int) -> bool:
+	return execute(key) if generation==_offer_generation else false
 func execute(key: Variant) -> bool:
 	if not visible or not buttons.has(key): return false
 	if not _valid_context(): close(); return false
@@ -132,7 +165,7 @@ func execute(key: Variant) -> bool:
 	var accepted := false
 	if key is StringName and key==&"home": accepted=control.assign_home(resident_id,building_id)
 	elif key is StringName and key==&"clear_home": accepted=control.clear_home(resident_id)
-	else: accepted=control.assign_workplace(resident_id,building_id,key)
+	else: accepted=control.assign_workplace(resident_id,building_id,key,true)
 	if accepted:
 		close()
 		return true
@@ -145,9 +178,12 @@ func close() -> void:
 	else: hide()
 func _visibility_changed() -> void:
 	if visible: return
+	_offer_generation += 1
 	if _building!=null:
 		var building = _building.get_ref()
 		if building!=null and building.construction_changed.is_connected(_availability_changed): building.construction_changed.disconnect(_availability_changed)
+	if is_instance_valid(_owner_window) and _owner_window.visibility_changed.is_connected(_context_changed): _owner_window.visibility_changed.disconnect(_context_changed)
+	_owner_window=null;_context=null
 	_resident=null;_building=null
 	resident_id="";building_id=&""
 func _process(delta: float) -> void:

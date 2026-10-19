@@ -180,6 +180,7 @@ func _run() -> void:
 	# Real simultaneous physical execution with two independent intent controllers.
 	var scene = simulation()
 	scene.player_control.assign_profession(scene.residents[1].id, Profession.PORTER)
+	scene.player_control.assign_workplace(scene.residents[1].id,scene.warehouse_data.id,Profession.PORTER)
 	scene.game_time.debug_next_phase()
 	var a = scene.resident_runtimes[0]
 	var b = scene.resident_runtimes[1]
@@ -204,6 +205,7 @@ func _run() -> void:
 		for picked_up in [false, true]:
 			scene = simulation()
 			scene.player_control.assign_profession(scene.residents[1].id, Profession.PORTER)
+			scene.player_control.assign_workplace(scene.residents[1].id,scene.warehouse_data.id,Profession.PORTER)
 			scene.game_time.debug_next_phase()
 			a = scene.resident_runtimes[0]
 			b = scene.resident_runtimes[1]

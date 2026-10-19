@@ -263,7 +263,7 @@ func _candidate_scan(resident_id: String, first_reachable_only: bool) -> Array:
 	var base: BuildingInstance = _buildings.get(resident.work_location_id)
 	var base_position: Variant = _point(base) if base != null else null
 	if is_instance_valid(sources.ground) and base_position is Vector2 and ResourceType.Type.values().any(func(resource): return base.definition.allows_external_import(resource) and base.resources.get_available_free_capacity(resource) > 0):
-		for source_ref in sources.ground_candidates(-1,position,base):
+		for source_ref in sources.ground_candidates(-1,position,base,null,Callable(),Balance.PORTER_GROUND_SEARCH_MULTIPLIER):
 			var drop = sources.resolve(source_ref)
 			if not sources.available(source_ref,drop.resource_type) or not base.definition.allows_external_import(drop.resource_type) or base.resources.get_available_free_capacity(drop.resource_type)<1: continue
 			var candidate := Candidate.new()
@@ -407,7 +407,7 @@ func _porter_claim_context(resident: ResidentData, base: BuildingInstance, revis
 	if surplus_export: return base.definition.is_storage and base.resources.is_warehouse() and source_ref.kind == Source.Kind.CONTAINER and _surplus_admission_allowed(source,destination,resource,receiver)
 	if source_ref.kind == Source.Kind.GROUND:
 		var origin: Variant = position_provider.call(resident.id) if position_provider.is_valid() else null
-		return destination == base and destination.definition.allows_external_import(resource) and sources.ground_allowed(source_ref,origin,base)
+		return destination == base and destination.definition.allows_external_import(resource) and sources.ground_allowed(source_ref,origin,base,null,Balance.PORTER_GROUND_SEARCH_MULTIPLIER)
 	return _buildings.get(source_ref.id) == source and source != null and _porter_pair(resident,source,destination) and allows_external_delivery(source,destination,resource)
 func _claim_delivery(resident: ResidentData, candidate: Candidate) -> HaulJob:
 	if resident == null or not _can_claim(resident): return null

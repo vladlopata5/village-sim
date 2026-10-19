@@ -68,6 +68,7 @@ func run() -> void:
 	hut.definition.target_tree_count=0
 	var actor = scene.resident_runtimes[3]
 	check(scene.player_control.assign_profession(actor.data.id,P.Type.LUMBERJACK),"Actual main3d profession management")
+	check(scene.player_control.assign_workplace(actor.data.id,hut.id),"Separate explicit hut assignment")
 	var worker = actor.get_node("Lumberjack")
 	var resolver = CountedLocations.new()
 	resolver.navigation=scene.navigation

@@ -12,6 +12,8 @@ const TOWN_CENTER_CATEGORY_QUOTAS := {
 	Categories.Type.PLANK:60, Categories.Type.SIMPLE_FOOD:20, Categories.Type.MUSHROOM:0,
 }
 # Ground admission only: 25 simulation units = 1 world unit; build cell = 12.5.
+const BUILDER_GROUND_SEARCH_MULTIPLIER := 2.0
+const PORTER_GROUND_SEARCH_MULTIPLIER := 2.0
 const RESIDENT_GROUND_SEARCH_RADIUS := 100.0 # 4 world units / 8 cells.
 const DEFAULT_BUILDING_GROUND_SEARCH_RADIUS := 250.0 # 10 world units / 20 cells.
 const RESOURCE_LOADING_MINUTES := 10

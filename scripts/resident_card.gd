@@ -32,6 +32,8 @@ var work_place_label: Label
 var area_button: Button
 var area_choice: OptionButton
 var clear_work_button: Button
+signal workplace_requested(resident_id: String)
+var workplace_button: Button
 var profession_choice: OptionButton
 var intent_label: Label
 var summary_label: Label
@@ -54,6 +56,8 @@ func _ready() -> void:
 	summary_label = _widget("Summary")
 	summary_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	profession_choice = OptionButton.new()
+	profession_choice.fit_to_longest_item=false
+	profession_choice.clip_text=true
 	profession_choice.focus_mode = Control.FOCUS_NONE
 	for profession in Profession.Type.values():
 		profession_choice.add_item(Profession.display_name(profession), profession)
@@ -64,12 +68,17 @@ func _ready() -> void:
 	area_button = Button.new()
 	area_button.text = "Назначить область"
 	area_button.pressed.connect(func(): work_area_requested.emit(_selection.selected_resident.id))
+	workplace_button=Button.new()
+	workplace_button.text="Назначить рабочее здание"
+	workplace_button.pressed.connect(func(): workplace_requested.emit(_selection.selected_resident.id))
 	area_choice = OptionButton.new()
+	area_choice.fit_to_longest_item=false
+	area_choice.clip_text=true
 	area_choice.item_selected.connect(_choose_area)
 	clear_work_button = Button.new()
 	clear_work_button.text = "Снять место работы"
 	clear_work_button.pressed.connect(_clear_work_assignment)
-	for control in [work_place_label,area_button,area_choice,clear_work_button]:
+	for control in [work_place_label,workplace_button,area_button,area_choice,clear_work_button]:
 		_work_body().add_child(control)
 	intent_label = Label.new()
 	intent_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -324,6 +333,7 @@ func _refresh_work_place() -> void:
 		label = "Свободная область: %s (%s)" % [area.display_name,area.id]
 	work_place_label.text = label
 	var enabled: bool = _control != null and _control.can_assign_work_area(data.id)
+	workplace_button.visible = data.profession not in [Profession.Type.NONE,Profession.Type.BUILDER]
 	area_button.visible = enabled
 	area_choice.visible = enabled
 	clear_work_button.visible = enabled or data.profession == Profession.Type.PORTER or ((not data.work_location_id.is_empty() or not data.work_area_id.is_empty()))

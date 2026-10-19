@@ -139,23 +139,23 @@ func _material_trip(candidate: Instance) -> Dictionary:
 			var trip: Dictionary = sources.find_construction_trip(resource,current_position,end,candidate.id,material_planner,material_lower_bound,sources.CONSTRUCTION_SEARCH_SLACK,candidate)
 			if not trip.is_empty():
 				trip["resource"] = resource
-				trip["search_identity"] = sources.GroundAreas.identity(current_position,candidate)
+				trip["search_identity"] = sources.GroundAreas.identity(current_position,candidate,null,Balance.BUILDER_GROUND_SEARCH_MULTIPLIER)
 				_trip_offer = trip
 				_offer_site = candidate
 				_offer_source = sources.resolve(trip.reference)
 				return trip
 			continue
 		source_search_count += 1
-		var matches: Array = sources.find(resource,current_position,end,candidate.id,candidate)
+		var matches: Array = sources.find(resource,current_position,end,candidate.id,candidate,null,Balance.BUILDER_GROUND_SEARCH_MULTIPLIER)
 		if not matches.is_empty(): return {"resource":resource,"reference":matches[0]}
 	return {}
 
 func _trip_offer_valid(candidate: Instance, resource: int, origin: Vector2, destination: Vector2) -> bool:
 	if _trip_offer.is_empty() or _offer_site != candidate or candidate not in _buildings or candidate.is_built(): return false
 	if _trip_offer.resource != resource or candidate.get_uncovered_construction_amount(resource) <= 0: return false
-	if _trip_offer.get("search_identity",[]) != sources.GroundAreas.identity(origin,candidate): return false
+	if _trip_offer.get("search_identity",[]) != sources.GroundAreas.identity(origin,candidate,null,Balance.BUILDER_GROUND_SEARCH_MULTIPLIER): return false
 	var reference: Source = _trip_offer.reference
-	if sources.resolve(reference) != _offer_source or not sources.available(reference,resource) or not sources.ground_allowed(reference,origin,candidate): return false
+	if sources.resolve(reference) != _offer_source or not sources.available(reference,resource) or not sources.ground_allowed(reference,origin,candidate,null,Balance.BUILDER_GROUND_SEARCH_MULTIPLIER): return false
 	if _trip_offer.origin != origin or _trip_offer.destination != destination or _trip_offer.access != sources.point(reference): return false
 	return material_path_current.call(_trip_offer.source_path) and material_path_current.call(_trip_offer.delivery_path)
 func on_navigation_changed(_revision: int) -> void:
@@ -190,7 +190,7 @@ func has_work() -> bool:
 	var resources: Array = []
 	for candidate in _buildings:
 		if candidate.is_built(): continue
-		current_identity.append([candidate.get_instance_id(),candidate.construction_revision,candidate.definition.max_builders,candidate.definition.construction_work_required,candidate.definition.construction_requirements.duplicate(),_locations.get_position(candidate.id),sources.GroundAreas.identity(current_position,candidate)])
+		current_identity.append([candidate.get_instance_id(),candidate.construction_revision,candidate.definition.max_builders,candidate.definition.construction_work_required,candidate.definition.construction_requirements.duplicate(),_locations.get_position(candidate.id),sources.GroundAreas.identity(current_position,candidate,null,Balance.BUILDER_GROUND_SEARCH_MULTIPLIER)])
 		for resource in candidate.definition.construction_requirements:
 			if resource not in resources: resources.append(resource)
 	# Container changes do not all advance ResourceSources.revision. Read their
@@ -261,7 +261,7 @@ func _continue_task() -> bool:
 		abort("прерывание при резервировании", false)
 		return false
 	# Reentrant reserve callbacks may change an UNACCEPTED proposal's search context.
-	if not _site_reserved or not sources.reserved(source_ref,_resource,_source_owner()) or not _valid_site() or not sources.ground_allowed(source_ref,_position(),site):
+	if not _site_reserved or not sources.reserved(source_ref,_resource,_source_owner()) or not _valid_site() or not sources.ground_allowed(source_ref,_position(),site,null,Balance.BUILDER_GROUND_SEARCH_MULTIPLIER):
 		abort("не удалось зарезервировать материалы")
 		return false
 	phase = Phase.GOING_TO_SOURCE

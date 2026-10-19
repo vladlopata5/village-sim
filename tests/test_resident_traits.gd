@@ -153,6 +153,7 @@ func _run() -> void:
 		match route:
 			"porter":
 				scene.player_control.assign_profession(actor.data.id, preload("res://scripts/resident_profession.gd").Type.PORTER)
+				scene.player_control.assign_workplace(actor.data.id,scene.warehouse_data.id,preload("res://scripts/resident_profession.gd").Type.PORTER)
 				check(scene._request_haul_work(actor), "Actual porter task starts")
 			"builder":
 				var definition = Definition.for_type(HOME)
@@ -169,6 +170,7 @@ func _run() -> void:
 				check(actor.wander.try_wander(100), "Actual wander starts")
 			"work":
 				scene.player_control.assign_profession(actor.data.id, preload("res://scripts/resident_profession.gd").Type.GATHERER)
+				scene.player_control.assign_workplace(actor.data.id,scene.gatherer_hut_data.id,preload("res://scripts/resident_profession.gd").Type.GATHERER)
 				actor.decision.work_available = scene.production.can_work.bind(actor.data)
 				check(actor.schedule.request_work(), "Actual work trip starts")
 			"eat":

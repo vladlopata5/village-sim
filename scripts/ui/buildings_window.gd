@@ -1,5 +1,6 @@
 extends PanelContainer
 ## VIEW selects buildings; ASSIGN emits a target while preserving the source card.
+signal resident_assignment_requested(building_id: StringName)
 signal building_selected(building_id: StringName)
 signal assignment_selected(building_id: StringName)
 signal focus_requested(building_id: StringName)
@@ -27,6 +28,8 @@ var _layout_pending := false
 var _pressed_id: StringName = &""
 
 func _ready() -> void:
+	# Avoid measuring wrapped children against a zero-width new panel.
+	size = Vector2(680,400)
 	var column := VBoxContainer.new()
 	add_child(column)
 	var title := Label.new()
@@ -89,6 +92,8 @@ func _queue_layout() -> void:
 	get_tree().process_frame.connect(_layout,CONNECT_ONE_SHOT)
 func _layout() -> void:
 	_layout_pending = false
+	_apply_layout()
+func _apply_layout() -> void:
 	if not get_parent() is Control: return
 	position = Vector2(12,12)
 	var available_width: float = get_parent().size.x-356
@@ -98,6 +103,7 @@ func _layout() -> void:
 func _shown() -> void:
 	_pressed_id = &""
 	if not is_visible_in_tree(): end_assignment(); return
+	_apply_layout()
 	_flush()
 	_queue_layout()
 
@@ -171,7 +177,7 @@ func _flush() -> void:
 			var item := table.create_item(_root)
 			item.set_metadata(0,id)
 			item.custom_minimum_height = 30
-			for column in range(3): item.set_autowrap_mode(column,TextServer.AUTOWRAP_WORD_SMART)
+			for column in range(3): item.set_text_overrun_behavior(column,TextServer.OVERRUN_TRIM_ELLIPSIS)
 			rows[id] = item
 			row_creation_count += 1
 		var snapshot: Array = _snapshots[id]
@@ -199,6 +205,7 @@ func activate_row(id: StringName) -> void:
 	if building == null: return
 	if mode == Mode.ASSIGN:
 		if BuildingArea.supports(building): assignment_selected.emit(id)
+	elif selection.selected_resident!=null: resident_assignment_requested.emit(id)
 	else: building_selected.emit(id)
 func _focus() -> void:
 	var building: RefCounted = selection.selected_building

@@ -264,7 +264,7 @@ func integration() -> void:
 			need.value=0
 			need.base_weight=0
 	var actors: Array=[world.resident_runtimes[0],world.resident_runtimes[3]]
-	check(world.player_control.assign_profession(actors[1].data.id,P.PORTER),"Normal PlayerControl assigns second Porter")
+	check(world.player_control.assign_profession(actors[1].data.id,P.PORTER) and world.player_control.assign_workplace(actors[1].data.id,world.warehouse_data.id,P.PORTER),"Separate explicit profession and workplace for second Porter")
 	Stacks.create(world.ground_resources,R.LOG,3,Coordinates.to_sim(Vector3(10,0,17)))
 	Stacks.create(world.ground_resources,R.LOG,3,Coordinates.to_sim(Vector3(11,0,17)))
 	world.game_time.total_minutes=419

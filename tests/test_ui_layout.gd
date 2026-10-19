@@ -109,6 +109,7 @@ func run() -> void:
 		await settle()
 		check(window.visible and window.eligibility_filter.get_selected_metadata()==P.SAWYER,"Actual production-management entry opens same window with role preset")
 		var worker=world.residents[1]
+		check(pc.assign_profession(worker.id,P.SAWYER),"Choose profession separately before contextual workplace assignment")
 		await F.row_click(self,window,worker.id)
 		await settle()
 		check(dialog.visible and dialog.buttons.has(P.SAWYER) and dialog.buttons.has(P.PORTER) and world.resident_selection.selected_building==saw,"Actual row opens applicable assignment dialog")
@@ -118,6 +119,7 @@ func run() -> void:
 		await settle()
 		check(worker.profession==P.SAWYER and worker.work_location_id==saw.id and not dialog.visible and window.visible and world.resident_selection.selected_building==saw,"Actual assignment button uses PlayerControl, leaves list/building")
 		var refused=world.residents[2]
+		pc.assign_profession(refused.id,P.SAWYER)
 		await F.row_click(self,window,refused.id)
 		await settle()
 		check(dialog.buttons[P.SAWYER].disabled and dialog.reasons[P.SAWYER].visible,"Full role remains present with readable refusal")
@@ -126,6 +128,7 @@ func run() -> void:
 		F.click(self,dialog.buttons[P.SAWYER])
 		check(refused.work_assignment_revision==revision and dialog.visible,"Disabled GUI assignment does not mutate data")
 		F.click(self,dialog.cancel_button)
+		pc.assign_profession(world.residents[3].id,P.PORTER)
 		await F.row_click(self,window,world.residents[3].id)
 		await settle()
 		await capture(prefix+"porter_dialog")

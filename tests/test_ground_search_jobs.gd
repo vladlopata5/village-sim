@@ -110,7 +110,7 @@ func run() -> void:
 	world=fixture(); actor=world.resident_runtimes[0]
 	world.player_control.assign_workplace(actor.data.id,world.warehouse_data.id,P.PORTER)
 	actor.view.global_position=Vector3(35,0,25)
-	loose=Stacks.create(world.ground_resources,R.LOG,1,C.to_sim(Vector3(20,0,25)))
+	loose=Stacks.create(world.ground_resources,R.LOG,1,C.to_sim(Vector3(20,0,32)))
 	check(not world.logistics.collect_candidates(actor.data.id).any(func(row): return row.source_ref.id==loose.id),"Porter excludes distant ground even with a global own container")
 	actor.view.global_position=Vector3(19,0,25)
 	check(world.logistics.collect_candidates(actor.data.id).any(func(row): return row.source_ref.id==loose.id),"Porter resident circle adds new cleanup candidate")

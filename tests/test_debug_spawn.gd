@@ -20,6 +20,7 @@ func run() -> void:
 	var service := Service.new()
 	service.world=world
 	var nav_revision: int = world.navigation.revision
+	var porters_before: int=world.player_control.get_porters(world.warehouse_data.id).size()
 	var result := service.spawn_residents(Vector3(0,0,-25),10,P.PORTER)
 	check(result.created==10,"Ten actual residents")
 	var ids: Dictionary = {}
@@ -34,7 +35,7 @@ func run() -> void:
 		check(data.profession==P.PORTER and (data.work_location_id==world.warehouse_data.id or data.work_location_id.is_empty()),"Capacity-safe profession assignment, including unassigned")
 		world.resident_selection.select(data)
 		check(world.resident_selection.selected_resident==data and world.resident_card_view()._assignment_resident==data and world.resident_card_view().visible,"Normal resident selection")
-	check(world.player_control.get_porters(world.warehouse_data.id).size()==2 and result.reason.contains("Без места работы: 9"),"Batch reports overflow without bypassing two staff places")
+	check(world.player_control.get_porters(world.warehouse_data.id).size()==porters_before and result.reason.contains("Без места работы: 10"),"Profession-only spawning does not take any workplace")
 	check(world.navigation.revision==nav_revision,"Residents do not edit NavigationGrid")
 	for resource in R.values():
 		result=service.spawn_resources(Vector3(-45,0,15),10,resource)
@@ -68,8 +69,8 @@ func run() -> void:
 		world.resident_selection.select_building(building)
 		check(world.resident_selection.selected_building==building and world.building_card_view()._building==building and world.building_card_view().visible,"Normal BuildingCard selection")
 	var sawyers: Dictionary=service.spawn_residents(Vector3(0,0,-25),2,P.SAWYER)
-	check(sawyers.created==2 and not sawyers.objects[0].work_location_id.is_empty(),"Normal Sawyer assignment uses existing workplace")
-	check(sawyers.objects[1].profession==P.SAWYER and sawyers.objects[1].work_location_id.is_empty(),"Full Sawmill does not create fake assignment")
+	check(sawyers.created==2 and sawyers.objects[0].work_location_id.is_empty(),"Spawned Sawyer needs an explicit workplace even when one is free")
+	check(sawyers.objects[1].profession==P.SAWYER and sawyers.objects[1].work_location_id.is_empty(),"Both spawned Sawyers remain unassigned")
 	check(unassigned.objects[0].work_location_id.is_empty(),"New Quarry does not auto-relocate existing unassigned Miner")
 	check(world.warehouse_data.resources.get_amount(R.PLANK)==stock,"No material spending")
 	var day: int = world.game_time.total_minutes/1440

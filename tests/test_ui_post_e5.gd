@@ -101,6 +101,7 @@ func run() -> void:
 		check(window.get_global_rect()==rect,"Collapsing Blue never changes window rectangle")
 		info.set_expanded(true)
 		var worker=world.residents[1]
+		check(world.player_control.assign_profession(worker.id,P.SAWYER),"Explicit profession before contextual workplace action")
 		await F.row_click(self,window,worker.id);await settle()
 		F.click(self,world.assignment_dialog.buttons[P.SAWYER]);await settle()
 		check(worker.work_location_id==saw.id and worker.profession==P.SAWYER and window.visible and selection.selected_building==saw,"Actual universal-window production assignment preserved")

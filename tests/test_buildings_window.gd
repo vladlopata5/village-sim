@@ -70,6 +70,9 @@ func run() -> void:
 	var resources: Dictionary = site.construction_delivered
 	var reserved: int = hut.resources.get_reserved_out(R.LOG)
 	await F.row_click(self,window,str(hut.id))
+	check(selection.selected_resident==actor.data and world.assignment_dialog.visible,"Row offers an action without replacing the resident context")
+	await settle()
+	F.click(self,world.assignment_dialog.view_button)
 	await settle()
 	check(selection.selected_building==hut and selection.selected_resident==null and panel.building_details==world.building_card_view() and panel.expanded,"Actual row click opens the existing building card as the single selected object")
 	check(hut_view.indicator.visible and not world.work_highlight.circle.visible,"Ordinary building highlight replaces resident work-area highlight")

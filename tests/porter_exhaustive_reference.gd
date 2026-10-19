@@ -30,7 +30,7 @@ func collect_candidates(resident_id: String) -> Array:
 	var base: BuildingInstance = _buildings.get(resident.work_location_id)
 	if is_instance_valid(sources.ground) and base != null and _point(base) is Vector2:
 		for drop in sources.ground.drops:
-			if drop.world_position.distance_squared_to(position) > Balance.RESIDENT_GROUND_SEARCH_RADIUS ** 2 and drop.world_position.distance_squared_to(base.position) > base.definition.get_ground_search_radius() ** 2: continue
+			if drop.world_position.distance_squared_to(position) > (Balance.RESIDENT_GROUND_SEARCH_RADIUS * Balance.PORTER_GROUND_SEARCH_MULTIPLIER) ** 2 and drop.world_position.distance_squared_to(base.position) > (base.definition.get_ground_search_radius() * Balance.PORTER_GROUND_SEARCH_MULTIPLIER) ** 2: continue
 			var source_ref := Source.new(Source.Kind.GROUND,drop.id)
 			if not sources.available(source_ref,drop.resource_type) or not base.definition.allows_external_import(drop.resource_type) or base.resources.get_available_free_capacity(drop.resource_type)<1: continue
 			if not sources.reachable(position,drop.world_position) or not sources.reachable(drop.world_position,_point(base)): continue

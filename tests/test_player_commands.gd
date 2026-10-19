@@ -105,6 +105,7 @@ func _run() -> void:
 			"work":
 				work_api(scene, resident)
 				scene.player_control.assign_profession(resident.data.id, Profession.GATHERER)
+				scene.player_control.assign_workplace(resident.data.id,scene.gatherer_hut_data.id,Profession.GATHERER)
 				scene.game_time.debug_next_phase()
 				preload("res://tests/handling_test_step.gd").move_domain(resident,20)
 				scene.game_time.debug_skip_minutes(15)
@@ -178,6 +179,7 @@ func _run() -> void:
 		resident = scene.resident_runtimes[0]
 		work_api(scene, resident)
 		scene.player_control.assign_profession(resident.data.id, Profession.PORTER)
+		scene.player_control.assign_workplace(resident.data.id,scene.warehouse_data.id,Profession.PORTER)
 		scene.game_time.debug_next_phase()
 		var job = scene.logistics.current_job
 		if picked_up: preload("res://tests/handling_test_step.gd").move_domain(resident,20)

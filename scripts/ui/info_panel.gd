@@ -18,6 +18,7 @@ var _last_day := -1
 @onready var preview: VBoxContainer = $Column/Body/PreviewScroll/BuildingTypePreview
 @onready var day_summary: Label = $Column/Body/DaySummary
 func _ready() -> void:
+	$Column/Tabs.add_theme_constant_override("separation",2)
 	$Column/Header/Expand.pressed.connect(func(): set_expanded(not expanded))
 	$Column/Header/Close.pressed.connect(_close)
 	building_details.presentation_changed.connect(_sync_tabs)
@@ -61,12 +62,16 @@ func _sync_tabs() -> void:
 		for id in _tabs:
 			var button := Button.new()
 			button.text = TITLES[id]
+			button.add_theme_font_size_override("font_size",14)
 			button.toggle_mode = true
 			button.focus_mode = Control.FOCUS_NONE
 			button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			button.pressed.connect(select_tab.bind(id))
 			button.set_meta("tab_id",id)
 			$Column/Tabs.add_child(button)
+		var width := 0.0
+		for button in $Column/Tabs.get_children(): width = maxf(width,button.get_minimum_size().x)
+		for button in $Column/Tabs.get_children(): button.custom_minimum_size.x = width
 	_apply()
 func select_tab(id: StringName) -> void:
 	if id not in _tabs: return

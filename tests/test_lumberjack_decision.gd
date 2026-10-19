@@ -29,7 +29,9 @@ func prepare_marina(scene: Node) -> Node:
 	check(marina.data.resident_name=="Марина","Regression uses actual starting Marina")
 	scene.game_time.debug_skip_minutes(8)
 	check(scene.player_control.assign_profession(marina.data.id,Profession.Type.LUMBERJACK),"Assign at 06:08 through management API")
-	check(marina.data.work_location_id==&"test_hut" and marina.data.profession==Profession.Type.LUMBERJACK,"UI profession resolves its built hut")
+	check(marina.data.work_location_id.is_empty(),"Profession alone has no hut")
+	check(scene.player_control.assign_workplace(marina.data.id,&"test_hut"),"Explicit hut at the same management boundary")
+	check(marina.data.work_location_id==&"test_hut" and marina.data.profession==Profession.Type.LUMBERJACK,"Explicit workplace resolves its built hut")
 	for kind in range(4): marina.data.get_need(kind).value = 0
 	return marina
 func run() -> void:

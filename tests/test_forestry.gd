@@ -62,6 +62,7 @@ func run() -> void:
 	var actor = scene.resident_runtimes[1]
 	var worker = actor.get_node("Lumberjack")
 	check(scene.player_control.assign_profession(actor.data.id,Profession.Type.LUMBERJACK) and Profession.display_name(actor.data.profession)=="Лесоруб","Existing management API allows world-work profession")
+	check(scene.player_control.assign_workplace(actor.data.id,&"test_hut"),"Explicit forestry workplace")
 	check(not worker.request_work(),"No chopping outside WORK phase")
 	scene.game_time.debug_skip_minutes(60)
 	check(scene._work_available(actor) and actor.decision.collect_actions(true)[0].id == "WORK" and worker.request_work(),"Normal WORK category/provider selects reachable tree; no site score vs need utility")
@@ -70,6 +71,7 @@ func run() -> void:
 	var second = scene.resident_runtimes[2]
 	preload("res://tests/forestry_fixture.gd").hut(scene,&"test_hut_2",Vector3(-20,0,-2))
 	scene.player_control.assign_profession(second.data.id,Profession.Type.LUMBERJACK)
+	scene.player_control.assign_workplace(second.data.id,&"test_hut_2")
 	check(second.get_node("Lumberjack").best_target().tree != target_tree,"Second worker skips reserved tree")
 	var definition = preload("res://scripts/building_definition.gd").for_type(preload("res://scripts/building_type.gd").Type.HOME)
 	scene.placement.select(definition)
@@ -135,7 +137,9 @@ func run() -> void:
 		if tree.state == TreeData.State.STANDING: tree.claim(&"fixture")
 	check(worker.tree == null,"Removed worker leaves no hanging task")
 	var idle = scene.resident_runtimes[3]
+	scene.player_control.assign_profession(actor.data.id,Profession.Type.NONE)
 	scene.player_control.assign_profession(idle.data.id,Profession.Type.LUMBERJACK)
+	check(scene.player_control.assign_workplace(idle.data.id,&"test_hut"),"Idle forestry probe has a real workplace")
 	check(not idle.get_node("Lumberjack").has_work() and not idle.get_node("Lumberjack").request_work(),"No available trees declines without hanging action")
 	scene.free()
 	print("Forestry: %d checks, %d failures" % [checks,failures])

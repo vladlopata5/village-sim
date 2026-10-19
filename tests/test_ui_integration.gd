@@ -30,6 +30,7 @@ func click_world(point: Vector3) -> void:
 	check(not world.game_ui.pointer_blocked(screen),"Integration point outside UI")
 	F.click_at(self,screen);world._physics_process(0)
 func assign(actor: Node, building: RefCounted, role: Variant) -> void:
+	if role is int: check(world.player_control.assign_profession(actor.data.id,role),"Explicit profession before workplace selection")
 	world.resident_selection.select_building(building)
 	world.game_ui.open_window(&"residents")
 	world.settlement_panel.preset_profession()

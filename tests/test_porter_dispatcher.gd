@@ -46,6 +46,8 @@ func fixture(count: int = 1) -> Dictionary:
 		quiet(actor)
 		actors.append(actor)
 	if count > 2: check(preload("res://tests/porter_distribution_fixture.gd").assign(world,actors),"Thirty workers assigned to distinct real workplaces within capacity")
+	else:
+		for actor in actors: check(world.player_control.assign_workplace(actor.data.id,world.warehouse_data.id,P.PORTER),"Explicit Porter workplace for queued physical work")
 	var resource_count := 0
 	for actor in actors:
 		resource_count += world.debug_spawn.spawn_resources(C.to_world(actor.view.get_sim_position())+Vector3(1,0,0),ceili(60.0/count),R.LOG).created
