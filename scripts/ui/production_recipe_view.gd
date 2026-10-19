@@ -118,13 +118,14 @@ func refresh() -> void:
 	if settings.mode==Mode.MAINTAIN: lines.append("Поддерживать: %d (в этом здании)" % settings.target)
 	if settings.order:
 		lines.append("Заказ: %d • Произведено: %d\nОсталось: %d" % [settings.target,settings.produced,settings.remaining])
+		if settings.excess>0: lines.append("Превышение: %d" % settings.excess)
 	var output := PackedStringArray()
 	for resource in recipe.outputs: output.append("%s: %d" % [Goods.display_name(resource),_building.resources.get_amount(resource)])
 	lines.append("Готово — " + "; ".join(output))
 	var work := PackedStringArray()
 	for batch in _building.production_batches:
 		if batch.recipe_id==recipe.id and not batch.is_terminal():
-			work.append("%s: %d / %d мин" % [STATE_NAMES[batch.state],batch.progress,batch.work_required])
+			work.append("%s — %s: %d / %d мин" % [_goods(batch.outputs),STATE_NAMES[batch.state],batch.progress,batch.work_required])
 	var kits: int = _building.supply.needs.filter(func(need): return need.recipe_id==recipe.id).size()
 	lines.append("Партии: %d • Комплекты снабжения: %d" % [work.size(),kits])
 	status.text = "\n".join(lines)

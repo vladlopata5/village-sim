@@ -45,7 +45,7 @@ func definitions_and_quotas() -> void:
 	check(kitchen.definition.worker_profession==Profession.COOK and kitchen.production_capacity()==1 and kitchen.definition.visitor_capacity==4,"One cook plus four independent visitors")
 	check(not kitchen.resources.is_warehouse() and kitchen.resources.get_capacity(Resources.MUSHROOM)==8 and kitchen.resources.get_capacity(Resources.FRIED_MUSHROOM)==20 and kitchen.resources.get_capacity(Resources.FOOD)==20,"Concrete production buffers remain separate from category quotas")
 	var recipe=kitchen.definition.production_recipe
-	check(recipe.id==&"fried_mushroom" and recipe.inputs=={Resources.MUSHROOM:1} and recipe.outputs=={Resources.FRIED_MUSHROOM:1} and recipe.work_required==30 and kitchen.get_recipe_mode(recipe.id)==Instance.ProductionMode.UNLIMITED,"Real ordinary recipe and default UNLIMITED")
+	check(recipe.id==&"fried_mushroom" and recipe.inputs=={Resources.MUSHROOM:1} and recipe.outputs=={Resources.FRIED_MUSHROOM:2} and recipe.work_required==30 and kitchen.get_recipe_mode(recipe.id)==Instance.ProductionMode.UNLIMITED,"Real ordinary recipe and default UNLIMITED")
 	check(kitchen.definition.allows_external_import(Resources.MUSHROOM) and not kitchen.definition.allows_external_export(Resources.MUSHROOM) and not kitchen.definition.allows_external_import(Resources.FRIED_MUSHROOM) and kitchen.definition.allows_external_export(Resources.FRIED_MUSHROOM),"Raw enters, dish exports without a ready-dish return cycle")
 	check(hut.definition.allows_external_export(Resources.MUSHROOM) and not hut.definition.allows_external_import(Resources.MUSHROOM),"Hut only exports mushrooms")
 	var layout=Layouts.create(kitchen.definition)
@@ -70,10 +70,12 @@ func definitions_and_quotas() -> void:
 	check(kitchen.resources.add(Resources.MUSHROOM,1),"Production buffer accepts mushrooms independently of warehouse zero quota")
 	check(kitchen.resources.add(Resources.FRIED_MUSHROOM,20) and not kitchen.can_start_production(recipe.id) and kitchen.resources.get_amount(Resources.MUSHROOM)==1,"Full cooked buffer blocks new batch without losing raw input")
 	kitchen.resources.try_take(Resources.FRIED_MUSHROOM,1)
+	check(not kitchen.can_start_production(recipe.id) and kitchen.resources.get_amount(Resources.MUSHROOM)==1,"One free output place does not admit an indivisible two-dish batch")
+	kitchen.resources.try_take(Resources.FRIED_MUSHROOM,1)
 	var batch=kitchen.prepare_production_batch("cook")
 	check(batch!=null and kitchen.resources.get_amount(Resources.MUSHROOM)==1 and batch.begin("cook") and kitchen.resources.get_amount(Resources.MUSHROOM)==0,"Normal batch preparation then actual beginning spends exactly one mushroom")
 	batch.advance("cook",30)
-	check(batch.finish("cook") and not batch.finish("cook") and kitchen.resources.get_amount(Resources.FRIED_MUSHROOM)==20,"Repeated finish never produces a second dish")
+	check(batch.finish("cook") and not batch.finish("cook") and kitchen.resources.get_amount(Resources.FRIED_MUSHROOM)==20,"Repeated finish cannot produce another two dishes")
 	kitchen.retire_production_batch(batch)
 
 func real_chain() -> void:
@@ -112,11 +114,11 @@ func real_chain() -> void:
 	check(world._request_work(cook) and kitchen.resources.get_amount(Resources.MUSHROOM)==1,"START reserves before movement, without spending")
 	arrive(cook)
 	var batch=cook.recipe_work.batch
-	check(batch!=null and batch.recipe_id==&"fried_mushroom" and kitchen.resources.get_amount(Resources.MUSHROOM)==0 and kitchen.resources.get_reserved_in(Resources.FRIED_MUSHROOM)==1,"Authored WORKER arrival spends raw, reserves real output")
+	check(batch!=null and batch.recipe_id==&"fried_mushroom" and kitchen.resources.get_amount(Resources.MUSHROOM)==0 and kitchen.resources.get_reserved_in(Resources.FRIED_MUSHROOM)==2,"Authored WORKER arrival spends raw, reserves real output")
 	await observe(world,"cooking")
 	world.game_time.debug_skip_minutes(10)
 	cook.commands.move_to(Vector2(0,500))
-	check(batch.state==Batch.State.PAUSED and batch.progress==10 and kitchen.resources.get_reserved_in(Resources.FRIED_MUSHROOM)==1,"Interruption preserves paid WIP and output promise")
+	check(batch.state==Batch.State.PAUSED and batch.progress==10 and kitchen.resources.get_reserved_in(Resources.FRIED_MUSHROOM)==2,"Interruption preserves paid WIP and output promise")
 	check(world.player_control.assign_profession(cook.data.id,Profession.NONE) and world.player_control.assign_workplace(replacement.data.id,kitchen.id,Profession.COOK),"Another cook can take the vacant assignment")
 	check(world._request_work(replacement),"Replacement chooses paid RESUME")
 	arrive(replacement)
@@ -129,20 +131,52 @@ func real_chain() -> void:
 	check(world.building_uses.occupied_by(kitchen.id,visitor.data.id,Slots.Purpose.VISITOR) and world.building_uses.occupied_by(kitchen.id,replacement.data.id,Slots.Purpose.WORKER) and visitor.view._marker!=replacement.view._marker,"VISITOR and WORKER coexist at distinct real markers")
 	await observe(world,"cook_and_visitor")
 	world.game_time.debug_skip_minutes(20)
-	check(batch.state==Batch.State.COMPLETED and kitchen.resources.get_amount(Resources.FRIED_MUSHROOM)==1 and not batch.finish(replacement.data.id),"Kitchen releases exactly one real dish after 30 working minutes")
+	check(batch.state==Batch.State.COMPLETED and kitchen.resources.get_amount(Resources.FRIED_MUSHROOM)==2 and not batch.finish(replacement.data.id),"Kitchen releases exactly two real dishes after 30 working minutes")
 	world.game_time.debug_skip_minutes(10)
 	check(visitor.data.hunger==20 and kitchen.resources.get_amount(Resources.FOOD)==0,"Old FOOD restores hunger unchanged")
-	check(world.food_availability.total()==1,"Real cooked dish enters shared ready-food total")
+	check(world.food_availability.total()==2,"Real cooked dishes enters shared ready-food total")
 	visitor.data.hunger=80
 	check(visitor.needs.try_eat(10000) and visitor.needs._meal_selection.concrete_type==Resources.FRIED_MUSHROOM,"Normal F4 selection chooses actual FRIED_MUSHROOM")
 	arrive(visitor)
-	check(kitchen.resources.get_amount(Resources.FRIED_MUSHROOM)==0 and kitchen.resources.get_reserved_out(Resources.FRIED_MUSHROOM)==0,"Pickup consumes exactly the promised concrete dish")
+	check(kitchen.resources.get_amount(Resources.FRIED_MUSHROOM)==1 and kitchen.resources.get_reserved_out(Resources.FRIED_MUSHROOM)==0,"Pickup consumes exactly the promised concrete dish")
 	await observe(world,"eating_fried_mushroom")
 	world.game_time.debug_skip_minutes(30)
 	check(visitor.data.hunger==20 and kitchen.production_batches.is_empty() and kitchen.supply.needs.is_empty(),"New dish restores hunger just like FOOD; all production obligations finished")
 	no_reservations(world)
-	check(hut.resources.get_amount(Resources.MUSHROOM)==0 and kitchen.resources.get_amount(Resources.MUSHROOM)==0 and kitchen.resources.get_amount(Resources.FRIED_MUSHROOM)==0,"One mined ingredient became one consumed dish, no duplicate stock")
+	idle(gatherer)
+	gatherer.data.hunger=80
+	check(gatherer.needs.try_eat(10000) and gatherer.needs._meal_selection.concrete_type==Resources.FRIED_MUSHROOM,"Another resident can independently claim the second produced portion")
+	arrive(gatherer);world.game_time.debug_skip_minutes(30)
+	check(gatherer.data.hunger==20 and kitchen.resources.get_amount(Resources.FRIED_MUSHROOM)==0,"Second portion uses unchanged hunger restoration")
+	no_reservations(world)
+	check(hut.resources.get_amount(Resources.MUSHROOM)==0 and kitchen.resources.get_amount(Resources.MUSHROOM)==0 and kitchen.resources.get_amount(Resources.FRIED_MUSHROOM)==0,"One mined ingredient became two consumed dishes, no duplicate stock")
 	await observe(world,"completed")
+	world.free()
+
+func split_meal_and_export() -> void:
+	var world=quiet_world()
+	var kitchen=world.kitchen_data
+	var cook=world.resident_runtimes[1]
+	var visitor=world.resident_runtimes[3]
+	var porter=world.resident_runtimes[0]
+	check(world.warehouse_data.resources.configure_warehouse(100,Balance.STORAGE_CATEGORY_QUOTAS),"Use actual category quotas for both concrete ready foods")
+	check(kitchen.resources.add(Resources.MUSHROOM,1) and world.player_control.assign_workplace(cook.data.id,kitchen.id),"Prepare ordinary kitchen production for split output")
+	check(world._request_work(cook),"Cook accepts one physical ingredient")
+	arrive(cook)
+	world.game_time.debug_skip_minutes(30)
+	check(kitchen.resources.get_amount(Resources.FRIED_MUSHROOM)==2 and kitchen.resources.get_amount(Resources.MUSHROOM)==0,"One actual kitchen batch produces two independent portions")
+	visitor.data.hunger=80
+	check(visitor.needs.try_eat(10000),"Visitor reserves one portion before export")
+	arrive(visitor)
+	world.game_time.debug_skip_minutes(30)
+	check(visitor.data.hunger==20 and kitchen.resources.get_amount(Resources.FRIED_MUSHROOM)==1,"One portion eaten, one remains physically available")
+	check(world._request_work(porter),"Existing own-storage Porter discovers remaining portion")
+	var job=world.logistics.get_job(porter.data.id)
+	check(job!=null and job.amount==1 and job.resource_type==Resources.FRIED_MUSHROOM and job.source_location_id==kitchen.id and job.destination_location_id==world.warehouse_data.id,"Second portion uses ordinary single-unit HaulJob")
+	walk(porter,&"haul_source");walk(porter)
+	check(job.state==Job.State.COMPLETED and porter.data.inventory.amount==0 and kitchen.resources.get_amount(Resources.FRIED_MUSHROOM)==0 and world.warehouse_data.resources.get_amount(Resources.FRIED_MUSHROOM)==1,"One eaten plus one physically delivered equals the entire two-unit output")
+	check(world.warehouse_data.resources.get_category_amount(Categories.SIMPLE_FOOD)==1,"Transported portion occupies the existing shared food quota")
+	no_reservations(world)
 	world.free()
 
 func supply_and_food_edges() -> void:
@@ -231,13 +265,14 @@ func cook_shift() -> void:
 	arrive(cook)
 	var batch=cook.recipe_work.batch
 	world.game_time.debug_skip_minutes(30)
-	check(batch.state==Batch.State.COMPLETED and kitchen.resources.get_amount(Resources.FRIED_MUSHROOM)==1 and kitchen.resources.get_amount(Resources.MUSHROOM)==1,"Accepted Cook batch finishes across the shift boundary")
+	check(batch.state==Batch.State.COMPLETED and kitchen.resources.get_amount(Resources.FRIED_MUSHROOM)==2 and kitchen.resources.get_amount(Resources.MUSHROOM)==1,"Accepted Cook batch finishes across the shift boundary")
 	check(world.game_time.get_phase()!="День" and not world._request_work(cook) and kitchen.production_batches.is_empty(),"Cook cannot start new work outside the day phase")
 	world.free()
 
 func run() -> void:
 	definitions_and_quotas()
 	await real_chain()
+	split_meal_and_export()
 	supply_and_food_edges()
 	warehouse_card()
 	cook_shift()

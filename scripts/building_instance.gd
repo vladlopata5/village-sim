@@ -108,7 +108,7 @@ func retire_production_batch(batch: Batch) -> void:
 	if batch.state==Batch.State.COMPLETED:
 		var settings: Dictionary = _recipe_settings[batch.recipe_id]
 		if settings.order and batch.order_revision==settings.revision:
-			settings.produced += int(batch.outputs.get(definition.get_production_recipe(batch.recipe_id).counted_product(),0))
+			settings.produced += batch.output_quantity()
 			if settings.produced>=settings.target and settings.mode==ProductionMode.ORDER: settings.mode=ProductionMode.OFF
 	_production_batches.erase(batch)
 
@@ -234,12 +234,12 @@ func _order_produced(recipe_id: StringName) -> int:
 	if not settings.order: return 0
 	for batch in _production_batches:
 		if batch.recipe_id==recipe_id and batch.order_revision==settings.revision and batch.state==Batch.State.COMPLETED:
-			produced += int(batch.outputs.get(definition.get_production_recipe(recipe_id).counted_product(),0))
+			produced += batch.output_quantity()
 	return produced
 
 func set_recipe_mode(recipe_id: StringName, mode: int, amount: int = 0) -> bool:
 	var recipe = definition.get_production_recipe(recipe_id)
-	if production_removed or not is_built() or recipe==null or not _recipe_settings.has(recipe_id) or mode not in ProductionMode.values() or amount<0: return false
+	if production_removed or not is_built() or recipe==null or not recipe.is_valid() or not _recipe_settings.has(recipe_id) or mode not in ProductionMode.values() or amount<0: return false
 	if mode in [ProductionMode.OFF,ProductionMode.UNLIMITED] and amount!=0: return false
 	if mode in [ProductionMode.ORDER,ProductionMode.MAINTAIN] and recipe.counted_product()<0: return false
 	var revision: int = _recipe_settings[recipe_id].revision+1
@@ -273,10 +273,9 @@ func _worker_has_batch(worker: String) -> bool:
 	return _production_batches.any(func(batch): return not batch.is_terminal() and batch.worker_id==worker)
 
 func _promised_for_recipe(recipe_id: StringName, paid_only: bool = false) -> int:
-	var product: int = definition.get_production_recipe(recipe_id).counted_product()
 	var promised := 0
 	for batch in _production_batches:
-		if batch.recipe_id==recipe_id and not batch.is_terminal() and (not paid_only or batch.inputs_spent): promised += int(batch.outputs.get(product,0))
+		if batch.recipe_id==recipe_id and not batch.is_terminal() and (not paid_only or batch.inputs_spent): promised += batch.output_quantity()
 	return promised
 
 func _maintain_stock(product: int, excluding_prepared: StringName = &"") -> int:
@@ -294,7 +293,7 @@ func _maintain_stock(product: int, excluding_prepared: StringName = &"") -> int:
 
 func can_start_production(recipe_id: StringName) -> bool:
 	var recipe = definition.get_production_recipe(recipe_id)
-	if recipe==null or not supply.allows(recipe_id): return false
+	if recipe==null or not recipe.is_valid() or not supply.allows(recipe_id): return false
 	for resource in recipe.inputs:
 		if resources.get_available_amount(resource)<int(recipe.inputs[resource]): return false
 	for resource in recipe.outputs:
@@ -360,8 +359,9 @@ func _preparation_allowed(batch: Batch) -> bool:
 		budget = int(_recipe_settings[batch.recipe_id].target)-_maintain_stock(product,batch.recipe_id)
 	for candidate in _production_batches:
 		if candidate.recipe_id!=batch.recipe_id or candidate.inputs_spent or candidate.is_terminal(): continue
-		budget -= 1 # Limited modes explicitly accept a single unit output only.
-		if candidate==batch: return budget>=0
+		# The last indivisible batch may cover a positive remainder smaller than its output.
+		if candidate==batch: return budget>0
+		budget -= candidate.output_quantity()
 	return false
 
 func _reconcile_preparations(recipe_id: StringName) -> void:

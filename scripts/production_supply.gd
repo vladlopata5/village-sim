@@ -38,7 +38,7 @@ func allows(recipe_id: StringName, replacement: Dictionary = {}) -> bool:
 	var building: RefCounted=_owner.get_ref()
 	if building==null or building.production_removed or not building.is_built(): return false
 	var recipe = building.definition.get_production_recipe(recipe_id)
-	if recipe==null: return false
+	if recipe==null or not recipe.is_valid(): return false
 	var mode: int=building.get_recipe_mode(recipe_id)
 	if mode<=building.ProductionMode.OFF: return false
 	var replaced := _replacement(recipe_id) if replacement.is_empty() else replacement
@@ -47,7 +47,7 @@ func allows(recipe_id: StringName, replacement: Dictionary = {}) -> bool:
 	if mode==building.ProductionMode.ORDER:
 		var promised: int=building._promised_for_recipe(recipe_id)
 		for need in needs:
-			if need.id!=ignored and need.recipe_id==recipe_id: promised+=1
+			if need.id!=ignored and need.recipe_id==recipe_id: promised+=need.recipe.output_quantity()
 		if building.get_order_remaining(recipe_id)-promised<1: return false
 	if mode==building.ProductionMode.MAINTAIN:
 		var product: int=recipe.counted_product()

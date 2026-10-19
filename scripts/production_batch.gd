@@ -1,5 +1,6 @@
 extends RefCounted
 ## Building-owned process and its own reservation obligations, never resource stock.
+const Recipe = preload("res://scripts/production_recipe.gd")
 enum State { PREPARING, READY, RUNNING, PAUSED, COMPLETED, CANCELLED }
 var id: StringName
 var recipe_id: StringName
@@ -29,6 +30,9 @@ func _init(batch_id: StringName, definition: RefCounted, resources: RefCounted) 
 	outputs = definition.outputs.duplicate()
 	_resources = resources
 
+func output_quantity() -> int:
+	return int(outputs.values()[0]) if outputs.size()==1 else 0 # The batch snapshot, never the live definition.
+
 func is_terminal() -> bool: return state in [State.COMPLETED,State.CANCELLED]
 
 func _holds(claims: Dictionary, incoming: bool) -> bool:
@@ -42,6 +46,7 @@ func reserves_valid() -> bool:
 
 func prepare(worker: String) -> bool:
 	if state != State.PREPARING or _mutating or not worker_id.is_empty() or worker.is_empty() or work_required<=0: return false
+	if outputs.is_empty() or not Recipe.valid_quantities(inputs) or not Recipe.valid_quantities(outputs): return false
 	worker_id = worker
 	_mutating = true
 	var ok := true

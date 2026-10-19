@@ -52,7 +52,7 @@ func set_production_recipe(building_id: StringName, recipe_id: Variant, mode: Va
 		BuildingInstance.ProductionMode.ORDER: applied = building.set_production_order(recipe_id,amount)
 		_: applied = building.set_recipe_mode(recipe_id,mode,amount)
 	if not applied:
-		return {"ok":false,"error":"Настройка недоступна: количественный режим требует одного результата ×1; для остальных режимов количество должно быть нулевым."}
+		return {"ok":false,"error":"Настройка недоступна: количественный режим требует одного вида результата с положительным целым количеством; для остальных режимов количество должно быть нулевым."}
 	return {"ok":true,"error":""}
 
 func register_assignments(resident_id: String, controller: Node) -> void:

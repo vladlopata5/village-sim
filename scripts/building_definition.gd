@@ -107,7 +107,7 @@ static func for_type(category: BuildingType.Type, label: String = ""):
 		result.visitor_capacity = 4
 		result.worker_capacity = Balance.KITCHEN_WORKER_CAPACITY
 		result.resource_capacities = {ResourceType.Type.FOOD:Balance.KITCHEN_FOOD_CAPACITY, ResourceType.Type.MUSHROOM:Balance.KITCHEN_MUSHROOM_CAPACITY, ResourceType.Type.FRIED_MUSHROOM:Balance.KITCHEN_FRIED_MUSHROOM_CAPACITY}
-		result.production_recipes.append(Recipe.new({ResourceType.Type.MUSHROOM:1},{ResourceType.Type.FRIED_MUSHROOM:1},Balance.KITCHEN_WORK_MINUTES,&"fried_mushroom"))
+		result.production_recipes.append(Recipe.new({ResourceType.Type.MUSHROOM:1},{ResourceType.Type.FRIED_MUSHROOM:2},Balance.KITCHEN_WORK_MINUTES,&"fried_mushroom"))
 	result.is_storage = category in [BuildingType.Type.STORAGE,BuildingType.Type.TOWN_CENTER]
 	if category == BuildingType.Type.TOWN_CENTER:
 		result.fallback_housing_capacity = Balance.TOWN_CENTER_FALLBACK_CAPACITY

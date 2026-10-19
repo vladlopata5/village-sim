@@ -10,6 +10,16 @@ func _init(required_inputs: Dictionary, produced_outputs: Dictionary, minutes: i
 	outputs = produced_outputs.duplicate()
 	work_required = minutes
 
-# Quantity modes currently require one unambiguous product, exactly one unit.
+const Goods = preload("res://scripts/resource_type.gd")
+static func valid_quantities(values: Dictionary) -> bool:
+	for resource in values:
+		if not resource is int or resource not in Goods.Type.values(): return false
+		if not values[resource] is int or values[resource]<=0: return false
+	return true
+func is_valid() -> bool:
+	return not id.is_empty() and work_required>0 and not outputs.is_empty() and valid_quantities(inputs) and valid_quantities(outputs)
+# Quantity modes count units of one concrete product, not batches.
 func counted_product() -> int:
-	return int(outputs.keys()[0]) if outputs.size()==1 and int(outputs.values()[0])==1 else -1
+	return int(outputs.keys()[0]) if outputs.size()==1 and is_valid() else -1
+func output_quantity() -> int:
+	return int(outputs.values()[0]) if counted_product()>=0 else 0
