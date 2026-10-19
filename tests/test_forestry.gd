@@ -90,7 +90,11 @@ func run() -> void:
 	check(scene.warehouse_data.resources.get_amount(Resources.Type.PLANK)==plank_before and scene.warehouse_data.resources.get_amount(Resources.Type.LOG)==0,"No conversion/storage/logistics transfer")
 	check(actor.data.get_skill_xp(Skill.Type.GATHERING)==1 and actor.data.get_skill_xp(Skill.Type.LOGISTICS)==0,"One completed tree grants Gathering XP only")
 	actor.view.global_position = Vector3(0,0,20)
-	check(scene.placement.can_place(),"Former tree space buildable after resident leaves; loose LOG not blockers")
+	check(not scene.placement.can_place() and scene.placement.validation_reason().contains("лежат ресурсы") and Stacks.total(scene.ground_resources)==3,"G1a: felled LOG blocks construction without destroying the yield")
+	for drop in scene.ground_resources.drops.duplicate():
+		var quantity: int=drop.amount
+		check(drop.reserve(&"fixture_pickup",quantity) and scene.ground_resources.take_reserved(drop,&"fixture_pickup",quantity),"Ground pickup commits all remaining tree yield")
+	check(scene.placement.can_place(),"Former tree space becomes buildable after resident leaves and ground LOG is picked up")
 	scene.placement.cancel()
 	preload("res://tests/forestry_fixture.gd").clear_drops(scene)
 	check(worker.request_work(),"Next decision can select another tree")

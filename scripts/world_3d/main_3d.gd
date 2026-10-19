@@ -9,6 +9,9 @@ var navigation = preload("res://scripts/navigation_grid.gd").new()
 var navigation_debug = preload("res://scripts/world_3d/navigation_grid_debug.gd").new()
 var build_grid = preload("res://scripts/build_grid.gd").new()
 var runtime_placement_blockers = preload("res://scripts/runtime_placement_blockers.gd").new()
+var mycelium = preload("res://scripts/mycelium.gd").new(build_grid)
+var mushroom_growth = preload("res://scripts/mushroom_growth.gd").new()
+var mycelium_view = preload("res://scripts/world_3d/mycelium_view_3d.gd").new()
 var roads = preload("res://scripts/road_grid.gd").new()
 var road_tool = preload("res://scripts/world_3d/road_tool_3d.gd").new()
 var road_navigation = preload("res://scripts/world_3d/road_navigation_3d.gd").new()
@@ -150,6 +153,7 @@ func _ready() -> void:
 	_setup_forest()
 	_setup_rocks()
 	_setup_roads()
+	_setup_mycelium()
 	navigation.prepare_connectivity() # Once after all initial world registration.
 	ready_for_play = true
 	if OS.is_debug_build():
@@ -207,12 +211,14 @@ func _create_building_presentation(building: BuildingInstance) -> Node:
 	var cells: Array = build_grid.footprint_cells(view.position, building.definition.footprint_cells, building.quarter_turns)
 	var registered: bool = build_grid.occupy(building.id, cells)
 	assert(registered, "Building registration must own a free footprint")
+	mycelium.clear_cells(cells) # Only after successful footprint ownership.
 	navigation.add_blocker(building.id, Geometry.footprint(building))
 	roads.edit(cells,true) # Actual footprint only; cancellation never restores roads.
 	return view
 func _setup_construction() -> void:
 	placement = preload("res://scripts/world_3d/building_placement_3d.gd").new()
 	placement.grid = build_grid
+	placement.ground_resources = ground_resources
 	placement.entrance_zones = entrance_zones
 	placement.runtime_blockers = runtime_placement_blockers
 	placement.setup(buildings)
@@ -241,6 +247,21 @@ func _setup_roads() -> void:
 	road_navigation.setup(roads,navigation)
 	road_layer.setup(roads)
 	_road_button=construction_panel.catalogue.tiles[&"dirt_road"]
+func _setup_mycelium() -> void:
+	mycelium.allowed=_mushroom_cell_allowed
+	# One authored irregular patch; holes are deliberate, not a world generator.
+	var origin: Vector2i=build_grid.world_to_cell(Vector3(-5.75,0,1.25))
+	var spans: Array=[[-4,-1],[-7,3],[-8,7],[-9,8],[-8,9],[-9,8],[-7,10],[-8,9],[-6,7],[-4,6],[-3,3]]
+	for y in spans.size():
+		for x in range(spans[y][0],spans[y][1]+1):
+			if Vector2i(x,y) not in [Vector2i(-1,3),Vector2i(3,6),Vector2i(-4,7)]:mycelium.add_mycelium(origin+Vector2i(x,y))
+	$World.add_child(mycelium_view);mycelium_view.setup(mycelium)
+	add_child(mushroom_growth);mushroom_growth.setup(mycelium,game_time,Balance.MUSHROOM_GROWTH_SEED)
+	roads.changed.connect(_clear_road_mushrooms)
+func _mushroom_cell_allowed(cell: Vector2i) -> bool:
+	return mycelium.in_bounds(cell) and build_grid.occupant(cell).is_empty() and not roads.contains(cell) and ground_resources.get_at(cell)==null and not runtime_placement_blockers.static_cell_occupied(cell,build_grid)
+func _clear_road_mushrooms() -> void:
+	mycelium.clear_cells(roads.cells())
 func _sync_catalogue() -> void:
 	construction_panel.catalogue.sync_tool(placement.selected_definition,road_tool.active)
 func _placement_ui_changed() -> void:
@@ -369,7 +390,7 @@ func place_ground_resources(resource: int, quantity: int, point: Vector2, mode: 
 	return ground_resources.place_near(resource,quantity,ground_resources.cell_from_position(point),mode,_ground_cell_allowed,reachable)
 func _ground_cell_allowed(cell: Vector2i) -> bool:
 	var point:=Coordinates.to_world(ground_resources.position_from_cell(cell))
-	if not build_grid.validation_reason([cell]).is_empty() or not navigation.is_world_walkable(point): return false
+	if mycelium.amount(cell)>0 or not build_grid.validation_reason([cell]).is_empty() or not navigation.is_world_walkable(point): return false
 	# Stacks may share ground with residents; exclude buildings, trees and rocks.
 	var plane:=Coordinates.world_plane(point)
 	return runtime_placement_blockers.first_overlap(Rect2(plane-Vector2.ONE*0.05,Vector2.ONE*0.1),true).is_empty()
@@ -610,7 +631,7 @@ func _register_tree(tree: RefCounted) -> void:
 func _refresh_tree_blocker(tree: RefCounted) -> void:
 	navigation.set_traversal_modifier(tree.id,tree_footprint(tree),preload("res://scripts/balance_config.gd").TREE_TRAVERSAL_SPEED_MULTIPLIER)
 	runtime_placement_blockers.unregister(tree.id)
-	runtime_placement_blockers.register_circle(tree.id,_tree_world_position.bind(tree),tree.physical_radius,true)
+	runtime_placement_blockers.register_circle(tree.id,_tree_world_position.bind(tree),tree.physical_radius,true,true)
 func spawn_sapling(position: Vector2) -> RefCounted:
 	var tree = preload("res://scripts/tree_data.gd").new(StringName("tree_%02d" % _next_tree_id),position)
 	_next_tree_id += 1
@@ -953,7 +974,7 @@ func _register_rock(rock: RefCounted) -> void:
 	rock_views[rock.id] = view
 	var center := Coordinates.world_plane(_rock_world_position(rock))
 	navigation.add_blocker(rock.id,Rect2(center-Vector2.ONE*rock.physical_radius,Vector2.ONE*rock.physical_radius*2.0))
-	runtime_placement_blockers.register_circle(rock.id,_rock_world_position.bind(rock),rock.physical_radius,true)
+	runtime_placement_blockers.register_circle(rock.id,_rock_world_position.bind(rock),rock.physical_radius,true,true)
 func _complete_rock_cycle(rock: RefCounted, receipt: int, worker_position: Vector2) -> void:
 	var key := "%s:%d" % [rock.id,receipt]
 	if receipt <= 0 or receipt > rock.completed_cycles or _rock_receipts.has(key): return

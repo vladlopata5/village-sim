@@ -4,6 +4,7 @@ const Coordinates = preload("res://scripts/world_3d/world_coordinates.gd")
 var entrance_zones: RefCounted
 var grid: RefCounted
 var runtime_blockers: RefCounted
+var ground_resources: Node
 var quarter_turns := 0
 var world_position := Vector3.ZERO
 var has_ground_position := false
@@ -35,6 +36,8 @@ func validation_reason() -> String:
 	if not is_active() or not selected_definition.player_buildable: return "Здание недоступно для строительства"
 	var reason: String = grid.validation_reason(proposed_cells())
 	if not reason.is_empty(): return reason
+	if ground_resources!=null and ground_resources.has_resources_in_cells(proposed_cells()):
+		return "Невозможно построить: на участке лежат ресурсы"
 	var zone := proposed_entrance_zone()
 	if entrance_zones!=null:
 		var entrance_reason: String = entrance_zones.validation_reason(proposed_footprint(),zone)

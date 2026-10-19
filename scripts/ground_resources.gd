@@ -20,6 +20,15 @@ func enable_stack_mode(bounds: Rect2 = Grid.WORLD_BOUNDS) -> bool:
 	return true
 func is_stack_mode() -> bool: return _stack_mode
 func get_at(cell: Vector2i) -> Drop: return _by_cell.get(cell)
+func has_resources_in_cells(cells: Array) -> bool:
+	if _stack_mode:
+		for cell in cells:
+			var drop:=get_at(cell)
+			if drop!=null and drop.amount>0:return true # Includes every owner's reservations.
+	else:
+		for drop in drops:
+			if drop.amount>0 and cell_from_position(drop.world_position) in cells:return true
+	return false
 func cell_from_position(position: Vector2) -> Vector2i: return _grid.world_to_cell(Coordinates.to_world(position))
 func position_from_cell(cell: Vector2i) -> Vector2: return Coordinates.to_sim(_grid.cell_to_world(cell))
 signal availability_changed

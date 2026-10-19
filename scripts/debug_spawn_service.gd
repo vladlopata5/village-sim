@@ -69,6 +69,7 @@ func spawn_building(point: Vector3, definition: Definition) -> Dictionary:
 	if not valid: return rejected("Некорректная геометрия layout")
 	var validator = preload("res://scripts/world_3d/building_placement_3d.gd").new()
 	validator.grid=world.build_grid
+	validator.ground_resources=world.ground_resources
 	validator.runtime_blockers=world.runtime_placement_blockers
 	validator.entrance_zones=world.entrance_zones
 	validator.setup(world.buildings)

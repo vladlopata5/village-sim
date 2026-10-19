@@ -1,6 +1,9 @@
 extends Node
 ## Simulation time has no dependencies on the visual world.
 const SUPPORTED_SPEEDS := [1, 2, 4, 10, 20]
+const MINUTES_PER_DAY := 1440
+const NIGHT_START := 1380 # 23:00, existing schedule boundary.
+const NIGHT_END := 360 # 06:00 of the next day.
 signal minute_changed(total_minutes: int)
 signal phase_changed(phase: String)
 signal speed_changed(multiplier: int)
@@ -81,13 +84,19 @@ func get_clock_text() -> String:
 
 func get_phase() -> String:
 	var minute_of_day := total_minutes % 1440
-	if minute_of_day >= 360 and minute_of_day < 420:
+	if minute_of_day >= NIGHT_END and minute_of_day < 420:
 		return "Утро"
 	if minute_of_day >= 420 and minute_of_day < 1020:
 		return "День"
-	if minute_of_day >= 1020 and minute_of_day < 1380:
+	if minute_of_day >= 1020 and minute_of_day < NIGHT_START:
 		return "Вечер"
 	return "Ночь"
+
+# Includes the current night, or the next night when called during the day.
+func night_interval_at_or_after(minute: int) -> Vector2i:
+	var day:=floori(float(minute)/MINUTES_PER_DAY)*MINUTES_PER_DAY
+	if posmod(minute,MINUTES_PER_DAY)<NIGHT_END:day-=MINUTES_PER_DAY
+	return Vector2i(day+NIGHT_START,day+MINUTES_PER_DAY+NIGHT_END)
 
 func debug_set_time_of_day(hour: int, minute: int) -> bool:
 	if not OS.is_debug_build() or hour<0 or hour>23 or minute<0 or minute>59: return false
