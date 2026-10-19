@@ -37,6 +37,25 @@ func set_warehouse_category_quota(building_id: StringName, category: Variant, qu
 		return {"ok":false,"error":"Сумма максимумов не должна превышать %d." % building.resources.shared_capacity}
 	return {"ok":true,"error":""}
 
+func set_production_recipe(building_id: StringName, recipe_id: Variant, mode: Variant, amount: Variant = 0) -> Dictionary:
+	var building := get_building(building_id)
+	if building==null or not building.is_built() or building.production_removed:
+		return {"ok":false,"error":"Производство доступно только в действующем здании."}
+	if typeof(recipe_id) not in [TYPE_STRING,TYPE_STRING_NAME] or building.definition.get_production_recipe(StringName(recipe_id))==null:
+		return {"ok":false,"error":"Рецепт не найден в этом здании."}
+	if typeof(mode)!=TYPE_INT or mode not in BuildingInstance.ProductionMode.values():
+		return {"ok":false,"error":"Неизвестный режим производства."}
+	if typeof(amount)!=TYPE_INT or amount<0:
+		return {"ok":false,"error":"Введите целое неотрицательное число."}
+	var applied: bool
+	match mode:
+		BuildingInstance.ProductionMode.MAINTAIN: applied = building.set_maintain_target(recipe_id,amount)
+		BuildingInstance.ProductionMode.ORDER: applied = building.set_production_order(recipe_id,amount)
+		_: applied = building.set_recipe_mode(recipe_id,mode,amount)
+	if not applied:
+		return {"ok":false,"error":"Настройка недоступна: количественный режим требует одного результата ×1; для остальных режимов количество должно быть нулевым."}
+	return {"ok":true,"error":""}
+
 func register_assignments(resident_id: String, controller: Node) -> void:
 	_assignments[resident_id] = controller
 

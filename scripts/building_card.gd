@@ -14,6 +14,9 @@ const Types = preload("res://scripts/building_type.gd")
 const ResourceType = preload("res://scripts/resource_type.gd")
 const Categories = preload("res://scripts/resource_category.gd")
 const Balance = preload("res://scripts/balance_config.gd")
+const RecipeView = preload("res://scripts/ui/production_recipe_view.gd")
+var recipe_views: Dictionary = {}
+var _recipe_ids: Array = []
 const FOOD = ResourceType.Type.FOOD
 var _control: RefCounted
 @onready var housing_section: VBoxContainer = _widget("Housing")
@@ -57,12 +60,8 @@ func bind_selection(selection: Selection) -> void:
 	_selection.selection_changed.connect(_on_selection_changed)
 	_on_selection_changed()
 func _on_selection_changed() -> void:
-	if _building != null:
-		_building.construction_changed.disconnect(_refresh)
-	if _building != null and _building.resources != null:
-		_building.resources.changed.disconnect(_on_resources_changed)
-		_building.resources.reservations_changed.disconnect(_on_reservations_changed)
-		_building.resources.quotas_changed.disconnect(_refresh)
+	_disconnect_building()
+	_clear_recipe_views()
 	_quota_dirty.clear()
 	for row in storage_rows.values():
 		row.editor.release_focus()
@@ -73,7 +72,9 @@ func _on_selection_changed() -> void:
 	_building = _selection.selected_building
 	_presented_tabs.clear()
 	_last_snapshot = []
-	if _building != null: _building.construction_changed.connect(_refresh)
+	if _building != null:
+		_building.construction_changed.connect(_refresh)
+		_building.production_changed.connect(_refresh_recipes)
 	if _building != null and _building.resources != null:
 		_building.resources.changed.connect(_on_resources_changed)
 		_building.resources.reservations_changed.connect(_on_reservations_changed)
@@ -91,6 +92,7 @@ func _process(delta: float) -> void:
 	_refresh()
 func _refresh() -> void:
 	refresh_count += 1
+	_refresh_recipes()
 	_refresh_work_area()
 	if management_button != null: management_button.visible = _building != null and _building.is_built() and _building.type == Types.Type.TOWN_CENTER
 	if _building == null:
@@ -114,10 +116,8 @@ func _refresh() -> void:
 		resource_lines.append("Работники производства: %d / %d" % [workers.size(),_building.definition.worker_capacity])
 	if _control != null and _building.is_built() and _building.definition.porter_capacity > 0:
 		resource_lines.append("Носильщики: %d / %d" % [porter_snapshot.size(),_building.definition.porter_capacity])
-	production_section.visible = _building.is_built() and (_building.type == Types.Type.GATHERER_HUT or _building.definition.production_recipe != null)
+	production_section.visible = _building.is_built() and _building.type == Types.Type.GATHERER_HUT
 	production_label.text = "%s • прогресс: %d / %d рабочих минут" % [ResourceType.display_name(ResourceType.Type.MUSHROOM), _building.production_progress, Balance.GATHERER_WORK_MINUTES_PER_UNIT]
-	if _building.definition.production_recipe != null:
-		production_label.text = "Производство: %d / %d рабочих минут" % [_building.production_progress,_building.definition.production_recipe.work_required]
 	construction_section.visible = not _building.is_built()
 	_refresh_housing()
 	var materials := PackedStringArray()
@@ -141,6 +141,8 @@ func bind_control(control: RefCounted) -> void:
 		_control.work_areas.presentation_changed.connect(_refresh_work_area)
 	_refresh_work_area()
 	_refresh_housing()
+	_clear_recipe_views()
+	_refresh_recipes()
 
 func _setup_work_area() -> void:
 	work_area_section = VBoxContainer.new()
@@ -234,9 +236,12 @@ func _refresh_details(resource_lines: PackedStringArray) -> void:
 		var capacity: int = _building.resources.get_capacity(resource)
 		if capacity <= 0: continue
 		var role := "Запас"
-		if def.production_recipe != null:
-			if def.production_recipe.inputs.has(resource): role = "Вход"
-			elif def.production_recipe.outputs.has(resource): role = "Выход"
+		if not def.production_recipes.is_empty():
+			var input: bool = def.production_recipes.any(func(recipe): return recipe.inputs.has(resource))
+			var output: bool = def.production_recipes.any(func(recipe): return recipe.outputs.has(resource))
+			if input and output: role = "Вход и выход"
+			elif input: role = "Вход"
+			elif output: role = "Выход"
 		elif resource in def.internal_resources or _building.type == Types.Type.GATHERER_HUT: role = "Выход"
 		buffer_lines.append("%s • %s: %d / %d" % [role,ResourceType.display_name(resource),_building.resources.get_amount(resource),capacity])
 	resources_label.text = "\n".join(buffer_lines)
@@ -245,14 +250,12 @@ func _refresh_details(resource_lines: PackedStringArray) -> void:
 	get_node("%OtherStocks").text = "\n".join(resource_lines)
 	get_node("%OtherStocks").visible = _building.is_built() and available_tabs().size() == 1 and not resource_lines.is_empty()
 	var recipe_lines := PackedStringArray()
-	if def.production_recipe != null:
-		for resource in def.production_recipe.inputs: recipe_lines.append("Нужно: %s ×%d" % [ResourceType.display_name(resource),def.production_recipe.inputs[resource]])
-		for resource in def.production_recipe.outputs: recipe_lines.append("Результат: %s ×%d" % [ResourceType.display_name(resource),def.production_recipe.outputs[resource]])
-	elif _building.type == Types.Type.GATHERER_HUT: recipe_lines.append("Добывает " + ResourceType.display_name(ResourceType.Type.MUSHROOM))
+	if _building.type == Types.Type.GATHERER_HUT: recipe_lines.append("Добывает " + ResourceType.display_name(ResourceType.Type.MUSHROOM))
 	else:
 		for resource in def.internal_resources: recipe_lines.append("Добывает " + ResourceType.display_name(resource))
 	get_node("%Recipe").text = "\n".join(recipe_lines)
-	production_section.visible = _building.is_built() and (_building.type == Types.Type.GATHERER_HUT or def.production_recipe != null)
+	get_node("%Recipe").visible = def.production_recipes.is_empty()
+	production_section.visible = _building.is_built() and _building.type == Types.Type.GATHERER_HUT
 	var natural: PackedStringArray = natural_progress_provider.call(_building.id) if def.worker_profession in [profession.Type.LUMBERJACK,profession.Type.MINER] and natural_progress_provider.is_valid() else PackedStringArray()
 	get_node("%NaturalProgress").text = "\n".join(natural)
 	get_node("%NaturalProgress").visible = not natural.is_empty()
@@ -437,10 +440,39 @@ func _clear_person(id: String, building_id: StringName, housing: bool, role: int
 		if current.home_location_id == building_id: _control.clear_home(id)
 	elif current.work_location_id == building_id and current.profession==role: _control.clear_work_assignment(id)
 	_refresh()
+func _disconnect_building() -> void:
+	if _building==null: return
+	for pair in [
+		[_building.construction_changed,_refresh],
+		[_building.production_changed,_refresh_recipes],
+		[_building.resources.changed,_on_resources_changed],
+		[_building.resources.reservations_changed,_on_reservations_changed],
+		[_building.resources.quotas_changed,_refresh],
+	]:
+		if pair[0].is_connected(pair[1]): pair[0].disconnect(pair[1])
+func _clear_recipe_views() -> void:
+	for view in recipe_views.values():
+		view.deactivate()
+		view.get_parent().remove_child(view)
+		view.queue_free()
+	recipe_views.clear()
+	_recipe_ids.clear()
+func _refresh_recipes() -> void:
+	var ids: Array = []
+	if _building!=null and _building.is_built() and not _building.production_removed:
+		ids = _building.definition.production_recipes.map(func(recipe): return recipe.id)
+	if ids!=_recipe_ids:
+		_clear_recipe_views()
+		_recipe_ids = ids
+		for id in ids:
+			var view := RecipeView.new()
+			get_node("%RecipeControls").add_child(view)
+			view.setup(_building,_building.definition.get_production_recipe(id),_control)
+			recipe_views[id] = view
+	for view in recipe_views.values(): view.refresh()
 func _exit_tree() -> void:
 	_disconnect_work_area()
-	if _building != null:
-		if _building.construction_changed.is_connected(_refresh): _building.construction_changed.disconnect(_refresh)
-		if _building.resources.changed.is_connected(_on_resources_changed): _building.resources.changed.disconnect(_on_resources_changed)
+	_disconnect_building()
+	for view in recipe_views.values(): view.deactivate()
 	if _control != null and _control.home_changed.is_connected(_on_home_changed): _control.home_changed.disconnect(_on_home_changed)
 	if _selection != null and _selection.selection_changed.is_connected(_on_selection_changed): _selection.selection_changed.disconnect(_on_selection_changed)

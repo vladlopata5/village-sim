@@ -138,6 +138,11 @@ unique_name_in_owner = true
 autowrap_mode = 3
 text = ""
 
+[node name="RecipeControls" type="VBoxContainer" parent="Column/Scroll/Content/ProductionTab"]
+layout_mode = 2
+unique_name_in_owner = true
+size_flags_horizontal = 3
+
 [node name="Production" type="VBoxContainer" parent="Column/Scroll/Content/ProductionTab"]
 layout_mode = 2
 unique_name_in_owner = true

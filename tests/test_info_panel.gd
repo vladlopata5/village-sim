@@ -117,7 +117,7 @@ func run() -> void:
 	selection.select_building(saw)
 	check(panel._tabs==[&"info",&"production"],"Sawmill has production without storage")
 	panel.select_tab(&"production")
-	check(building.get_node("%Recipe").text.contains("Бревно") and building.get_node("%Recipe").text.contains("Доски") and building.resources_label.text.contains("Вход") and building.resources_label.text.contains("Выход"),"Recipe inputs/outputs and actual distinct buffers")
+	check(building.recipe_views[&"sawmill_plank"].composition.text.contains("Бревно") and building.recipe_views[&"sawmill_plank"].composition.text.contains("Доски") and building.resources_label.text.contains("Вход") and building.resources_label.text.contains("Выход"),"Recipe inputs/outputs and actual distinct buffers")
 	check(not building.get_node("%Info").visible,"Inactive Info remains hidden")
 	saw.resources.add(R.LOG,1)
 	check(not building.get_node("%Info").visible and building.get_node("%ProductionTab").visible,"Resource callback cannot reopen a hidden tab")
