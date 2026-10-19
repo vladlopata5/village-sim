@@ -1,6 +1,7 @@
 extends Control
 ## Canonical presentation shell. Game services, selection and tools remain in Main.
 signal blocking_ui_changed
+const ListWindow = preload("res://scripts/ui/settlement_list_window.gd")
 const InputContext = preload("res://scripts/ui/ui_input_context.gd")
 var input_context = InputContext.new()
 @onready var info_panel: PanelContainer = $InfoAnchor/InfoPanel
@@ -65,6 +66,7 @@ func register_window(id: StringName, window: Control) -> void:
 	if window is PanelContainer:
 		window.remove_theme_stylebox_override("panel")
 		window.theme_type_variation = &"WindowPanel"
+	if window is ListWindow: window.mount_list_window($Windows)
 	_windows[id] = window
 	window.hide()
 	register_pointer_control(window)
@@ -73,6 +75,7 @@ func open_window(id: StringName) -> void:
 	if not _windows.has(id): return
 	close_window()
 	_current_window = id
+	if _windows[id] is ListWindow: _windows[id].prepare_open()
 	_windows[id].show()
 func toggle_window(id: StringName) -> void:
 	if _current_window == id and _windows[id].visible: close_window()

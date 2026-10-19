@@ -1,4 +1,4 @@
-extends PanelContainer
+extends "res://scripts/ui/settlement_list_window.gd"
 # Presentation counters for focused UI diagnostics; never used by simulation.
 var refresh_count := 0
 ## A Tree projection of PlayerControl's registry; never a second population model.
@@ -7,8 +7,6 @@ signal area_assignment_selected(resident_id: String)
 enum Mode { VIEW, ASSIGN }
 var mode := Mode.VIEW
 var _assignment_caption := ""
-var close_button: Button
-var _info_panel: Control
 const Profession = preload("res://scripts/resident_profession.gd")
 var row_creation_count := 0
 var poll_count := 0
@@ -23,49 +21,32 @@ var eligibility_filter: OptionButton
 var employment_filter: OptionButton
 var sort_order: OptionButton
 var reverse_order: CheckButton
-var table: Tree
 var context_label: Label
 var count_label: Label
-var _root: TreeItem
 var _dirty_ids: Dictionary = {}
 var _roster_dirty := true
 var _projection_dirty := true
 var _pending := false
-var _layout_pending := false
 var _connections: Array = []
 var _pressed_id := ""
-var _canonical_layout := false
 var _poll_elapsed := 0.0
 var _display_snapshot: Dictionary = {}
 func _ready() -> void:
-	position=Vector2(134,160)
-	size=Vector2(680,400)
-	if has_theme_stylebox("panel", "WindowPanel"):
-		theme_type_variation = &"WindowPanel"
-	else:
-		var style := StyleBoxFlat.new()
-		style.bg_color=Color(0.12,0.15,0.13,1)
-		for side in [SIDE_LEFT,SIDE_RIGHT,SIDE_TOP,SIDE_BOTTOM]: style.set_content_margin(side,12)
-		add_theme_stylebox_override("panel",style)
-	var column := VBoxContainer.new()
-	column.add_theme_constant_override("separation",4)
-	add_child(column)
-	context_label=Label.new()
-	context_label.text="Жители"
-	context_label.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
-	column.add_child(context_label)
+	super._ready()
+	configure_table("Жители","ResidentsTable",["Имя","Профессия","Рабочее место"],[4,3,5])
+	context_label=title_label
 	search=LineEdit.new()
 	search.name="Search"
 	search.placeholder_text="Поиск по имени"
 	search.text_changed.connect(func(_text): _projection_changed())
-	column.add_child(search)
+	header.add_child(search)
 	var filters := HBoxContainer.new()
-	column.add_child(filters)
+	header.add_child(filters)
 	profession_filter=_profession_options(filters,"Текущая профессия")
 	eligibility_filter=_profession_options(filters,"Доступная профессия")
 	employment_filter=_options(filters,"Назначение",["Все","Есть место / область","Без места / области"])
 	var sort_row := HBoxContainer.new()
-	column.add_child(sort_row)
+	header.add_child(sort_row)
 	var sort_label := Label.new()
 	sort_label.text="Сортировка:"
 	sort_row.add_child(sort_label)
@@ -77,31 +58,10 @@ func _ready() -> void:
 	reverse_order.text="Обратно"
 	reverse_order.toggled.connect(func(_value): _projection_changed())
 	sort_row.add_child(reverse_order)
-	table=Tree.new()
-	table.name="ResidentsTable"
-	table.columns=3
-	table.hide_root=true
-	table.select_mode=Tree.SELECT_ROW
-	table.column_titles_visible=true
-	table.custom_minimum_size=Vector2(0,160)
-	table.size_flags_vertical=Control.SIZE_EXPAND_FILL
-	table.mouse_force_pass_scroll_events=false
-	for index in range(3):
-		table.set_column_title(index,["Имя","Профессия","Рабочее место"][index])
-		table.set_column_expand_ratio(index,[4,3,5][index])
 	table.gui_input.connect(_table_input)
-	column.add_child(table)
-	_root=table.create_item()
-	var footer := HBoxContainer.new()
-	column.add_child(footer)
 	count_label=Label.new()
 	count_label.size_flags_horizontal=Control.SIZE_EXPAND_FILL
-	footer.add_child(count_label)
-	close_button = Button.new()
-	close_button.text="Закрыть"
-	close_button.focus_mode=Control.FOCUS_NONE
-	close_button.pressed.connect(hide)
-	footer.add_child(close_button)
+	add_footer_action(count_label)
 	visibility_changed.connect(_visibility_changed)
 	hide()
 func _process(delta: float) -> void:
@@ -172,7 +132,6 @@ func _selection_changed() -> void:
 	var caption: String = _assignment_caption if mode==Mode.ASSIGN else ("Жители" if building==null else "Жители • выбранное здание: "+building.display_name)
 	if context_label.text==caption: return
 	context_label.text=caption
-	_layout_fixed.call_deferred()
 func _projection_changed() -> void:
 	_projection_dirty=true
 	_queue_refresh()
@@ -184,7 +143,6 @@ func _visibility_changed() -> void:
 	_pressed_id=""
 	if is_visible_in_tree() and control!=null:
 		_flush()
-		_layout_fixed.call_deferred()
 	elif not is_visible_in_tree(): end_assignment()
 func begin_assignment(caption: String) -> void:
 	mode=Mode.ASSIGN
@@ -203,21 +161,6 @@ func end_assignment() -> void:
 	for id in rows: _dirty_ids[id]=true
 	_projection_changed()
 	_selection_changed()
-func _layout_fixed() -> void:
-	if not is_inside_tree() or _layout_pending: return
-	_layout_pending=true
-	get_tree().process_frame.connect(_apply_fixed_layout,CONNECT_ONE_SHOT)
-func set_canonical_layout(info_panel: Control = null) -> void:
-	_canonical_layout=true
-	_info_panel=info_panel
-	if _info_panel!=null: _info_panel.resized.connect(_layout_fixed)
-	get_parent().resized.connect(_layout_fixed)
-	_layout_fixed.call_deferred()
-func _apply_fixed_layout() -> void:
-	_layout_pending=false
-	position=Vector2(12,12) if _canonical_layout else Vector2(134,160)
-	size=Vector2(get_parent().size.x-356,get_parent().size.y-244) if _canonical_layout else Vector2(680,400)
-	if _canonical_layout and is_instance_valid(_info_panel) and _info_panel.is_visible_in_tree(): size.x=minf(size.x,maxf(420,_info_panel.get_global_rect().position.x-get_parent().global_position.x-24))
 func has_work_assignment(resident: RefCounted) -> bool:
 	return not resident.work_location_id.is_empty() or not resident.work_area_id.is_empty()
 func workplace_label(resident: RefCounted) -> String:
@@ -253,11 +196,7 @@ func _update_row(id: String) -> void:
 	if resident==null: return
 	if not rows.has(id):
 		row_creation_count += 1
-		var new_item := table.create_item(_root)
-		new_item.set_metadata(0,id)
-		new_item.custom_minimum_height=30
-		for column in range(3):
-			new_item.set_autowrap_mode(column,TextServer.AUTOWRAP_WORD_SMART)
+		var new_item := create_list_row(id)
 		rows[id]=new_item
 	var item: TreeItem=rows[id]
 	item.set_text(0,resident.resident_name)
@@ -324,8 +263,6 @@ func _table_input(event: InputEvent) -> void:
 		if not id.is_empty() and _pressed_id==id: activate_row(id)
 		_pressed_id=""
 func _exit_tree() -> void:
-	if is_instance_valid(_info_panel) and _info_panel.resized.is_connected(_layout_fixed): _info_panel.resized.disconnect(_layout_fixed)
-	if _canonical_layout and get_parent().resized.is_connected(_layout_fixed): get_parent().resized.disconnect(_layout_fixed)
-	if get_tree().process_frame.is_connected(_apply_fixed_layout): get_tree().process_frame.disconnect(_apply_fixed_layout)
 	for connection in _connections:
 		if is_instance_valid(connection[0]) and connection[0].is_connected(connection[1],connection[2]): connection[0].disconnect(connection[1],connection[2])
+	super._exit_tree()

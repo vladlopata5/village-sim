@@ -1,4 +1,4 @@
-extends PanelContainer
+extends "res://scripts/ui/settlement_list_window.gd"
 ## VIEW selects buildings; ASSIGN emits a target while preserving the source card.
 signal resident_assignment_requested(building_id: StringName)
 signal building_selected(building_id: StringName)
@@ -11,101 +11,48 @@ var mode_label: Label
 const Profession = preload("res://scripts/resident_profession.gd")
 var control: RefCounted
 var selection: Node
-var _info_panel: Control
-var table: Tree
 var empty_label: Label
 var focus_button: Button
-var close_button: Button
 var rows: Dictionary = {}
 var refresh_count := 0
 var row_creation_count := 0
-var _root: TreeItem
 var _tracked: Dictionary = {} # Live instances for disconnecting their display signals.
 var _snapshots: Dictionary = {}
 var _dirty: Dictionary = {}
 var _pending := false
-var _layout_pending := false
 var _pressed_id: StringName = &""
 
 func _ready() -> void:
-	# Avoid measuring wrapped children against a zero-width new panel.
-	size = Vector2(680,400)
-	var column := VBoxContainer.new()
-	add_child(column)
-	var title := Label.new()
-	title.text = "Здания поселения"
-	column.add_child(title)
+	super._ready()
+	configure_table("Здания поселения","BuildingsTable",["Здание","Тип","Состояние"],[4,3,2])
 	mode_label = Label.new()
 	mode_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	column.add_child(mode_label)
+	header.add_child(mode_label)
 	mode_label.hide()
 	empty_label = Label.new()
 	empty_label.text = "Зданий пока нет."
-	column.add_child(empty_label)
-	table = Tree.new()
-	table.name = "BuildingsTable"
-	table.columns = 3
-	table.hide_root = true
-	table.select_mode = Tree.SELECT_ROW
-	table.column_titles_visible = true
-	table.custom_minimum_size.y = 160
-	table.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	table.mouse_force_pass_scroll_events = false
-	for index in range(3):
-		table.set_column_title(index,["Здание","Тип","Состояние"][index])
-		table.set_column_expand_ratio(index,[4,3,2][index])
+	header.add_child(empty_label)
 	table.gui_input.connect(_table_input)
-	column.add_child(table)
-	_root = table.create_item()
-	var footer := HBoxContainer.new()
-	column.add_child(footer)
 	focus_button = Button.new()
 	focus_button.text = "Показать на карте"
 	focus_button.pressed.connect(_focus)
-	footer.add_child(focus_button)
-	var spacer := Control.new()
-	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	footer.add_child(spacer)
-	close_button = Button.new()
-	close_button.text = "Закрыть"
-	close_button.pressed.connect(hide)
-	footer.add_child(close_button)
+	add_footer_action(focus_button)
 	visibility_changed.connect(_shown)
 	hide()
 
-func setup(player: RefCounted, selected: Node, info_panel: Control = null) -> void:
+func setup(player: RefCounted, selected: Node) -> void:
 	control = player
 	selection = selected
-	_info_panel = info_panel
 	control.building_registered.connect(_registered)
 	control.building_unregistered.connect(_removed)
 	selection.selection_changed.connect(_selection_changed)
-	get_parent().resized.connect(_queue_layout)
-	if _info_panel != null: _info_panel.resized.connect(_queue_layout)
 	for building in control.get_buildings(): observe(building)
 	_selection_changed()
-	_queue_layout()
 
-func _queue_layout() -> void:
-	if _layout_pending or not is_inside_tree(): return
-	_layout_pending = true
-	get_tree().process_frame.connect(_layout,CONNECT_ONE_SHOT)
-func _layout() -> void:
-	_layout_pending = false
-	_apply_layout()
-func _apply_layout() -> void:
-	if not get_parent() is Control: return
-	position = Vector2(12,12)
-	var available_width: float = get_parent().size.x-356
-	if is_instance_valid(_info_panel) and _info_panel.is_visible_in_tree():
-		available_width = minf(available_width,_info_panel.get_global_rect().position.x-get_parent().global_position.x-24)
-	size = Vector2(maxf(420,available_width),maxf(260,get_parent().size.y-244))
 func _shown() -> void:
 	_pressed_id = &""
 	if not is_visible_in_tree(): end_assignment(); return
-	_apply_layout()
 	_flush()
-	_queue_layout()
 
 func begin_assignment(caption: String) -> void:
 	mode = Mode.ASSIGN
@@ -174,10 +121,7 @@ func _flush() -> void:
 			if rows.has(id): rows[id].free(); rows.erase(id)
 			continue
 		if not rows.has(id):
-			var item := table.create_item(_root)
-			item.set_metadata(0,id)
-			item.custom_minimum_height = 30
-			for column in range(3): item.set_text_overrun_behavior(column,TextServer.OVERRUN_TRIM_ELLIPSIS)
+			var item := create_list_row(id)
 			rows[id] = item
 			row_creation_count += 1
 		var snapshot: Array = _snapshots[id]
@@ -225,6 +169,4 @@ func _exit_tree() -> void:
 		if control.building_registered.is_connected(_registered): control.building_registered.disconnect(_registered)
 		if control.building_unregistered.is_connected(_removed): control.building_unregistered.disconnect(_removed)
 	if is_instance_valid(selection) and selection.selection_changed.is_connected(_selection_changed): selection.selection_changed.disconnect(_selection_changed)
-	if is_instance_valid(_info_panel) and _info_panel.resized.is_connected(_queue_layout): _info_panel.resized.disconnect(_queue_layout)
-	if get_parent() is Control and get_parent().resized.is_connected(_queue_layout): get_parent().resized.disconnect(_queue_layout)
-	if get_tree().process_frame.is_connected(_layout): get_tree().process_frame.disconnect(_layout)
+	super._exit_tree()
