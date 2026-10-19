@@ -120,7 +120,7 @@ func run() -> void:
 	check(job.source_location_id==world.gatherer_hut_data.id and job.destination_location_id==world.warehouse_data.id,"Gatherer never supplies Kitchen directly")
 	walk(worker,&"haul_source")
 	walk(worker)
-	check(world.gatherer_hut_data.resources.get_amount(R.MUSHROOM)==4 and world.warehouse_data.resources.get_amount(R.MUSHROOM)==1 and worker.self_logistics.task().kind==&"PRODUCTION","Buffer freed: production first on next normal decision")
+	check(world.gatherer_hut_data.resources.get_amount(R.MUSHROOM)==4 and world.warehouse_data.resources.get_amount(R.MUSHROOM)==1 and worker.self_logistics.task().kind==&"EXPORT","Without natural stock, freeing buffer cannot start virtual production")
 	world.free()
 	# Builder vs Porter competition for same Ground PLANK and export policy.
 	world = scene()

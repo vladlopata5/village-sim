@@ -88,14 +88,14 @@ func _run() -> void:
 	gatherer.data.activity = Activity.Type.WORKING
 	gatherer.view.global_position = hut.position
 	hut.production_progress = 12
-	scene.production._on_minute(400)
+	scene.game_time.minute_changed.emit(400)
 	check(not scene.production.can_work(gatherer.data) and hut.production_progress == 12 and hut.resources.get_amount(preload("res://scripts/resource_type.gd").Type.MUSHROOM) == 0, "Construction hut neither offers work nor produces even with WORKING resident")
 	for resource in hut.definition.construction_requirements:
 		hut.add_delivered_material(resource, hut.get_required_amount(resource))
 	hut.add_construction_work(hut.definition.construction_work_required)
 	hut.complete_construction()
-	scene.production._on_minute(401)
-	check(hut.production_progress == 13, "Same instance resumes ordinary production when BUILT")
+	scene.game_time.minute_changed.emit(401)
+	check(hut.production_progress == 12 and not scene.production.can_work(gatherer.data), "Built hut without natural stock never resumes virtual production")
 
 	var collision_registry: Array = [Instance.new(&"building_0001", Definition.for_type(Types.Type.HOME), Vector2(1000, 0))]
 	var isolated_placement=preload("res://scripts/building_placement.gd").new()

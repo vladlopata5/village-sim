@@ -1,8 +1,14 @@
 extends RefCounted
-## Persistent land property and natural stock. Never a GroundResource/haul source.
+## Persistent land property; natural stock stays separate from dropped resources.
 const Balance = preload("res://scripts/balance_config.gd")
 const RESOURCE_TYPE = preload("res://scripts/resource_type.gd").Type.MUSHROOM
 signal mushrooms_changed(cell: Vector2i, amount: int)
+signal availability_changed
+var revision := 0
+var _next_id := 1
+var _ids: Dictionary = {} # Cell -> generation ID, retained while stock is nonempty.
+var _cells_by_id: Dictionary = {}
+var _claims: Dictionary = {} # Generation ID -> {owner: one unit}.
 var geometry: RefCounted
 var allowed: Callable
 var _mycelium: Dictionary = {}
@@ -29,24 +35,71 @@ func can_grow(cell: Vector2i) -> bool:
 func add_mushrooms(cell: Vector2i, quantity: int = 1) -> int:
 	if quantity<=0 or not can_grow(cell): return 0
 	var added:=mini(quantity,Balance.MUSHROOM_CELL_LIMIT-amount(cell))
-	_mushrooms[cell]=amount(cell)+added # Commit before synchronous observers can reenter.
-	mushrooms_changed.emit(cell,amount(cell))
+	if amount(cell)==0:
+		var id := StringName("mushroom_%06d" % _next_id)
+		_next_id+=1
+		_ids[cell]=id;_cells_by_id[id]=cell
+	_mushrooms[cell]=amount(cell)+added
+	_notify(cell)
 	return added
+func source_id(cell: Vector2i) -> StringName: return _ids.get(cell,&"")
+func source_cell(id: StringName) -> Variant: return _cells_by_id.get(id)
+func position(id: StringName) -> Variant:
+	var cell: Variant=source_cell(id)
+	if not cell is Vector2i: return null
+	return preload("res://scripts/world_3d/world_coordinates.gd").to_sim(geometry.cell_to_world(cell))
+func available_amount(id: StringName) -> int:
+	var cell: Variant=source_cell(id)
+	if not cell is Vector2i or (allowed.is_valid() and not allowed.call(cell)): return 0
+	return amount(cell)-_claims.get(id,{}).size()
+func reserve(id: StringName, owner: StringName) -> bool:
+	if owner.is_empty(): return false
+	if reserved(id,owner): return true
+	if available_amount(id)<1: return false
+	if not _claims.has(id): _claims[id]={}
+	_claims[id][owner]=1
+	revision+=1;availability_changed.emit()
+	return true
+func reserved(id: StringName, owner: StringName) -> bool:
+	return _cells_by_id.has(id) and _claims.get(id,{}).has(owner)
+func release(id: StringName, owner: StringName) -> void:
+	if not _claims.get(id,{}).erase(owner): return
+	if _claims[id].is_empty(): _claims.erase(id)
+	revision+=1;availability_changed.emit()
+func take_reserved(id: StringName, owner: StringName) -> bool:
+	if not reserved(id,owner): return false
+	var cell: Vector2i=_cells_by_id[id]
+	if allowed.is_valid() and not allowed.call(cell): return false
+	_claims[id].erase(owner)
+	if _claims[id].is_empty(): _claims.erase(id)
+	_remove_quantity(cell,1)
+	# Inventory.receive commits immediately after this callback returns. No observer
+	# sees the removed unit before it belongs to that inventory.
+	revision+=1
+	_notify.call_deferred(cell)
+	return true
+func _remove_quantity(cell: Vector2i, quantity: int) -> void:
+	var remaining:=amount(cell)-quantity
+	if remaining>0: _mushrooms[cell]=remaining;return
+	_mushrooms.erase(cell)
+	var id: StringName=source_id(cell)
+	_ids.erase(cell);_cells_by_id.erase(id);_claims.erase(id)
+func _notify(cell: Vector2i) -> void:
+	revision+=1
+	mushrooms_changed.emit(cell,amount(cell))
+	availability_changed.emit()
 func remove_mushrooms(cell: Vector2i, quantity: int = 1) -> int:
 	if quantity<=0: return 0
-	var removed:=mini(quantity,amount(cell))
+	var removed:=mini(quantity,available_amount(source_id(cell)))
 	if removed==0: return 0
-	var remaining:=amount(cell)-removed
-	if remaining==0:_mushrooms.erase(cell)
-	else:_mushrooms[cell]=remaining
-	mushrooms_changed.emit(cell,remaining)
+	_remove_quantity(cell,removed);_notify(cell)
 	return removed
 func clear_cells(footprint: Array) -> void:
-	# Remove the whole footprint before any observer sees a partially cleared site.
+	# Invalidate every generation and claim before any construction observer runs.
 	var changed: Array=[]
 	for cell in footprint:
-		if _mushrooms.erase(cell):changed.append(cell)
-	for cell in changed:mushrooms_changed.emit(cell,amount(cell))
+		if amount(cell)>0: changed.append(cell);_remove_quantity(cell,amount(cell))
+	for cell in changed: _notify(cell)
 func zone_amount(source: Vector2i) -> int:
 	var count:=0;var radius: int=Balance.MUSHROOM_GROWTH_RADIUS
 	for y in range(-radius,radius+1):

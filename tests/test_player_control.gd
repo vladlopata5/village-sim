@@ -78,7 +78,7 @@ func _run() -> void:
 	assign_job(scene,resident.data.id,Profession.PORTER)
 	check(scene._work_available(resident), "New PORTER can request haul work independent of Stepan")
 	assign_job(scene,resident.data.id,Profession.GATHERER)
-	check(scene._work_available(resident), "New GATHERER can request gatherer work")
+	check(not scene._work_available(resident), "GATHERER without natural stock has no fabricated work")
 	var order = Assignment.new(&"test_order", resident.data.id)
 	check(order.state == Assignment.State.QUEUED and order.target == null and order.type == &"", "ResidentAssignment is inert persistent-task data, no invented concrete types")
 	check(Assignment.State.size() == 5 and order.resident_id == resident.data.id, "Order lifecycle foundation is separate from profession")
@@ -109,46 +109,18 @@ func _run() -> void:
 		assign_job(scene,resident.data.id,Profession.GATHERER)
 		check(resident.intents.current_intent == previous and resident.data.activity == activity and resident.view.global_position == position and resident.decision.decision_count == decisions, "Profession is not forced interrupt/teleport/re-decision during " + action)
 		scene.free()
-	# Already-started safe work contributes until its original 60-minute boundary.
+	# Natural gathering has no indoor 60-minute production cycle. Its cancellation
+	# with source/inbound claims and cargo is covered by test_gatherer_physical.
 	scene = Setup.make_scene(self)
 	resident = scene.resident_runtimes[2]
-	work_api(scene, resident)
+	work_api(scene,resident)
 	assign_job(scene,resident.data.id,Profession.GATHERER)
 	scene.game_time.debug_next_phase()
-	preload("res://tests/handling_test_step.gd").move_domain(resident,20)
-	scene.game_time.debug_skip_minutes(45)
-	check(scene.gatherer_hut_data.production_progress == 15 and resident.data.activity == Activity.WORKING, "Old gatherer cycle is physically working at minute 45")
-	var before: int = resident.decision.decision_count
-	scene.player_control.assign_profession(resident.data.id, Profession.NONE)
-	check(resident.data.profession == Profession.NONE and resident.data.activity == Activity.WORKING and resident.decision.decision_count == before, "Persistent assignment changes immediately, committed cycle remains")
-	scene.game_time.debug_skip_minutes(15)
-	check(scene.gatherer_hut_data.resources.get_amount(preload("res://scripts/resource_type.gd").Type.MUSHROOM) == 2 and scene.gatherer_hut_data.production_progress == 0, "Committed old cycle finishes its contribution without resetting building progress")
-	check(not resident.decision._work_cycle_active and resident.data.activity == Activity.IDLE and not resident.decision.collect_actions(scene._work_available(resident)).any(func(row): return row.id == "WORK"), "No new gatherer cycle after profession removed")
-	print("WORK proof: 45 min -> assign NONE -> old cycle finishes 60 min -> no old work")
-	scene.free()
-	# A personal action's next boundary uses the new work assignment.
-	scene = Setup.make_scene(self)
-	resident = scene.resident_runtimes[1]
-	work_api(scene, resident)
-	scene.game_time.debug_next_phase()
+	check(not scene._work_available(resident) and not resident.decision._work_cycle_active,"No natural stock means no fake indoor work cycle")
 	resident.social.try_leisure(5000)
-	assign_job(scene,resident.data.id,Profession.GATHERER)
+	assign_job(scene,resident.data.id,Profession.PORTER)
 	scene.game_time.debug_skip_minutes(30)
-	check(resident.intents.current_intent.reason_id == &"day_work", "New profession is used on next normal action completion")
-	preload("res://tests/handling_test_step.gd").move_domain(resident,20)
-	check(resident.data.activity == Activity.WORKING, "New gatherer reaches workplace normally")
-	scene.free()
-	# A stale professional route can finish moving, but cannot begin an invalid cycle.
-	scene = Setup.make_scene(self)
-	resident = scene.resident_runtimes[2]
-	work_api(scene, resident)
-	assign_job(scene,resident.data.id,Profession.GATHERER)
-	scene.game_time.debug_next_phase()
-	var old_route = resident.intents.current_intent
-	scene.player_control.assign_profession(resident.data.id, Profession.NONE)
-	check(resident.intents.current_intent == old_route, "Old work route is not forcibly replaced")
-	preload("res://tests/handling_test_step.gd").move_domain(resident,20)
-	check(not resident.decision._work_cycle_active and resident.data.activity == Activity.IDLE, "Arrival after assignment change does not start invalid old work")
+	check(resident.intents.current_intent.reason_id==&"haul_source","Personal action boundary uses the newly assigned available profession")
 	scene.free()
 	# Both haul stages complete safely, then eligibility uses the new assignment.
 	for picked_up in [false, true]:
@@ -181,18 +153,6 @@ func _run() -> void:
 	preload("res://tests/handling_test_step.gd").move_domain(resident,20)
 	check(claimed.state == Job.State.COMPLETED and scene.kitchen_data.resources.get_amount(FOOD) == 1, "Newly assigned porter really delivers, not just UI eligibility")
 	print("Haul proof: new PORTER Anna -> pickup -> assign NONE -> deliver -> no next claim")
-	scene.free()
-	# Transition to another profession starts its work only at the safe boundary.
-	scene = Setup.make_scene(self)
-	resident = scene.resident_runtimes[2]
-	work_api(scene, resident)
-	assign_job(scene,resident.data.id,Profession.GATHERER)
-	scene.game_time.debug_next_phase()
-	preload("res://tests/handling_test_step.gd").move_domain(resident,20)
-	scene.game_time.debug_skip_minutes(45)
-	assign_job(scene,resident.data.id,Profession.PORTER)
-	scene.game_time.debug_skip_minutes(15)
-	check(scene.gatherer_hut_data.resources.get_amount(preload("res://scripts/resource_type.gd").Type.MUSHROOM) == 2 and not resident.decision._work_cycle_active and resident.intents.current_intent.reason_id == &"haul_source", "GATHERER -> PORTER finishes old cycle, then claims new profession work")
 	scene.free()
 	# A newly assigned executor retains the correct forced-drop owner.
 	scene = Setup.make_scene(self)

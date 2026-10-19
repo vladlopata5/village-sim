@@ -153,12 +153,12 @@ func _run() -> void:
 	var gatherer = scene.resident_runtimes[2]
 	gatherer.schedule._phase = "День"
 	gatherer.intents.abort_current(gatherer.intents.current_intent)
-	check(gatherer.schedule.request_work(), "Existing gatherer WORK requests navigation destination")
+	var fungus: Vector2i=scene.build_grid.world_to_cell(Vector3(8.25,0,-8.25))
+	check(scene.mycelium.add_mushrooms(fungus)==1 and scene.player_control.assign_workplace(gatherer.data.id,scene.gatherer_hut_data.id),"Natural stock and explicit hut assignment")
+	check(scene._request_work(gatherer),"Gatherer requests real navigation to natural stock")
 	await walk(gatherer)
-	check(gatherer.data.activity == Activity.WORKING, "Gatherer arrives at hut access and starts WORKING")
-	var progress: int = scene.gatherer_hut_data.production_progress
-	scene.production._on_minute(scene.game_time.total_minutes)
-	check(scene.gatherer_hut_data.production_progress == progress+1, "Production proximity reads the same resolved action point")
+	await walk(gatherer)
+	check(gatherer.data.inventory.amount==0 and scene.mycelium.amount(fungus)==0 and scene.gatherer_hut_data.resources.get_amount(Resources.MUSHROOM)==1,"Canonical movement collects then delivers the same natural mushroom")
 	# Dynamic blockers and location cache updates use the same real main-world service.
 	var nav_start := Coordinates.to_world(Vector2(-600,600))
 	var nav_target := Coordinates.to_world(Vector2(-300,600))

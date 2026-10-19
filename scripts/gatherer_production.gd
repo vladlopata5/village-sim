@@ -1,60 +1,61 @@
 extends Node
-const Purpose = preload("res://scripts/building_slot_purpose.gd").Type
-const EventLog = preload("res://scripts/game_logger.gd")
-var logger: EventLog
-## Mushroom extraction. Work is summed into building-owned progress, never resident-owned.
-const Balance = preload("res://scripts/balance_config.gd")
-const Activity = preload("res://scripts/resident_activity.gd")
-const Profession = preload("res://scripts/resident_profession.gd")
-const BuildingType = preload("res://scripts/building_type.gd")
+## Natural one-unit gathering proposals. Execution belongs to the existing HaulExecutor.
+const Area = preload("res://scripts/building_work_area.gd")
+const Profession = preload("res://scripts/resident_profession.gd").Type
+const Types = preload("res://scripts/building_type.gd").Type
+const Source = preload("res://scripts/resource_source_ref.gd")
 const MUSHROOM = preload("res://scripts/resource_type.gd").Type.MUSHROOM
-const WORK_POSITION_TOLERANCE := 8.0
-signal changed
-var _blocked_buildings: Dictionary = {}
-var additional_buildings: Array = []
+var logger: RefCounted
 var building: RefCounted
-var residents: Array
+var additional_buildings: Array=[]
 var _locations: RefCounted
 var _position_provider: Callable
-var work_assignment_provider: Callable
-func setup(clock: Node, hut: RefCounted, population: Array, locations: RefCounted, position_provider: Callable) -> void:
-	building = hut
-	residents = population
-	_locations = locations
-	_position_provider = position_provider
-	clock.minute_changed.connect(_on_minute)
-func can_work(resident: RefCounted) -> bool:
-	for output in [building] + additional_buildings:
-		if _can_work_at(resident, output): return true
-	return false
-func _can_work_at(resident: RefCounted, output: RefCounted) -> bool:
-	return output != null and output.is_built() and output.type == BuildingType.Type.GATHERER_HUT and resident.profession == Profession.Type.GATHERER and resident.work_location_id == output.id and output.resources.get_available_free_capacity(MUSHROOM) > 0 and _locations.get_position(output.id) is Vector2
-func _contributes(resident: RefCounted, output: RefCounted) -> bool:
-	var assignment: Dictionary = work_assignment_provider.call(resident.id) if work_assignment_provider.is_valid() else {}
-	if assignment.is_empty(): return _can_work_at(resident, output)
-	return assignment.profession == Profession.Type.GATHERER and assignment.location_id == output.id
-
-func _on_minute(_minute: int) -> void:
-	for output in [building] + additional_buildings: _produce(output)
-
-func _produce(output: RefCounted) -> void:
-	if output == null or not output.is_built(): return
-	# Physical/output capacity is checked before adding even one work minute.
-	if output.resources.get_available_free_capacity(MUSHROOM) <= 0:
-		if not _blocked_buildings.get(output.id, false) and logger != null: logger.info(EventLog.PRODUCTION, "%s: производство остановлено — выходной контейнер заполнен" % output.display_name)
-		_blocked_buildings[output.id] = true
-		return
-	_blocked_buildings[output.id] = false
-	var workers := 0
-	var target: Variant = _locations.get_position(output.id)
-	for resident in residents:
-		if not target is Vector2 or not _contributes(resident, output) or resident.activity != Activity.Type.WORKING: continue
-		var position: Variant = _position_provider.call(resident.id)
-		if position is Vector2 and (_locations.at_action(resident.id,output.id,Purpose.WORKER,position,WORK_POSITION_TOLERANCE) if _locations.has_method("at_action") else position.distance_to(target)<=WORK_POSITION_TOLERANCE): workers += 1
-	if workers == 0 and output.production_progress < Balance.GATHERER_WORK_MINUTES_PER_UNIT: return
-	output.production_progress += workers
-	while output.production_progress >= Balance.GATHERER_WORK_MINUTES_PER_UNIT and output.resources.get_available_free_capacity(MUSHROOM) > 0:
-		if not output.resources.add(MUSHROOM, 1): break
-		output.production_progress -= Balance.GATHERER_WORK_MINUTES_PER_UNIT
-		if logger != null: logger.info(EventLog.PRODUCTION, "%s: произведён 1 MUSHROOM" % output.display_name)
-	changed.emit()
+var _service: RefCounted
+var _areas: RefCounted
+var _nature: RefCounted
+var _offers: Dictionary={}
+func setup(_clock: Node, hut: RefCounted, _population: Array, locations: RefCounted, position_provider: Callable) -> void:
+	building=hut;_locations=locations;_position_provider=position_provider
+func bind_nature(model: RefCounted, areas: RefCounted, logistics: RefCounted) -> void:
+	_nature=model;_areas=areas;_service=logistics
+	_service.sources.bind_nature(model)
+	model.availability_changed.connect(_validate_jobs)
+func _exit_tree() -> void:
+	if _service!=null: _service.sources.bind_nature(null)
+func _validate_jobs() -> void:
+	if _service!=null: _service.recalculate() # Owned tasks only; no idle-worker wakeup.
+func workplace(data: RefCounted) -> RefCounted:
+	if data.profession!=Profession.GATHERER or not data.work_area_id.is_empty(): return null
+	for hut in [building]+additional_buildings:
+		if hut!=null and hut.id==data.work_location_id and hut.type==Types.GATHERER_HUT and hut.is_built() and _locations.get_position(hut.id) is Vector2: return hut
+	return null
+func context(data: RefCounted) -> Array:
+	var hut:=workplace(data)
+	if hut==null: return []
+	var area: RefCounted=Area.resolve(hut,_areas)
+	return [data.work_assignment_revision,hut.get_instance_id(),area.id,area.revision,area.center,area.radius]
+func valid(data: RefCounted, identity: Array) -> bool:
+	return not identity.is_empty() and context(data)==identity
+func find_source(data: RefCounted) -> RefCounted:
+	var hut:=workplace(data)
+	if _nature==null or hut==null or hut.resources.get_available_free_capacity(MUSHROOM)<1: return null
+	var origin: Variant=_position_provider.call(data.id)
+	if not origin is Vector2: return null
+	var stamp: Array=context(data)+[origin,_nature.revision,_locations.navigation.revision, hut.resources.get_available_free_capacity(MUSHROOM)]
+	var previous: Dictionary=_offers.get(data.id,{})
+	if previous.get("stamp",[])==stamp: return previous.source
+	var area: RefCounted=Area.resolve(hut,_areas)
+	var candidates: Array=[]
+	for cell in _nature.mushroom_cells():
+		var id: StringName=_nature.source_id(cell)
+		var point: Vector2=_nature.position(id)
+		if _nature.available_amount(id)>0 and area.contains(point): candidates.append({"id":id,"point":point,"distance":origin.distance_squared_to(point)})
+	candidates.sort_custom(func(a,b):return a.distance<b.distance or (a.distance==b.distance and String(a.id)<String(b.id)))
+	var found: RefCounted
+	for candidate in candidates:
+		if _service.sources.reachable(origin,candidate.point) and _service.sources.reachable(candidate.point,_service._point(hut)):
+			found=Source.new(Source.Kind.NATURAL_MUSHROOM,candidate.id);break
+	# Including misses avoids rescanning unchanged unreachable sources at every probe.
+	_offers[data.id]={"stamp":stamp,"source":found}
+	return found
+func can_work(data: RefCounted) -> bool: return find_source(data)!=null

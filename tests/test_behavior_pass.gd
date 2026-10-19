@@ -32,7 +32,7 @@ func _run() -> void:
 	var scene = Setup.make_scene(self)
 	var resident = scene.resident_runtimes[2]
 	resident.data.work_location_id = scene.gatherer_hut_data.id
-	resident.decision.work_available = scene.production.can_work.bind(resident.data)
+	resident.decision.work_available = func(): return true # Generic schedule decision boundary, independent of natural stock.
 	listen(scene)
 	scene.game_time.total_minutes = 434
 	var before: int = resident.decision.decision_count
@@ -72,7 +72,7 @@ func _run() -> void:
 	resident.decision.request_decision()
 	resident.data.get_need(Type.LEISURE).value = 0
 	resident.data.work_location_id = scene.gatherer_hut_data.id
-	resident.decision.work_available = scene.production.can_work.bind(resident.data)
+	resident.decision.work_available = func(): return true # Generic schedule decision boundary, independent of natural stock.
 	before = resident.decision.decision_count
 	listen(scene)
 	scene.game_time.debug_skip_minutes(30)
@@ -124,7 +124,7 @@ func _run() -> void:
 	resident.intents.cancel_current(resident.intents.current_intent)
 	resident.decision.request_decision()
 	resident.data.work_location_id = scene.gatherer_hut_data.id
-	resident.decision.work_available = scene.production.can_work.bind(resident.data)
+	resident.decision.work_available = func(): return true # Generic schedule decision boundary, independent of natural stock.
 	scene.game_time.total_minutes = 419
 	before = resident.decision.decision_count
 	scene.game_time.debug_skip_minutes(1)

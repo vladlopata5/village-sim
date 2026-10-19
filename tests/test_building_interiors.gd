@@ -123,8 +123,8 @@ func run() -> void:
 	camera.set_zoom_distance(camera_distance)
 	world.resident_selection.clear()
 	var old_progress: int=gather.production_progress
-	world.production._produce(gather)
-	check(gather.production_progress==old_progress+4,"Production uses physical Worker occupancy, not entrance proximity")
+	world.game_time.minute_changed.emit(world.game_time.total_minutes+1)
+	check(gather.production_progress==old_progress and gather.resources.get_amount(Resources.MUSHROOM)==0,"Interior WORKER occupancy cannot create virtual mushrooms")
 	for actor in population.slice(0,4): reset(actor)
 	check(world.world_locations.get_view(gather.id).inside_count==0,"Final exit returns opaque material")
 	# Event-driven WORKER wait: a transient physical occupant may outlive assignment.

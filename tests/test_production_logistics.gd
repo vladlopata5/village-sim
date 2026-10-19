@@ -88,14 +88,13 @@ func _run():
 	scene.resident_selection.select(gatherer.data)
 	scene.resident_card_view()._refresh()
 	check(scene.resident_card_view().profession_label.text == "Профессия: Собиратель", "Fedor's card reads gatherer profession")
+	# This domain fixture isolates the unchanged two-leg transport of a prepared
+	# ingredient. The full nature -> gatherer -> hut -> cook chain is exercised in
+	# test_mushroom_cooking with canonical 3D movement and real collection timers.
+	gatherer.decision._deciding=true
 	scene.game_time.debug_next_phase()
-	check(gatherer.data.activity == Activity.MOVING and scene.gatherer_hut_data.production_progress == 0, "Walking to work is not production")
-	preload("res://tests/handling_test_step.gd").move_domain(gatherer,20)
-	check(gatherer.data.activity == Activity.WORKING, "Physical arrival starts actual WORKING")
-	carrier.decision._next_decision_at = scene.game_time.total_minutes + 60
-	scene.game_time.debug_skip_minutes(30)
-	check(scene.gatherer_hut_data.resources.get_amount(MUSHROOM) == 1 and scene.warehouse_data.resources.get_amount(MUSHROOM) == 0 and scene.kitchen_data.resources.get_amount(MUSHROOM) == 0, "Produced MUSHROOM exists only in hut, never globally")
-	check(scene.logistics.jobs.is_empty() and scene.gatherer_hut_data.resources.get_reserved_out(MUSHROOM) == 0, "Production offers export without forcing porter movement")
+	check(scene.gatherer_hut_data.resources.add(MUSHROOM,1),"One prepared ingredient for the existing transport scenario")
+	check(scene.logistics.jobs.is_empty() and scene.gatherer_hut_data.resources.get_reserved_out(MUSHROOM)==0,"Stock availability does not force an idle porter to search")
 	gatherer.intents.abort_current(gatherer.intents.current_intent) # Isolate the produced unit during forty handling minutes.
 	gatherer.decision._deciding = true # Keep the isolated produced unit unchanged.
 	carrier.decision.request_decision("test_work_point")

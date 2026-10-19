@@ -34,13 +34,6 @@ func site_in(scene: Node):
 func become(scene: Node, actor: Node, profession: int) -> void:
 	scene.player_control.assign_profession(actor.data.id, profession)
 func arrive(actor: Node) -> void: preload("res://tests/handling_test_step.gd").move_domain(actor,100)
-func start_gathering(scene: Node, actor: Node) -> void:
-	actor.data.work_location_id = scene.gatherer_hut_data.id
-	actor.decision.work_available = scene.production.can_work.bind(actor.data)
-	actor.schedule.request_work()
-	arrive(actor)
-	actor.decision.work_available = func(): return false
-	check(actor.decision._work_cycle_active, "Gatherer starts actual committed cycle")
 func _run() -> void:
 	check(Balance.SKILL_XP_PER_LEVEL == 10 and Balance.MAX_SKILL_LEVEL == 10, "Prototype progression constants")
 	for pair in [[0,0], [9,0], [10,1], [19,1], [20,2], [99,9], [100,10], [150,10]]:
@@ -60,34 +53,14 @@ func _run() -> void:
 	for runtime in scene.resident_runtimes:
 		for skill in Skill.Type.values(): check(runtime.data.get_skill_xp(skill) == 0, "Starting residents receive no profession XP")
 	var actor = scene.resident_runtimes[2]
-	start_gathering(scene, actor)
-	check(actor.data.get_skill_xp(Skill.Type.GATHERING) == 0, "Starting cycle grants no XP")
-	scene.game_time.debug_skip_minutes(59)
-	check(actor.data.get_skill_xp(Skill.Type.GATHERING) == 0, "Production before full cycle grants no XP")
-	scene.game_time.debug_skip_minutes(1)
-	check(actor.data.get_skill_xp(Skill.Type.GATHERING) == 1, "Completed gatherer cycle grants exactly one XP")
-	check(scene.gatherer_hut_data.resources.get_amount(preload("res://scripts/resource_type.gd").Type.MUSHROOM) == 2, "Unchanged two mushrooms per cycle gives no extra XP")
-	start_gathering(scene, actor)
-	scene.game_time.debug_skip_minutes(60)
-	check(actor.data.get_skill_xp(Skill.Type.GATHERING) == 2, "Second full cycle grants one additional XP")
-	start_gathering(scene, actor)
-	scene.game_time.debug_skip_minutes(27)
-	actor.commands.move_to(Vector2(200, 0))
-	check(actor.data.get_skill_xp(Skill.Type.GATHERING) == 2, "Interrupted gatherer cycle grants no XP")
-	become(scene, actor, Profession.Type.BUILDER)
-	actor.data.add_skill_xp(Skill.Type.CONSTRUCTION, 4)
-	become(scene, actor, Profession.Type.GATHERER)
-	check(actor.data.get_skill_xp(Skill.Type.GATHERING) == 2 and actor.data.get_skill_xp(Skill.Type.CONSTRUCTION) == 4, "Profession switch preserves all XP")
+	# Physical GATHERING XP is checked on completed/cancelled canonical trips in
+	# test_gatherer_physical; virtual indoor production no longer exists.
+	check(not scene.production.can_work(actor.data),"No natural stock means no gathering or unearned XP")
+	become(scene,actor,Profession.Type.BUILDER)
+	actor.data.add_skill_xp(Skill.Type.CONSTRUCTION,4)
+	become(scene,actor,Profession.Type.GATHERER)
+	check(actor.data.get_skill_xp(Skill.Type.CONSTRUCTION)==4 and actor.data.get_skill_xp(Skill.Type.GATHERING)==0,"Profession changes preserve independent skills")
 	scene.free()
-	# Profession at the start of a committed gatherer cycle determines its skill.
-	scene = scenario()
-	actor = scene.resident_runtimes[2]
-	start_gathering(scene, actor)
-	become(scene, actor, Profession.Type.NONE)
-	scene.game_time.debug_skip_minutes(60)
-	check(actor.data.get_skill_xp(Skill.Type.GATHERING) == 1, "Safe committed cycle awards gathering after profession switch")
-	scene.free()
-
 	for interrupted in [false, true]:
 		scene = scenario()
 		var cycle_site = site_in(scene)
@@ -186,14 +159,11 @@ func _run() -> void:
 	check(candidates.size() == high.size() and candidates[0].porter_score == high[0].porter_score, "Skill level does not affect porter score")
 	scene.free()
 	# Critical needs interrupt through the same cleanup and never award unfinished work.
-	for profession in [Profession.Type.GATHERER, Profession.Type.BUILDER, Profession.Type.PORTER]:
+	for profession in [Profession.Type.BUILDER, Profession.Type.PORTER]:
 		scene = scenario()
 		actor = scene.resident_runtimes[1]
 		become(scene, actor, profession)
-		if profession == Profession.Type.GATHERER:
-			start_gathering(scene, actor)
-			scene.game_time.debug_skip_minutes(27)
-		elif profession == Profession.Type.BUILDER:
+		if profession == Profession.Type.BUILDER:
 			site = site_in(scene)
 			site.add_delivered_material(PLANK, site.get_required_amount(PLANK))
 			actor.builder.request_work()
@@ -206,14 +176,6 @@ func _run() -> void:
 		for skill in Skill.Type.values(): check(actor.data.get_skill_xp(skill) == 0, "Critical interruption awards no unfinished XP")
 		if profession == Profession.Type.BUILDER: check(site.construction_progress == 27, "Critical interrupt keeps partial progress without XP")
 		scene.free()
-	# Level ten has the same gatherer output and cycle duration as level zero.
-	scene = scenario()
-	actor = scene.resident_runtimes[2]
-	actor.data.add_skill_xp(Skill.Type.GATHERING, 100)
-	start_gathering(scene, actor)
-	scene.game_time.debug_skip_minutes(60)
-	check(scene.gatherer_hut_data.resources.get_amount(preload("res://scripts/resource_type.gd").Type.MUSHROOM) == 2 and actor.data.get_skill_xp(Skill.Type.GATHERING) == 101, "Level ten has unchanged gatherer cycle/output and continues storing XP")
-	scene.free()
 	# Only a level increase is INFO; each +1 is DEBUG when debugging is enabled.
 	scene = scenario()
 	scene.game_logger.debug_enabled = true

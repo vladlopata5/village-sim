@@ -117,7 +117,7 @@ func _refresh() -> void:
 	if _control != null and _building.is_built() and _building.definition.porter_capacity > 0:
 		resource_lines.append("Носильщики: %d / %d" % [porter_snapshot.size(),_building.definition.porter_capacity])
 	production_section.visible = _building.is_built() and _building.type == Types.Type.GATHERER_HUT
-	production_label.text = "%s • прогресс: %d / %d рабочих минут" % [ResourceType.display_name(ResourceType.Type.MUSHROOM), _building.production_progress, Balance.GATHERER_WORK_MINUTES_PER_UNIT]
+	production_label.text = "По 1 грибу за рейс • сбор %d мин • разгрузка %d мин" % [Balance.RESOURCE_LOADING_MINUTES,Balance.RESOURCE_UNLOADING_MINUTES]
 	construction_section.visible = not _building.is_built()
 	_refresh_housing()
 	var materials := PackedStringArray()

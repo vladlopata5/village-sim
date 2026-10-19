@@ -277,12 +277,12 @@ func _run() -> void:
 		elif category == Types.STORAGE:
 			check(site.resources.is_warehouse() and site.resources.get_capacity(FOOD) == 15 and site.resources.get_capacity(PLANK) == 25 and scene.player_control.assign_workplace(scene.residents[1].id, site.id), "Completed warehouse supports shared storage and workplace API")
 		else:
-			check(scene.player_control.assign_workplace(scene.residents[1].id, site.id) and scene.production.can_work(scene.residents[1]), "Completed hut offers gatherer work")
+			check(scene.player_control.assign_workplace(scene.residents[1].id, site.id) and not scene.production.can_work(scene.residents[1]), "Completed hut accepts gatherer assignment but needs natural stock")
 			var gatherer = scene.resident_runtimes[1]
 			gatherer.data.activity = Activity.WORKING
 			gatherer.view.global_position = site.position
 			scene.game_time.debug_skip_minutes(30)
-			check(site.resources.get_amount(preload("res://scripts/resource_type.gd").Type.MUSHROOM) == 1 and site.production_progress == 0, "New hut produces MUSHROOM through existing production observer")
+			check(site.resources.get_amount(preload("res://scripts/resource_type.gd").Type.MUSHROOM) == 0 and site.production_progress == 0, "New hut cannot virtually produce MUSHROOM without natural harvesting")
 		scene.free()
 	print("Builder workflow: %d checks, %d failures" % [checks, failures])
 	quit(1 if failures else 0)

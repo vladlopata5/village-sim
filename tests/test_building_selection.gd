@@ -48,7 +48,7 @@ func run() -> void:
 	check(not card.construction_section.visible and &"production" in card.available_tabs(),"Same selected object updates tabs on BUILT")
 	site.production_progress=17
 	card._process(0.25)
-	check(card.production_label.text.contains("17 / 30"),"Actual production progress")
+	check(card.production_label.text.contains("сбор 10 мин") and card.production_label.text.contains("разгрузка 10 мин") and not card.production_label.text.contains("17 / 30"),"Gatherer card describes physical collection instead of removed virtual progress")
 	selection.select(world.residents[0])
 	check(not card.visible and world.resident_card_view().visible,"Resident replaces building card")
 	world.free()

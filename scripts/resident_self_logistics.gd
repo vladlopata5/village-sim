@@ -34,7 +34,8 @@ func task() -> Dictionary:
 	if place==null or runtime.data.inventory.amount!=0 or world.logistics.get_job(runtime.data.id)!=null: return {}
 	var recipes: Array=place.definition.production_recipes
 	if recipes.is_empty():
-		if world.production.can_work(runtime.data): return {"kind":&"PRODUCTION"}
+		var natural: RefCounted=world.production.find_source(runtime.data)
+		if natural!=null: return {"kind":&"GATHER","source":natural}
 		return _export(place,[preload("res://scripts/resource_type.gd").Type.MUSHROOM])
 	var identity := _stamp(place)
 	if not _offer.is_empty() and _offer_stamp==identity:
@@ -96,10 +97,24 @@ func request_work() -> bool:
 	var candidate := task()
 	_offer={}
 	if candidate.is_empty(): return false
-	if candidate.kind==&"PRODUCTION": return runtime.recipe_work.request_work() if not place.definition.production_recipes.is_empty() else runtime.schedule.request_work()
+	if candidate.kind==&"GATHER":
+		var identity: Array=world.production.context(runtime.data)
+		var valid: Callable=world.production.valid.bind(runtime.data,identity)
+		var eligible: Callable=func(): return _eligible(place.id) and valid.call()
+		var gathering=world.logistics.claim_transport(runtime.data.id,candidate.source,place,preload("res://scripts/resource_type.gd").Type.MUSHROOM,eligible,true,valid,false,0.0,place)
+		if gathering!=null:
+			gathering.finished.connect(_gathering_finished,CONNECT_ONE_SHOT)
+			if world.logistics.start_claimed_job(gathering,runtime.data.id): return true
+		world.logistics.cancel_transport(gathering,"сбор не начался")
+		return false
+	if candidate.kind==&"PRODUCTION": return runtime.recipe_work.request_work()
 	if candidate.kind==&"SUPPLY": return _request_supply(place,candidate)
 	var job=world.logistics.claim_transport(runtime.data.id,candidate.source,candidate.destination,candidate.resource,_eligible.bind(place.id,candidate.source),true,_committed_workplace.bind(place.id))
 	if job==null: return false
 	if world.logistics.start_claimed_job(job,runtime.data.id): return true
 	world.logistics.cancel_job(job)
 	return false
+
+func _gathering_finished(job: RefCounted) -> void:
+	if job.state==job.State.COMPLETED:
+		runtime.data.add_skill_xp(preload("res://scripts/skill_type.gd").Type.GATHERING,1)

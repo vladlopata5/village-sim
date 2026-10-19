@@ -86,11 +86,15 @@ func real_chain() -> void:
 	var cook=world.resident_runtimes[1]
 	var visitor=world.resident_runtimes[0]
 	var replacement=world.resident_runtimes[3]
-	check(world._request_work(gatherer),"Gatherer starts original physical extraction cycle")
+	var fungus: Vector2i=world.build_grid.world_to_cell(Coordinates.to_world(hut.position)+Vector3(-6.25,0,1.25))
+	check(world.mycelium.add_mushrooms(fungus)==1,"One natural raw mushroom enters the physical food-chain fixture")
+	check(world._request_work(gatherer),"Gatherer starts physical natural collection")
 	arrive(gatherer)
-	check(gatherer.data.activity==preload("res://scripts/resident_activity.gd").Type.WORKING and world.building_uses.occupied_by(hut.id,gatherer.data.id,Slots.Purpose.WORKER),"Real hut WORKER contributes actual work")
-	world.game_time.debug_skip_minutes(30)
-	check(hut.resources.get_amount(Resources.MUSHROOM)==1 and hut.resources.get_amount(Resources.FOOD)==0,"Thirty work minutes produce one raw mushroom, never FOOD")
+	check(world.mycelium.amount(fungus)==1 and gatherer.data.inventory.amount==0,"Mushroom stays natural until collection completes")
+	world.game_time.debug_skip_minutes(10)
+	check(world.mycelium.amount(fungus)==0 and gatherer.data.inventory.amount==1,"Ten minutes transfer the natural mushroom into cargo")
+	arrive(gatherer);world.game_time.debug_skip_minutes(10)
+	check(hut.resources.get_amount(Resources.MUSHROOM)==1 and gatherer.data.inventory.amount==0 and hut.resources.get_amount(Resources.FOOD)==0,"Ten-minute unloading delivers one raw mushroom, never FOOD")
 	check(world.food_availability.total()==0,"Raw extraction does not increase ready-food availability")
 	await observe(world,"gathered_mushroom")
 	gatherer.commands.move_to(Vector2(0,500))
@@ -125,6 +129,7 @@ func real_chain() -> void:
 	check(replacement.recipe_work.batch==batch and batch.progress==10 and kitchen.resources.get_amount(Resources.MUSHROOM)==0,"Resume uses the same paid batch, no second ingredient")
 	# Legacy ready FOOD remains edible while production uses another physical role.
 	kitchen.resources.add(Resources.FOOD,1)
+	visitor.need_dynamics._fractions[preload("res://scripts/need_type.gd").Type.HUNGER]=0
 	visitor.data.hunger=80
 	check(visitor.needs.try_eat(10000),"Visitor can eat while Cook owns WORKER")
 	arrive(visitor)
@@ -135,6 +140,7 @@ func real_chain() -> void:
 	world.game_time.debug_skip_minutes(10)
 	check(visitor.data.hunger==20 and kitchen.resources.get_amount(Resources.FOOD)==0,"Old FOOD restores hunger unchanged")
 	check(world.food_availability.total()==2,"Real cooked dishes enters shared ready-food total")
+	visitor.need_dynamics._fractions[preload("res://scripts/need_type.gd").Type.HUNGER]=0
 	visitor.data.hunger=80
 	check(visitor.needs.try_eat(10000) and visitor.needs._meal_selection.concrete_type==Resources.FRIED_MUSHROOM,"Normal F4 selection chooses actual FRIED_MUSHROOM")
 	arrive(visitor)
@@ -144,6 +150,7 @@ func real_chain() -> void:
 	check(visitor.data.hunger==20 and kitchen.production_batches.is_empty() and kitchen.supply.needs.is_empty(),"New dish restores hunger just like FOOD; all production obligations finished")
 	no_reservations(world)
 	idle(gatherer)
+	gatherer.need_dynamics._fractions[preload("res://scripts/need_type.gd").Type.HUNGER]=0
 	gatherer.data.hunger=80
 	check(gatherer.needs.try_eat(10000) and gatherer.needs._meal_selection.concrete_type==Resources.FRIED_MUSHROOM,"Another resident can independently claim the second produced portion")
 	arrive(gatherer);world.game_time.debug_skip_minutes(30)
@@ -165,6 +172,7 @@ func split_meal_and_export() -> void:
 	arrive(cook)
 	world.game_time.debug_skip_minutes(30)
 	check(kitchen.resources.get_amount(Resources.FRIED_MUSHROOM)==2 and kitchen.resources.get_amount(Resources.MUSHROOM)==0,"One actual kitchen batch produces two independent portions")
+	visitor.need_dynamics._fractions[preload("res://scripts/need_type.gd").Type.HUNGER]=0
 	visitor.data.hunger=80
 	check(visitor.needs.try_eat(10000),"Visitor reserves one portion before export")
 	arrive(visitor)
@@ -208,6 +216,7 @@ func supply_and_food_edges() -> void:
 	check(cook.data.inventory.resource_type==Resources.MUSHROOM and cook.data.inventory.amount==1 and hut.resources.get_amount(Resources.MUSHROOM)==1 and kitchen.supply.needs.is_empty(),"OFF/FAILED preserves carried mushroom without return or destruction")
 	no_reservations(world)
 	var visitor=world.resident_runtimes[0]
+	visitor.need_dynamics._fractions[preload("res://scripts/need_type.gd").Type.HUNGER]=0
 	visitor.data.hunger=80
 	kitchen.resources.add(Resources.MUSHROOM,1)
 	Stacks.create(world.ground_resources,Resources.MUSHROOM,1,visitor.view.get_sim_position())
@@ -219,6 +228,7 @@ func supply_and_food_edges() -> void:
 	# A fresh clock/need accumulator isolates one ground meal from the prior loaded-cancel test.
 	world=quiet_world()
 	visitor=world.resident_runtimes[0]
+	visitor.need_dynamics._fractions[preload("res://scripts/need_type.gd").Type.HUNGER]=0
 	visitor.data.hunger=80
 	Stacks.create(world.ground_resources,Resources.MUSHROOM,1,visitor.view.get_sim_position())
 	var ready=Stacks.create(world.ground_resources,Resources.FRIED_MUSHROOM,2,visitor.view.get_sim_position()+Vector2(12.5,0))

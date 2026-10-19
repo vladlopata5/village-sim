@@ -1,6 +1,6 @@
 extends RefCounted
 ## Stable identity only. Amount/type/position always resolve from domain data.
-enum Kind { CONTAINER, GROUND }
+enum Kind { CONTAINER, GROUND, NATURAL_MUSHROOM }
 var _kind: Kind
 var _id: StringName
 var kind: Kind:

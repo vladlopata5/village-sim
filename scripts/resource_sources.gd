@@ -5,6 +5,12 @@ const GroundAreas = preload("res://scripts/ground_search_areas.gd")
 signal changed
 var buildings: Dictionary = {}
 var locations: RefCounted
+var nature: RefCounted
+func bind_nature(model: RefCounted) -> void:
+	if nature!=null and nature.availability_changed.is_connected(_queue_changed): nature.availability_changed.disconnect(_queue_changed)
+	nature=model
+	if nature!=null: nature.availability_changed.connect(_queue_changed)
+
 var ground: Node
 var route_available: Callable
 var work_object_current: Callable # Existing world registry includes unfinished construction sites.
@@ -17,25 +23,30 @@ func bind_ground(value: Node) -> void:
 func resolve(source_ref: Source) -> Variant:
 	if source_ref == null: return null
 	if source_ref.kind == Source.Kind.CONTAINER: return buildings.get(source_ref.id)
+	if source_ref.kind == Source.Kind.NATURAL_MUSHROOM: return nature.source_cell(source_ref.id) if nature!=null else null
 	if is_instance_valid(ground):
 		return ground.get_by_id(source_ref.id)
 	return null
 func point(source_ref: Source) -> Variant:
 	var entity: Variant = resolve(source_ref)
 	if entity == null: return null
+	if source_ref.kind == Source.Kind.NATURAL_MUSHROOM: return nature.position(source_ref.id)
 	if source_ref.kind == Source.Kind.GROUND: return entity.world_position
 	return (locations.get_resource_position(entity.id) if locations.has_method("get_resource_position") else locations.get_position(entity.id)) if locations != null else entity.position
 func label(source_ref: Source) -> String:
+	if source_ref.kind == Source.Kind.NATURAL_MUSHROOM: return "природные грибы (%s)" % source_ref.id
 	var entity: Variant = resolve(source_ref)
 	return "земля (%s)" % source_ref.id if source_ref.kind == Source.Kind.GROUND else (entity.display_name if entity != null else String(source_ref.id))
 func export_allowed(source_ref: Source, resource: int) -> bool:
 	var entity: Variant = resolve(source_ref)
 	if entity == null: return false
+	if source_ref.kind == Source.Kind.NATURAL_MUSHROOM: return resource == nature.RESOURCE_TYPE
 	if source_ref.kind == Source.Kind.GROUND: return entity.resource_type == resource
 	return entity.is_built() and entity.definition.allows_external_export(resource) and entity.resources.allows_resource(resource)
 func available(source_ref: Source, resource: int) -> bool:
 	if not export_allowed(source_ref,resource) or not point(source_ref) is Vector2: return false
 	var entity: Variant = resolve(source_ref)
+	if source_ref.kind == Source.Kind.NATURAL_MUSHROOM: return nature.available_amount(source_ref.id)>0
 	return entity.available_amount() > 0 if source_ref.kind == Source.Kind.GROUND else entity.resources.get_available_amount(resource)>0
 func reachable(start: Vector2, target: Vector2) -> bool:
 	return not route_available.is_valid() or route_available.call(start,target)
@@ -46,6 +57,7 @@ func _current_work_object(workplace: RefCounted) -> RefCounted:
 func ground_allowed(source_ref: Source, origin: Variant, workplace: RefCounted = null, area: RefCounted = null, radius_multiplier: float = 1.0) -> bool:
 	if source_ref == null: return false
 	if source_ref.kind == Source.Kind.CONTAINER: return true
+	if source_ref.kind == Source.Kind.NATURAL_MUSHROOM: return false # Dedicated building WorkArea, never loose-ground OR radii.
 	var target: Variant = point(source_ref)
 	# Removed/replaced work objects cannot contribute a stale search circle.
 	var live_workplace: RefCounted = _current_work_object(workplace)
@@ -99,6 +111,7 @@ func find_construction_trip(resource: int, origin: Vector2, destination: Vector2
 func reserve(source_ref: Source, resource: int, owner: StringName) -> bool:
 	if owner.is_empty() or _claims.has(owner) or not available(source_ref,resource): return false
 	var entity: Variant = resolve(source_ref)
+	if source_ref.kind == Source.Kind.NATURAL_MUSHROOM: return nature.reserve(source_ref.id,owner)
 	if source_ref.kind == Source.Kind.GROUND: return entity.reserve(owner)
 	# Record ownership before synchronous reserve callbacks observe the ledger.
 	_claims[owner] = {"source":source_ref,"resource":resource}
@@ -110,6 +123,7 @@ func reserve(source_ref: Source, resource: int, owner: StringName) -> bool:
 func reserved(source_ref: Source, resource: int, owner: StringName) -> bool:
 	var entity: Variant = resolve(source_ref)
 	if entity == null or not export_allowed(source_ref,resource): return false
+	if source_ref.kind == Source.Kind.NATURAL_MUSHROOM: return nature.reserved(source_ref.id,owner)
 	if source_ref.kind == Source.Kind.GROUND: return entity.reserved_amount(owner)>=1
 	var claim: Dictionary = _claims.get(owner,{})
 	if claim.is_empty() or claim.source.stable_key()!=source_ref.stable_key() or claim.resource!=resource: return false
@@ -120,6 +134,7 @@ func reserved(source_ref: Source, resource: int, owner: StringName) -> bool:
 func pickup(source_ref: Source, resource: int, owner: StringName) -> bool:
 	if not reserved(source_ref,resource,owner): return false
 	var entity: Variant = resolve(source_ref)
+	if source_ref.kind == Source.Kind.NATURAL_MUSHROOM: return nature.take_reserved(source_ref.id,owner)
 	if source_ref.kind == Source.Kind.GROUND: return ground.take_reserved(entity,owner)
 	var claim: Dictionary = _claims[owner]
 	_claims.erase(owner)
@@ -133,7 +148,9 @@ func release(source_ref: Source, resource: int, owner: StringName, reserved_enti
 	# The caller retains the original object only until owned rollback completes.
 	var entity: Variant = reserved_entity if reserved_entity != null else resolve(source_ref)
 	if source_ref == null: return
-	if source_ref.kind == Source.Kind.GROUND:
+	if source_ref.kind == Source.Kind.NATURAL_MUSHROOM:
+		if nature!=null: nature.release(source_ref.id,owner)
+	elif source_ref.kind == Source.Kind.GROUND:
 		if entity != null: entity.release(owner)
 	else:
 		var claim: Dictionary = _claims.get(owner,{})

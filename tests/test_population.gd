@@ -62,7 +62,7 @@ func _run():
 	check(scene.logistics.current_job.assigned_resident_id == scene.residents[0].id and scene.logistics.current_job.state == Job.State.GOING_TO_SOURCE, "Only assigned porter starts logistics")
 	for runtime in [scene.resident_runtimes[1], scene.resident_runtimes[3]]:
 		check(runtime.data.profession == Profession.Type.NONE and runtime.data.work_location_id.is_empty() and runtime.data.activity == Activity.Type.IDLE, "Residents without work stay idle by day")
-	check(scene.residents[2].profession == Profession.Type.GATHERER and scene.residents[2].work_location_id == scene.gatherer_hut_data.id and scene.residents[2].activity == Activity.Type.MOVING, "Fedor goes to his assigned gatherer hut")
+	check(scene.residents[2].profession == Profession.Type.GATHERER and scene.residents[2].work_location_id == scene.gatherer_hut_data.id and scene.residents[2].activity == Activity.Type.IDLE, "Assigned gatherer waits when no natural stock exists")
 	for delivery in range(5):
 		preload("res://tests/handling_test_step.gd").move_domain(scene.resident_runtimes[0],20.0)
 		preload("res://tests/handling_test_step.gd").move_domain(scene.resident_runtimes[0],20.0)
@@ -85,7 +85,7 @@ func _run():
 	preload("res://tests/handling_test_step.gd").move_domain(scene.resident_runtimes[2],20.0)
 	check(scene.residents[2].activity == Activity.Type.EATING, "Non-porter eats at shared kitchen")
 	clock.debug_skip_minutes(30)
-	check(scene.residents[2].hunger < 70 and scene.kitchen_data.resources.get_amount(FOOD) == 4 and scene.residents[2].activity == Activity.Type.MOVING, "Common food is consumed for the correct resident")
+	check(scene.residents[2].hunger < 70 and scene.kitchen_data.resources.get_amount(FOOD) == 4 and scene.residents[2].activity == Activity.Type.IDLE, "Common food is consumed for the correct resident, then gathering stays unavailable")
 	# Isolate night sleep from both hunger and new Day jobs during Shift+3 jumps.
 	preload("res://tests/resident_test_setup.gd").unbind_work(scene)
 	for runtime in scene.resident_runtimes:

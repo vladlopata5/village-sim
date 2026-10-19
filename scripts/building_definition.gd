@@ -103,6 +103,8 @@ static func for_type(category: BuildingType.Type, label: String = ""):
 	if category == BuildingType.Type.GATHERER_HUT: result.worker_capacity = Balance.GATHERER_WORKER_CAPACITY
 	if category == BuildingType.Type.GATHERER_HUT:
 		result.resource_capacities = {ResourceType.Type.MUSHROOM:Balance.GATHERER_OUTPUT_CAPACITY}
+		result.internal_resources = [ResourceType.Type.MUSHROOM]
+		result.work_radius = Balance.LUMBERJACK_WORK_RADIUS
 	if category == BuildingType.Type.FOOD:
 		result.visitor_capacity = 4
 		result.worker_capacity = Balance.KITCHEN_WORKER_CAPACITY

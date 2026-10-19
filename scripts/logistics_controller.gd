@@ -104,7 +104,7 @@ func _on_source_quotas_changed(building_id: StringName) -> void:
 		if active.admission == HaulJob.Admission.SURPLUS and active.source_location_id == building_id: _validate_surplus_job(active)
 func _on_work_assignment_changed(resident_id: String) -> void:
 	var active := get_job(resident_id)
-	if active != null and active.admission == HaulJob.Admission.SURPLUS: _validate_surplus_job(active)
+	if active != null and (active.admission == HaulJob.Admission.SURPLUS or active.source_ref.kind==Source.Kind.NATURAL_MUSHROOM): _validate_surplus_job(active)
 func _validate_surplus_job(active: HaulJob) -> void:
 	var executor = _executors.get(active.assigned_resident_id)
 	if executor != null and executor.job == active: executor.validate_job()
@@ -429,6 +429,9 @@ func claim_transport(resident_id: String, source_ref: Source, destination: Build
 	var resident: ResidentData = _residents.get(resident_id)
 	var executor = _executors.get(resident_id)
 	if _claiming or resident==null or (executor!=null and not executor.can_start()) or get_job(resident_id)!=null or not eligibility.call(): return null
+	# Natural stock is admitted only to its explicitly assigned gatherer hut.
+	if source_ref!=null and source_ref.kind==Source.Kind.NATURAL_MUSHROOM:
+		if internal_workplace==null or internal_workplace.type!=BuildingType.Type.GATHERER_HUT or resident.profession!=Profession.Type.GATHERER: return null
 	var ground := receiver == HaulJob.Receiver.GROUND
 	if receiver not in HaulJob.Receiver.values() or (ground and not surplus_export): return null
 	var assignment_revision := resident.work_assignment_revision

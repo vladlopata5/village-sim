@@ -204,8 +204,8 @@ func _run() -> void:
 	# Add while WORKING: wait for a real cycle boundary, building progress retained.
 	scene = assignment_scene()
 	actor = scene.resident_runtimes[2]
-	actor.decision.work_available = scene._work_available.bind(actor)
-	actor.decision.work_request = scene._request_work.bind(actor)
+	actor.decision.work_available = func():return true # Generic 60-minute action boundary; physical gathering is separate.
+	actor.decision.work_request = actor.schedule.request_work
 	actor.schedule.work_decision = actor.decision.request_decision
 	scene.player_control.assign_workplace(actor.data.id, scene.gatherer_hut_data.id)
 	scene.game_time.debug_next_phase()
@@ -222,7 +222,7 @@ func _run() -> void:
 	var progress: int = scene.gatherer_hut_data.production_progress
 	scene.game_time.debug_skip_minutes(1)
 	check(first.state == Assignment.State.ACTIVE and actor.decision.decision_count == count + 1, "Next work-cycle decision selects assignment through UtilitySelector")
-	check(scene.gatherer_hut_data.production_progress == progress + 1, "Last worked minute adds contribution; taking assignment never resets building progress")
+	check(scene.gatherer_hut_data.production_progress == progress, "Assignment leaves unrelated non-recipe building progress untouched")
 	scene.free()
 	# Existing critical bypass stays unchanged; interrupted persistent request requeues.
 	scene = assignment_scene()

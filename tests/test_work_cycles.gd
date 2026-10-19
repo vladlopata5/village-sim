@@ -17,7 +17,7 @@ func _run() -> void:
 			var scene = Setup.make_scene(self)
 			var resident = scene.resident_runtimes[2]
 			resident.data.work_location_id = scene.gatherer_hut_data.id
-			resident.decision.work_available = scene.production.can_work.bind(resident.data)
+			resident.decision.work_available = func(): return true # Isolate the generic decision-cycle contract; physical gathering is tested separately.
 			scene.gatherer_hut_data.production_progress = 7
 			scene.game_time.set_speed(speed)
 			scene.game_time.debug_next_phase()
@@ -37,7 +37,7 @@ func _run() -> void:
 			scene.game_time.advance(1.0 / speed)
 			check(resident.decision.decision_count > count, "60-minute boundary creates ordinary decision point at every speed")
 			check(resident.intents.current_intent.reason_id == (&"social" if need_type == Type.SOCIAL else &"leisure"), "Seeded normal selector chooses the higher need before next work cycle")
-			check(scene.gatherer_hut_data.resources.get_amount(preload("res://scripts/resource_type.gd").Type.MUSHROOM) == 2 and scene.gatherer_hut_data.production_progress == 7, "60 work minutes produce two mushrooms; building's remainder survives break")
+			check(scene.gatherer_hut_data.resources.get_amount(preload("res://scripts/resource_type.gd").Type.MUSHROOM) == 0 and scene.gatherer_hut_data.production_progress == 7, "Generic WORKING never creates virtual mushrooms")
 			scene.game_time.debug_skip_minutes(1)
 			check(scene.gatherer_hut_data.production_progress == 7, "Break contributes no production and does not reset progress")
 			print("Work-cycle proof: 59 min WORKING -> 60 min decision -> ", "SOCIAL" if need_type == Type.SOCIAL else "LEISURE", "; building progress retained")
@@ -45,14 +45,14 @@ func _run() -> void:
 	var restarted_scene = Setup.make_scene(self)
 	var restarted_resident = restarted_scene.resident_runtimes[2]
 	restarted_resident.data.work_location_id = restarted_scene.gatherer_hut_data.id
-	restarted_resident.decision.work_available = restarted_scene.production.can_work.bind(restarted_resident.data)
+	restarted_resident.decision.work_available = func(): return true
 	restarted_scene.game_time.debug_next_phase()
 	restarted_resident.view._process(20)
 	restarted_scene.game_time.debug_skip_minutes(60)
 	check(restarted_resident.data.activity == Activity.WORKING and restarted_resident.decision._work_cycle_ends_at == restarted_scene.game_time.total_minutes + 60, "Work can win again and start the next cycle")
 	restarted_resident.data.fatigue = 100
 	check(restarted_resident.data.activity == Activity.SLEEPING and not restarted_resident.decision._work_cycle_active, "Forced fatigue interrupts the new work cycle immediately")
-	check(restarted_scene.kitchen_data.resources.get_capacity(FOOD) == 20 and Balance.GATHERER_WORK_MINUTES_PER_UNIT == 30, "New FOOD balance")
+	check(restarted_scene.kitchen_data.resources.get_capacity(FOOD) == 20 and Balance.RESOURCE_LOADING_MINUTES == 10 and Balance.RESOURCE_UNLOADING_MINUTES == 10, "Food buffer and physical gathering handling durations")
 	restarted_scene.free()
 	print("Work cycle checks: ", "PASS" if failures == 0 else "FAIL")
 	quit(0 if failures == 0 else 1)

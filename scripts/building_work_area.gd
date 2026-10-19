@@ -5,7 +5,7 @@ const Coordinates = preload("res://scripts/world_3d/world_coordinates.gd")
 const Types = preload("res://scripts/building_type.gd").Type
 
 static func supports(building: RefCounted) -> bool:
-	return building != null and building.is_built() and building.type in [Types.LUMBERJACK_HUT,Types.QUARRY]
+	return building != null and building.is_built() and building.type in [Types.LUMBERJACK_HUT,Types.QUARRY,Types.GATHERER_HUT]
 
 static func resolve(building: RefCounted, registry: RefCounted = null) -> RefCounted:
 	if not supports(building): return null

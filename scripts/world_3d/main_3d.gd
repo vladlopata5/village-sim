@@ -249,15 +249,23 @@ func _setup_roads() -> void:
 	_road_button=construction_panel.catalogue.tiles[&"dirt_road"]
 func _setup_mycelium() -> void:
 	mycelium.allowed=_mushroom_cell_allowed
-	# One authored irregular patch; holes are deliberate, not a world generator.
+	# Fixed-seed sampling without replacement, stratified across the authored territory.
+	# Each of 30 consecutive bands contributes one of the original 150 cells.
+	var original: Array=authored_mycelium_cells()
+	var random:=RandomNumberGenerator.new();random.seed=Balance.MUSHROOM_GROWTH_SEED
+	for band in range(30): mycelium.add_mycelium(original[band*5+random.randi_range(0,4)])
+	production.bind_nature(mycelium,work_areas,logistics)
+	$World.add_child(mycelium_view);mycelium_view.setup(mycelium)
+	add_child(mushroom_growth);mushroom_growth.setup(mycelium,game_time,Balance.MUSHROOM_GROWTH_SEED)
+	roads.changed.connect(_clear_road_mushrooms)
+func authored_mycelium_cells() -> Array:
+	var result: Array=[]
 	var origin: Vector2i=build_grid.world_to_cell(Vector3(-5.75,0,1.25))
 	var spans: Array=[[-4,-1],[-7,3],[-8,7],[-9,8],[-8,9],[-9,8],[-7,10],[-8,9],[-6,7],[-4,6],[-3,3]]
 	for y in spans.size():
 		for x in range(spans[y][0],spans[y][1]+1):
-			if Vector2i(x,y) not in [Vector2i(-1,3),Vector2i(3,6),Vector2i(-4,7)]:mycelium.add_mycelium(origin+Vector2i(x,y))
-	$World.add_child(mycelium_view);mycelium_view.setup(mycelium)
-	add_child(mushroom_growth);mushroom_growth.setup(mycelium,game_time,Balance.MUSHROOM_GROWTH_SEED)
-	roads.changed.connect(_clear_road_mushrooms)
+			if Vector2i(x,y) not in [Vector2i(-1,3),Vector2i(3,6),Vector2i(-4,7)]: result.append(origin+Vector2i(x,y))
+	return result
 func _mushroom_cell_allowed(cell: Vector2i) -> bool:
 	return mycelium.in_bounds(cell) and build_grid.occupant(cell).is_empty() and not roads.contains(cell) and ground_resources.get_at(cell)==null and not runtime_placement_blockers.static_cell_occupied(cell,build_grid)
 func _clear_road_mushrooms() -> void:
@@ -940,9 +948,11 @@ func _flush_work_update(id: String) -> void:
 		if is_instance_valid(runtime) and is_instance_valid(runtime.decision) and runtime.data.id == id and not runtime.intents.has_current_action(): runtime.decision.request_decision("work_assignment")
 var _work_area_versions: Dictionary = {}
 func _building_work_area_updated(building_id: StringName) -> void:
+	logistics.recalculate() # Cancel invalid accepted gathering; never wake idle gatherers.
 	for runtime in resident_runtimes:
 		if runtime.data.profession in [Profession.Type.LUMBERJACK,Profession.Type.MINER] and runtime.data.work_location_id == building_id: _work_assignment_updated(runtime.data.id)
 func _work_areas_updated() -> void:
+	logistics.recalculate()
 	# Creating an unrelated, unassigned area is presentation, not an AI wake-up.
 	var versions: Dictionary = {}
 	var changed: Dictionary = {}

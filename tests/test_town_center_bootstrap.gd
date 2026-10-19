@@ -100,14 +100,13 @@ func run() -> void:
 	center.resources.release_out(R.LOG,held_logs)
 	for drop in world.ground_resources.drops: drop.release(&"bootstrap_competitor")
 	builder.intents.abort_current(builder.intents.current_intent)
-	check(world.player_control.assign_workplace(builder.data.id,gather.id) and world._request_work(builder),"Gatherer begins normal work at player-built Hut")
-	walk(builder)
-	world.game_time.debug_skip_minutes(Balance.WORK_CYCLE_MINUTES)
-	for cycle in range(2):
-		check(world._request_work(builder),"Next Gatherer cycle goes through ordinary work decision")
-		walk(builder)
-		world.game_time.debug_skip_minutes(Balance.WORK_CYCLE_MINUTES)
-	check(gather.resources.get_amount(R.MUSHROOM)==5,"Gatherer unchanged production fills five-unit output")
+	check(world.player_control.assign_workplace(builder.data.id,gather.id),"Player-built Hut accepts explicit gatherer assignment")
+	var fungus: Vector2i=world.build_grid.world_to_cell(preload("res://scripts/world_3d/world_coordinates.gd").to_world(gather.position)+Vector3(-6.25,0,1.25))
+	for trip in range(5):
+		world.game_time.total_minutes=420;builder.schedule._phase="День"
+		check(world.mycelium.add_mushrooms(fungus)==1 and world._request_work(builder),"Gatherer accepts one real natural mushroom per trip")
+		walk(builder);walk(builder)
+	check(gather.resources.get_amount(R.MUSHROOM)==5,"Five physical trips fill the unchanged five-unit output")
 	builder.intents.abort_current(builder.intents.current_intent)
 	check(not world._request_work(builder),"Zero Town Center mushroom quota prevents another self-export")
 	check(world.player_control.set_warehouse_category_quota(center.id,C.PLANK,59).ok and world.player_control.set_warehouse_category_quota(center.id,C.MUSHROOM,1).ok,"Player reallocates one quota slot for the next mushroom delivery")

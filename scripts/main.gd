@@ -60,7 +60,7 @@ func _ready() -> void:
 	fallback_housing.setup(buildings,world_locations)
 	_create_starting_buildings()
 	food_availability.setup(buildings, world_locations)
-	# Account for the elapsed work minute before residents choose their next action.
+	# Shared natural gathering selection; resource work is executed physically.
 	add_child(production)
 	production.setup(game_time, gatherer_hut_data, residents, world_locations, _production_position_2d)
 	_create_test_residents()
@@ -69,7 +69,6 @@ func _ready() -> void:
 	resident_card_view().bind_control(player_control)
 	building_card_view().bind_control(player_control)
 	resident_selection.selection_changed.connect(_update_selection)
-	production.work_assignment_provider = _committed_work_assignment
 	for runtime in resident_runtimes: _bind_resident_control(runtime)
 	add_child(social_world)
 	social_world.position_provider = _resident_position_2d

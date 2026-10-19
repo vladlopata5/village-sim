@@ -64,7 +64,7 @@ func _run() -> void:
 	production.setup(clock, hut, [], preload("res://tests/domain_locations.gd").new(), Callable())
 	count = entries.size()
 	clock.debug_skip_minutes(20)
-	check(entries.size() == count + 1 and entries[-1].contains("контейнер заполнен"), "Full output logged once, not every minute")
+	check(entries.size() == count, "Idle hut has no virtual production or repeated full-output logs")
 	production.free()
 	clock.free()
 	print("Game logger checks: ", "PASS" if failures == 0 else "FAIL")

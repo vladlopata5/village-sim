@@ -58,6 +58,7 @@ func _run() -> void:
 	data.hunger = 75
 	data.fatigue = 50
 	data.mood = 0
+	card._process(0.25) # Mood is polled every 250ms, not on an arbitrary two render frames.
 	paused = true
 	await process_frame
 	await process_frame

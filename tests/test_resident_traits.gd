@@ -171,7 +171,7 @@ func _run() -> void:
 			"work":
 				scene.player_control.assign_profession(actor.data.id, preload("res://scripts/resident_profession.gd").Type.GATHERER)
 				scene.player_control.assign_workplace(actor.data.id,scene.gatherer_hut_data.id,preload("res://scripts/resident_profession.gd").Type.GATHERER)
-				actor.decision.work_available = scene.production.can_work.bind(actor.data)
+				actor.decision.work_available = func():return true # Isolate work-trip movement modifier from source availability.
 				check(actor.schedule.request_work(), "Actual work trip starts")
 			"eat":
 				scene.kitchen_data.resources.add(preload("res://scripts/resource_type.gd").Type.FOOD, 1)

@@ -298,7 +298,7 @@ func _runtime_tests() -> void:
 	actor=scene.resident_runtimes[2]
 	actor.data.work_location_id=scene.gatherer_hut_data.id
 	scene.game_time.debug_next_phase()
-	actor.decision.work_available=func(): return scene.production.can_work(actor.data)
+	actor.decision.work_available=func(): return true # Generic work-cycle social hook; natural gathering has its own physical test.
 	actor.schedule.request_work()
 	actor.view._process(100)
 	check(random.draws==1,"Gatherer actual cycle start hooked")

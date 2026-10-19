@@ -44,68 +44,17 @@ func dispose(f):
 	f.production.free()
 	f.view.free()
 func _run():
-	for speed in [1, 2, 4, 10, 20]:
-		for frames in [1, 30, 120]:
-			var speed_fixture = fixture()
-			speed_fixture.clock.set_speed(speed)
-			paused = true
-			speed_fixture.clock.advance(1000)
-			check(speed_fixture.hut.production_progress == 0 and speed_fixture.hut.resources.get_amount(MUSHROOM) == 0, "Pause produces no progress or MUSHROOM")
-			paused = false
-			for frame in range(frames): speed_fixture.clock.advance(30.0 / speed / frames)
-			check(speed_fixture.hut.resources.get_amount(MUSHROOM) == 1 and speed_fixture.hut.production_progress == 0, "30 actual work minutes make one MUSHROOM, independent of FPS/speed")
-			dispose(speed_fixture)
-	var f = fixture()
-	var data = f.residents[0]
-	for state in [Activity.IDLE, Activity.MOVING, Activity.EATING, Activity.RESTING, Activity.RELAXING, Activity.TALKING, Activity.SLEEPING, Activity.HAULING]:
-		data.activity = state
-		f.clock.debug_skip_minutes(10)
-		check(f.hut.production_progress == 0, "Assigned but not actually WORKING contributes zero")
-	data.activity = Activity.WORKING
-	f.positions[data.id] = Vector2(1000, 1000)
-	f.clock.debug_skip_minutes(10)
-	check(f.hut.production_progress == 0, "Working remotely contributes zero")
-	f.positions[data.id] = f.view.position
-	data.profession = Profession.PORTER
-	f.clock.debug_skip_minutes(10)
-	data.profession = Profession.GATHERER
-	data.work_location_id = &"other"
-	f.clock.debug_skip_minutes(10)
-	check(f.hut.production_progress == 0, "Profession and workplace must both match")
-	data.work_location_id = f.hut.id
-	f.clock.debug_skip_minutes(20)
-	check(f.hut.production_progress == 20 and f.hut.resources.get_amount(MUSHROOM) == 0, "20 minutes remain building-owned progress")
-	data.activity = Activity.EATING
-	f.clock.debug_skip_minutes(100)
-	check(f.hut.production_progress == 20, "Meal preserves progress")
-	data.activity = Activity.WORKING
-	f.clock.debug_skip_minutes(10)
-	check(f.hut.resources.get_amount(MUSHROOM) == 1 and f.hut.production_progress == 0, "Returns and continues from 20/30")
-	# Changing the worker also preserves the same building state.
-	f.hut.production_progress = 20
-	data.profession = Profession.NONE
-	var replacement = Data.new("replacement", "Replacement", 30, Profession.GATHERER)
-	replacement.work_location_id = f.hut.id
-	replacement.activity = Activity.WORKING
-	f.residents.append(replacement)
-	f.positions[replacement.id] = f.view.position
-	f.clock.debug_skip_minutes(10)
-	check(f.hut.resources.get_amount(MUSHROOM) == 2 and f.hut.production_progress == 0, "Replacement worker inherits building progress, not former worker state")
-	f.hut.resources.add(MUSHROOM, 3)
-	f.hut.production_progress = 20
-	f.clock.debug_skip_minutes(100)
-	check(f.hut.production_progress == 20 and f.hut.resources.get_amount(MUSHROOM) == 5, "Full output freezes progress without banking more work")
-	f.hut.resources.try_take(MUSHROOM, 1)
-	f.clock.debug_skip_minutes(10)
-	check(f.hut.resources.get_amount(MUSHROOM) == 5 and f.hut.production_progress == 0, "Freeing capacity resumes saved progress")
-	var unsupported: int = 999
-	check(not f.hut.resources.allows_resource(unsupported) and not f.hut.resources.set_capacity(unsupported, 5) and not f.hut.resources.add(unsupported, 1), "Production output allows only MUSHROOM, without adding a new resource type")
-	dispose(f)
-	f = fixture(2)
-	f.clock.debug_skip_minutes(10)
-	check(f.hut.production_progress == 20, "Two workers add two work minutes per minute")
-	f.clock.debug_skip_minutes(5)
-	check(f.hut.resources.get_amount(MUSHROOM) == 1 and f.hut.production_progress == 0, "Two real workers double production speed")
-	dispose(f)
-	print("Gatherer production checks: ", "PASS" if failures == 0 else "FAIL")
-	quit(0 if failures == 0 else 1)
+	for speed in [1,2,4,10,20]:
+		for workers in [1,4]:
+			var f=fixture(workers)
+			f.clock.set_speed(speed)
+			for data in f.residents:
+				for state in Activity.values():
+					data.activity=state
+					f.clock.advance(60.0/speed)
+			check(f.hut.resources.get_amount(MUSHROOM)==0 and f.hut.production_progress==0,"No activity/speed/worker count virtually creates mushrooms")
+			check(not f.production.can_work(f.residents[0]),"Without bound natural stock there is no gathering work")
+			check(f.hut.resources.get_capacity(MUSHROOM)==5,"Existing five-unit output capacity retained")
+			dispose(f)
+	print("No virtual gatherer production: ","PASS" if failures==0 else "FAIL")
+	quit(1 if failures else 0)

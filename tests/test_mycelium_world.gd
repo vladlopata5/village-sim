@@ -25,7 +25,7 @@ func run() -> void:
 	await physics_frame
 	var land=world.mycelium
 	var original_cells: Array=land.cells()
-	check(original_cells.size()>100 and land.total()==0 and world.buildings.size()==1,"One visible authored land patch, no initial resource or building")
+	check(original_cells.size()==30 and land.total()==0 and world.buildings.size()==1,"One visible authored land patch, no initial resource or building")
 	await observe("initial",Vector3(-5,0,4))
 	var piles: Array=[]
 	for amount_value in range(1,5):
@@ -50,7 +50,7 @@ func run() -> void:
 	for cell in occupied:check(land.amount(cell)==0 and not world._mushroom_cell_allowed(cell),"Whole actual footprint cleared and blocks growth")
 	check(land.total()==0,"All four natural piles removed only after success")
 	await observe("site-cleared",point)
-	var source: Vector2i=occupied[0];check(land.has_mycelium(source),"Source under construction remains in land")
+	var source: Vector2i=occupied.filter(func(cell):return land.has_mycelium(cell))[0];check(land.has_mycelium(source),"Source under construction remains in land")
 	var random=FixedRandom.new();random.choice=4
 	check(not land.attempt(source,random).grew,"Occupied source cannot grow on itself")
 	random.choice=3
