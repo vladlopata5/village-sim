@@ -282,7 +282,7 @@ func _run() -> void:
 			gatherer.data.activity = Activity.WORKING
 			gatherer.view.global_position = site.position
 			scene.game_time.debug_skip_minutes(30)
-			check(site.resources.get_amount(FOOD) == 1 and site.production_progress == 0, "New hut produces FOOD through existing production observer")
+			check(site.resources.get_amount(preload("res://scripts/resource_type.gd").Type.MUSHROOM) == 1 and site.production_progress == 0, "New hut produces MUSHROOM through existing production observer")
 		scene.free()
 	print("Builder workflow: %d checks, %d failures" % [checks, failures])
 	quit(1 if failures else 0)

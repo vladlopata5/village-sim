@@ -35,7 +35,7 @@ func task() -> Dictionary:
 	var recipes: Array=place.definition.production_recipes
 	if recipes.is_empty():
 		if world.production.can_work(runtime.data): return {"kind":&"PRODUCTION"}
-		return _export(place,[preload("res://scripts/resource_type.gd").Type.FOOD])
+		return _export(place,[preload("res://scripts/resource_type.gd").Type.MUSHROOM])
 	var identity := _stamp(place)
 	if not _offer.is_empty() and _offer_stamp==identity:
 		if _offer.kind!=&"SUPPLY" or (world.logistics.sources.available(_offer.source,_offer.resource) and world.logistics.sources.ground_allowed(_offer.source,runtime.view.get_sim_position(),place)): return _offer.duplicate()

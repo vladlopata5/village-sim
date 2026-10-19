@@ -33,6 +33,8 @@ const LOGISTICS_FLOW = {
 		ResourceType.Type.LOG: {"import":true,"export":true},
 		ResourceType.Type.PLANK: {"import":true,"export":true},
 		ResourceType.Type.STONE: {"import":true,"export":true},
+		ResourceType.Type.MUSHROOM: {"import":true,"export":true},
+		ResourceType.Type.FRIED_MUSHROOM: {"import":true,"export":true},
 	},
 	BuildingType.Type.SAWMILL: {
 		ResourceType.Type.LOG: {"import":true,"export":false},
@@ -43,14 +45,17 @@ const LOGISTICS_FLOW = {
 		ResourceType.Type.LOG: {"import":true,"export":true},
 		ResourceType.Type.PLANK: {"import":true,"export":true},
 		ResourceType.Type.STONE: {"import":true,"export":true},
+		ResourceType.Type.MUSHROOM: {"import":true,"export":true},
+		ResourceType.Type.FRIED_MUSHROOM: {"import":true,"export":true},
 	},
-	BuildingType.Type.FOOD: {ResourceType.Type.FOOD:{"import":true,"export":false}},
-	BuildingType.Type.GATHERER_HUT: {ResourceType.Type.FOOD:{"import":false,"export":true}},
+	BuildingType.Type.FOOD: {ResourceType.Type.FOOD:{"import":true,"export":false}, ResourceType.Type.MUSHROOM:{"import":true,"export":false}, ResourceType.Type.FRIED_MUSHROOM:{"import":false,"export":true}},
+	BuildingType.Type.GATHERER_HUT: {ResourceType.Type.MUSHROOM:{"import":false,"export":true}},
 	BuildingType.Type.LUMBERJACK_HUT: {ResourceType.Type.LOG:{"import":false,"export":true}},
 }
 const Profession = preload("res://scripts/resident_profession.gd")
 var worker_profession: int = Profession.Type.NONE
 var internal_resources: Array = []
+var resource_capacities: Dictionary = {} # Optional concrete production buffers, independent of warehouse quotas.
 var production_recipes: Array[Recipe] = []
 var production_recipe: Recipe: # Read-only compatibility for the unchanged single-recipe UI/supply.
 	get: return production_recipes[0] if not production_recipes.is_empty() else null
@@ -93,10 +98,16 @@ static func for_type(category: BuildingType.Type, label: String = ""):
 	var construction: Dictionary = CONSTRUCTION_BALANCE.get(category,{"requirements":{},"minutes":0,"builders":0})
 	var result = load("res://scripts/building_definition.gd").new(ids[category], category, labels[category] if label.is_empty() else label, footprint_size, construction.requirements, construction.minutes, construction.builders, Balance.HOUSE_RESIDENT_CAPACITY if category == BuildingType.Type.HOME else 0)
 
-	result.worker_profession = {BuildingType.Type.QUARRY:Profession.Type.MINER, BuildingType.Type.GATHERER_HUT:Profession.Type.GATHERER, BuildingType.Type.SAWMILL:Profession.Type.SAWYER, BuildingType.Type.LUMBERJACK_HUT:Profession.Type.LUMBERJACK}.get(category,Profession.Type.NONE)
+	result.worker_profession = {BuildingType.Type.FOOD:Profession.Type.COOK, BuildingType.Type.QUARRY:Profession.Type.MINER, BuildingType.Type.GATHERER_HUT:Profession.Type.GATHERER, BuildingType.Type.SAWMILL:Profession.Type.SAWYER, BuildingType.Type.LUMBERJACK_HUT:Profession.Type.LUMBERJACK}.get(category,Profession.Type.NONE)
 	if category == BuildingType.Type.LUMBERJACK_HUT: result.internal_resources = [ResourceType.Type.LOG]
 	if category == BuildingType.Type.GATHERER_HUT: result.worker_capacity = Balance.GATHERER_WORKER_CAPACITY
-	if category == BuildingType.Type.FOOD: result.visitor_capacity = 4
+	if category == BuildingType.Type.GATHERER_HUT:
+		result.resource_capacities = {ResourceType.Type.MUSHROOM:Balance.GATHERER_OUTPUT_CAPACITY}
+	if category == BuildingType.Type.FOOD:
+		result.visitor_capacity = 4
+		result.worker_capacity = Balance.KITCHEN_WORKER_CAPACITY
+		result.resource_capacities = {ResourceType.Type.FOOD:Balance.KITCHEN_FOOD_CAPACITY, ResourceType.Type.MUSHROOM:Balance.KITCHEN_MUSHROOM_CAPACITY, ResourceType.Type.FRIED_MUSHROOM:Balance.KITCHEN_FRIED_MUSHROOM_CAPACITY}
+		result.production_recipes.append(Recipe.new({ResourceType.Type.MUSHROOM:1},{ResourceType.Type.FRIED_MUSHROOM:1},Balance.KITCHEN_WORK_MINUTES,&"fried_mushroom"))
 	result.is_storage = category in [BuildingType.Type.STORAGE,BuildingType.Type.TOWN_CENTER]
 	if category == BuildingType.Type.TOWN_CENTER:
 		result.fallback_housing_capacity = Balance.TOWN_CENTER_FALLBACK_CAPACITY

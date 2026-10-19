@@ -35,6 +35,9 @@ func building(world: Node, type: int, point: Vector3, built: bool = true):
 	var result = B.new(StringName("food_test_%d" % world.buildings.size()),Def.for_type(type),C.to_sim(point),B.State.BUILT if built else B.State.UNDER_CONSTRUCTION)
 	world.buildings.append(result)
 	world._show_building(result)
+	if type==T.SAWMILL: # Stored legacy food at another producer; not a FOOD recipe.
+		result.resources.set_allowed_resource_types([])
+		result.resources.set_capacity(R.FOOD,5)
 	return result
 func empty(world: Node) -> void:
 	for place in world.buildings: place.resources.try_take(R.FOOD,place.resources.get_available_amount(R.FOOD))
@@ -103,7 +106,7 @@ func run() -> void:
 	check(kitchen.resources.get_amount(R.FOOD) == 0,"Empty Kitchen never creates free food")
 	world.free()
 	# Other buildings preserve registry ordering and share real COURIER access.
-	for type in [T.TOWN_CENTER,T.STORAGE,T.GATHERER_HUT]:
+	for type in [T.TOWN_CENTER,T.STORAGE,T.SAWMILL]:
 		world = fixture()
 		actor = world.resident_runtimes[1]
 		empty(world)

@@ -17,7 +17,9 @@ func register_building(building: RefCounted, position: Callable) -> void:
 		profession = Profession.Type.PORTER
 	match building.type:
 		BuildingType.Type.HOME: capabilities.append(&"housing")
-		BuildingType.Type.FOOD: capabilities.append(&"food")
+		BuildingType.Type.FOOD:
+			capabilities.append_array([&"food",&"employment"])
+			profession = Profession.Type.COOK
 		BuildingType.Type.LUMBERJACK_HUT:
 			capabilities.append(&"employment")
 			profession = Profession.Type.LUMBERJACK

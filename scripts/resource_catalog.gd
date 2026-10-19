@@ -11,6 +11,8 @@ static func _build_definitions() -> Dictionary:
 		Resources.Type.LOG: {"id":Resources.Type.LOG,"display_name":"Бревно","category":Categories.Type.LOG,"ready_food":false,"food_quality":FoodQuality.NONE,"quantity_compatible":true},
 		Resources.Type.PLANK: {"id":Resources.Type.PLANK,"display_name":"Доски","category":Categories.Type.PLANK,"ready_food":false,"food_quality":FoodQuality.NONE,"quantity_compatible":true},
 		Resources.Type.STONE: {"id":Resources.Type.STONE,"display_name":"Камень","category":Categories.Type.STONE,"ready_food":false,"food_quality":FoodQuality.NONE,"quantity_compatible":true},
+		Resources.Type.MUSHROOM: {"id":Resources.Type.MUSHROOM,"display_name":"Грибы","category":Categories.Type.MUSHROOM,"ready_food":false,"food_quality":FoodQuality.NONE,"quantity_compatible":true},
+		Resources.Type.FRIED_MUSHROOM: {"id":Resources.Type.FRIED_MUSHROOM,"display_name":"Жареные грибы","category":Categories.Type.SIMPLE_FOOD,"ready_food":true,"food_quality":FoodQuality.SIMPLE,"quantity_compatible":true},
 	}
 	# Values contain only scalars. Freeze both levels before exposing any definition.
 	for definition: Dictionary in definitions.values(): definition.make_read_only()

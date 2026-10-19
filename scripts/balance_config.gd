@@ -5,11 +5,11 @@ const Categories = preload("res://scripts/resource_category.gd")
 const WAREHOUSE_SHARED_CAPACITY := 100
 const STORAGE_CATEGORY_QUOTAS := {
 	Categories.Type.LOG:40, Categories.Type.STONE:20,
-	Categories.Type.PLANK:25, Categories.Type.SIMPLE_FOOD:15,
+	Categories.Type.PLANK:25, Categories.Type.SIMPLE_FOOD:15, Categories.Type.MUSHROOM:0,
 }
 const TOWN_CENTER_CATEGORY_QUOTAS := {
 	Categories.Type.LOG:10, Categories.Type.STONE:10,
-	Categories.Type.PLANK:60, Categories.Type.SIMPLE_FOOD:20,
+	Categories.Type.PLANK:60, Categories.Type.SIMPLE_FOOD:20, Categories.Type.MUSHROOM:0,
 }
 # Ground admission only: 25 simulation units = 1 world unit; build cell = 12.5.
 const RESIDENT_GROUND_SEARCH_RADIUS := 100.0 # 4 world units / 8 cells.
@@ -27,7 +27,12 @@ const NEED_ACTION_THRESHOLD := 1000
 const IMPORT_MULTIPLIER := 1.1
 const EXPORT_MULTIPLIER := 1.0
 const DEFAULT_BUILDING_LOGISTICS_WEIGHT := 100
-const GATHERER_WORK_MINUTES_PER_FOOD := 30
+const GATHERER_WORK_MINUTES_PER_UNIT := 30
+const GATHERER_OUTPUT_CAPACITY := 5
+const KITCHEN_MUSHROOM_CAPACITY := 8
+const KITCHEN_FRIED_MUSHROOM_CAPACITY := 20
+const KITCHEN_WORK_MINUTES := 30
+const KITCHEN_WORKER_CAPACITY := 1
 
 const HUNGER_BASE_WEIGHT := 100
 const FATIGUE_BASE_WEIGHT := 100

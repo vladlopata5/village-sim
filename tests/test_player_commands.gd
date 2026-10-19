@@ -197,7 +197,7 @@ func _run() -> void:
 	var kitchen = scene.get_node("World/CommunalKitchen")
 	scene.interaction_menu.open_for([resident.data.id],scene.kitchen_data.id,Vector2(200,200))
 	check(scene.interaction_menu.visible and resident.commands.active_command == null, "RMB on building opens menu without MOVE_TO")
-	check(scene.interaction_menu.options.map(func(option): return option.label) == ["Идти к", "Поесть здесь", "Назначить носильщиком здесь"] and scene.interaction_menu.options[1].enabled, "Kitchen menu: go to and queued eating assignment, no direct eating hack")
+	check(scene.interaction_menu.options.map(func(option): return option.label) == ["Идти к", "Поесть здесь", "Работать: Повар", "Назначить носильщиком здесь"] and scene.interaction_menu.options[1].enabled, "Kitchen menu: go to and queued eating assignment, no direct eating hack")
 	check(scene.interaction_menu.options[0].interaction_kind == Option.Kind.PLAYER_COMMAND and scene.interaction_menu.options[1].interaction_kind == Option.Kind.RESIDENT_ASSIGNMENT, "Options distinguish command and assignment")
 	var button = scene.interaction_menu._column.get_child(0)
 	await process_frame

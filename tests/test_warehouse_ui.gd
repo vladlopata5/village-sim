@@ -54,7 +54,7 @@ func run() -> void:
 	await settle()
 	check(town.resources.is_warehouse() and town.resources.shared_capacity==100 and town.resources.get_total_amount()==80,"Canonical Town Center preserves initial stock in shared capacity")
 	for category in C.values(): check(town.resources.get_category_quota(category)==Balance.TOWN_CENTER_CATEGORY_QUOTAS[category],"Approved Town Center preset")
-	check(card.storage_rows.size()==4 and card.get_node("%StorageSummary").text=="Занято: 80 / 100\nВ пути: 0\nРаспределено: 100 / 100","Four persistent category rows and all warehouse totals")
+	check(card.storage_rows.size()==5 and card.get_node("%StorageSummary").text=="Занято: 80 / 100\nВ пути: 0\nРаспределено: 100 / 100","Five persistent category rows and all warehouse totals")
 	await capture("town-initial")
 	card.storage_rows[C.SIMPLE_FOOD].expand.button_pressed = true
 	check(card.storage_rows[C.SIMPLE_FOOD].contents.visible and card.storage_rows[C.SIMPLE_FOOD].contents.text == "  FOOD: 20","Expanded category shows real concrete stock")
@@ -114,20 +114,21 @@ func run() -> void:
 	check(store.resources.set_category_quotas({C.PLANK:0,C.SIMPLE_FOOD:100}) and store.resources.get_available_free_capacity(R.FOOD)==0 and not store.resources.reserve_in(R.FOOD,1),"Physical surplus prevents a new reservation of a different resource")
 	store.resources.try_take(R.PLANK,100)
 	store.resources.set_category_quotas({C.SIMPLE_FOOD:15,C.LOG:40,C.PLANK:25,C.STONE:20})
+	check(control.set_warehouse_category_quota(store.id,C.PLANK,20).ok and control.set_warehouse_category_quota(store.id,C.MUSHROOM,5).ok,"Explicit fixture reallocation for real raw supply")
 	# An accepted real delivery completes physically after the recipient quota becomes zero.
 	var gatherer = F.building(world,T.GATHERER_HUT,Vector3(-15,0,20))
-	gatherer.resources.add(R.FOOD,2)
+	gatherer.resources.add(R.MUSHROOM,2)
 	var actor = world.resident_runtimes[0]
 	check(control.assign_workplace(actor.data.id,store.id,P.PORTER),"Real porter assigned to its own Storage")
 	var candidate = Candidate.new()
 	candidate.source=gatherer
 	candidate.source_ref=Source.new(Source.Kind.CONTAINER,gatherer.id)
 	candidate.destination=store
-	candidate.resource_type=R.FOOD
+	candidate.resource_type=R.MUSHROOM
 	var delivery = world.logistics._claim_delivery(actor.data,candidate)
 	check(delivery!=null,"Ordinary new delivery reserves one shared slot")
 	if delivery!=null:
-		check(control.set_warehouse_category_quota(store.id,C.SIMPLE_FOOD,0).ok and world.logistics.inbound_valid(delivery),"Confirmed inbound survives quota reduction")
+		check(control.set_warehouse_category_quota(store.id,C.MUSHROOM,0).ok and world.logistics.inbound_valid(delivery),"Confirmed inbound survives quota reduction")
 		check(control.assign_workplace(world.resident_runtimes[1].data.id,store.id,P.PORTER),"Second porter legally assigned to the same store")
 		check(world.logistics._claim_delivery(world.resident_runtimes[1].data,candidate)==null,"Further eligible worker cannot accept a new shipment above quota")
 		check(world.logistics.start_claimed_job(delivery,actor.data.id),"Existing delivery starts with its own reservation, not fresh room")
@@ -136,16 +137,16 @@ func run() -> void:
 			walk(actor)
 			await process_frame
 			world.game_time.debug_skip_minutes(10)
-		check(delivery.state==Job.State.COMPLETED and store.resources.get_amount(R.FOOD)==1 and actor.data.inventory.amount==0,"Physical pickup, movement and accepted delivery complete despite zero quota")
-		check(store.resources.get_total_reserved_in()==0 and gatherer.resources.get_reserved_out(R.FOOD)==0,"Completed delivery leaves no reservations")
+		check(delivery.state==Job.State.COMPLETED and store.resources.get_amount(R.MUSHROOM)==1 and actor.data.inventory.amount==0,"Physical pickup, movement and accepted delivery complete despite zero quota")
+		check(store.resources.get_total_reserved_in()==0 and gatherer.resources.get_reserved_out(R.MUSHROOM)==0,"Completed delivery leaves no reservations")
 	var kitchen = F.building(world,T.FOOD,Vector3(0,0,20))
-	check(world.logistics.allows_external_delivery(store,kitchen,R.FOOD),"Zero quota does not prevent export to an ordinary consumer")
-	check(not world.logistics.allows_external_delivery(store,town,R.FOOD) and not world.logistics.allows_external_delivery(town,store,R.FOOD),"Warehouse exchange remains forbidden")
+	check(world.logistics.allows_external_delivery(store,kitchen,R.MUSHROOM),"Zero quota does not prevent export to an ordinary consumer")
+	check(not world.logistics.allows_external_delivery(store,town,R.MUSHROOM) and not world.logistics.allows_external_delivery(town,store,R.MUSHROOM),"Warehouse exchange remains forbidden")
 	var export_candidate = Candidate.new()
 	export_candidate.source=store
 	export_candidate.source_ref=Source.new(Source.Kind.CONTAINER,store.id)
 	export_candidate.destination=kitchen
-	export_candidate.resource_type=R.FOOD
+	export_candidate.resource_type=R.MUSHROOM
 	var export_job = world.logistics._claim_delivery(actor.data,export_candidate)
 	check(export_job!=null,"Zero-quota warehouse stock can be reserved for ordinary export")
 	if export_job!=null:
@@ -155,7 +156,7 @@ func run() -> void:
 			walk(actor)
 			await process_frame
 			world.game_time.debug_skip_minutes(10)
-		check(export_job.state==Job.State.COMPLETED and kitchen.resources.get_amount(R.FOOD)==1 and store.resources.get_amount(R.FOOD)==0,"Zero-quota export physically delivers existing stock exactly once")
+		check(export_job.state==Job.State.COMPLETED and kitchen.resources.get_amount(R.MUSHROOM)==1 and store.resources.get_amount(R.MUSHROOM)==0,"Zero-quota export physically delivers existing stock exactly once")
 	selection.select_building(store)
 	await capture("store-zero-quota")
 	world.free()

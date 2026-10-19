@@ -19,8 +19,8 @@ func check(ok: bool, message: String) -> void:
 		push_error(message)
 func building(id: StringName, type: int, stock: int = 0):
 	var data = Instance.new(id,Definition.for_type(type))
-	data.resources.set_capacity(Resources.FOOD,20)
-	if stock>0: data.resources.add(Resources.FOOD,stock)
+	data.resources.set_capacity(Resources.MUSHROOM,20)
+	if stock>0: data.resources.add(Resources.MUSHROOM,stock)
 	return data
 func pair(pool: Array, source: RefCounted, destination: RefCounted) -> bool:
 	return pool.any(func(candidate): return candidate.source==source and candidate.destination==destination)
@@ -34,7 +34,7 @@ func walk(actor: Node, reason: StringName = &"") -> void:
 		if not reason.is_empty() and actor.intents.current_intent.reason_id!=reason: break
 		if not actor.view.movement.is_moving(): break
 func run() -> void:
-	for row in [[Types.STORAGE,Resources.FOOD,true,true],[Types.STORAGE,Resources.PLANK,true,true],[Types.STORAGE,Resources.LOG,true,true],[Types.GATHERER_HUT,Resources.FOOD,false,true],[Types.FOOD,Resources.FOOD,true,false],[Types.LUMBERJACK_HUT,Resources.LOG,false,true],[Types.LUMBERJACK_HUT,Resources.FOOD,false,false]]:
+	for row in [[Types.STORAGE,Resources.MUSHROOM,true,true],[Types.STORAGE,Resources.PLANK,true,true],[Types.STORAGE,Resources.LOG,true,true],[Types.GATHERER_HUT,Resources.MUSHROOM,false,true],[Types.FOOD,Resources.MUSHROOM,true,false],[Types.LUMBERJACK_HUT,Resources.LOG,false,true],[Types.LUMBERJACK_HUT,Resources.MUSHROOM,false,false]]:
 		var def = Definition.for_type(row[0])
 		check(def.allows_external_import(row[1])==row[2] and def.allows_external_export(row[1])==row[3],"Per-building/resource import/export policy")
 	var service = Logistics.new()
@@ -55,14 +55,15 @@ func run() -> void:
 	check(pair(pool,gatherer,a) and not pair(pool,gatherer,b),"Inbound targets only own Storage")
 	check(pair(pool,a,kitchen) and not pair(pool,b,kitchen),"Outbound uses only own Storage")
 	check(not pair(pool,gatherer,kitchen),"External producer to consumer bypass is excluded")
-	check(not service.allows_external_delivery(a,b,Resources.FOOD) and not service.allows_external_delivery(b,a,Resources.FOOD),"No ordinary Storage balancing in either direction")
+	check(not service.allows_external_delivery(a,b,Resources.MUSHROOM) and not service.allows_external_delivery(b,a,Resources.MUSHROOM),"No ordinary Storage balancing in either direction")
 	var bypass=Candidate.new()
+	bypass.resource_type=Resources.MUSHROOM
 	bypass.source=b
 	bypass.destination=kitchen
 	check(service._claim_candidate(porter,bypass)==null,"Claim cannot bypass own-base filter")
-	a.resources.add(Resources.FOOD,15)
+	a.resources.add(Resources.MUSHROOM,15)
 	check(not pair(service.collect_candidates(porter.id),gatherer,a) and not pair(service.collect_candidates(porter.id),gatherer,b),"Full own Storage cannot spill inbound into another")
-	a.resources.try_take(Resources.FOOD,1)
+	a.resources.try_take(Resources.MUSHROOM,1)
 	check(pair(service.collect_candidates(porter.id),gatherer,a),"Freed own capacity restores inbound")
 	var site=Instance.new(&"site",Definition.for_type(Types.STORAGE),Vector2.ZERO,Instance.State.UNDER_CONSTRUCTION)
 	service.register_building(site)
@@ -73,22 +74,23 @@ func run() -> void:
 	# Policy changes during the synchronous reserve callbacks must roll back both sides.
 	porter.work_location_id=a.id
 	var stale=Candidate.new()
+	stale.resource_type=Resources.MUSHROOM
 	stale.source=gatherer
 	stale.destination=a
-	gatherer.resources.reservations_changed.connect(func(_resource): a.definition.logistics_flow[Resources.FOOD]["import"]=false,CONNECT_ONE_SHOT)
-	check(service._claim_candidate(porter,stale)==null and gatherer.resources.get_reserved_out(Resources.FOOD)==0 and a.resources.get_reserved_in(Resources.FOOD)==0,"Atomic post-reservation recheck rejects changed import policy")
-	a.definition.logistics_flow[Resources.FOOD]["import"]=true
+	gatherer.resources.reservations_changed.connect(func(_resource): a.definition.logistics_flow[Resources.MUSHROOM]["import"]=false,CONNECT_ONE_SHOT)
+	check(service._claim_candidate(porter,stale)==null and gatherer.resources.get_reserved_out(Resources.MUSHROOM)==0 and a.resources.get_reserved_in(Resources.MUSHROOM)==0,"Atomic post-reservation recheck rejects changed import policy")
+	a.definition.logistics_flow[Resources.MUSHROOM]["import"]=true
 	# Two porter bases compete for one actual external unit.
 	porter.work_location_id=a.id
 	var second=Resident.new("pb","Porter B",30,Profession.PORTER)
 	second.work_location_id=b.id
 	service.register_resident(second)
-	a.resources.try_take(Resources.FOOD,a.resources.get_amount(Resources.FOOD))
-	b.resources.try_take(Resources.FOOD,b.resources.get_amount(Resources.FOOD))
-	gatherer.resources.try_take(Resources.FOOD,1)
+	a.resources.try_take(Resources.MUSHROOM,a.resources.get_amount(Resources.MUSHROOM))
+	b.resources.try_take(Resources.MUSHROOM,b.resources.get_amount(Resources.MUSHROOM))
+	gatherer.resources.try_take(Resources.MUSHROOM,1)
 	var first_job=service.claim_best_job(porter.id)
 	check(first_job.source_location_id==gatherer.id and first_job.destination_location_id==a.id,"Porter A claims producer to A")
-	check(service.claim_best_job(second.id)==null and gatherer.resources.get_reserved_out(Resources.FOOD)==1,"Porter B cannot duplicate reserved producer unit")
+	check(service.claim_best_job(second.id)==null and gatherer.resources.get_reserved_out(Resources.MUSHROOM)==1,"Porter B cannot duplicate reserved producer unit")
 	service.cancel_job(first_job)
 	var second_job=service.claim_best_job(second.id)
 	check(second_job.destination_location_id==b.id,"Porter B claims its own B after release")

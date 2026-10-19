@@ -8,7 +8,7 @@ const Profession = preload("res://scripts/resident_profession.gd").Type
 const Activity = preload("res://scripts/resident_activity.gd").Type
 const Locations = preload("res://tests/domain_locations.gd")
 const Location = preload("res://scripts/world_location.gd")
-const FOOD = preload("res://scripts/resource_type.gd").Type.FOOD
+const MUSHROOM = preload("res://scripts/resource_type.gd").Type.MUSHROOM
 var failures := 0
 func _initialize(): call_deferred("_run")
 func check(value: bool, message: String):
@@ -17,8 +17,8 @@ func check(value: bool, message: String):
 		push_error(message)
 func fixture(workers: int = 1):
 	var hut = Building.new(&"hut", "Hut", BT.GATHERER_HUT)
-	hut.resources.set_allowed_resource_types([FOOD])
-	hut.resources.set_capacity(FOOD, 5)
+	hut.resources.set_allowed_resource_types([MUSHROOM])
+	hut.resources.set_capacity(MUSHROOM, 5)
 	var view = Node2D.new()
 	root.add_child(view)
 	view.position = Vector2(20, 30)
@@ -50,10 +50,10 @@ func _run():
 			speed_fixture.clock.set_speed(speed)
 			paused = true
 			speed_fixture.clock.advance(1000)
-			check(speed_fixture.hut.production_progress == 0 and speed_fixture.hut.resources.get_amount(FOOD) == 0, "Pause produces no progress or FOOD")
+			check(speed_fixture.hut.production_progress == 0 and speed_fixture.hut.resources.get_amount(MUSHROOM) == 0, "Pause produces no progress or MUSHROOM")
 			paused = false
 			for frame in range(frames): speed_fixture.clock.advance(30.0 / speed / frames)
-			check(speed_fixture.hut.resources.get_amount(FOOD) == 1 and speed_fixture.hut.production_progress == 0, "30 actual work minutes make one FOOD, independent of FPS/speed")
+			check(speed_fixture.hut.resources.get_amount(MUSHROOM) == 1 and speed_fixture.hut.production_progress == 0, "30 actual work minutes make one MUSHROOM, independent of FPS/speed")
 			dispose(speed_fixture)
 	var f = fixture()
 	var data = f.residents[0]
@@ -74,13 +74,13 @@ func _run():
 	check(f.hut.production_progress == 0, "Profession and workplace must both match")
 	data.work_location_id = f.hut.id
 	f.clock.debug_skip_minutes(20)
-	check(f.hut.production_progress == 20 and f.hut.resources.get_amount(FOOD) == 0, "20 minutes remain building-owned progress")
+	check(f.hut.production_progress == 20 and f.hut.resources.get_amount(MUSHROOM) == 0, "20 minutes remain building-owned progress")
 	data.activity = Activity.EATING
 	f.clock.debug_skip_minutes(100)
 	check(f.hut.production_progress == 20, "Meal preserves progress")
 	data.activity = Activity.WORKING
 	f.clock.debug_skip_minutes(10)
-	check(f.hut.resources.get_amount(FOOD) == 1 and f.hut.production_progress == 0, "Returns and continues from 20/30")
+	check(f.hut.resources.get_amount(MUSHROOM) == 1 and f.hut.production_progress == 0, "Returns and continues from 20/30")
 	# Changing the worker also preserves the same building state.
 	f.hut.production_progress = 20
 	data.profession = Profession.NONE
@@ -90,22 +90,22 @@ func _run():
 	f.residents.append(replacement)
 	f.positions[replacement.id] = f.view.position
 	f.clock.debug_skip_minutes(10)
-	check(f.hut.resources.get_amount(FOOD) == 2 and f.hut.production_progress == 0, "Replacement worker inherits building progress, not former worker state")
-	f.hut.resources.add(FOOD, 3)
+	check(f.hut.resources.get_amount(MUSHROOM) == 2 and f.hut.production_progress == 0, "Replacement worker inherits building progress, not former worker state")
+	f.hut.resources.add(MUSHROOM, 3)
 	f.hut.production_progress = 20
 	f.clock.debug_skip_minutes(100)
-	check(f.hut.production_progress == 20 and f.hut.resources.get_amount(FOOD) == 5, "Full output freezes progress without banking more work")
-	f.hut.resources.try_take(FOOD, 1)
+	check(f.hut.production_progress == 20 and f.hut.resources.get_amount(MUSHROOM) == 5, "Full output freezes progress without banking more work")
+	f.hut.resources.try_take(MUSHROOM, 1)
 	f.clock.debug_skip_minutes(10)
-	check(f.hut.resources.get_amount(FOOD) == 5 and f.hut.production_progress == 0, "Freeing capacity resumes saved progress")
+	check(f.hut.resources.get_amount(MUSHROOM) == 5 and f.hut.production_progress == 0, "Freeing capacity resumes saved progress")
 	var unsupported: int = 999
-	check(not f.hut.resources.allows_resource(unsupported) and not f.hut.resources.set_capacity(unsupported, 5) and not f.hut.resources.add(unsupported, 1), "Production output allows only FOOD, without adding a new resource type")
+	check(not f.hut.resources.allows_resource(unsupported) and not f.hut.resources.set_capacity(unsupported, 5) and not f.hut.resources.add(unsupported, 1), "Production output allows only MUSHROOM, without adding a new resource type")
 	dispose(f)
 	f = fixture(2)
 	f.clock.debug_skip_minutes(10)
 	check(f.hut.production_progress == 20, "Two workers add two work minutes per minute")
 	f.clock.debug_skip_minutes(5)
-	check(f.hut.resources.get_amount(FOOD) == 1 and f.hut.production_progress == 0, "Two real workers double production speed")
+	check(f.hut.resources.get_amount(MUSHROOM) == 1 and f.hut.production_progress == 0, "Two real workers double production speed")
 	dispose(f)
 	print("Gatherer production checks: ", "PASS" if failures == 0 else "FAIL")
 	quit(0 if failures == 0 else 1)

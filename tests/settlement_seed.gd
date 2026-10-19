@@ -23,8 +23,6 @@ static func buildings(world: Node) -> void:
 	view.name = "Warehouse"
 	world._register_building_location(world.warehouse_data, view)
 	world.gatherer_hut_data = preload("res://scripts/building_data.gd").new(&"gatherer_hut_01", "Хижина собирателя", preload("res://scripts/building_type.gd").Type.GATHERER_HUT)
-	world.gatherer_hut_data.resources.set_allowed_resource_types([preload("res://scripts/resource_type.gd").Type.FOOD])
-	world.gatherer_hut_data.resources.set_capacity(preload("res://scripts/resource_type.gd").Type.FOOD, 5)
 	world.buildings.append(world.gatherer_hut_data)
 	world.gatherer_hut_data.position = Vector2(375, -237.5)
 	view = world._create_building_presentation(world.gatherer_hut_data)

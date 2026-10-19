@@ -80,7 +80,7 @@ func _run() -> void:
 	control.setup(scene.residents, [second])
 	check(not control.assign_workplace(actor.data.id, second.id) and control.assign_profession(actor.data.id, Profession.Type.PORTER) and actor.data.work_location_id.is_empty() and not logistics.has_available_job(actor.data.id), "Construction storage cannot accept employment; Porter profession can remain unassigned")
 	var hut := Instance.new(scene.gatherer_hut_data.id, scene.gatherer_hut_data.definition, scene.gatherer_hut_data.position, Instance.State.UNDER_CONSTRUCTION)
-	hut.resources.set_capacity(FOOD, 5)
+	hut.resources.set_capacity(preload("res://scripts/resource_type.gd").Type.MUSHROOM, 5)
 	scene.production.building = hut
 	var gatherer = scene.resident_runtimes[2]
 	gatherer.data.profession = Profession.Type.GATHERER
@@ -89,7 +89,7 @@ func _run() -> void:
 	gatherer.view.global_position = hut.position
 	hut.production_progress = 12
 	scene.production._on_minute(400)
-	check(not scene.production.can_work(gatherer.data) and hut.production_progress == 12 and hut.resources.get_amount(FOOD) == 0, "Construction hut neither offers work nor produces even with WORKING resident")
+	check(not scene.production.can_work(gatherer.data) and hut.production_progress == 12 and hut.resources.get_amount(preload("res://scripts/resource_type.gd").Type.MUSHROOM) == 0, "Construction hut neither offers work nor produces even with WORKING resident")
 	for resource in hut.definition.construction_requirements:
 		hut.add_delivered_material(resource, hut.get_required_amount(resource))
 	hut.add_construction_work(hut.definition.construction_work_required)

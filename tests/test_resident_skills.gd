@@ -66,7 +66,7 @@ func _run() -> void:
 	check(actor.data.get_skill_xp(Skill.Type.GATHERING) == 0, "Production before full cycle grants no XP")
 	scene.game_time.debug_skip_minutes(1)
 	check(actor.data.get_skill_xp(Skill.Type.GATHERING) == 1, "Completed gatherer cycle grants exactly one XP")
-	check(scene.gatherer_hut_data.resources.get_amount(FOOD) == 2, "Unchanged two FOOD per cycle gives no extra XP")
+	check(scene.gatherer_hut_data.resources.get_amount(preload("res://scripts/resource_type.gd").Type.MUSHROOM) == 2, "Unchanged two mushrooms per cycle gives no extra XP")
 	start_gathering(scene, actor)
 	scene.game_time.debug_skip_minutes(60)
 	check(actor.data.get_skill_xp(Skill.Type.GATHERING) == 2, "Second full cycle grants one additional XP")
@@ -212,7 +212,7 @@ func _run() -> void:
 	actor.data.add_skill_xp(Skill.Type.GATHERING, 100)
 	start_gathering(scene, actor)
 	scene.game_time.debug_skip_minutes(60)
-	check(scene.gatherer_hut_data.resources.get_amount(FOOD) == 2 and actor.data.get_skill_xp(Skill.Type.GATHERING) == 101, "Level ten has unchanged gatherer cycle/output and continues storing XP")
+	check(scene.gatherer_hut_data.resources.get_amount(preload("res://scripts/resource_type.gd").Type.MUSHROOM) == 2 and actor.data.get_skill_xp(Skill.Type.GATHERING) == 101, "Level ten has unchanged gatherer cycle/output and continues storing XP")
 	scene.free()
 	# Only a level increase is INFO; each +1 is DEBUG when debugging is enabled.
 	scene = scenario()

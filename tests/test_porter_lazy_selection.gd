@@ -111,7 +111,7 @@ func run() -> void:
 	var far = add_building(f,&"far_consumer",BT.FOOD,Vector2(900,0))
 	check(compare(f,"far more urgent").destination==far,"Distance does not override score")
 	var producer = add_building(f,&"producer",BT.GATHERER_HUT,Vector2(100,0))
-	producer.resources.add(R.FOOD,producer.resources.get_capacity(R.FOOD))
+	producer.resources.add(R.MUSHROOM,producer.resources.get_capacity(R.MUSHROOM))
 	check(compare(f,"export beats import").source==producer,"Unified category score")
 	drop(f,&"ground",R.LOG,Vector2(10,0))
 	check(compare(f,"ground competes with container").source_ref.kind==1,"Ground included in same ranking")

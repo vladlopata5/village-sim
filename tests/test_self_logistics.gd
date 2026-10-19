@@ -113,13 +113,14 @@ func run() -> void:
 	world = scene()
 	worker = world.resident_runtimes[2]
 	check(world.player_control.assign_workplace(worker.data.id,world.gatherer_hut_data.id),"Gatherer owns Hut")
-	world.gatherer_hut_data.resources.add(R.FOOD,5)
+	world.warehouse_data.resources.set_capacity(R.MUSHROOM,5) # Explicit mushroom storage in this export fixture.
+	world.gatherer_hut_data.resources.add(R.MUSHROOM,5)
 	check(worker.self_logistics.task().kind==&"EXPORT" and world._request_work(worker),"Full Gatherer buffer creates self export")
 	job = world.logistics.get_job(worker.data.id)
 	check(job.source_location_id==world.gatherer_hut_data.id and job.destination_location_id==world.warehouse_data.id,"Gatherer never supplies Kitchen directly")
 	walk(worker,&"haul_source")
 	walk(worker)
-	check(world.gatherer_hut_data.resources.get_amount(R.FOOD)==4 and world.warehouse_data.resources.get_amount(R.FOOD)==1 and worker.self_logistics.task().kind==&"PRODUCTION","Buffer freed: production first on next normal decision")
+	check(world.gatherer_hut_data.resources.get_amount(R.MUSHROOM)==4 and world.warehouse_data.resources.get_amount(R.MUSHROOM)==1 and worker.self_logistics.task().kind==&"PRODUCTION","Buffer freed: production first on next normal decision")
 	world.free()
 	# Builder vs Porter competition for same Ground PLANK and export policy.
 	world = scene()

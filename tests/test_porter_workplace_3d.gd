@@ -183,13 +183,14 @@ func run() -> void:
 	var gatherer = self_flow.world.resident_runtimes[2]
 	var gathering_place = self_flow.places[BT.GATHERER_HUT]
 	check(self_flow.world.player_control.assign_workplace(gatherer.data.id,gathering_place.id),"Canonical Gatherer production assignment")
-	gathering_place.resources.add(R.FOOD,5)
+	self_flow.places[BT.STORAGE].resources.set_category_quotas({preload("res://scripts/resource_category.gd").Type.PLANK:20,preload("res://scripts/resource_category.gd").Type.MUSHROOM:5}) # Explicit test allocation for mushroom export.
+	gathering_place.resources.add(R.MUSHROOM,5)
 	check(self_flow.world._request_work(gatherer),"Full Gatherer buffer self-exports without Porter")
 	var food_job = self_flow.world.logistics.get_job(gatherer.data.id)
 	walk(gatherer)
 	await capture(self_flow,"canonical-gatherer-self-export",gathering_place)
 	await finish(self_flow,gatherer,food_job)
-	check(food_job.state==Job.State.COMPLETED and gathering_place.resources.get_amount(R.FOOD)==4,"Canonical Gatherer physical self-export preserved")
+	check(food_job.state==Job.State.COMPLETED and gathering_place.resources.get_amount(R.MUSHROOM)==4,"Canonical Gatherer physical self-export preserved")
 	self_flow.world.free()
 	# Existing interactions expose both roles, and refuse full staffing at click time.
 	var f := fixture()

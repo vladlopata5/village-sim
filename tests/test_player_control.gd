@@ -118,7 +118,7 @@ func _run() -> void:
 	scene.player_control.assign_profession(resident.data.id, Profession.NONE)
 	check(resident.data.profession == Profession.NONE and resident.data.activity == Activity.WORKING and resident.decision.decision_count == before, "Persistent assignment changes immediately, committed cycle remains")
 	scene.game_time.debug_skip_minutes(15)
-	check(scene.gatherer_hut_data.resources.get_amount(FOOD) == 2 and scene.gatherer_hut_data.production_progress == 0, "Committed old cycle finishes its contribution without resetting building progress")
+	check(scene.gatherer_hut_data.resources.get_amount(preload("res://scripts/resource_type.gd").Type.MUSHROOM) == 2 and scene.gatherer_hut_data.production_progress == 0, "Committed old cycle finishes its contribution without resetting building progress")
 	check(not resident.decision._work_cycle_active and resident.data.activity == Activity.IDLE and not resident.decision.collect_actions(scene._work_available(resident)).any(func(row): return row.id == "WORK"), "No new gatherer cycle after profession removed")
 	print("WORK proof: 45 min -> assign NONE -> old cycle finishes 60 min -> no old work")
 	scene.free()
@@ -188,7 +188,7 @@ func _run() -> void:
 	scene.game_time.debug_skip_minutes(45)
 	scene.player_control.assign_profession(resident.data.id, Profession.PORTER)
 	scene.game_time.debug_skip_minutes(15)
-	check(scene.gatherer_hut_data.resources.get_amount(FOOD) == 2 and not resident.decision._work_cycle_active and resident.intents.current_intent.reason_id == &"haul_source", "GATHERER -> PORTER finishes old cycle, then claims new profession work")
+	check(scene.gatherer_hut_data.resources.get_amount(preload("res://scripts/resource_type.gd").Type.MUSHROOM) == 2 and not resident.decision._work_cycle_active and resident.intents.current_intent.reason_id == &"haul_source", "GATHERER -> PORTER finishes old cycle, then claims new profession work")
 	scene.free()
 	# A newly assigned executor retains the correct forced-drop owner.
 	scene = Setup.make_scene(self)

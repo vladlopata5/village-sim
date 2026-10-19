@@ -2,12 +2,12 @@ extends Node
 const Purpose = preload("res://scripts/building_slot_purpose.gd").Type
 const EventLog = preload("res://scripts/game_logger.gd")
 var logger: EventLog
-## One FOOD recipe. Work is summed into building-owned progress, never resident-owned.
+## Mushroom extraction. Work is summed into building-owned progress, never resident-owned.
 const Balance = preload("res://scripts/balance_config.gd")
 const Activity = preload("res://scripts/resident_activity.gd")
 const Profession = preload("res://scripts/resident_profession.gd")
 const BuildingType = preload("res://scripts/building_type.gd")
-const FOOD = preload("res://scripts/resource_type.gd").Type.FOOD
+const MUSHROOM = preload("res://scripts/resource_type.gd").Type.MUSHROOM
 const WORK_POSITION_TOLERANCE := 8.0
 signal changed
 var _blocked_buildings: Dictionary = {}
@@ -28,7 +28,7 @@ func can_work(resident: RefCounted) -> bool:
 		if _can_work_at(resident, output): return true
 	return false
 func _can_work_at(resident: RefCounted, output: RefCounted) -> bool:
-	return output != null and output.is_built() and output.type == BuildingType.Type.GATHERER_HUT and resident.profession == Profession.Type.GATHERER and resident.work_location_id == output.id and output.resources.get_available_free_capacity(FOOD) > 0 and _locations.get_position(output.id) is Vector2
+	return output != null and output.is_built() and output.type == BuildingType.Type.GATHERER_HUT and resident.profession == Profession.Type.GATHERER and resident.work_location_id == output.id and output.resources.get_available_free_capacity(MUSHROOM) > 0 and _locations.get_position(output.id) is Vector2
 func _contributes(resident: RefCounted, output: RefCounted) -> bool:
 	var assignment: Dictionary = work_assignment_provider.call(resident.id) if work_assignment_provider.is_valid() else {}
 	if assignment.is_empty(): return _can_work_at(resident, output)
@@ -40,7 +40,7 @@ func _on_minute(_minute: int) -> void:
 func _produce(output: RefCounted) -> void:
 	if output == null or not output.is_built(): return
 	# Physical/output capacity is checked before adding even one work minute.
-	if output.resources.get_available_free_capacity(FOOD) <= 0:
+	if output.resources.get_available_free_capacity(MUSHROOM) <= 0:
 		if not _blocked_buildings.get(output.id, false) and logger != null: logger.info(EventLog.PRODUCTION, "%s: производство остановлено — выходной контейнер заполнен" % output.display_name)
 		_blocked_buildings[output.id] = true
 		return
@@ -51,10 +51,10 @@ func _produce(output: RefCounted) -> void:
 		if not target is Vector2 or not _contributes(resident, output) or resident.activity != Activity.Type.WORKING: continue
 		var position: Variant = _position_provider.call(resident.id)
 		if position is Vector2 and (_locations.at_action(resident.id,output.id,Purpose.WORKER,position,WORK_POSITION_TOLERANCE) if _locations.has_method("at_action") else position.distance_to(target)<=WORK_POSITION_TOLERANCE): workers += 1
-	if workers == 0 and output.production_progress < Balance.GATHERER_WORK_MINUTES_PER_FOOD: return
+	if workers == 0 and output.production_progress < Balance.GATHERER_WORK_MINUTES_PER_UNIT: return
 	output.production_progress += workers
-	while output.production_progress >= Balance.GATHERER_WORK_MINUTES_PER_FOOD and output.resources.get_available_free_capacity(FOOD) > 0:
-		if not output.resources.add(FOOD, 1): break
-		output.production_progress -= Balance.GATHERER_WORK_MINUTES_PER_FOOD
-		if logger != null: logger.info(EventLog.PRODUCTION, "%s: произведён 1 FOOD" % output.display_name)
+	while output.production_progress >= Balance.GATHERER_WORK_MINUTES_PER_UNIT and output.resources.get_available_free_capacity(MUSHROOM) > 0:
+		if not output.resources.add(MUSHROOM, 1): break
+		output.production_progress -= Balance.GATHERER_WORK_MINUTES_PER_UNIT
+		if logger != null: logger.info(EventLog.PRODUCTION, "%s: произведён 1 MUSHROOM" % output.display_name)
 	changed.emit()

@@ -37,7 +37,7 @@ func _run() -> void:
 			scene.game_time.advance(1.0 / speed)
 			check(resident.decision.decision_count > count, "60-minute boundary creates ordinary decision point at every speed")
 			check(resident.intents.current_intent.reason_id == (&"social" if need_type == Type.SOCIAL else &"leisure"), "Seeded normal selector chooses the higher need before next work cycle")
-			check(scene.gatherer_hut_data.resources.get_amount(FOOD) == 2 and scene.gatherer_hut_data.production_progress == 7, "60 work minutes produce two FOOD; building's remainder survives break")
+			check(scene.gatherer_hut_data.resources.get_amount(preload("res://scripts/resource_type.gd").Type.MUSHROOM) == 2 and scene.gatherer_hut_data.production_progress == 7, "60 work minutes produce two mushrooms; building's remainder survives break")
 			scene.game_time.debug_skip_minutes(1)
 			check(scene.gatherer_hut_data.production_progress == 7, "Break contributes no production and does not reset progress")
 			print("Work-cycle proof: 59 min WORKING -> 60 min decision -> ", "SOCIAL" if need_type == Type.SOCIAL else "LEISURE", "; building progress retained")
@@ -52,7 +52,7 @@ func _run() -> void:
 	check(restarted_resident.data.activity == Activity.WORKING and restarted_resident.decision._work_cycle_ends_at == restarted_scene.game_time.total_minutes + 60, "Work can win again and start the next cycle")
 	restarted_resident.data.fatigue = 100
 	check(restarted_resident.data.activity == Activity.SLEEPING and not restarted_resident.decision._work_cycle_active, "Forced fatigue interrupts the new work cycle immediately")
-	check(restarted_scene.kitchen_data.resources.get_capacity(FOOD) == 20 and Balance.GATHERER_WORK_MINUTES_PER_FOOD == 30, "New FOOD balance")
+	check(restarted_scene.kitchen_data.resources.get_capacity(FOOD) == 20 and Balance.GATHERER_WORK_MINUTES_PER_UNIT == 30, "New FOOD balance")
 	restarted_scene.free()
 	print("Work cycle checks: ", "PASS" if failures == 0 else "FAIL")
 	quit(0 if failures == 0 else 1)

@@ -23,7 +23,7 @@ func run() -> void:
 	var producer := Building.new(&"producer",Definition.for_type(T.GATHERER_HUT),Vector2(-1200,0))
 	sources.buildings = {base.id:base,producer.id:producer}
 	base.resources.set_capacity(R.LOG,20); base.resources.add(R.LOG,2)
-	producer.resources.set_capacity(R.FOOD,5); producer.resources.add(R.FOOD,1)
+	producer.resources.add(R.MUSHROOM,1)
 	var area := WorkArea.new(&"assigned",Vector2(2000,0),50)
 	var nearby = ground.create_drop(R.LOG,1,Vector2(100,0))
 	var outside = ground.create_drop(R.LOG,1,Vector2(100.01,0))
@@ -60,7 +60,7 @@ func run() -> void:
 	check(matches.size()==1 and matches[0].kind==Source.Kind.CONTAINER,"Unreachable local ground rejected; far container allowed")
 	check(not routes.any(func(pair): return pair[1]==outside.world_position or pair[1]==area_edge.world_position),"Excluded ground never reaches path query")
 	sources.route_available=Callable()
-	check(sources.find(R.FOOD,Vector2.ZERO,Vector2(25,0))[0].id==producer.id,"Distant production buffer remains global")
+	check(sources.find(R.MUSHROOM,Vector2.ZERO,Vector2(25,0))[0].id==producer.id,"Distant production buffer remains global")
 	var ground_ref := Source.new(Source.Kind.GROUND,nearby.id)
 	check(sources.reserve(ground_ref,R.LOG,&"one") and not sources.reserve(ground_ref,R.LOG,&"two"),"Last-resource reservation competition unchanged")
 	check(sources.ground_candidates(R.LOG,Vector2.ZERO).is_empty(),"Reserved ground excluded from new selection")

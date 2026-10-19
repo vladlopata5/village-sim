@@ -55,7 +55,7 @@ func _run() -> void:
 	for category in [EventLog.LEISURE, EventLog.AI, EventLog.NEED, EventLog.LOGISTICS, EventLog.PRODUCTION, EventLog.SOCIAL, EventLog.SCHEDULE, EventLog.RESOURCE]:
 		check(event_log.format_line(category, "test").contains("[%s]" % category), "All event categories available")
 	var hut = preload("res://scripts/building_data.gd").new(&"hut", "Хижина", preload("res://scripts/building_type.gd").Type.GATHERER_HUT)
-	var food = preload("res://scripts/resource_type.gd").Type.FOOD
+	var food = preload("res://scripts/resource_type.gd").Type.MUSHROOM
 	hut.resources.set_capacity(food, 5)
 	hut.resources.add(food, 5)
 	var production = preload("res://scripts/gatherer_production.gd").new()

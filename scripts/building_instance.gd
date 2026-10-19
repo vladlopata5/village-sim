@@ -66,8 +66,15 @@ func _init(instance_id: StringName, building_definition: Definition, world_posit
 	for resource in definition.construction_requirements:
 		_construction_delivered[resource] = 0
 	resources = ResourceContainer.new(id)
+	if is_built(): _configure_resource_buffers()
 	for recipe in definition.production_recipes:
 		_recipe_settings[recipe.id] = {"mode":ProductionMode.UNLIMITED,"target":0,"produced":0,"revision":0,"order":false}
+func _configure_resource_buffers() -> void:
+	if definition.resource_capacities.is_empty(): return
+	resources.set_allowed_resource_types(definition.resource_capacities.keys())
+	for resource in definition.resource_capacities:
+		resources.set_capacity(resource,definition.resource_capacities[resource])
+
 func prepare_production_batch(worker: String, recipe_id: StringName = &"") -> Batch:
 	var selected := select_production_work(worker)
 	if worker.is_empty() or selected.is_empty() or selected.kind!=&"START" or (not recipe_id.is_empty() and selected.recipe_id!=recipe_id): return null
@@ -156,6 +163,7 @@ func can_complete_construction() -> bool:
 	return not is_built() and are_construction_materials_complete() and construction_progress >= definition.construction_work_required
 func complete_construction() -> bool:
 	if not can_complete_construction(): return false
+	_configure_resource_buffers()
 	_state = State.BUILT
 	_active_builder_ids.clear()
 	_notify_construction_changed()

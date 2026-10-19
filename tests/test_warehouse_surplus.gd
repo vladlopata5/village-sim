@@ -167,10 +167,10 @@ func domain_checks() -> void:
 	# Ordinary work competes by its existing score; surplus is not an emergency.
 	f = fixture()
 	f.b.resources.add(R.LOG,9)
-	f.a.resources.set_category_quota(C.SIMPLE_FOOD,10)
+	f.a.resources.set_category_quota(C.MUSHROOM,10)
 	var producer = Building.new(&"food",Definition.for_type(T.GATHERER_HUT),Vector2(1,0))
-	producer.resources.set_capacity(R.FOOD,5)
-	producer.resources.add(R.FOOD,1)
+	producer.resources.set_capacity(R.MUSHROOM,5)
+	producer.resources.add(R.MUSHROOM,1)
 	f.s.register_building(producer)
 	job = f.s.claim_best_job(f.first.id)
 	check(job!=null and job.source_location_id==producer.id and job.admission==Job.Admission.EXTERNAL,"Higher-scoring ordinary supply retains priority over surplus work")

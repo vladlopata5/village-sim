@@ -115,7 +115,7 @@ func _refresh() -> void:
 	if _control != null and _building.is_built() and _building.definition.porter_capacity > 0:
 		resource_lines.append("Носильщики: %d / %d" % [porter_snapshot.size(),_building.definition.porter_capacity])
 	production_section.visible = _building.is_built() and (_building.type == Types.Type.GATHERER_HUT or _building.definition.production_recipe != null)
-	production_label.text = "FOOD • прогресс: %d / %d рабочих минут" % [_building.production_progress, Balance.GATHERER_WORK_MINUTES_PER_FOOD]
+	production_label.text = "%s • прогресс: %d / %d рабочих минут" % [ResourceType.display_name(ResourceType.Type.MUSHROOM), _building.production_progress, Balance.GATHERER_WORK_MINUTES_PER_UNIT]
 	if _building.definition.production_recipe != null:
 		production_label.text = "Производство: %d / %d рабочих минут" % [_building.production_progress,_building.definition.production_recipe.work_required]
 	construction_section.visible = not _building.is_built()
@@ -248,7 +248,7 @@ func _refresh_details(resource_lines: PackedStringArray) -> void:
 	if def.production_recipe != null:
 		for resource in def.production_recipe.inputs: recipe_lines.append("Нужно: %s ×%d" % [ResourceType.display_name(resource),def.production_recipe.inputs[resource]])
 		for resource in def.production_recipe.outputs: recipe_lines.append("Результат: %s ×%d" % [ResourceType.display_name(resource),def.production_recipe.outputs[resource]])
-	elif _building.type == Types.Type.GATHERER_HUT: recipe_lines.append("Производит FOOD")
+	elif _building.type == Types.Type.GATHERER_HUT: recipe_lines.append("Добывает " + ResourceType.display_name(ResourceType.Type.MUSHROOM))
 	else:
 		for resource in def.internal_resources: recipe_lines.append("Добывает " + ResourceType.display_name(resource))
 	get_node("%Recipe").text = "\n".join(recipe_lines)
@@ -259,7 +259,7 @@ func _refresh_details(resource_lines: PackedStringArray) -> void:
 	_refresh_people(producers, porters)
 
 func _setup_storage_rows() -> void:
-	for category in [Categories.Type.LOG,Categories.Type.STONE,Categories.Type.PLANK,Categories.Type.SIMPLE_FOOD]:
+	for category in [Categories.Type.LOG,Categories.Type.STONE,Categories.Type.PLANK,Categories.Type.SIMPLE_FOOD,Categories.Type.MUSHROOM]:
 		var section := VBoxContainer.new()
 		get_node("%StorageAmounts").add_child(section)
 		var row := HBoxContainer.new()

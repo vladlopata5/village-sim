@@ -19,6 +19,7 @@ func run() -> void:
 		for resource in R.values():
 			var stock:int=building.resources.get_available_amount(resource)
 			if stock>0:assert(building.resources.try_take(resource,stock))
+	world.warehouse_data.resources.set_capacity(R.MUSHROOM,5) # Fixture permits the tested producer export.
 	var workers=[world.resident_runtimes[1],world.resident_runtimes[3]]
 	for actor in workers:
 		assert(world.player_control.assign_workplace(actor.data.id,world.warehouse_data.id,P.PORTER))
@@ -32,7 +33,7 @@ func run() -> void:
 	var notices:={"count":0}
 	world.logistics.changed.connect(func():notices.count+=1)
 	var start:int=world.game_time.total_minutes
-	assert(world.gatherer_hut_data.resources.add(R.FOOD,1))
+	assert(world.gatherer_hut_data.resources.add(R.MUSHROOM,1))
 	assert(notices.count==1,"One amount change is validated once, without Main's duplicate changed binding")
 	await process_frame
 	await process_frame
@@ -45,8 +46,8 @@ func run() -> void:
 	var latency:int=world.game_time.total_minutes-start
 	assert(latency>0 and latency<=30,"Next ordinary IDLE retry discovers the real unreserved unit")
 	var job=world.logistics.jobs[0]
-	assert(world.gatherer_hut_data.resources.get_reserved_out(R.FOOD)==1)
-	assert(world.logistics._buildings[job.destination_location_id].resources.get_reserved_in(R.FOOD)==1)
+	assert(world.gatherer_hut_data.resources.get_reserved_out(R.MUSHROOM)==1)
+	assert(world.logistics._buildings[job.destination_location_id].resources.get_reserved_in(R.MUSHROOM)==1)
 	for actor in world.resident_runtimes:actor.decision._deciding=true
 	world.logistics._executors[job.assigned_resident_id].cancel("controlled cleanup")
 	for actor in world.resident_runtimes:actor.intents.abort_current(actor.intents.current_intent)

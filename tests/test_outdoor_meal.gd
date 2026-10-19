@@ -38,6 +38,9 @@ func building(world: Node, type: int):
 	var data = B.new(StringName("outdoor_%d" % world.buildings.size()),Def.for_type(type),C.to_sim(Vector3(-10,0,16)))
 	world.buildings.append(data)
 	world._show_building(data)
+	if type==T.SAWMILL: # Stored legacy food at a non-kitchen producer; no FOOD production.
+		data.resources.set_allowed_resource_types([])
+		data.resources.set_capacity(R.FOOD,5)
 	return data
 func walk(actor: Node) -> void:
 	var expected = actor.intents.current_intent
@@ -77,7 +80,7 @@ func run() -> void:
 	var intent: RefCounted
 	var source: RefCounted
 	# Real Kitchen/Other sources, portal callbacks and committed action parameters.
-	for type in [T.FOOD,T.TOWN_CENTER,T.STORAGE,T.GATHERER_HUT]:
+	for type in [T.FOOD,T.TOWN_CENTER,T.STORAGE,T.SAWMILL]:
 		world = fixture()
 		actor = world.resident_runtimes[1]
 		source = building(world,type)
