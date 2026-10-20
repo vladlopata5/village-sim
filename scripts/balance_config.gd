@@ -186,3 +186,10 @@ const GROUND_STONE_STACK_CAPACITY := 4
 const GROUND_STACK_LIFETIME_MINUTES := 4320
 const GROUND_NATURAL_PLACEMENT_RADIUS := 2
 const GROUND_WORKER_PLACEMENT_RADIUS := 8
+
+# Natural surface wear: one independent roll per physical cell entry.
+const TRAMPLE_CHANCE := 0.25
+const TRAMPLE_DECAY_PER_NIGHT := 1
+const TRAMPLE_MAX_LEVEL := 15
+const TRAMPLE_FAST_LEVEL := 11
+const TRAMPLE_SEED := 20261020

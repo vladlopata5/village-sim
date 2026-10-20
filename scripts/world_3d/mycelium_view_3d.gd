@@ -1,5 +1,6 @@
 extends Node3D
 ## Read-only land tint and small stable visual instances, independent of harvesting.
+const LAND_COLOR := Color(0.225,0.37,0.215)
 var land: RefCounted
 var patches := MultiMeshInstance3D.new()
 var _piles: Dictionary={}
@@ -9,7 +10,7 @@ const OFFSETS := [Vector3(-0.11,0,-0.11),Vector3(0.11,0,0.11),Vector3(-0.11,0,0.
 func setup(model: RefCounted) -> void:
 	land=model;add_child(patches)
 	var tile:=PlaneMesh.new();tile.size=Vector2.ONE*land.geometry.CELL_SIZE
-	var tint:=StandardMaterial3D.new();tint.albedo_color=Color(0.225,0.37,0.215)
+	var tint:=StandardMaterial3D.new();tint.albedo_color=LAND_COLOR
 	tile.material=tint
 	patches.multimesh=MultiMesh.new();patches.multimesh.transform_format=MultiMesh.TRANSFORM_3D;patches.multimesh.mesh=tile
 	var cells: Array=land.cells();patches.multimesh.instance_count=cells.size()

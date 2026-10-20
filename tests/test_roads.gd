@@ -46,7 +46,7 @@ func run() -> void:
 	var projection=preload("res://scripts/world_3d/road_navigation_3d.gd").new()
 	projection.setup(roads,nav)
 	check(tool.paint(Vector3(1.25,0,1.25)) and tool.paint(Vector3(10.25,0,1.25)),"Paint fast drag via common tool")
-	check(roads.cells().size()==40 and layer.multimesh.instance_count==40,"Batch visual matches authoritative road cells")
+	check(roads.cells().size()==40 and layer.multimesh.visible_instance_count==40,"Batch visual matches authoritative road cells")
 	var revision: int=nav.revision
 	var old_mesh: MultiMesh=layer.multimesh
 	tool.end_stroke()
@@ -57,7 +57,7 @@ func run() -> void:
 	tool.end_stroke()
 	tool.paint(Vector3(1.25,0,1.25),true)
 	tool.paint(Vector3(10.25,0,1.25),true)
-	check(roads.cells().is_empty() and layer.multimesh.instance_count==0 and nav.get_world_speed_multiplier(Vector3(5.25,0,1.25))==1.0,"Erase removes state, visual and modifier")
+	check(roads.cells().is_empty() and layer.multimesh.visible_instance_count==0 and nav.get_world_speed_multiplier(Vector3(5.25,0,1.25))==1.0,"Erase removes state, visual and modifier")
 	var a := Vector3(1.25,0,3.25)
 	var b := Vector3(11.25,0,3.25)
 	check(nav.find_path(a,b).size()==2,"Ground-only path remains direct")
@@ -251,7 +251,7 @@ func integration() -> void:
 	var network_mesh: MultiMesh=world.road_layer.multimesh
 	for frame in range(5): await physics_frame
 	check(world.navigation.revision==network_revision and world.road_layer.multimesh==network_mesh,"Idle frames rebuild neither road visuals nor navigation weights")
-	check(world.road_layer.multimesh.instance_count==world.roads.cells().size() and world.road_layer.get_child_count()==0,"No per-tile presentation nodes or duplicates")
+	check(world.road_layer.multimesh.visible_instance_count==world.roads.cells().size() and world.road_layer.get_child_count()==0,"No per-tile presentation nodes or duplicates")
 	world.free()
 
 func check_building_before_road(world, building, state_label: String) -> void:
@@ -273,12 +273,12 @@ func check_building_before_road(world, building, state_label: String) -> void:
 	check(cells.all(func(cell): return not world.road_tool.can_paint(cell)),state_label+": tool rejects actual occupied footprint cells")
 	check(cells.all(func(cell): return not world.roads.contains(cell)),state_label+": painting creates no road under building")
 	check(world.roads.contains(before) and world.roads.contains(after),state_label+": neighboring valid cells on both sides still painted")
-	check(world.road_layer.multimesh.instance_count==world.roads.cells().size(),state_label+": visual instance count matches only accepted roads")
+	check(world.road_layer.multimesh.visible_instance_count==world.roads.cells().size(),state_label+": visual instance count matches only accepted roads")
 	# Dummy headless RenderingServer has no MultiMesh transform storage.
 	# The same test also runs rendered to verify actual tile positions.
 	if DisplayServer.get_name()!="headless":
 		var visual_cells: Array[Vector2i]=[]
-		for index in range(world.road_layer.multimesh.instance_count):
+		for index in range(world.road_layer.multimesh.visible_instance_count):
 			var position: Vector3=world.road_layer.multimesh.get_instance_transform(index).origin
 			visual_cells.append(world.build_grid.world_to_cell(position))
 		check(cells.all(func(cell): return cell not in visual_cells),state_label+": no visual road instances inside footprint")

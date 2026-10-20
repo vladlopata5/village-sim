@@ -129,10 +129,9 @@ func run() -> void:
 		world._physics_process(0)
 		check(not world.placement.is_active() and not world.building_ghost.visible and info.day_summary.visible,"World RMB cancels without another site")
 		await capture(prefix+"cancelled")
-		catalog.select_category(&"objects")
-		await settle()
-		click(catalog.tiles[&"dirt_road"])
-		check(world.road_tool.active and info.day_summary.visible,"Actual road tile uses road tool")
+		check(not catalog.tiles.has(&"dirt_road"),"Free dirt brush absent from ordinary catalogue")
+		world._select_road_tool() # Compatibility tool still obeys real input/UI barriers.
+		check(world.road_tool.active and info.day_summary.visible,"Technical road tool remains functional")
 		var start:=camera.unproject_position(Vector3(7,0,1))
 		mouse(start)
 		world._physics_process(0)

@@ -54,9 +54,9 @@ func run() -> void:
 	check(panel.sections[0].kind==panel.Kind.TAB and panel.sections[1].kind==panel.Kind.QUICK_WINDOW and panel.sections[2].kind==panel.Kind.QUICK_WINDOW and panel.sections[3].kind==panel.Kind.QUICK_WINDOW,"Distinct registered action kinds")
 	var names:=[]
 	for category in catalog.categories: names.append(category.title)
-	check(names==["Производство","Логистика","Поселение","Объекты"],"Four ordered internal categories")
-	var expected:=[[T.LUMBERJACK_HUT,T.QUARRY,T.GATHERER_HUT,T.SAWMILL],[T.STORAGE],[T.HOME,T.FOOD],[]]
-	for index in range(4):
+	check(names==["Производство","Логистика","Поселение"],"Three ordered building categories; no free road brush")
+	var expected:=[[T.LUMBERJACK_HUT,T.QUARRY,T.GATHERER_HUT,T.SAWMILL],[T.STORAGE],[T.HOME,T.FOOD]]
+	for index in range(3):
 		var category: Dictionary=catalog.categories[index]
 		var types:=[]
 		for entry in category.entries:
@@ -64,8 +64,8 @@ func run() -> void:
 			var tile: Button=catalog.tiles[entry.id]
 			check(not tile.get_node("Content/Title").text.is_empty() and tile.get_node("Content/Icon").texture!=null,"Permanent title and real icon: "+entry.name)
 		check(types==expected[index],"Correct category contents "+category.title)
-	check(catalog.tiles.size()==8 and catalog.tile_for_type(T.TOWN_CENTER)==null,"Seven buildings + real road; no Town Center")
-	check(not catalog.entries[&"dirt_road"].has("definition"),"Road has no fabricated Definition")
+	check(catalog.tiles.size()==7 and catalog.tile_for_type(T.TOWN_CENTER)==null,"Seven buildings; no manual road or Town Center")
+	check(not catalog.entries.has(&"dirt_road"),"No free manual road in ordinary catalogue")
 	click(panel.collapse_button)
 	await process_frame
 	await process_frame

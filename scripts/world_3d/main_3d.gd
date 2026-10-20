@@ -16,7 +16,6 @@ var roads = preload("res://scripts/road_grid.gd").new()
 var road_tool = preload("res://scripts/world_3d/road_tool_3d.gd").new()
 var road_navigation = preload("res://scripts/world_3d/road_navigation_3d.gd").new()
 var road_layer = preload("res://scripts/world_3d/road_layer_3d.gd").new()
-var _road_button: Button
 var _road_events: Array[Dictionary] = []
 var _road_dragging := false
 var building_ghost: Node3D
@@ -197,6 +196,8 @@ func _create_resident_presentation(data: ResidentData, start: Vector2) -> Node:
 	executor.tree_exiting.connect(runtime_placement_blockers.unregister.bind(StringName(data.id)))
 	executor.set_time_speed(game_time.speed_multiplier)
 	game_time.speed_changed.connect(executor.set_time_speed)
+	executor.movement.cell_entered.connect(roads.visit)
+	executor.movement.surface_speed = roads.execution_speed
 	executor.intent_failed.connect(_on_movement_failed.bind(data))
 	return executor
 func _create_building_presentation(building: BuildingInstance) -> Node:
@@ -216,6 +217,7 @@ func _create_building_presentation(building: BuildingInstance) -> Node:
 	mycelium.clear_cells(cells) # Only after successful footprint ownership.
 	navigation.add_blocker(building.id, Geometry.footprint(building))
 	roads.edit(cells,true) # Actual footprint only; cancellation never restores roads.
+	roads.clear_trampling(cells)
 	return view
 func _setup_construction() -> void:
 	placement = preload("res://scripts/world_3d/building_placement_3d.gd").new()
@@ -241,6 +243,10 @@ func _setup_construction() -> void:
 	placement.changed.connect(building_ghost.refresh)
 	placement.changed.connect(_placement_ui_changed)
 func _setup_roads() -> void:
+	roads.allowed = _trampling_cell_allowed
+	roads.setup_trampling(game_time.total_minutes)
+	game_time.minute_changed.connect(roads.on_minute)
+	road_layer.base_color = _ground_base_color
 	road_tool.roads=roads
 	road_tool.build_grid=build_grid
 	road_tool.runtime_blockers=runtime_placement_blockers
@@ -248,7 +254,10 @@ func _setup_roads() -> void:
 	$World.add_child(road_layer)
 	road_navigation.setup(roads,navigation)
 	road_layer.setup(roads)
-	_road_button=construction_panel.catalogue.tiles[&"dirt_road"]
+func _trampling_cell_allowed(cell: Vector2i) -> bool:
+	return roads.in_bounds(cell) and build_grid.occupant(cell).is_empty() and not runtime_placement_blockers.static_cell_occupied(cell,build_grid)
+func _ground_base_color(cell: Vector2i) -> Color:
+	return mycelium_view.LAND_COLOR if mycelium.has_mycelium(cell) else $World/Ground/Mesh.material_override.albedo_color
 func _setup_mycelium() -> void:
 	mycelium.allowed=_mushroom_cell_allowed
 	# Fixed-seed sampling without replacement, stratified across the authored territory.
