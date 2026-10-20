@@ -48,6 +48,8 @@ var developer_panel: PanelContainer
 var debug_spawn_marker: MeshInstance3D
 @onready var game_ui: Control = $HUD/GameUI
 var ready_for_play := false
+var animals: Array = []
+var animal_executors: Array[Node3D] = []
 var _clicks: Array[InputEventMouseButton] = []
 var _pointer_position := Vector2.ZERO
 var _tool_generation := 0
@@ -155,6 +157,7 @@ func _ready() -> void:
 	_setup_roads()
 	_setup_mycelium()
 	navigation.prepare_connectivity() # Once after all initial world registration.
+	_setup_wild_sheep()
 	ready_for_play = true
 	if OS.is_debug_build():
 		debug_spawn=preload("res://scripts/debug_spawn_service.gd").new()
@@ -181,6 +184,24 @@ func _ready() -> void:
 		$World.add_child(debug_spawn_marker)
 		debug_spawn_marker.hide()
 		developer_panel.placement_cancelled.connect(debug_spawn_marker.hide)
+func _setup_wild_sheep() -> void:
+	# Shared habitat is data only; this open meadow is west of the starter center.
+	var center := Vector3(4.25,0,6.25)
+	var offsets := [Vector3(-1,0,0),Vector3(0,0,1),Vector3(1,0,-1)]
+	for index in offsets.size():
+		var start: Vector3 = center+offsets[index]
+		assert(navigation.is_world_walkable(start),"Authored sheep spawn must be walkable")
+		var animal = preload("res://scripts/animal_data.gd").new(StringName("sheep_%02d" % (index+1)),center,start)
+		var executor = preload("res://scripts/world_3d/animal_executor_3d.gd").new()
+		executor.name = String(animal.id)
+		$World.add_child(executor)
+		executor.navigation = navigation
+		executor.setup(animal,game_time)
+		animals.append(animal)
+		animal_executors.append(executor)
+		var registered: bool = runtime_placement_blockers.register_circle(animal.id,executor.get_world_position,Balance.SHEEP_NAV_RADIUS)
+		assert(registered,"Each sheep owns one placement blocker, never a navigation blocker")
+		executor.tree_exiting.connect(runtime_placement_blockers.unregister.bind(animal.id))
 func _open_residents(role: int=-1) -> void:
 	settlement_panel.preset_profession(role)
 	game_ui.open_window(&"residents")

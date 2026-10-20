@@ -1,4 +1,19 @@
 extends RefCounted
+## S1 prototype animal values, in WORLD units and game minutes.
+const SHEEP_HABITAT_RADIUS := 10.0
+const SHEEP_WALK_SPEED := 0.6 # Resident base is 4.8 WORLD/second at x1.
+const SHEEP_NAV_RADIUS := 0.38 # Within the shared navigation clearance of 0.4.
+const SHEEP_WANDER_CHANCE := 0.6
+const SHEEP_GRAZE_MIN := 30
+const SHEEP_GRAZE_MAX := 60
+const SHEEP_MAX_WOOL := 15
+const SHEEP_SLEEP_AFTER := 21*60
+const SHEEP_WAKE_MIN := 5*60
+const SHEEP_WAKE_MAX := 7*60
+const SHEEP_TARGET_ATTEMPTS := 8
+const SHEEP_MIN_WALK_DISTANCE := 0.5
+const SHEEP_RETRY_MINUTES := 5
+const SHEEP_SEED := 20261020
 const ResourceType = preload("res://scripts/resource_type.gd")
 const Categories = preload("res://scripts/resource_category.gd")
 # Warehouse presets; production containers keep independent resource capacities.
