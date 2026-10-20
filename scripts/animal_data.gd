@@ -2,12 +2,13 @@ extends RefCounted
 ## Animal state in WORLD units. The executor is the sole physical position owner.
 const Balance = preload("res://scripts/balance_config.gd")
 enum Species { SHEEP }
-enum Status { WILD }
-enum Behavior { IDLE, WANDER, GRAZE, SLEEP }
+enum Status { WILD, DOMESTIC }
+enum Behavior { IDLE, WANDER, GRAZE, SLEEP, RETURN_HOME }
 signal changed
 var id: StringName
 var species: Species = Species.SHEEP
 var status: Status = Status.WILD
+var home_id: StringName
 var position: Vector3
 var habitat_center: Vector3
 var habitat_radius: float = Balance.SHEEP_HABITAT_RADIUS

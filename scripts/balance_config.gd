@@ -1,4 +1,7 @@
 extends RefCounted
+# S2: shared animal capacity, not resident housing. Wool has no economic type yet.
+const SHEPHERD_ANIMAL_CAPACITY := 8
+const SHEPHERD_WOOL_CAPACITY := 20
 # H2 preliminary pair movement parameters, WORLD units and game minutes.
 const ESCORT_GAP := 1.2
 const ESCORT_WAIT_GAP := 3.0

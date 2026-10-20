@@ -1,6 +1,6 @@
 extends RefCounted
 ## Assigned profession is resident data, separate from permanent skill XP.
-enum Type { NONE, PORTER, GATHERER, BUILDER, LUMBERJACK, SAWYER, MINER, COOK }
+enum Type { NONE, PORTER, GATHERER, BUILDER, LUMBERJACK, SAWYER, MINER, COOK, SHEPHERD }
 
 static func display_name(profession: Type) -> String:
 	match profession:
@@ -11,4 +11,5 @@ static func display_name(profession: Type) -> String:
 		Type.SAWYER: return "Пильщик"
 		Type.MINER: return "Камнедобытчик"
 		Type.COOK: return "Повар"
+		Type.SHEPHERD: return "Пастух"
 		_: return "Без профессии"

@@ -9,6 +9,8 @@ signal behavior_finished(behavior: int, successful: bool)
 var data: Animal
 var rng := RandomNumberGenerator.new()
 var wander_offer: Callable
+var sleep_offer: Callable # Domestic executor first returns physically to its entrance.
+signal waking
 var token := 0
 var choices := 0
 var suspended := false
@@ -26,7 +28,8 @@ func _choose(now: int) -> void:
 	choices += 1
 	var time_of_day := posmod(now,Clock.MINUTES_PER_DAY)
 	if time_of_day >= Balance.SHEEP_SLEEP_AFTER or time_of_day < Balance.SHEEP_WAKE_MIN:
-		_begin_sleep(now)
+		if sleep_offer.is_valid(): sleep_offer.call(now)
+		else: _begin_sleep(now)
 	elif rng.randf() < Balance.SHEEP_WANDER_CHANCE:
 		var offer: Dictionary = wander_offer.call(rng) if wander_offer.is_valid() else {}
 		if offer.is_empty():
@@ -47,7 +50,8 @@ func _begin_graze(now: int) -> void:
 	_set_behavior(Animal.Behavior.GRAZE,now,now+rng.randi_range(Balance.SHEEP_GRAZE_MIN,Balance.SHEEP_GRAZE_MAX))
 func _begin_sleep(now: int) -> void:
 	var morning := floori(float(now)/Clock.MINUTES_PER_DAY)*Clock.MINUTES_PER_DAY
-	if posmod(now,Clock.MINUTES_PER_DAY) >= Balance.SHEEP_SLEEP_AFTER: morning += Clock.MINUTES_PER_DAY
+	# A domestic return may arrive after dawn: never create a sleep deadline in the past.
+	if posmod(now,Clock.MINUTES_PER_DAY) >= Balance.SHEEP_WAKE_MIN: morning += Clock.MINUTES_PER_DAY
 	data.sleep_started_at = now
 	data.wake_at = morning+rng.randi_range(Balance.SHEEP_WAKE_MIN,Balance.SHEEP_WAKE_MAX)
 	_set_behavior(Animal.Behavior.SLEEP,now,data.wake_at)
@@ -79,6 +83,8 @@ func _on_minute(now: int) -> void:
 		if previous == Animal.Behavior.GRAZE: data.wool_growth += 1
 		if token != completed_generation: return
 		if previous != Animal.Behavior.IDLE: behavior_finished.emit(previous,true)
+		if token != completed_generation: return
+		if previous == Animal.Behavior.SLEEP: waking.emit()
 		if token != completed_generation: return
 		_choose(finished_at)
 func cancel_behavior() -> void:

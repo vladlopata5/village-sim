@@ -8,7 +8,8 @@ static func categories() -> Array:
 			building(Types.LUMBERJACK_HUT,"tree","Рубка, сбор древесины и посадка деревьев при хижине."),
 			building(Types.QUARRY,"rock","Добыча и сбор камня в рабочей области каменоломни."),
 			building(Types.GATHERER_HUT,"basket","Сбор грибов и доставка их в хижину."),
-			building(Types.SAWMILL,"saw","Производство досок из брёвен.")]},
+			building(Types.SAWMILL,"saw","Производство досок из брёвен."),
+			building(Types.SHEPHERD_HUT,"home","Содержание 8 животных. Пастух: 1; носильщик: 1 (необязателен)." )]},
 		{"id":&"logistics", "title":"Логистика", "entries":[building(Types.STORAGE,"storage","Хранение ресурсов и работа носильщиков.")]},
 		{"id":&"settlement", "title":"Поселение", "entries":[building(Types.HOME,"home","Жильё и отдых жителей."),building(Types.FOOD,"kitchen","Приготовление жареных грибов и питание жителей.")]},
 	]

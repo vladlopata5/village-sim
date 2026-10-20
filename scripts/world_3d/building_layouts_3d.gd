@@ -27,6 +27,8 @@ static func validate(layout: Node, definition: RefCounted) -> bool:
 		if marker.local_id.is_empty() or ids.has(marker.local_id): return false
 		ids[marker.local_id]=true
 		counts[marker.purpose]=counts.get(marker.purpose,0)+1
+	if counts.get(Slot.Purpose.ANIMAL_SLEEP,0)!=definition.animal_capacity: return false
+	if counts.get(Slot.Purpose.ANIMAL_SERVICE,0)!=(1 if definition.animal_capacity>0 else 0): return false
 	return counts.get(Slot.Purpose.WORKER,0)==definition.worker_capacity and counts.get(Slot.Purpose.SLEEP,0)==maxi(definition.housing_capacity,definition.fallback_housing_capacity) and counts.get(Slot.Purpose.COURIER,0)==(1 if not definition.logistics_flow.is_empty() or definition.max_builders>0 else 0) and counts.get(Slot.Purpose.VISITOR,0)==definition.visitor_capacity and counts.get(Slot.Purpose.CONSTRUCTION,0)>=definition.max_builders
 static var _entrance_data: Dictionary = {}
 static func entrance_zone(definition: RefCounted, center: Vector3, turns: int) -> Rect2:

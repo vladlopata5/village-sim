@@ -40,6 +40,7 @@ var construction_progress: int = 0:
 		if clamped == construction_progress: return
 		construction_progress = clamped
 		_notify_construction_changed()
+var animal_housing: RefCounted
 var resources: ResourceContainer
 var _production_batches: Array[Batch] = []
 var production_batches: Array[Batch]:
@@ -96,6 +97,7 @@ func _init(instance_id: StringName, building_definition: Definition, world_posit
 	definition = building_definition
 	position = world_position
 	_state = initial_state
+	if definition.animal_capacity>0: animal_housing=preload("res://scripts/animal_housing.gd").new(self)
 	previously_built = initial_state == State.BUILT
 	for resource in definition.construction_requirements:
 		_construction_delivered[resource] = 0

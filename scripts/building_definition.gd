@@ -6,6 +6,7 @@ const ResourceType = preload("res://scripts/resource_type.gd")
 const BuildingType = preload("res://scripts/building_type.gd")
 const Recipe = preload("res://scripts/production_recipe.gd")
 const CONSTRUCTION_BALANCE = {
+	BuildingType.Type.SHEPHERD_HUT: {"requirements":{ResourceType.Type.LOG:4,ResourceType.Type.PLANK:6},"minutes":180,"builders":2},
 	BuildingType.Type.TOWN_CENTER: {"requirements":{},"minutes":240,"builders":2},
 	BuildingType.Type.QUARRY: {"requirements": {ResourceType.Type.LOG:8,ResourceType.Type.STONE:4},"minutes":180,"builders":2},
 	BuildingType.Type.SAWMILL: {"requirements": {ResourceType.Type.LOG:6,ResourceType.Type.STONE:6},"minutes":240,"builders":2},
@@ -17,6 +18,7 @@ const CONSTRUCTION_BALANCE = {
 }
 # Explicit 3D physical area in build cells; size remains the shared logical footprint in simulation coordinates.
 const FOOTPRINT_CELLS = {
+	BuildingType.Type.SHEPHERD_HUT: Vector2i(12,8),
 	BuildingType.Type.QUARRY: Vector2i(12,8),
 	BuildingType.Type.TOWN_CENTER: Vector2i(16,12),
 	BuildingType.Type.SAWMILL: Vector2i(12,8),
@@ -54,6 +56,8 @@ const LOGISTICS_FLOW = {
 	BuildingType.Type.LUMBERJACK_HUT: {ResourceType.Type.LOG:{"import":false,"export":true}},
 }
 const Profession = preload("res://scripts/resident_profession.gd")
+var animal_capacity := 0
+var planned_wool_capacity := 0 # Integration point for S3; no fake resource/recipe.
 var worker_profession: int = Profession.Type.NONE
 var internal_resources: Array = []
 var resource_capacities: Dictionary = {} # Optional concrete production buffers, independent of warehouse quotas.
@@ -93,8 +97,8 @@ func _init(type_id: StringName, category: BuildingType.Type, label: String, foot
 	max_builders = maxi(builder_limit, 0)
 	housing_capacity = maxi(resident_capacity, 0)
 static func for_type(category: BuildingType.Type, label: String = ""):
-	var ids := [&"kitchen", &"warehouse", &"gatherer_hut", &"home", &"lumberjack_hut", &"sawmill", &"town_center", &"quarry"]
-	var labels := ["Общая кухня", "Склад", "Хижина собирателя", "Дом", "Хижина лесоруба", "Лесопилка", "Городской центр", "Каменоломня"]
+	var ids := [&"kitchen", &"warehouse", &"gatherer_hut", &"home", &"lumberjack_hut", &"sawmill", &"town_center", &"quarry", &"shepherd_hut"]
+	var labels := ["Общая кухня", "Склад", "Хижина собирателя", "Дом", "Хижина лесоруба", "Лесопилка", "Городской центр", "Каменоломня", "Хижина пастуха"]
 	var footprint_size := Vector2(64, 48) if category == BuildingType.Type.HOME else Vector2(144, 96)
 	var construction: Dictionary = CONSTRUCTION_BALANCE.get(category,{"requirements":{},"minutes":0,"builders":0})
 	var result = load("res://scripts/building_definition.gd").new(ids[category], category, labels[category] if label.is_empty() else label, footprint_size, construction.requirements, construction.minutes, construction.builders, Balance.HOUSE_RESIDENT_CAPACITY if category == BuildingType.Type.HOME else 0)
@@ -126,6 +130,12 @@ static func for_type(category: BuildingType.Type, label: String = ""):
 		result.work_radius = Balance.QUARRY_WORK_RADIUS
 		result.local_resource_capacity = Balance.QUARRY_STONE_CAPACITY
 		result.internal_resources = [ResourceType.Type.STONE]
+	if category == BuildingType.Type.SHEPHERD_HUT:
+		result.worker_profession = Profession.Type.SHEPHERD
+		result.worker_capacity = 1
+		result.work_radius = Balance.LUMBERJACK_WORK_RADIUS
+		result.animal_capacity = Balance.SHEPHERD_ANIMAL_CAPACITY
+		result.planned_wool_capacity = Balance.SHEPHERD_WOOL_CAPACITY
 	if category == BuildingType.Type.SAWMILL:
 		result.worker_capacity = Balance.SAWMILL_WORKER_CAPACITY
 		result.production_recipes.append(Recipe.new({ResourceType.Type.LOG:1},{ResourceType.Type.PLANK:1},Balance.SAWMILL_WORK_MINUTES,&"sawmill_plank"))

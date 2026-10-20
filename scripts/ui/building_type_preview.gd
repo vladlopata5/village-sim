@@ -18,6 +18,7 @@ func show_definition(definition: RefCounted, description: String = "") -> void:
 		roles.append("%s: %s" % [Profession.display_name(definition.worker_profession),str(definition.worker_capacity) if definition.worker_capacity > 0 else "без лимита"])
 	if definition.porter_capacity > 0: roles.append("Носильщики: %d" % definition.porter_capacity)
 	if definition.housing_capacity > 0: roles.append("Жильцы: %d" % definition.housing_capacity)
+	if definition.animal_capacity>0: roles.append("Животные: %d • шерсть: 0/%d (будущий выпуск)" % [definition.animal_capacity,definition.planned_wool_capacity])
 	$Roles.text = "\n".join(roles)
 	$Roles.visible = not roles.is_empty()
 

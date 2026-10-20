@@ -26,6 +26,16 @@ func setup(data: RefCounted) -> void:
 	visual.mesh = box
 	visual.position.y = height / 2.0
 	add_child(visual)
+	if data.type==preload("res://scripts/building_type.gd").Type.SHEPHERD_HUT:
+		var roof := MeshInstance3D.new()
+		var prism := PrismMesh.new()
+		prism.size=Vector3(size.x+0.4,0.9,size.y+0.4)
+		roof.mesh=prism
+		roof.position.y=height+0.45
+		var roof_material := StandardMaterial3D.new()
+		roof_material.albedo_color=Color("705f48")
+		roof.material_override=roof_material
+		add_child(roof)
 	var shape := BoxShape3D.new()
 	shape.size = box.size
 	var collider := CollisionShape3D.new()
@@ -45,7 +55,7 @@ func setup(data: RefCounted) -> void:
 	add_child(indicator)
 	caption = Label3D.new()
 	caption.pixel_size = 0.018
-	caption.position.y = height + 0.36
+	caption.position.y = height + 0.36 + (0.9 if data.definition.animal_capacity>0 else 0.0)
 	caption.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	add_child(caption)
 	if data.definition.work_radius > 0:
@@ -58,7 +68,7 @@ func setup(data: RefCounted) -> void:
 	data.construction_changed.connect(_refresh)
 	_refresh()
 func _refresh() -> void:
-	var colors := [Color("bd976b"), Color("829ba7"), Color("9aaa70"), Color("c2aa91"),Color("88735d"),Color("a28559"),Color("547ea8"),Color("89918b")]
+	var colors := [Color("bd976b"), Color("829ba7"), Color("9aaa70"), Color("c2aa91"),Color("88735d"),Color("a28559"),Color("547ea8"),Color("89918b"),Color("b5a677")]
 	material.albedo_color = colors[building_data.type] if building_data.is_built() else Color("8b7357")
 	set_inside_count(inside_count)
 	caption.text = building_data.display_name + ("" if building_data.is_built() else " — " + building_data.work_status().to_lower())
@@ -142,7 +152,7 @@ func set_inside_count(count: int) -> void:
 	color.a = 0.22 if count>0 else 1.0
 	material.albedo_color = color
 func _create_layout_visuals() -> void:
-	var colors := [Color("7fe889"),Color("ffe178"),Color("ec89e1"),Color("82b7ff"),Color("ff9f5c")]
+	var colors := [Color("7fe889"),Color("ffe178"),Color("ec89e1"),Color("82b7ff"),Color("ff9f5c"),Color("afdbed"),Color("c6a9e6")]
 	for marker in get_markers(preload("res://scripts/world_3d/building_slot_3d.gd")):
 		var mesh := BoxMesh.new()
 		mesh.size = Vector3(0.24,0.12,0.24)

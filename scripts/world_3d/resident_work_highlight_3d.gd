@@ -70,7 +70,7 @@ func refresh() -> void:
 		var building: RefCounted = _control.get_building(resident.work_location_id)
 		if building != null and building.is_built() and resident.profession in _control.get_workplace_roles(building.id):
 			presentation = _locations.get_view(building.id)
-			if presentation != null and ((resident.profession == Profession.LUMBERJACK and building.type == Types.LUMBERJACK_HUT) or (resident.profession == Profession.MINER and building.type == Types.QUARRY) or (resident.profession == Profession.GATHERER and building.type == Types.GATHERER_HUT)):
+			if presentation != null and ((resident.profession == Profession.LUMBERJACK and building.type == Types.LUMBERJACK_HUT) or (resident.profession == Profession.MINER and building.type == Types.QUARRY) or (resident.profession == Profession.GATHERER and building.type == Types.GATHERER_HUT) or (resident.profession == Profession.SHEPHERD and building.type == Types.SHEPHERD_HUT)):
 				var area: RefCounted = _control.get_building_work_area(building.id)
 				if area != null:
 					center = area.center

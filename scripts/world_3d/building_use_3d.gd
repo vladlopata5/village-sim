@@ -44,6 +44,13 @@ func choices(id: StringName, purpose: int, origin: Vector3) -> Array:
 		return String(a.local_id)<String(b.local_id) if is_equal_approx(da,db) else da<db)
 	return result
 func acquire(id: StringName, purpose: int, resident_id: String, origin: Vector3) -> Marker3D:
+	if purpose in [Slot.Purpose.ANIMAL_SLEEP,Slot.Purpose.ANIMAL_SERVICE] or resident_id.begins_with("animal:"): return null
+	return _acquire(id,purpose,resident_id,origin)
+func acquire_animal(id: StringName, animal_id: StringName, origin: Vector3) -> Marker3D:
+	var target := view(id)
+	if target==null or target.building_data.animal_housing==null or not target.building_data.animal_housing.has_member(animal_id): return null
+	return _acquire(id,Slot.Purpose.ANIMAL_SLEEP,"animal:"+String(animal_id),origin)
+func _acquire(id: StringName, purpose: int, resident_id: String, origin: Vector3) -> Marker3D:
 	var target := view(id)
 	if target==null or resident_id.is_empty(): return null
 	for other in _views.values():
@@ -57,6 +64,14 @@ func acquire(id: StringName, purpose: int, resident_id: String, origin: Vector3)
 	slots_changed.emit(id,purpose)
 	return marker
 func release(id: StringName, marker: Marker3D, resident_id: String) -> void:
+	if not is_instance_valid(marker) or marker.purpose in [Slot.Purpose.ANIMAL_SLEEP,Slot.Purpose.ANIMAL_SERVICE]: return
+	_release(id,marker,resident_id)
+func release_animal(id: StringName, marker: Marker3D, animal_id: StringName) -> void:
+	if not is_instance_valid(marker) or marker.purpose!=Slot.Purpose.ANIMAL_SLEEP: return
+	var target := view(id)
+	if target!=null and marker not in target.get_markers(Slot): return
+	_release(id,marker,"animal:"+String(animal_id))
+func _release(id: StringName, marker: Marker3D, resident_id: String) -> void:
 	if not is_instance_valid(marker) or marker.occupant!=resident_id: return
 	marker.occupant=""
 	var target := view(id)

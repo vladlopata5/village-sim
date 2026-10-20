@@ -35,6 +35,7 @@ var reset_area_button: Button
 var staffing_buttons: Dictionary = {}
 var structural_progress: ProgressBar
 var management_button: Button
+var animal_summary: Label
 var storage_rows: Dictionary = {}
 var _quota_dirty: Dictionary = {}
 @onready var name_label: Label = _widget("Name")
@@ -53,6 +54,11 @@ func _ready() -> void:
 	get_node("%Demolish").pressed.connect(_change_construction_direction)
 	_setup_storage_rows()
 	_setup_work_area()
+	animal_summary=Label.new()
+	animal_summary.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+	_info_body().add_child(animal_summary)
+	_info_body().move_child(animal_summary,1)
+	animal_summary.hide()
 	_info_body().move_child(get_node("%Demolish"),0)
 	management_button = Button.new()
 	management_button.text = "Управление поселением"
@@ -223,6 +229,9 @@ func apply_presentation(expanded: bool, tab: StringName) -> void:
 	get_node("%ProductionTab").visible = tab == &"production"
 	get_node("%Storage").visible = tab == &"storage"
 func _refresh_details(resource_lines: PackedStringArray) -> void:
+	animal_summary.visible=_building.animal_housing!=null
+	if animal_summary.visible:
+		animal_summary.text="Животные: %d / %d\nШерсть: 0 / %d\nНосильщик необязателен" % [_building.animal_housing.count(),_building.definition.animal_capacity,_building.definition.planned_wool_capacity]
 	var profession = preload("res://scripts/resident_profession.gd")
 	var producers: Array = _control.get_production_workers(_building.id) if _control != null else []
 	var porters: Array = _control.get_porters(_building.id) if _control != null else []
@@ -230,6 +239,10 @@ func _refresh_details(resource_lines: PackedStringArray) -> void:
 	if _building.is_built() and _building.definition.worker_profession != profession.Type.NONE:
 		counts.append("Работники: %d / %s" % [producers.size(), str(_building.definition.worker_capacity) if _building.definition.worker_capacity > 0 else "без лимита"])
 	if _building.is_built() and _building.definition.porter_capacity > 0: counts.append("Носильщики: %d / %d" % [porters.size(),_building.definition.porter_capacity])
+	if _building.animal_housing!=null:
+		if counts.is_empty(): counts.append("Пастух: здание не работает")
+		else: counts[0]="Пастух: %d / 1" % producers.size()
+		counts.append("Животные: %d / %d" % [_building.animal_housing.count(),_building.definition.animal_capacity])
 	get_node("%StaffSummary").text = "\n".join(counts)
 	get_node("%StaffSummary").visible = not _presentation_expanded and not counts.is_empty()
 	get_node("%Summary").text = _building.work_status() if not _building.is_built() else ""
@@ -242,6 +255,10 @@ func _refresh_details(resource_lines: PackedStringArray) -> void:
 				if entry.action==&"building" and entry.definition.type==_image_type: get_node("%Image").texture=load("res://assets/ui/catalog/%s.svg" % entry.icon)
 	var def = _building.definition
 	var buffer_lines := PackedStringArray()
+	if _building.animal_housing!=null:
+		buffer_lines.append("Домашние животные: %d / %d" % [_building.animal_housing.count(),_building.definition.animal_capacity])
+		buffer_lines.append("Шерсть: 0 / %d • выпуск появится позднее" % def.planned_wool_capacity)
+		buffer_lines.append("Носильщик необязателен")
 	for resource in ResourceType.Type.values():
 		var capacity: int = _building.resources.get_capacity(resource)
 		if capacity <= 0: continue

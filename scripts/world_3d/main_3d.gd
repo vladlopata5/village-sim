@@ -435,6 +435,7 @@ func _building_work_changed(building: BuildingInstance) -> void:
 	if _offline_buildings.has(building.id): call_deferred("_poll_building_work")
 func _building_cleanup_pending(building: BuildingInstance) -> bool:
 	if building_uses.inside_count(building.id) > 0: return true
+	if building.animal_housing!=null and (building.animal_housing.count()>0 or building.animal_housing.reserved_count()>0): return true
 	for runtime in resident_runtimes:
 		if runtime.view.is_inside_building(building.id): return true
 		if runtime.builder._mutating or runtime.recipe_work._mutating or runtime.data.inventory._transferring: return true

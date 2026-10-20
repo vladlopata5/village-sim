@@ -51,7 +51,7 @@ func run() -> void:
 		var cost: Dictionary = Expected.COSTS[category]
 		check(definition.construction_requirements == cost,"Exact agreed recipe: " + definition.display_name)
 		check(definition.construction_requirements.values().all(func(amount): return amount > 0),"No zero material requirements")
-		check(definition.construction_requirements.has(R.PLANK) == (category == T.STORAGE),"Only Storage requests PLANK")
+		check(definition.construction_requirements.has(R.PLANK) == (category in [T.STORAGE,T.SHEPHERD_HUT]),"Only approved Storage and Shepherd Hut recipes request PLANK")
 		var world = fixture()
 		# Controlled supply for integration of each recipe, not a new-game economic fixture.
 		var source = world.warehouse_data
