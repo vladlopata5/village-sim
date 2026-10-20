@@ -60,7 +60,7 @@ func run() -> void:
 	world.warehouse_data.resources.add(R.STONE,2)
 	check(building.storage_rows[C.STONE].amount.text=="2 /" and building.storage_rows[C.STONE].editor.text=="10","ResourceContainer.changed updates immediately")
 	var demolish: Button=building.get_node("%Demolish")
-	check(demolish.disabled and demolish.pressed.get_connections().is_empty(),"Demolish disabled with no removal callbacks")
+	check(not demolish.disabled and demolish.pressed.get_connections().size()==1 and demolish.text=="Демонтировать","D1 command enabled once for an operational building")
 	selection.select(a)
 	check(panel.expanded and panel.active_tab==&"bio","Building to resident falls back to Bio")
 	a.get_need(Need.HUNGER).value=73

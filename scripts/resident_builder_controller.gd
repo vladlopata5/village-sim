@@ -31,6 +31,7 @@ var source: Instance
 var phase := Phase.NONE
 var work_minutes := 0
 var _last_work_minute := 0
+var _direction_revision := 0
 var _resource: ResourceType.Type
 var _source_reserved := false
 var _site_reserved := false
@@ -162,7 +163,7 @@ func on_navigation_changed(_revision: int) -> void:
 	_availability_dirty = true # Invalidate, never wake idle workers.
 
 func _eligible(candidate: Instance) -> bool:
-	return not candidate.is_built() and candidate.has_free_builder_slot() and _locations.get_position(candidate.id) is Vector2 and (candidate.are_construction_materials_complete() or not _material_trip(candidate).is_empty())
+	return not candidate.is_built() and candidate.work_remaining() > 0 and candidate.has_free_builder_slot() and _locations.get_position(candidate.id) is Vector2 and (candidate.ready_for_structural_work() or not _material_trip(candidate).is_empty())
 
 func best_site() -> Instance:
 	var current_position: Variant = _position()
@@ -171,7 +172,7 @@ func best_site() -> Instance:
 	if not current_position is Vector2: return null
 	var ranked: Array[Dictionary] = []
 	for candidate in _buildings:
-		if candidate.is_built() or not candidate.has_free_builder_slot(): continue
+		if not candidate.is_structural_work() or not candidate.has_free_builder_slot(): continue
 		ranked.append({"site":candidate,"score":site_priority(candidate,current_position)})
 	ranked.sort_custom(func(a,b): return a.score > b.score or (a.score == b.score and String(a.site.id) < String(b.site.id)))
 	for candidate in ranked:
@@ -215,6 +216,7 @@ func request_work() -> bool:
 	# Fresh resource/identity checks even if availability and execution share geometry.
 	site = _work_offer if material_planner.is_valid() and _work_offer != null and _work_offer in _buildings and _work_offer.has_free_builder_slot() and _work_origin == _position() and _eligible(_work_offer) else best_site()
 	if site == null: return false
+	_direction_revision = site.direction_revision
 	_mutating = true
 	var claimed: bool = site.claim_builder_slot(_data.id)
 	_mutating = false
@@ -231,7 +233,7 @@ func request_work() -> bool:
 	return _continue_task()
 
 func _valid_site() -> bool:
-	return site != null and site in _buildings and not site.is_built() and _data.id in site.active_builder_ids and _locations.get_position(site.id) is Vector2
+	return site != null and site in _buildings and site.is_structural_work() and site.direction_revision == _direction_revision and _data.id in site.active_builder_ids and _locations.get_position(site.id) is Vector2
 
 func _continue_task() -> bool:
 	if not _valid_site():
@@ -240,7 +242,7 @@ func _continue_task() -> bool:
 	if _data.profession != Profession.Type.BUILDER or _clock.get_phase() != "День":
 		_finish_task("смена профессии или завершение рабочего времени")
 		return false
-	if site.are_construction_materials_complete():
+	if site.ready_for_structural_work():
 		phase = Phase.GOING_TO_SITE
 		return _move(&"builder_site", _locations.get_position(site.id))
 	if _materials_incoming(): return _wait_for_materials()
@@ -300,7 +302,7 @@ func _wait_for_materials() -> bool:
 func _resume_waiting() -> void:
 	_waiting_resume_queued = false
 	if not _is_waiting() or not _valid_site(): return
-	if site.are_construction_materials_complete():
+	if site.ready_for_structural_work():
 		if logger != null: logger.info(EventLog.BUILDING, "%s: материалы доставлены — продолжает строительство %s" % [_data.resident_name, site.id])
 	elif _materials_incoming():
 		return # Still covered: no new reservation or source search.
@@ -383,7 +385,7 @@ func _complete_arrival(intent: Intent) -> void:
 	elif phase == Phase.GOING_TO_WAIT:
 		_continue_task()
 	elif phase == Phase.GOING_TO_SITE:
-		if not site.are_construction_materials_complete():
+		if not site.ready_for_structural_work():
 			_continue_task()
 			return
 		phase = Phase.BUILDING
@@ -399,13 +401,13 @@ func _accrue_work(now: int) -> void:
 	_last_work_minute = now # Advance before synchronous construction callbacks.
 	var point: Variant = _position()
 	var action_point: Variant = _locations.get_position(site.id)
-	if not point is Vector2 or not action_point is Vector2 or not (_locations.at_action(_data.id,site.id,Purpose.CONSTRUCTION,point,8.0) if _locations.has_method("at_action") else point.distance_to(action_point)<=8.0) or _data.activity!=Activity.Type.WORKING or _intents.current_intent!=_intent or not site.are_construction_materials_complete(): return
+	if not point is Vector2 or not action_point is Vector2 or not (_locations.at_action(_data.id,site.id,Purpose.CONSTRUCTION,point,8.0) if _locations.has_method("at_action") else point.distance_to(action_point)<=8.0) or _data.activity!=Activity.Type.WORKING or _intents.current_intent!=_intent or not site.ready_for_structural_work(): return
 	# The interval ending at 17:00 still contains the final working minute.
 	var minute_of_day := posmod(previous,1440)
 	if minute_of_day<420 or minute_of_day>=1020: return
 	var elapsed := mini(maxi(now-previous,0),1020-minute_of_day)
 	elapsed = mini(elapsed,Balance.BUILDER_WORK_CYCLE_MINUTES-work_minutes)
-	elapsed = mini(elapsed,site.definition.construction_work_required-site.construction_progress)
+	elapsed = mini(elapsed,site.work_remaining())
 	if elapsed<=0: return
 	var worked_site := site
 	work_minutes += elapsed # Action timing only; already applied work is never buffered.

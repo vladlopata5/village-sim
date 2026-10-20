@@ -45,7 +45,7 @@ func capture(label: String) -> void:
 	check(root.get_texture().get_image().save_png("C:/Users/SW/Documents/Codex/outputs/construction-recipes-update/" + label + ".png") == OK,"Rendered recipe capture")
 func run() -> void:
 	var town = Def.for_type(T.TOWN_CENTER)
-	check(town.construction_requirements.is_empty() and town.construction_work_required == 0 and town.max_builders == 0 and not town.player_buildable,"Town Center construction remains unchanged")
+	check(town.construction_requirements.is_empty() and town.construction_work_required == 240 and town.max_builders == 2 and not town.player_buildable,"Town Center has approved reversible-work duration and builder capacity")
 	for category in Expected.COSTS:
 		var definition = Def.for_type(category)
 		var cost: Dictionary = Expected.COSTS[category]

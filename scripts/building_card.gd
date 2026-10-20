@@ -33,6 +33,7 @@ var work_area_label: Label
 var assign_area_button: Button
 var reset_area_button: Button
 var staffing_buttons: Dictionary = {}
+var structural_progress: ProgressBar
 var management_button: Button
 var storage_rows: Dictionary = {}
 var _quota_dirty: Dictionary = {}
@@ -47,8 +48,12 @@ var _quota_dirty: Dictionary = {}
 @onready var close_button: Button = _widget("Close")
 func _ready() -> void:
 	hide()
+	structural_progress = ProgressBar.new()
+	construction_section.add_child(structural_progress)
+	get_node("%Demolish").pressed.connect(_change_construction_direction)
 	_setup_storage_rows()
 	_setup_work_area()
+	_info_body().move_child(get_node("%Demolish"),0)
 	management_button = Button.new()
 	management_button.text = "Управление поселением"
 	_info_body().add_child(management_button)
@@ -94,6 +99,7 @@ func _refresh() -> void:
 	refresh_count += 1
 	_refresh_recipes()
 	_refresh_work_area()
+	_refresh_construction_command()
 	if management_button != null: management_button.visible = _building != null and _building.is_built() and _building.type == Types.Type.TOWN_CENTER
 	if _building == null:
 		return
@@ -106,7 +112,7 @@ func _refresh() -> void:
 			if limit > 0: resource_lines.append("%s: %d / %d" % [ResourceType.display_name(resource), _building.resources.get_amount(resource), limit])
 	var workers_snapshot: Array = _control.get_workplace_workers(_building.id).map(func(worker): return worker.id) if _control != null else []
 	var porter_snapshot: Array = _control.get_porters(_building.id).map(func(worker): return worker.id) if _control != null else []
-	var snapshot: Array = [workers_snapshot,porter_snapshot,_building.definition.porter_capacity,_building.definition.worker_capacity,_building.definition.housing_capacity,_building.display_name, _building.id, _building.state, _building.type, amount, capacity, _building.production_progress, _building.construction_delivered, _building.construction_progress, _building.active_builder_ids, _building.definition.construction_requirements.duplicate(), _building.definition.construction_work_required, _building.definition.max_builders, resource_lines]
+	var snapshot: Array = [workers_snapshot,porter_snapshot,_building.definition.porter_capacity,_building.definition.worker_capacity,_building.definition.housing_capacity,_building.display_name, _building.id, _building.state, _building.work_direction, _building.work_paused, _building.type, amount, capacity, _building.production_progress, _building.construction_delivered, _building.construction_progress, _building.active_builder_ids, _building.definition.construction_requirements.duplicate(), _building.definition.construction_work_required, _building.definition.max_builders, resource_lines]
 	_refresh_details(resource_lines)
 	if snapshot == _last_snapshot: return
 	_last_snapshot = snapshot
@@ -124,7 +130,11 @@ func _refresh() -> void:
 	for resource in _building.definition.construction_requirements:
 		materials.append("%s: %d / %d" % [ResourceType.display_name(resource), _building.get_delivered_amount(resource), _building.get_required_amount(resource)])
 	construction_materials.text = "Материалы:\n" + ("\n".join(materials) if not materials.is_empty() else "Не требуются")
-	construction_work.text = "Прогресс: %d / %d мин\n%.0f%%" % [_building.construction_progress, _building.definition.construction_work_required, _building.get_construction_progress_ratio() * 100.0]
+	if _building.previously_built: construction_materials.text = "Материалы остаются в конструкции.\nДля восстановления новые материалы не нужны."
+	construction_work.text = _building.work_status() + ": %d / %d мин\n%.0f%%" % [_building.construction_progress, _building.definition.construction_work_required, _building.get_construction_progress_ratio() * 100.0]
+	structural_progress.value = _building.get_construction_progress_ratio()*100.0
+	construction_work.text += "\nОсталось работы: %d мин" % _building.work_remaining()
+	if _building.work_paused: construction_work.text += "\nОжидание завершения действий внутри"
 	construction_builders.text = "Строители: %d / %d" % [_building.active_builder_ids.size(), _building.definition.max_builders]
 	var tabs := available_tabs()
 	if tabs != _presented_tabs:
@@ -222,7 +232,7 @@ func _refresh_details(resource_lines: PackedStringArray) -> void:
 	if _building.is_built() and _building.definition.porter_capacity > 0: counts.append("Носильщики: %d / %d" % [porters.size(),_building.definition.porter_capacity])
 	get_node("%StaffSummary").text = "\n".join(counts)
 	get_node("%StaffSummary").visible = not _presentation_expanded and not counts.is_empty()
-	get_node("%Summary").text = "Строится" if not _building.is_built() else ""
+	get_node("%Summary").text = _building.work_status() if not _building.is_built() else ""
 	get_node("%Summary").visible=not _building.is_built()
 	if _image_type!=_building.type:
 		_image_type=_building.type
@@ -360,6 +370,7 @@ func _refresh_people(producers: Array, porters: Array) -> void:
 	if _control.has_housing_role(_building.id):
 		var button := Button.new()
 		button.text="Поселить жителя"
+		button.disabled=not _building.is_built()
 		button.focus_mode=Control.FOCUS_NONE
 		button.pressed.connect(staffing_requested.emit.bind(-1))
 		body.add_child(button)
@@ -394,7 +405,7 @@ func _add_staff_group(body: VBoxContainer, role: int, people: Array, capacity: i
 	var row := HBoxContainer.new()
 	body.add_child(row)
 	var vacancy := Label.new()
-	vacancy.text="Свободно: %s" % (str(maxi(capacity-people.size(),0)) if capacity>0 else "без лимита") if _building.is_built() else "Здание строится"
+	vacancy.text="Свободно: %s" % (str(maxi(capacity-people.size(),0)) if capacity>0 else "без лимита") if _building.is_built() else _building.work_status()
 	vacancy.size_flags_horizontal=Control.SIZE_EXPAND_FILL
 	vacancy.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	row.add_child(vacancy)
@@ -476,3 +487,15 @@ func _exit_tree() -> void:
 	for view in recipe_views.values(): view.deactivate()
 	if _control != null and _control.home_changed.is_connected(_on_home_changed): _control.home_changed.disconnect(_on_home_changed)
 	if _selection != null and _selection.selection_changed.is_connected(_on_selection_changed): _selection.selection_changed.disconnect(_on_selection_changed)
+
+func _refresh_construction_command() -> void:
+	var button: Button = get_node("%Demolish")
+	button.disabled = _building == null or _control == null or not _control.construction_command.is_valid() or _building.removal_started or _building.state == Instance.State.REMOVED
+	if _building == null: return
+	if _building.is_built(): button.text = "Демонтировать"
+	elif _building.work_direction == Instance.WorkDirection.DEMOLISH: button.text = "Отменить демонтаж" if _building.previously_built else "Возобновить строительство"
+	else: button.text = "Демонтировать" if _building.previously_built else "Отменить строительство"
+func _change_construction_direction() -> void:
+	if _building == null or _control == null: return
+	_control.change_construction_direction(_building.id,_building.is_built() or _building.work_direction == Instance.WorkDirection.BUILD)
+	_refresh()

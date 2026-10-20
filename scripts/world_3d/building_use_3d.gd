@@ -30,7 +30,9 @@ func entrance(id: StringName) -> Variant:
 func choices(id: StringName, purpose: int, origin: Vector3) -> Array:
 	var target := view(id)
 	if target==null: return []
-	if (purpose==Slot.Purpose.CONSTRUCTION)==target.building_data.is_built(): return []
+	if purpose==Slot.Purpose.CONSTRUCTION:
+		if not target.building_data.is_structural_work(): return []
+	elif not target.building_data.is_built(): return []
 	var result: Array = []
 	for marker in target.get_markers(Slot):
 		if marker.purpose!=purpose or not marker.occupant.is_empty(): continue

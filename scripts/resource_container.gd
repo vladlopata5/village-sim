@@ -14,6 +14,7 @@ var shared_capacity: int:
 var owner_id: StringName
 var _allowed_resource_types: Array = [] # Empty means unrestricted; capacities still required.
 var _amounts: Dictionary = {}
+var _removed := false
 var _capacity_per_resource: Dictionary = {} # Production buffers only.
 var _category_quotas: Dictionary = {}
 var _reserved_out: Dictionary = {}
@@ -198,6 +199,7 @@ func get_available_free_capacity(resource: ResourceType.Type) -> int:
 	return get_free_capacity(resource) - get_reserved_in(resource)
 
 func add(resource: ResourceType.Type, amount: int) -> bool:
+	if _removed: return false
 	if amount <= 0 or amount > get_available_free_capacity(resource):
 		return false
 	var previous_available := get_available_amount(resource)
@@ -210,6 +212,7 @@ func has_resource(resource: ResourceType.Type, amount: int) -> bool:
 	return amount > 0 and get_available_amount(resource) >= amount
 
 func try_take(resource: ResourceType.Type, amount: int) -> bool:
+	if _removed: return false
 	if not has_resource(resource, amount):
 		return false
 	var previous_available := get_available_amount(resource)
@@ -219,6 +222,7 @@ func try_take(resource: ResourceType.Type, amount: int) -> bool:
 	return true
 
 func reserve_out(resource: ResourceType.Type, amount: int) -> bool:
+	if _removed: return false
 	if not has_resource(resource, amount):
 		return false
 	var previous_available := get_available_amount(resource)
@@ -228,6 +232,7 @@ func reserve_out(resource: ResourceType.Type, amount: int) -> bool:
 	return true
 
 func release_out(resource: ResourceType.Type, amount: int) -> bool:
+	if _removed: return false
 	if amount <= 0 or amount > get_reserved_out(resource):
 		return false
 	var previous_available := get_available_amount(resource)
@@ -237,6 +242,7 @@ func release_out(resource: ResourceType.Type, amount: int) -> bool:
 	return true
 
 func reserve_in(resource: ResourceType.Type, amount: int) -> bool:
+	if _removed: return false
 	if amount <= 0 or amount > get_available_free_capacity(resource):
 		return false
 	_reserved_in[resource] = get_reserved_in(resource) + amount
@@ -244,6 +250,7 @@ func reserve_in(resource: ResourceType.Type, amount: int) -> bool:
 	return true
 
 func release_in(resource: ResourceType.Type, amount: int) -> bool:
+	if _removed: return false
 	if not allows_resource(resource) or amount <= 0 or amount > get_reserved_in(resource):
 		return false
 	_reserved_in[resource] = get_reserved_in(resource) - amount
@@ -251,6 +258,7 @@ func release_in(resource: ResourceType.Type, amount: int) -> bool:
 	return true
 
 func take_reserved(resource: ResourceType.Type, amount: int) -> bool:
+	if _removed: return false
 	if amount <= 0 or amount > get_reserved_out(resource):
 		return false
 	var previous_available := get_available_amount(resource)
@@ -262,6 +270,7 @@ func take_reserved(resource: ResourceType.Type, amount: int) -> bool:
 	return true
 
 func add_reserved(resource: ResourceType.Type, amount: int) -> bool:
+	if _removed: return false
 	if not allows_resource(resource) or amount <= 0 or amount > get_reserved_in(resource):
 		return false
 	var previous_available := get_available_amount(resource)
@@ -278,6 +287,7 @@ func _emit_availability(resource: ResourceType.Type, previous_available: int) ->
 
 
 func transform_reserved(inputs: Dictionary, outputs: Dictionary) -> bool:
+	if _removed: return false
 	# Validate the entire local transaction before signals can invoke other consumers.
 	var types: Array = inputs.keys()
 	for resource in outputs:
@@ -300,3 +310,17 @@ func transform_reserved(inputs: Dictionary, outputs: Dictionary) -> bool:
 		changed.emit(resource,get_amount(resource))
 		reservations_changed.emit(resource)
 	return true
+
+func drain_for_removal() -> Dictionary:
+	if _removed or get_total_reserved_in()>0: return {"ok":false,"contents":{}}
+	for amount in _reserved_out.values():
+		if amount>0: return {"ok":false,"contents":{}}
+	var contents: Dictionary = {}
+	for resource in _amounts:
+		if _amounts[resource]>0: contents[resource] = _amounts[resource]
+	_removed = true
+	_amounts.clear() # Every quantity commits before the first synchronous observer.
+	for resource in contents:
+		availability_changed.emit(resource,0)
+		changed.emit(resource,0)
+	return {"ok":true,"contents":contents}

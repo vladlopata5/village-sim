@@ -156,3 +156,10 @@ func _building_removed(id: StringName) -> void:
 func _exit_tree() -> void:
 	_exit_building()
 	if uses!=null: uses.executors.erase(resident_data.id)
+
+func is_inside_building(id: StringName) -> bool:
+	return _building == id and is_instance_valid(_marker) and _marker.purpose != Slot.Purpose.CONSTRUCTION
+func interrupt_building_use(id: StringName) -> void:
+	if _building == id or (_active != null and _active.building_id == id) or (_intents != null and _intents.current_intent.building_id == id):
+		if _intents != null: _intents.abort_current(_intents.current_intent)
+		_exit_building() # Existing portal semantics; a future exit may retain inside membership.

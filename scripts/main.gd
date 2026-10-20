@@ -296,18 +296,21 @@ func _remove_ground_resource(drop) -> void:
 func _show_building(building: BuildingInstance) -> void:
 	var view = _create_building_presentation(building)
 	world_locations.register(WorldLocation.new(building.id, building.display_name), view)
-	# The same registry/view gains functionality after the one-way state transition.
+	# The same registry/view is reactivated after construction or restoration.
 	building.construction_changed.connect(_activate_completed_building.bind(building))
 	for runtime in resident_runtimes:
 		runtime.recipe_work.register_building(building)
 	if building.is_built(): _activate_completed_building(building)
 
+var _activated_buildings: Dictionary = {}
 func _activate_completed_building(building: BuildingInstance) -> void:
-	if not building.is_built(): return
-	building.construction_changed.disconnect(_activate_completed_building.bind(building))
+	if not building.is_built() or _activated_buildings.has(building.id): return
+	_activated_buildings[building.id] = true
 	match building.type:
+		BuildingType.Type.TOWN_CENTER:
+			logistics.add_warehouse(building)
 		BuildingType.Type.STORAGE:
-			building.resources.configure_warehouse(Balance.WAREHOUSE_SHARED_CAPACITY, Balance.STORAGE_CATEGORY_QUOTAS)
+			if not building.resources.is_warehouse(): building.resources.configure_warehouse(Balance.WAREHOUSE_SHARED_CAPACITY, Balance.STORAGE_CATEGORY_QUOTAS)
 			logistics.add_warehouse(building)
 		BuildingType.Type.FOOD:
 			if kitchen_data == null:
@@ -330,7 +333,7 @@ func _activate_completed_building(building: BuildingInstance) -> void:
 			if gatherer_hut_data == null:
 				gatherer_hut_data = building
 				production.building = building
-			else: production.additional_buildings.append(building)
+			elif building != production.building and building not in production.additional_buildings: production.additional_buildings.append(building)
 			logistics.add_production_source(building)
 	player_control.register_building(building)
 	interactions.register_building(building, world_locations.get_position.bind(building.id))

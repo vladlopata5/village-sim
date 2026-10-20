@@ -84,7 +84,7 @@ func _run() -> void:
 	var site = scene.buildings.back()
 	scene.resident_selection.select_building(site)
 	check(card.construction_section.visible and "Бревно: 0 / 6" in card.construction_materials.text, "Selected construction card displays real requirements")
-	check(card.construction_work.text == "Прогресс: 0 / 180 мин\n0%" and card.construction_builders.text == "Строители: 0 / 2", "Card shows actual work/proportion/slots")
+	check(card.construction_work.text == "Строительство: 0 / 180 мин\n0%\nОсталось работы: 180 мин" and card.construction_builders.text == "Строители: 0 / 2", "Card shows actual work/proportion/slots")
 	site.add_delivered_material(Resources.Type.LOG, 4)
 	site.add_construction_work(90)
 	site.claim_builder_slot("test_builder")

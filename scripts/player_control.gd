@@ -361,3 +361,7 @@ func remove_work_area(area_id: StringName) -> bool:
 	for building in get_work_area_buildings(area_id):
 		if building.work_area_override_id == area_id: reset_building_work_area(building.id)
 	return true
+
+var construction_command: Callable
+func change_construction_direction(building_id: StringName, demolish: bool) -> bool:
+	return get_building(building_id) != null and construction_command.is_valid() and construction_command.call(building_id,demolish)

@@ -247,9 +247,11 @@ func run() -> void:
 	walk(builder)
 	check(builder.data.inventory.amount==1 and world.building_uses.occupied_by(cancelled_site.id,builder.data.id,Purpose.CONSTRUCTION),"Cancellation fixture reaches active construction unloading")
 	var drops: int=Stacks.total(world.ground_resources)
+	var delivered_refund := 0
+	for amount in cancelled_site.construction_delivered.values(): delivered_refund += amount
 	check(world.cancel_construction(cancelled_site.id),"Construction cancellation follows existing lifecycle")
 	check(builder.data.inventory.amount==0 and not builder.builder.handling.is_active() and builder.view._marker==null and cancelled_site.get_construction_reserved_in(R.PLANK)==0,"UC cancellation clears handling, cargo, slot and construction ledger")
-	check(Stacks.total(world.ground_resources)==drops+1 and cancelled_site.construction_progress==0,"UC cancellation drops carried material without work contribution")
+	check(Stacks.total(world.ground_resources)==drops+1+delivered_refund and cancelled_site.construction_progress==0,"D1 cancellation returns delivered materials plus exactly one carried unit without work contribution")
 	# A deferred slot wakeup must not enter after a replacement MOVE_TO.
 	world.game_time.total_minutes=420
 	reset(actor)

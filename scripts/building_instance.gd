@@ -4,7 +4,13 @@ const Definition = preload("res://scripts/building_definition.gd")
 const ResourceContainer = preload("res://scripts/resource_container.gd")
 const Batch = preload("res://scripts/production_batch.gd")
 const Balance = preload("res://scripts/balance_config.gd")
-enum State { UNDER_CONSTRUCTION, BUILT }
+enum State { UNDER_CONSTRUCTION, BUILT, REMOVED }
+enum WorkDirection { BUILD, DEMOLISH }
+var work_direction := WorkDirection.BUILD
+var previously_built := false
+var work_paused := false # Owned cleanup/inside occupants must finish before work resumes.
+var removal_started := false
+var direction_revision := 0
 var id: StringName
 var definition: Definition
 var position: Vector2
@@ -58,11 +64,39 @@ var display_name: String:
 	get: return definition.display_name
 var type: int:
 	get: return definition.type
+func is_structural_work() -> bool:
+	return _state == State.UNDER_CONSTRUCTION and not work_paused and not removal_started
+func needs_materials() -> bool:
+	return not previously_built and work_direction == WorkDirection.BUILD
+func ready_for_structural_work() -> bool:
+	return not needs_materials() or are_construction_materials_complete()
+func work_remaining() -> int:
+	return construction_progress if work_direction == WorkDirection.DEMOLISH else definition.construction_work_required-construction_progress
+func ready_for_removal() -> bool:
+	return _state == State.UNDER_CONSTRUCTION and work_direction == WorkDirection.DEMOLISH and construction_progress == 0
+func set_work_direction(direction: WorkDirection) -> bool:
+	if removal_started or _state == State.REMOVED or direction not in WorkDirection.values(): return false
+	if not is_built() and work_direction == direction: return false
+	if is_built():
+		if direction != WorkDirection.DEMOLISH: return false
+		previously_built = true
+		_state = State.UNDER_CONSTRUCTION
+		construction_progress = definition.construction_work_required
+	work_paused = true
+	work_direction = direction
+	direction_revision += 1
+	_notify_construction_changed()
+	return true
+func work_status() -> String:
+	if work_direction == WorkDirection.DEMOLISH: return "Демонтаж"
+	return "Восстановление" if previously_built and not is_built() else ("Готово" if is_built() else "Строительство")
+
 func _init(instance_id: StringName, building_definition: Definition, world_position: Vector2 = Vector2.ZERO, initial_state: State = State.BUILT) -> void:
 	id = instance_id
 	definition = building_definition
 	position = world_position
 	_state = initial_state
+	previously_built = initial_state == State.BUILT
 	for resource in definition.construction_requirements:
 		_construction_delivered[resource] = 0
 	resources = ResourceContainer.new(id)
@@ -132,7 +166,7 @@ func get_missing_amount(resource: int) -> int:
 	return maxi(get_required_amount(resource) - get_delivered_amount(resource), 0)
 func add_delivered_material(resource: int, amount: int) -> bool:
 	# Caller records actual arrival only. No reservation/warehouse lookup or transfer here.
-	if is_built() or amount <= 0 or amount > get_uncovered_construction_amount(resource): return false
+	if not is_structural_work() or not needs_materials() or amount <= 0 or amount > get_uncovered_construction_amount(resource): return false
 	_construction_delivered[resource] = get_delivered_amount(resource) + amount
 	_notify_construction_changed()
 	return true
@@ -144,11 +178,11 @@ func get_construction_progress_ratio() -> float:
 	if definition.construction_work_required == 0: return 1.0
 	return float(construction_progress) / definition.construction_work_required
 func add_construction_work(minutes: int) -> bool:
-	if is_built() or minutes <= 0 or construction_progress >= definition.construction_work_required: return false
-	construction_progress += minutes
+	if not is_structural_work() or minutes <= 0 or work_remaining() <= 0: return false
+	construction_progress += -mini(minutes,work_remaining()) if work_direction == WorkDirection.DEMOLISH else mini(minutes,work_remaining())
 	return true
 func has_free_builder_slot() -> bool:
-	return not is_built() and _active_builder_ids.size() < definition.max_builders
+	return is_structural_work() and _active_builder_ids.size() < definition.max_builders
 func claim_builder_slot(resident_id: String) -> bool:
 	if resident_id.is_empty() or resident_id in _active_builder_ids or not has_free_builder_slot(): return false
 	_active_builder_ids.append(resident_id)
@@ -160,10 +194,12 @@ func release_builder_slot(resident_id: String) -> bool:
 	_notify_construction_changed()
 	return true
 func can_complete_construction() -> bool:
-	return not is_built() and are_construction_materials_complete() and construction_progress >= definition.construction_work_required
+	return is_structural_work() and work_direction == WorkDirection.BUILD and ready_for_structural_work() and construction_progress >= definition.construction_work_required
 func complete_construction() -> bool:
 	if not can_complete_construction(): return false
-	_configure_resource_buffers()
+	if not previously_built: _configure_resource_buffers()
+	previously_built = true
+	production_removed = false
 	_state = State.BUILT
 	_active_builder_ids.clear()
 	_notify_construction_changed()
@@ -174,7 +210,7 @@ func get_construction_reserved_in(resource: int) -> int:
 func get_uncovered_construction_amount(resource: int) -> int:
 	return maxi(get_missing_amount(resource) - get_construction_reserved_in(resource), 0)
 func reserve_construction_material(resource: int, amount: int) -> bool:
-	if is_built() or amount <= 0 or amount > get_uncovered_construction_amount(resource): return false
+	if not is_structural_work() or not needs_materials() or amount <= 0 or amount > get_uncovered_construction_amount(resource): return false
 	_construction_reserved_in[resource] = get_construction_reserved_in(resource) + amount
 	_notify_construction_changed()
 	return true
@@ -184,7 +220,7 @@ func release_construction_material(resource: int, amount: int) -> bool:
 	_notify_construction_changed()
 	return true
 func deliver_reserved_construction_material(resource: int, amount: int) -> bool:
-	if is_built() or amount <= 0 or amount > get_construction_reserved_in(resource) or amount > get_missing_amount(resource): return false
+	if not is_structural_work() or not needs_materials() or amount <= 0 or amount > get_construction_reserved_in(resource) or amount > get_missing_amount(resource): return false
 	_construction_reserved_in[resource] -= amount
 	_construction_delivered[resource] = get_delivered_amount(resource) + amount
 	_notify_construction_changed()
@@ -293,7 +329,7 @@ func _maintain_stock(product: int, excluding_prepared: StringName = &"") -> int:
 
 func can_start_production(recipe_id: StringName) -> bool:
 	var recipe = definition.get_production_recipe(recipe_id)
-	if recipe==null or not recipe.is_valid() or not supply.allows(recipe_id): return false
+	if not is_built() or production_removed or recipe==null or not recipe.is_valid() or not supply.allows(recipe_id): return false
 	for resource in recipe.inputs:
 		if resources.get_available_amount(resource)<int(recipe.inputs[resource]): return false
 	for resource in recipe.outputs:

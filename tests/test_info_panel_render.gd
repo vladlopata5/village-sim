@@ -123,7 +123,7 @@ func run() -> void:
 			if entity.type == Types.HOME:
 				world.building_card_view().get_node("%Scroll").scroll_vertical=1000
 				await capture(world,prefix+tag+"_footer",rendered)
-				check(world.building_card_view().get_node("%Demolish").disabled,"Actual Info footer has inactive Demolish")
+				check(not world.building_card_view().get_node("%Demolish").disabled and world.building_card_view().get_node("%Demolish").pressed.get_connections().size()==1,"Actual building card offers one D1 command")
 				world.building_card_view().get_node("%Scroll").scroll_vertical=0
 			if panel._tabs.has(&"production"):
 				panel.select_tab(&"production")

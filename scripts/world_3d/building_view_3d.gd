@@ -61,7 +61,7 @@ func _refresh() -> void:
 	var colors := [Color("bd976b"), Color("829ba7"), Color("9aaa70"), Color("c2aa91"),Color("88735d"),Color("a28559"),Color("547ea8"),Color("89918b")]
 	material.albedo_color = colors[building_data.type] if building_data.is_built() else Color("8b7357")
 	set_inside_count(inside_count)
-	caption.text = building_data.display_name + ("" if building_data.is_built() else " — строится")
+	caption.text = building_data.display_name + ("" if building_data.is_built() else " — " + building_data.work_status().to_lower())
 func set_selected(value: bool) -> void:
 	_selected = value
 	indicator.visible = _selected or _workplace_highlighted

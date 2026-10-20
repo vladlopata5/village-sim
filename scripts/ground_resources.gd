@@ -191,3 +191,34 @@ func place_near(resource: ResourceType.Type, quantity: int, origin: Vector2i, mo
 	result.discarded=result.remaining # Both approved modes allow destruction of new overflow.
 	result.remaining=0
 	return result
+
+func place_in_cells(resource: ResourceType.Type, quantity: int, cells: Array, allowed: Callable, reachable: Callable = Callable()) -> Dictionary:
+	var result := {"placed":0,"discarded":0,"remaining":quantity,"stack_ids":[]}
+	if not _stack_mode or not is_instance_valid(_clock) or quantity<=0 or resource not in ResourceType.Type.values() or not allowed.is_valid(): return result
+	for cell in cells:
+		if not cell is Vector2i: return result # Invalid domain is technical failure, before any mutation.
+	var visited: Dictionary = {}
+	for cell in cells:
+		if result.remaining == 0: break
+		if visited.has(cell): continue
+		visited[cell] = true
+		if not is_instance_valid(_clock): return result
+		if not _valid_cell(cell): continue
+		var existing := get_at(cell)
+		if existing != null and (existing.resource_type != resource or existing.amount >= existing.capacity): continue
+		var valid: Variant = allowed.call(cell)
+		if not valid is bool: return result
+		if not valid: continue
+		if reachable.is_valid():
+			var connected: Variant = reachable.call(cell)
+			if not connected is bool: return result
+			if not connected: continue
+		if not is_instance_valid(_clock): return result
+		var placed := try_place(resource,result.remaining,cell)
+		if placed.placed <= 0: return result # A technical/changed mutation is not overflow disposal.
+		result.placed += placed.placed
+		result.remaining = placed.remaining
+		result.stack_ids.append(placed.stack.id)
+	result.discarded = result.remaining
+	result.remaining = 0
+	return result

@@ -66,6 +66,7 @@ func _ready() -> void:
 	world_locations.uses = building_uses
 	player_control.work_areas = work_areas
 	super._ready()
+	player_control.construction_command = change_construction_direction
 	game_ui.cancel_world_tool = _cancel_active_world_tool
 	game_ui.bind_context_menu(interaction_menu)
 	game_ui.blocking_ui_changed.connect(_clear_world_input)
@@ -205,6 +206,7 @@ func _create_building_presentation(building: BuildingInstance) -> Node:
 	view.position = Coordinates.to_world(building.position)
 	assert(view.position.is_equal_approx(build_grid.snap(view.position, building.definition.footprint_cells, building.quarter_turns)), "Building source center must already be footprint-aligned")
 	view.setup(building)
+	building.construction_changed.connect(_building_work_changed.bind(building))
 	building_uses.register(building,view)
 	entrance_zones.register(building)
 	view.set_work_area_debug(navigation_debug.visible)
@@ -334,6 +336,9 @@ func _confirm_building_placement() -> BuildingInstance:
 	_sync_catalogue()
 	return building
 func _process(_delta: float) -> void:
+	_poll_building_work()
+	for id in _removal_operations.keys():
+		if _removal_operations[id].building.state == BuildingInstance.State.REMOVED: _continue_building_refund(id)
 	if debug_spawn_marker!=null:
 		debug_spawn_marker.hide()
 		if developer_panel.active() and get_viewport().gui_get_hovered_control()==null:
@@ -354,27 +359,169 @@ func ground_pick(screen_position: Vector2) -> Dictionary:
 	var origin := camera.project_ray_origin(screen_position)
 	var query := PhysicsRayQueryParameters3D.create(origin, origin + camera.project_ray_normal(screen_position) * 10000.0, 1)
 	return $World.get_world_3d().direct_space_state.intersect_ray(query)
+# D1 coordinator is local to the canonical world; resource/worker owners retain their cleanup.
+var _offline_buildings: Dictionary = {}
+var _direction_commands: Dictionary = {}
+var _removal_operations: Dictionary = {}
+var demolition_results: Dictionary = {} # Completed operation receipts; quantities, never resource storage.
 func cancel_construction(id: StringName) -> bool:
-	# Lifecycle API for cancellation/tests; no demolition gameplay or new management UI.
 	var building: BuildingInstance = player_control.get_building(id)
 	if building == null or building.is_built(): return false
-	player_control.unregister_building(id)
-	var activation := _activate_completed_building.bind(building)
-	if building.construction_changed.is_connected(activation): building.construction_changed.disconnect(activation)
+	return change_construction_direction(id,true)
+func change_construction_direction(id: StringName, demolish: bool) -> bool:
+	var building: BuildingInstance = player_control.get_building(id)
+	if building == null or building.removal_started or _direction_commands.has(id): return false
+	var direction := BuildingInstance.WorkDirection.DEMOLISH if demolish else BuildingInstance.WorkDirection.BUILD
+	if not building.is_built() and building.work_direction == direction: return false
+	_direction_commands[id] = true # Covers callbacks from the final accrued work minute too.
 	for runtime in resident_runtimes:
-		if runtime.builder.site == building: runtime.builder.unregister_building(building)
+		if runtime.builder.site == building: runtime.builder._accrue_work(game_time.total_minutes)
+	var was_operational := building.is_built()
+	_offline_buildings[id] = building
+	if not building.set_work_direction(direction):
+		_direction_commands.erase(id)
+		return false
+	_activated_buildings.erase(id)
+	if was_operational:
+		# Fence is already visible through is_built() before any owned cleanup emits signals.
+		interactions.remove_target(id)
+		building.dispose_production()
+		logistics.remove_building(id,false)
+		for runtime in resident_runtimes:
+			var assigned: bool = runtime.data.work_location_id == id
+			if assigned: player_control.clear_work_assignment(runtime.data.id)
+			if runtime.data.home_location_id == id: player_control.clear_home(runtime.data.id)
+			if assigned or runtime.recipe_work.building == building: runtime.intents.abort_current(runtime.intents.current_intent)
+			if runtime.intents.pending_intent.building_id == id: runtime.intents.pending_intent = preload("res://scripts/resident_intent.gd").new()
+			# This uses today's immediate portal exit. The removal barrier below also supports a future delayed exit.
+			runtime.view.interrupt_building_use(id)
+		fallback_housing.validate()
+	for runtime in resident_runtimes:
+		if runtime.builder.site == building or runtime.builder.source == building: runtime.builder.abort("изменено направление строительства")
+	_direction_commands.erase(id)
+	_poll_building_work()
+	return true
+func _building_work_changed(building: BuildingInstance) -> void:
+	if _offline_buildings.has(building.id): call_deferred("_poll_building_work")
+func _building_cleanup_pending(building: BuildingInstance) -> bool:
+	if building_uses.inside_count(building.id) > 0: return true
+	for runtime in resident_runtimes:
+		if runtime.view.is_inside_building(building.id): return true
+		if runtime.builder._mutating or runtime.recipe_work._mutating or runtime.data.inventory._transferring: return true
+	for resource in ResourceType.Type.values():
+		if building.resources.get_reserved_in(resource)>0 or building.resources.get_reserved_out(resource)>0 or building.get_construction_reserved_in(resource)>0: return true
+	return false
+func _poll_building_work() -> void:
+	for id in _offline_buildings.keys():
+		var building: BuildingInstance = _offline_buildings.get(id)
+		if building == null or _direction_commands.has(id) or _building_cleanup_pending(building): continue
+		if building.is_built():
+			_offline_buildings.erase(id)
+			continue
+		if building.work_paused:
+			building.work_paused = false
+			building._notify_construction_changed()
+		if building.can_complete_construction(): building.complete_construction()
+		elif building.ready_for_removal(): _finish_building_removal(building)
+func _demolition_cells(footprint: Array, seed_value: int) -> Array:
+	var inside := footprint.duplicate()
+	var outside: Array = []
+	var seen: Dictionary = {}
+	for cell in inside: seen[cell] = true
+	for cell in footprint:
+		for offset in ground_resources._ordered_offsets(2):
+			var candidate: Vector2i = cell+offset
+			if seen.has(candidate): continue
+			seen[candidate] = true
+			outside.append(candidate)
+	# Local generator never consumes resident/global RNG; Fisher-Yates per region.
+	var rng := RandomNumberGenerator.new()
+	rng.seed = seed_value
+	for region in [inside,outside]:
+		for index in range(region.size()-1,0,-1):
+			var other := rng.randi_range(0,index)
+			var saved: Variant = region[index]
+			region[index] = region[other]
+			region[other] = saved
+	inside.append_array(outside)
+	return inside
+func _demolition_cell_allowed(cell: Vector2i, anchors: Array) -> bool:
+	if roads.contains(cell) or not _ground_cell_allowed(cell): return false
+	var target := Coordinates.to_world(ground_resources.position_from_cell(cell))
+	for anchor in anchors:
+		if navigation.can_reach_point(anchor,target): return true
+	return false
+func _finish_building_removal(building: BuildingInstance) -> void:
+	var id: StringName = building.id
+	if not ready_for_play or not is_instance_valid(ground_resources._clock) or _building_cleanup_pending(building): return
+	if building.removal_started or not building.ready_for_removal(): return
+	building.removal_started = true # Idempotency before resource/registration callbacks.
+	var groups: Array = [{},{}] # Contents first, structural refund second.
+	var planned_loss: Dictionary = {}
+	for resource in ResourceType.Type.values():
+		var amount: int = building.resources.get_amount(resource)
+		if amount>0: groups[0][resource] = amount
+		var required: int = building.get_required_amount(resource)
+		var refund: int = floori(required*Balance.DEMOLITION_MATERIAL_RETURN_RATIO) if building.previously_built else building.get_delivered_amount(resource)
+		if refund>0: groups[1][resource] = refund
+		if building.previously_built and required-refund>0: planned_loss[resource] = required-refund
+	# Own the operation before draining. Synchronous callbacks cannot issue a second command.
+	var operation := {"building":building,"groups":groups,"cells":_demolition_cells(build_grid.occupied_cells(id),String(id).hash()),"planned_loss":planned_loss,"placed":{},"discarded":{},"anchors":[]}
+	_removal_operations[id] = operation
+	var drained: Dictionary = building.resources.drain_for_removal()
+	if not drained.ok:
+		building.removal_started = false
+		_removal_operations.erase(id)
+		return
+	groups[0] = drained.contents
+	for callback in [_activate_completed_building.bind(building),_building_work_changed.bind(building)]:
+		if building.construction_changed.is_connected(callback): building.construction_changed.disconnect(callback)
+	player_control.unregister_building(id)
+	for runtime in resident_runtimes:
+		runtime.builder.unregister_building(building)
+		runtime.recipe_work.unregister_building(building)
+		runtime.needs.unregister_food_building(building)
 	if resident_selection.selected_building == building: resident_selection.clear()
-	var view: Node = world_locations.get_view(id)
+	var presentation: Node = world_locations.get_view(id)
 	building_uses.unregister(id)
 	entrance_zones.release(id)
 	world_locations.unregister(id)
-	if is_instance_valid(view):
-		view.collision_layer = 0
-		view.queue_free()
+	interactions.remove_target(id)
+	if is_instance_valid(presentation):
+		presentation.hide()
+		presentation.collision_layer = 0
+		presentation.queue_free()
 	build_grid.release(id)
 	navigation.remove_blocker(id)
-	game_logger.info(GameLogger.BUILDING, "стройка отменена — %s" % id)
-	return true
+	building._state = BuildingInstance.State.REMOVED
+	production.additional_buildings.erase(building)
+	if production.building == building: production.building = null
+	if gatherer_hut_data == building: gatherer_hut_data = null
+	if kitchen_data == building: kitchen_data = null
+	# At least one exterior resident component admits accessible rubble without per-cell A*.
+	for runtime in resident_runtimes:
+		var point := Coordinates.to_world(runtime.view.get_drop_sim_position())
+		if navigation.is_world_walkable(point): operation.anchors.append(point)
+	_offline_buildings.erase(id)
+	_continue_building_refund(id)
+func _continue_building_refund(id: StringName) -> void:
+	if not ready_for_play or not is_instance_valid(ground_resources._clock): return
+	var operation: Dictionary = _removal_operations[id]
+	if operation.get("placing",false): return
+	operation.placing = true
+	for group in operation.groups:
+		for resource in ResourceType.Type.values():
+			var quantity: int = group.get(resource,0)
+			if quantity<=0: continue
+			var result: Dictionary = ground_resources.place_in_cells(resource,quantity,operation.cells,_demolition_cell_allowed.bind(operation.anchors))
+			operation.placed[resource] = int(operation.placed.get(resource,0))+result.placed
+			operation.discarded[resource] = int(operation.discarded.get(resource,0))+result.discarded
+			group[resource] = result.remaining
+			if result.remaining>0:
+				operation.placing = false
+				return # Technical failure retains only the uncommitted remainder.
+	demolition_results[id] = {"placed":operation.placed,"discarded":operation.discarded,"planned_loss":operation.planned_loss}
+	_removal_operations.erase(id)
 func _drop_cargo(resource: ResourceType.Type, amount: int, runtime: ResidentRuntime) -> int:
 	if amount!=1 or resource not in ResourceType.Type.values() or not is_instance_valid(runtime) or not is_instance_valid(runtime.view): return DropResult.Status.FAILED
 	var point: Vector2=runtime.view.get_drop_sim_position()
@@ -672,6 +819,7 @@ func _create_starting_buildings() -> void:
 	buildings.append(warehouse_data)
 	var view = _create_building_presentation(warehouse_data)
 	_register_building_location(warehouse_data,view)
+	warehouse_data.construction_changed.connect(_activate_completed_building.bind(warehouse_data))
 func _view_work_area(area_id: StringName) -> void:
 	var area = work_areas.get_area(area_id)
 	if area == null: return

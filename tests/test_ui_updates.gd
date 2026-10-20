@@ -131,7 +131,7 @@ func run() -> void:
 	site.add_construction_work(site.definition.construction_work_required)
 	site.complete_construction()
 	check(site.is_built() and ui.info_panel._tabs==[&"info",&"storage"],"Same actual instance updates tabs UC to BUILT")
-	check(building.get_node("%Demolish").disabled and building.get_node("%Demolish").pressed.get_connections().is_empty(),"Demolish remains inert")
+	check(not building.get_node("%Demolish").disabled and building.get_node("%Demolish").pressed.get_connections().size()==1,"D1 command remains connected once")
 	var paints: int=ui.time_controls.refresh_count
 	world.game_time.set_speed(20)
 	world.game_time.debug_skip_minutes(60)

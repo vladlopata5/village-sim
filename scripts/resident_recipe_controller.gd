@@ -182,3 +182,7 @@ func _refresh_availability() -> void:
 		_runtime.decision.request_decision("recipe_available")
 func _exit_tree() -> void:
 	if building != null: _cleanup()
+
+func unregister_building(target: RefCounted) -> void:
+	for pair in [[target.resources.availability_changed,_on_resource],[target.resources.reservations_changed,_on_reservation],[target.construction_changed,_queue_availability]]:
+		if pair[0].is_connected(pair[1]): pair[0].disconnect(pair[1])

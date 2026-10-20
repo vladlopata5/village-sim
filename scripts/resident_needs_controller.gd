@@ -504,3 +504,6 @@ func _consume_food() -> bool:
 
 func _food_building_removed(_id: StringName) -> void:
 	_food_world_changed()
+
+func unregister_food_building(building: RefCounted) -> void:
+	if building.resources.availability_changed.is_connected(_on_food_availability_changed): building.resources.availability_changed.disconnect(_on_food_availability_changed)

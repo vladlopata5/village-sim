@@ -6,6 +6,7 @@ const ResourceType = preload("res://scripts/resource_type.gd")
 const BuildingType = preload("res://scripts/building_type.gd")
 const Recipe = preload("res://scripts/production_recipe.gd")
 const CONSTRUCTION_BALANCE = {
+	BuildingType.Type.TOWN_CENTER: {"requirements":{},"minutes":240,"builders":2},
 	BuildingType.Type.QUARRY: {"requirements": {ResourceType.Type.LOG:8,ResourceType.Type.STONE:4},"minutes":180,"builders":2},
 	BuildingType.Type.SAWMILL: {"requirements": {ResourceType.Type.LOG:6,ResourceType.Type.STONE:6},"minutes":240,"builders":2},
 	BuildingType.Type.LUMBERJACK_HUT: {"requirements": {ResourceType.Type.LOG:10},"minutes":180,"builders":2},

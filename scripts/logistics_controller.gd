@@ -68,7 +68,7 @@ func register_building(building: BuildingInstance) -> void:
 	building.resources.quotas_changed.connect(_on_source_quotas_changed.bind(building.id))
 	building.construction_changed.connect(_on_state_changed)
 	_on_state_changed()
-func remove_building(id: StringName) -> void:
+func remove_building(id: StringName, unregister_assignment: bool = true) -> void:
 	var building: BuildingInstance = _buildings.get(id)
 	if building == null: return
 	building.dispose_production()
@@ -82,7 +82,7 @@ func remove_building(id: StringName) -> void:
 	building.resources.quotas_changed.disconnect(_on_source_quotas_changed.bind(building.id))
 	building.construction_changed.disconnect(_on_state_changed)
 	_buildings.erase(id)
-	if assignment_control != null: assignment_control.unregister_building(id)
+	if unregister_assignment and assignment_control != null: assignment_control.unregister_building(id)
 	for executor in _executors.values(): executor.validate_job()
 	_on_state_changed()
 func add_production_source(hut: BuildingInstance) -> void: register_building(hut)
