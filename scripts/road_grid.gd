@@ -19,12 +19,23 @@ var _used: Dictionary = {}
 var _random := RandomNumberGenerator.new()
 var _last_boundary := 0
 var _clock_ready := false
+var _last_minute := 0
+var _previous_used: Dictionary = {}
+var _night_random := RandomNumberGenerator.new()
+var _night_cursor := 0
+var _night_offset := 0
+var _night_step := 1
+var _night_running := false
+const NIGHT_MINUTES := Clock.MINUTES_PER_DAY - Clock.NIGHT_START + Clock.NIGHT_END
 func _init(bounds: Rect2 = WORLD_BOUNDS) -> void:
 	geometry = Grid.new(bounds)
 	levels.resize(geometry.grid_size().x * geometry.grid_size().y)
 	_random.seed = Balance.TRAMPLE_SEED
 func setup_trampling(now: int, seed_value: int = Balance.TRAMPLE_SEED) -> void:
 	_random.seed = seed_value
+	_night_random.seed = seed_value ^ 0x5F3759DF
+	_last_minute = now
+	_night_running = false
 	_last_boundary = floori(float(now - Clock.NIGHT_START) / Clock.MINUTES_PER_DAY) * Clock.MINUTES_PER_DAY + Clock.NIGHT_START
 	_clock_ready = true
 func trample_level(cell: Vector2i) -> int:
@@ -48,20 +59,53 @@ func clear_trampling(points: Array) -> void:
 	for cell in points:
 		if not in_bounds(cell): continue
 		_used.erase(_index(cell))
+		_previous_used.erase(_index(cell))
 		if _write_level(cell,0): modified.append(cell)
 	if not modified.is_empty(): levels_changed.emit(modified)
 func on_minute(now: int) -> void:
 	if not _clock_ready:
 		setup_trampling(now)
 		return
+	if now <= _last_minute: return
+	_last_minute = now # Commit before observers can repeat the minute.
 	while _last_boundary + Clock.MINUTES_PER_DAY <= now:
-		_last_boundary += Clock.MINUTES_PER_DAY # Commit before callbacks: duplicate/reentrant time is harmless.
-		var modified: Array[Vector2i] = []
-		for index in _active.keys():
-			if not _used.has(index) and _write_level(_cell(index),levels[index]-maxi(0,decay_per_night)):
-				modified.append(_cell(index))
-		_used.clear()
-		if not modified.is_empty(): levels_changed.emit(modified)
+		var boundary := _last_boundary + Clock.MINUTES_PER_DAY
+		_advance_night(boundary) # Finish an older night before swapping daily use sets.
+		_start_night(boundary)
+	_advance_night(now)
+func _start_night(boundary: int) -> void:
+	_last_boundary = boundary
+	_previous_used = _used # Dictionary reference swap, not a copy of visited cells.
+	_used = {}
+	_night_cursor = 0
+	_night_running = not levels.is_empty()
+	if not _night_running: return
+	_night_offset = _night_random.randi_range(0,levels.size()-1)
+	_night_step = _night_random.randi_range(1,maxi(1,levels.size()-1))
+	while _gcd(_night_step,levels.size()) != 1:
+		_night_step = _night_step % maxi(1,levels.size()-1) + 1
+func _advance_night(now: int) -> void:
+	if not _night_running: return
+	var elapsed := clampi(now-_last_boundary,0,NIGHT_MINUTES)
+	var target := floori(float(levels.size()*elapsed)/NIGHT_MINUTES)
+	var modified: Array[Vector2i] = []
+	while _night_cursor < target:
+		var index := _night_index(_night_cursor)
+		_night_cursor += 1 # Every index is consumed once, even if active membership changes.
+		if levels[index]>0 and not _previous_used.has(index) and not _used.has(index):
+			var cell := _cell(index)
+			if _write_level(cell,levels[index]-clampi(decay_per_night,0,1)): modified.append(cell)
+		_previous_used.erase(index) # Retire old marks gradually; no large free at 23:00.
+	if _night_cursor == levels.size(): _night_running = false
+	if not modified.is_empty(): levels_changed.emit(modified)
+func _night_index(position: int) -> int:
+	return (_night_offset + position * _night_step) % levels.size()
+func _gcd(a: int, b: int) -> int:
+	while b != 0:
+		var remainder := a % b
+		a = b
+		b = remainder
+	return a
 func execution_speed(cell: Vector2i, planned_speed: float) -> float:
 	if trample_level(cell) < Balance.TRAMPLE_FAST_LEVEL: return planned_speed
 	# Ground's default 1 is not a modifier. Existing tree/manual modifiers use min.
