@@ -13,6 +13,7 @@ func _init(building: RefCounted) -> void:
 func count() -> int: return _members.size()
 func reserved_count() -> int: return _holds.size()
 func has_member(id: StringName) -> bool: return _members.has(id)
+func animals() -> Array: return _members.values()
 func available() -> int:
 	var building = _building.get_ref()
 	return maxi(building.definition.animal_capacity-count()-reserved_count(),0) if building != null and building.is_built() and not _closing else 0

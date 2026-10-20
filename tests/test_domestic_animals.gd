@@ -54,7 +54,7 @@ func definition_and_capacity() -> void:
 	check(hut.definition.construction_requirements=={resources.LOG:4,resources.PLANK:6},"Hut recipe exactly four logs and six planks")
 	check(hut.definition.construction_work_required==D.for_type(T.GATHERER_HUT).construction_work_required,"Gatherer construction labor reused")
 	check(hut.definition.worker_capacity==1 and hut.definition.porter_capacity==1 and hut.definition.worker_profession==P.SHEPHERD,"One real shepherd and optional porter")
-	check(hut.definition.production_recipes.is_empty() and hut.definition.logistics_flow.is_empty() and hut.definition.planned_wool_capacity==20,"No fictitious production or wool hauling")
+	check(hut.definition.production_recipes.is_empty() and hut.resources.get_capacity(preload("res://scripts/resource_type.gd").Type.WOOL)==20 and hut.definition.planned_wool_capacity==20,"No fictitious recipe; S3 connects the real wool output buffer")
 	var control=preload("res://scripts/player_control.gd").new();control.register_building(hut)
 	for index in 3:
 		var resident=preload("res://scripts/resident_data.gd").new("worker_%d" % index,"Работник",25);control.register_resident(resident)

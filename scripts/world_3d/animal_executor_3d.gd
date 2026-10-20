@@ -12,12 +12,20 @@ var _time_speed := 1
 var _motion_token := -1
 var movement_owner: Node
 var home: RefCounted
+var _hit_body: StaticBody3D
 var _resume_after_frame := -1
 func setup(animal: Animal, clock: Node) -> void:
 	data = animal
 	global_position = data.position
 	add_child(view)
 	view.setup(data)
+	_hit_body=StaticBody3D.new()
+	_hit_body.collision_layer=8;_hit_body.collision_mask=0
+	_hit_body.set_meta("animal_id",data.id)
+	var hit_shape:=CollisionShape3D.new()
+	var capsule:=CapsuleShape3D.new();capsule.radius=Balance.SHEEP_NAV_RADIUS;capsule.height=0.8
+	hit_shape.shape=capsule;hit_shape.position.y=0.4
+	_hit_body.add_child(hit_shape);add_child(_hit_body)
 	movement.body = self
 	movement.navigation = navigation
 	# No animal road bonus yet; retain the existing slow terrain, including trees.
@@ -34,9 +42,14 @@ func setup(animal: Animal, clock: Node) -> void:
 	clock.speed_changed.connect(set_time_speed)
 	behavior.setup(data,clock)
 func get_world_position() -> Vector3: return global_position
+func get_sim_position() -> Vector2: return Coordinates.to_sim(global_position)
+func set_indoor(value: bool) -> void:
+	view.visible=not value
+	_hit_body.collision_layer=0 if value else 8
 func set_time_speed(multiplier: int) -> void: _time_speed = multiplier
 func _wander_offer(random: RandomNumberGenerator) -> Dictionary:
 	if not navigation.is_world_walkable(global_position): return {}
+	if home!=null and home.area()==null: return {}
 	var center: Vector3 = home.area_center() if home!=null else data.habitat_center
 	var extent: float = home.area_radius() if home!=null else data.habitat_radius
 	for attempt in Balance.SHEEP_TARGET_ATTEMPTS:
@@ -99,7 +112,7 @@ func release_movement(requester: Node, _successful: bool) -> void:
 	movement.stop()
 	movement_owner = null
 	if Engine.is_in_physics_frame(): _resume_after_frame=Engine.get_physics_frames()
-	behavior.resume()
+	if data.operation_id.is_empty(): behavior.resume()
 func interrupt_movement() -> void:
 	if is_instance_valid(movement_owner): movement_owner.cancel("follower_replaced")
 func _habitat_path(points: PackedVector3Array) -> bool:

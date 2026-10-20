@@ -242,6 +242,10 @@ func has_line_of_sight(start: Vector3, target: Vector3) -> bool:
 	var vertical_edge := direction.x == 0 and absf(a.x - roundf(a.x)) < 0.00001
 	var horizontal_edge := direction.y == 0 and absf(a.y - roundf(a.y)) < 0.00001
 	while cell != goal:
+		# A negative-axis endpoint on a cell edge belongs to the cell already reached.
+		# Do not step past that endpoint while the other axis finishes its last crossing.
+		if cell.x==goal.x: next_x=INF
+		if cell.y==goal.y: next_y=INF
 		if absf(next_x-next_y) < 0.00001:
 			if not is_cell_walkable(cell+Vector2i(step.x,0)) or not is_cell_walkable(cell+Vector2i(0,step.y)): return false
 			cell += step

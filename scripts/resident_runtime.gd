@@ -11,6 +11,7 @@ const Wander = preload("res://scripts/resident_wander_controller.gd")
 const Social = preload("res://scripts/resident_social_controller.gd")
 const Commands = preload("res://scripts/player_command_controller.gd")
 const Assignments = preload("res://scripts/resident_assignment_controller.gd")
+var shepherd = preload("res://scripts/resident_shepherd_controller.gd").new()
 var self_logistics = preload("res://scripts/resident_self_logistics.gd").new()
 var recipe_work = preload("res://scripts/resident_recipe_controller.gd").new()
 var builder = preload("res://scripts/resident_builder_controller.gd").new()
@@ -31,7 +32,7 @@ func setup(resident: RefCounted, presentation: Node, clock: Node, locations: Ref
 	data = resident
 	data.skill_changed.connect(_on_skill_changed)
 	view = presentation
-	for controller in [intents, commands, schedule, need_dynamics, needs, assignments, decision, social, wander, builder, recipe_work, self_logistics]:
+	for controller in [intents, commands, schedule, need_dynamics, needs, assignments, decision, social, wander, builder, recipe_work, self_logistics, shepherd]:
 		add_child(controller)
 	for controller in [commands, schedule, needs, assignments, decision, social, wander, builder, recipe_work]:
 		controller.logger = logger
@@ -43,7 +44,7 @@ func setup(resident: RefCounted, presentation: Node, clock: Node, locations: Ref
 	commands.setup(data, intents)
 	schedule.fallback_housing = housing
 	schedule.setup(clock, locations, intents, buildings)
-	schedule.production_continues = recipe_work.keeps_shift_action
+	schedule.production_continues = func(): return recipe_work.keeps_shift_action() or shepherd.keeps_shift_action()
 	if view.has_signal("building_use_unavailable"):
 		view.building_use_unavailable.connect(_on_building_use_unavailable)
 	intents.intent_changed.connect(view.apply_intent)

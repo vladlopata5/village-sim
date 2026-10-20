@@ -9,6 +9,17 @@ var id: StringName
 var species: Species = Species.SHEEP
 var status: Status = Status.WILD
 var home_id: StringName
+var operation_id: StringName
+func claim_operation(identity: StringName) -> bool:
+	if identity.is_empty(): return false
+	if not operation_id.is_empty(): return operation_id==identity
+	operation_id=identity
+	changed.emit()
+	return operation_id==identity
+func release_operation(identity: StringName) -> void:
+	if operation_id!=identity: return
+	operation_id=&""
+	changed.emit()
 var position: Vector3
 var habitat_center: Vector3
 var habitat_radius: float = Balance.SHEEP_HABITAT_RADIUS

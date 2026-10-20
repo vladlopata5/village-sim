@@ -59,6 +59,11 @@ func _for_resident(resident_id: String, target_id: StringName) -> Array:
 	var options: Array = [Option.new(&"go_to", "Идти к", Option.Kind.PLAYER_COMMAND, target_id, point is Vector2, "Место недоступно" if not point is Vector2 else "")]
 	for capability in target.capabilities:
 		match capability:
+			&"animal":
+				if data.profession==Profession.Type.SHEPHERD:
+					var wild: bool=target.data.status==preload("res://scripts/animal_data.gd").Status.WILD
+					var free: bool=target.data.operation_id.is_empty()
+					options.append(Option.new(&"capture_sheep","Поймать овцу",Option.Kind.RESIDENT_ASSIGNMENT,target_id,wild and free,"Овца домашняя" if not wild else ("Овца уже закреплена" if not free else "")))
 			&"resident":
 				if String(target_id) != resident_id:
 					options.append(Option.new(&"talk", "Поговорить с %s" % target.label, Option.Kind.RESIDENT_ASSIGNMENT, target_id))
@@ -82,6 +87,13 @@ func _for_resident(resident_id: String, target_id: StringName) -> Array:
 					options.append(Option.new(action[0], action[1], Option.Kind.RESIDENT_ASSIGNMENT, target_id, false, "Поручения будут добавлены следующим этапом"))
 	return options
 func execute(resident_ids: Array, option: Option) -> bool:
+	# Capture validates its live animal/workplace in the assignment controller and
+	# reports a stale menu refusal through the character feed, rather than silently hiding it.
+	if option.id==&"capture_sheep":
+		if resident_ids.is_empty(): return false
+		for resident_id in resident_ids:
+			if not control.add_assignment(resident_id,Assignment.new(&"",resident_id,Assignment.CAPTURE_SHEEP,option.target_id)): return false
+		return true
 	# Revalidate at click time: a drop/place or availability may have changed.
 	var actual := get_interactions(resident_ids, option.target_id)
 	if not actual.any(func(row): return row.id == option.id and row.enabled): return false

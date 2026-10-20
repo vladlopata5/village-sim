@@ -46,10 +46,11 @@ func choices(id: StringName, purpose: int, origin: Vector3) -> Array:
 func acquire(id: StringName, purpose: int, resident_id: String, origin: Vector3) -> Marker3D:
 	if purpose in [Slot.Purpose.ANIMAL_SLEEP,Slot.Purpose.ANIMAL_SERVICE] or resident_id.begins_with("animal:"): return null
 	return _acquire(id,purpose,resident_id,origin)
-func acquire_animal(id: StringName, animal_id: StringName, origin: Vector3) -> Marker3D:
+func acquire_animal(id: StringName, animal_id: StringName, origin: Vector3, purpose: int = Slot.Purpose.ANIMAL_SLEEP) -> Marker3D:
+	if purpose not in [Slot.Purpose.ANIMAL_SLEEP,Slot.Purpose.ANIMAL_SERVICE]: return null
 	var target := view(id)
 	if target==null or target.building_data.animal_housing==null or not target.building_data.animal_housing.has_member(animal_id): return null
-	return _acquire(id,Slot.Purpose.ANIMAL_SLEEP,"animal:"+String(animal_id),origin)
+	return _acquire(id,purpose,"animal:"+String(animal_id),origin)
 func _acquire(id: StringName, purpose: int, resident_id: String, origin: Vector3) -> Marker3D:
 	var target := view(id)
 	if target==null or resident_id.is_empty(): return null
@@ -67,7 +68,7 @@ func release(id: StringName, marker: Marker3D, resident_id: String) -> void:
 	if not is_instance_valid(marker) or marker.purpose in [Slot.Purpose.ANIMAL_SLEEP,Slot.Purpose.ANIMAL_SERVICE]: return
 	_release(id,marker,resident_id)
 func release_animal(id: StringName, marker: Marker3D, animal_id: StringName) -> void:
-	if not is_instance_valid(marker) or marker.purpose!=Slot.Purpose.ANIMAL_SLEEP: return
+	if not is_instance_valid(marker) or marker.purpose not in [Slot.Purpose.ANIMAL_SLEEP,Slot.Purpose.ANIMAL_SERVICE]: return
 	var target := view(id)
 	if target!=null and marker not in target.get_markers(Slot): return
 	_release(id,marker,"animal:"+String(animal_id))

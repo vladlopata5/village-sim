@@ -17,6 +17,10 @@ var _conversation_id := 0
 var _shared_since: Dictionary = {}
 var _conversation_result_used := false
 var _serial := 0
+var capture_error: Callable
+var capture_start: Callable
+var capture_cancel: Callable
+var capture_refused: Callable
 var active_assignment: Assignment
 var _owned_intent: Intent
 
@@ -34,8 +38,13 @@ func setup(data: RefCounted, needs: Node, intents: Node, social: Node = null, cl
 	needs.eat_outcome.connect(_on_eat_outcome)
 
 func add(assignment: Assignment) -> bool:
-	if assignment == null or assignment.resident_id != _data.id or assignment.type not in [Assignment.EAT_AT_TARGET, Assignment.TALK_TO]: return false
+	if assignment == null or assignment.resident_id != _data.id or assignment.type not in [Assignment.EAT_AT_TARGET, Assignment.TALK_TO, Assignment.CAPTURE_SHEEP]: return false
 	if assignment.state != Assignment.State.QUEUED or not assignment.target is StringName: return false
+	if assignment.type==Assignment.CAPTURE_SHEEP:
+		var error: String=capture_error.call(assignment.target) if capture_error.is_valid() else "Мне некуда привести овцу"
+		if not error.is_empty():
+			if capture_refused.is_valid(): capture_refused.call(error)
+			return false
 	if not _target_exists(assignment): return false
 	if assignment.id == &"":
 		_serial += 1
@@ -45,6 +54,9 @@ func add(assignment: Assignment) -> bool:
 	_data.notify_assignments_changed()
 	if logger != null: logger.info(EventLog.PLAYER, "%s: добавлено поручение — %s" % [_data.resident_name, _label(assignment)])
 	return true
+
+func finish_capture(assignment: Assignment, successful: bool) -> void:
+	if active_assignment==assignment: _change_state(assignment,Assignment.State.COMPLETED if successful else Assignment.State.CANCELLED)
 
 func find(assignment_id: StringName):
 	for assignment in _data.assignments:
@@ -69,12 +81,18 @@ func collect_actions() -> Array:
 func start(assignment_id: StringName) -> bool:
 	var assignment: Assignment = find(assignment_id)
 	if assignment == null or assignment.state != Assignment.State.QUEUED or active_assignment != null: return false
-	if not _available(assignment): return false
+	if not _available(assignment):
+		if assignment.type==Assignment.CAPTURE_SHEEP: _change_state(assignment,Assignment.State.CANCELLED)
+		return false
 	_change_state(assignment, Assignment.State.ACTIVE)
 	if logger != null: logger.info(EventLog.ASSIGNMENT, "%s: начал поручение — %s" % [_data.resident_name, _label(assignment)])
 
 	# Bonus is selector utility only; preserve the existing eat/schedule intent rules.
 	var accepted := false
+	if assignment.type==Assignment.CAPTURE_SHEEP:
+		accepted=capture_start.call(assignment) if capture_start.is_valid() else false
+		if not accepted and active_assignment==assignment: _change_state(assignment,Assignment.State.CANCELLED)
+		return accepted
 	if assignment.type == Assignment.TALK_TO:
 		accepted = _social.try_social_at(assignment.target, roundi(_base_utility(assignment)))
 	else:
@@ -91,7 +109,9 @@ func cancel(assignment_id: StringName) -> bool:
 	# Detach before executor cleanup emits callbacks or availability changes.
 	_change_state(assignment, Assignment.State.CANCELLED)
 	if owns_execution:
-		if assignment.type == Assignment.TALK_TO: _social.cancel_social()
+		if assignment.type==Assignment.CAPTURE_SHEEP:
+			if capture_cancel.is_valid(): capture_cancel.call(assignment)
+		elif assignment.type == Assignment.TALK_TO: _social.cancel_social()
 		else: _needs.cancel_eat(old)
 	if logger != null: logger.info(EventLog.ASSIGNMENT, "%s: поручение отменено — %s" % [_data.resident_name, _label(assignment)])
 	return true
@@ -151,19 +171,31 @@ func _complete_assignment(assignment: Assignment, independent: bool) -> void:
 		logger.info(EventLog.ASSIGNMENT, "%s: %s — %s" % [_data.resident_name, message, _label(assignment)])
 
 func _target_exists(assignment: Assignment) -> bool:
+	if assignment.type==Assignment.CAPTURE_SHEEP:
+		var error: String=capture_error.call(assignment.target) if capture_error.is_valid() else "Мне некуда привести овцу"
+		if not error.is_empty() and capture_refused.is_valid(): capture_refused.call(error)
+		return error.is_empty()
 	if assignment.type == Assignment.EAT_AT_TARGET: return _needs.get_food_target(assignment.target) != null
 	return is_instance_valid(_social) and is_instance_valid(_social.world) and String(assignment.target) != _data.id and _social.world.get_runtime(String(assignment.target)) != null
 
 func _available(assignment: Assignment) -> bool:
+	if assignment.type==Assignment.CAPTURE_SHEEP:
+		var error: String=capture_error.call(assignment.target) if capture_error.is_valid() else "Мне некуда привести овцу"
+		if not error.is_empty():
+			if capture_refused.is_valid(): capture_refused.call(error)
+			return false
 	if not _target_exists(assignment): return false
+	if assignment.type==Assignment.CAPTURE_SHEEP: return true
 	if assignment.type == Assignment.TALK_TO: return _social.has_target_action(assignment.target)
 	return _needs.has_target_food_action(assignment.target)
 
 func _base_utility(assignment: Assignment) -> float:
+	if assignment.type==Assignment.CAPTURE_SHEEP: return Balance.WORK_PRIORITY
 	if assignment.type == Assignment.TALK_TO: return float(_data.get_need(NeedType.Type.SOCIAL).get_priority())
 	return Utility.eat(_data.hunger)
 
 func _label(assignment: Assignment) -> String:
+	if assignment.type==Assignment.CAPTURE_SHEEP: return "Поймать овцу %s" % assignment.target
 	if assignment.type == Assignment.TALK_TO:
 		var target = _social.world.get_runtime(String(assignment.target)) if is_instance_valid(_social.world) else null
 		return "Поговорить с %s" % (target.data.resident_name if target != null else String(assignment.target))

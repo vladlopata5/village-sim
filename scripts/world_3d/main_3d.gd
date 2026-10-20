@@ -199,9 +199,15 @@ func _setup_wild_sheep() -> void:
 		executor.setup(animal,game_time)
 		animals.append(animal)
 		animal_executors.append(executor)
+		interactions.register_target(animal.id,"Овца",animal,executor.get_sim_position,[&"animal"])
+		executor.tree_exiting.connect(interactions.remove_target.bind(animal.id))
 		var registered: bool = runtime_placement_blockers.register_circle(animal.id,executor.get_world_position,Balance.SHEEP_NAV_RADIUS)
 		assert(registered,"Each sheep owns one placement blocker, never a navigation blocker")
 		executor.tree_exiting.connect(runtime_placement_blockers.unregister.bind(animal.id))
+func get_animal_executor(id: StringName) -> Node3D:
+	for body in animal_executors:
+		if is_instance_valid(body) and body.data.id==id: return body
+	return null
 func _open_residents(role: int=-1) -> void:
 	settlement_panel.preset_profession(role)
 	game_ui.open_window(&"residents")
@@ -438,6 +444,7 @@ func _building_cleanup_pending(building: BuildingInstance) -> bool:
 	if building.animal_housing!=null and (building.animal_housing.count()>0 or building.animal_housing.reserved_count()>0): return true
 	for runtime in resident_runtimes:
 		if runtime.view.is_inside_building(building.id): return true
+		if runtime.shepherd._mutating: return true
 		if runtime.builder._mutating or runtime.recipe_work._mutating or runtime.data.inventory._transferring: return true
 	for resource in ResourceType.Type.values():
 		if building.resources.get_reserved_in(resource)>0 or building.resources.get_reserved_out(resource)>0 or building.get_construction_reserved_in(resource)>0: return true
@@ -672,7 +679,7 @@ func pick(screen_position: Vector2) -> Dictionary:
 	var origin := camera.project_ray_origin(screen_position)
 	var end := origin + camera.project_ray_normal(screen_position) * 10000.0
 	# Exact resident hits have stable priority over building/ground.
-	for mask in [2, 5]:
+	for mask in [2, 8, 5]:
 		var query := PhysicsRayQueryParameters3D.create(origin, end, mask)
 		var hit: Dictionary = $World.get_world_3d().direct_space_state.intersect_ray(query)
 		if not hit.is_empty(): return hit
@@ -711,6 +718,7 @@ func handle_world_click(button: int, hit: Dictionary, screen: Vector2 = Vector2.
 		var data = resident_selection.selected_resident
 		if collider is ResidentView: interaction_menu.open_for([data.id], StringName(collider.resident_data.id), screen)
 		elif collider is BuildingView: interaction_menu.open_for([data.id], collider.building_data.id, screen)
+		elif collider!=null and collider.has_meta("animal_id"):interaction_menu.open_for([data.id],collider.get_meta("animal_id"),screen)
 		elif collider == $World/Ground and hit.has("position"):
 			interaction_menu.hide()
 			player_control.move_to(data.id, Coordinates.to_sim(hit.position))

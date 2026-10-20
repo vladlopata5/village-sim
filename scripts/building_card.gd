@@ -231,7 +231,7 @@ func apply_presentation(expanded: bool, tab: StringName) -> void:
 func _refresh_details(resource_lines: PackedStringArray) -> void:
 	animal_summary.visible=_building.animal_housing!=null
 	if animal_summary.visible:
-		animal_summary.text="Животные: %d / %d\nШерсть: 0 / %d\nНосильщик необязателен" % [_building.animal_housing.count(),_building.definition.animal_capacity,_building.definition.planned_wool_capacity]
+		animal_summary.text="Животные: %d / %d\nШерсть: %d / %d\nНосильщик необязателен" % [_building.animal_housing.count(),_building.definition.animal_capacity,_building.resources.get_amount(ResourceType.Type.WOOL),_building.resources.get_capacity(ResourceType.Type.WOOL)]
 	var profession = preload("res://scripts/resident_profession.gd")
 	var producers: Array = _control.get_production_workers(_building.id) if _control != null else []
 	var porters: Array = _control.get_porters(_building.id) if _control != null else []
@@ -257,7 +257,7 @@ func _refresh_details(resource_lines: PackedStringArray) -> void:
 	var buffer_lines := PackedStringArray()
 	if _building.animal_housing!=null:
 		buffer_lines.append("Домашние животные: %d / %d" % [_building.animal_housing.count(),_building.definition.animal_capacity])
-		buffer_lines.append("Шерсть: 0 / %d • выпуск появится позднее" % def.planned_wool_capacity)
+		buffer_lines.append("Шерсть: %d / %d" % [_building.resources.get_amount(ResourceType.Type.WOOL),_building.resources.get_capacity(ResourceType.Type.WOOL)])
 		buffer_lines.append("Носильщик необязателен")
 	for resource in ResourceType.Type.values():
 		var capacity: int = _building.resources.get_capacity(resource)
@@ -289,7 +289,7 @@ func _refresh_details(resource_lines: PackedStringArray) -> void:
 	_refresh_people(producers, porters)
 
 func _setup_storage_rows() -> void:
-	for category in [Categories.Type.LOG,Categories.Type.STONE,Categories.Type.PLANK,Categories.Type.SIMPLE_FOOD,Categories.Type.MUSHROOM]:
+	for category in [Categories.Type.LOG,Categories.Type.STONE,Categories.Type.PLANK,Categories.Type.SIMPLE_FOOD,Categories.Type.MUSHROOM,Categories.Type.WOOL]:
 		var section := VBoxContainer.new()
 		get_node("%StorageAmounts").add_child(section)
 		var row := HBoxContainer.new()

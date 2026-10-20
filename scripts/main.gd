@@ -221,6 +221,7 @@ func _work_available(runtime: ResidentRuntime) -> bool:
 		Profession.Type.BUILDER: return runtime.builder.has_work()
 		Profession.Type.SAWYER, Profession.Type.COOK: return runtime.self_logistics.has_work()
 		Profession.Type.GATHERER: return runtime.self_logistics.has_work()
+		Profession.Type.SHEPHERD: return runtime.shepherd.has_work() or runtime.self_logistics.has_work()
 		_: return false
 
 func _request_work(runtime: ResidentRuntime) -> bool:
@@ -229,6 +230,7 @@ func _request_work(runtime: ResidentRuntime) -> bool:
 		Profession.Type.BUILDER: return runtime.builder.request_work()
 		Profession.Type.SAWYER, Profession.Type.COOK: return runtime.self_logistics.request_work()
 		Profession.Type.GATHERER: return runtime.self_logistics.request_work()
+		Profession.Type.SHEPHERD: return runtime.shepherd.request_work() or runtime.self_logistics.request_work()
 		_: return false
 
 func _configure_logistics() -> void:
@@ -329,6 +331,8 @@ func _activate_completed_building(building: BuildingInstance) -> void:
 			building.resources.set_capacity(ResourceType.Type.LOG,Balance.SAWMILL_INPUT_CAPACITY)
 			building.resources.set_capacity(ResourceType.Type.PLANK,Balance.SAWMILL_OUTPUT_CAPACITY)
 			logistics.register_building(building)
+		BuildingType.Type.SHEPHERD_HUT:
+			logistics.register_building(building)
 		BuildingType.Type.GATHERER_HUT:
 			if gatherer_hut_data == null:
 				gatherer_hut_data = building
@@ -358,6 +362,7 @@ func _create_resident_runtime(data: ResidentData, start: Vector2) -> ResidentRun
 	return runtime
 
 func _bind_resident_control(runtime: ResidentRuntime) -> void:
+	runtime.shepherd.setup(runtime,self)
 	player_control.register_intents(runtime.data.id, runtime.intents)
 	player_control.register_commands(runtime.data.id, runtime.commands)
 	player_control.register_assignments(runtime.data.id, runtime.assignments)

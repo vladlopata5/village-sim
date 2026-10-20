@@ -30,6 +30,7 @@ const FOOTPRINT_CELLS = {
 }
 # External haul policy is independent from ResourceContainer storage/direct deposits.
 const LOGISTICS_FLOW = {
+	BuildingType.Type.SHEPHERD_HUT: {ResourceType.Type.WOOL:{"import":false,"export":true}},
 	BuildingType.Type.QUARRY: {ResourceType.Type.STONE:{"import":false,"export":true}},
 	BuildingType.Type.TOWN_CENTER: {
 		ResourceType.Type.FOOD: {"import":true,"export":true},
@@ -38,6 +39,7 @@ const LOGISTICS_FLOW = {
 		ResourceType.Type.STONE: {"import":true,"export":true},
 		ResourceType.Type.MUSHROOM: {"import":true,"export":true},
 		ResourceType.Type.FRIED_MUSHROOM: {"import":true,"export":true},
+		ResourceType.Type.WOOL: {"import":true,"export":true},
 	},
 	BuildingType.Type.SAWMILL: {
 		ResourceType.Type.LOG: {"import":true,"export":false},
@@ -50,6 +52,7 @@ const LOGISTICS_FLOW = {
 		ResourceType.Type.STONE: {"import":true,"export":true},
 		ResourceType.Type.MUSHROOM: {"import":true,"export":true},
 		ResourceType.Type.FRIED_MUSHROOM: {"import":true,"export":true},
+		ResourceType.Type.WOOL: {"import":true,"export":true},
 	},
 	BuildingType.Type.FOOD: {ResourceType.Type.FOOD:{"import":true,"export":false}, ResourceType.Type.MUSHROOM:{"import":true,"export":false}, ResourceType.Type.FRIED_MUSHROOM:{"import":false,"export":true}},
 	BuildingType.Type.GATHERER_HUT: {ResourceType.Type.MUSHROOM:{"import":false,"export":true}},
@@ -136,6 +139,8 @@ static func for_type(category: BuildingType.Type, label: String = ""):
 		result.work_radius = Balance.LUMBERJACK_WORK_RADIUS
 		result.animal_capacity = Balance.SHEPHERD_ANIMAL_CAPACITY
 		result.planned_wool_capacity = Balance.SHEPHERD_WOOL_CAPACITY
+		result.resource_capacities = {ResourceType.Type.WOOL:Balance.SHEPHERD_WOOL_CAPACITY}
+		result.internal_resources = [ResourceType.Type.WOOL]
 	if category == BuildingType.Type.SAWMILL:
 		result.worker_capacity = Balance.SAWMILL_WORKER_CAPACITY
 		result.production_recipes.append(Recipe.new({ResourceType.Type.LOG:1},{ResourceType.Type.PLANK:1},Balance.SAWMILL_WORK_MINUTES,&"sawmill_plank"))

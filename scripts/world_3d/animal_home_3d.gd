@@ -61,10 +61,34 @@ func arrive(expected: int) -> void:
 	body.global_position=_slot.global_position # Portal only after actual outside arrival.
 	body.data.position=body.global_position
 	body.movement.reset_physical_origin()
-	body.view.hide()
+	body.set_indoor(true)
 	body.behavior._begin_sleep(body.behavior._clock.total_minutes)
 func wake() -> void:
 	_exit()
+func enter_service(identity: StringName) -> bool:
+	var body = _body.get_ref()
+	if body==null or body.data.operation_id!=identity or is_inside() or not building.is_built(): return false
+	var entrance: Variant=_uses.entrance(building.id)
+	if not entrance is Vector3 or body.global_position.distance_to(entrance)>0.001: return false
+	_entry=entrance
+	var animal_id: StringName=body.data.id
+	var acquired: Marker3D=_uses.acquire_animal(building.id,animal_id,body.global_position,preload("res://scripts/building_slot_purpose.gd").Type.ANIMAL_SERVICE)
+	if not is_instance_valid(body) or body.home!=self or body.data.operation_id!=identity or not building.is_built():
+		_uses.release_animal(building.id,acquired,animal_id)
+		return false
+	if acquired==null: return false
+	_slot=acquired
+	body.global_position=_slot.global_position
+	body.data.position=body.global_position
+	body.movement.reset_physical_origin()
+	body.set_indoor(true)
+	return true
+func leave_service(identity: StringName) -> void:
+	var body = _body.get_ref()
+	if body!=null and body.data.operation_id==identity: _exit()
+func owns_service(identity: StringName) -> bool:
+	var body = _body.get_ref()
+	return body!=null and body.data.operation_id==identity and is_instance_valid(_slot) and _slot.purpose==preload("res://scripts/building_slot_purpose.gd").Type.ANIMAL_SERVICE and _slot.occupant=="animal:"+String(body.data.id)
 func _exit() -> void:
 	var body = _body.get_ref()
 	if not is_instance_valid(_slot): return
@@ -74,7 +98,7 @@ func _exit() -> void:
 		body.global_position=_entry
 		body.data.position=body.global_position
 		body.movement.reset_physical_origin()
-		body.view.show()
+		body.set_indoor(false)
 		_uses.release_animal(building.id,old_slot,body.data.id)
 func _disconnect() -> void:
 	if building.animal_housing.closing.is_connected(release): building.animal_housing.closing.disconnect(release)

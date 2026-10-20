@@ -192,7 +192,7 @@ func validation() -> void:
 	var town=world.warehouse_data
 	world.resident_selection.select_building(town)
 	world.game_ui.info_panel.select_tab(&"storage")
-	check(card.recipe_views.is_empty() and card.storage_rows.size()==5 and card.get_node("%StorageSummary").text.contains("Занято: 80 / 100"),"Existing warehouse categories and stock unaffected")
+	check(card.recipe_views.is_empty() and card.storage_rows.size()==6 and card.get_node("%StorageSummary").text.contains("Занято: 80 / 100"),"Wool category is added; existing warehouse stock unaffected")
 	world.free()
 func run() -> void:
 	root.size=Vector2i(1280,720)

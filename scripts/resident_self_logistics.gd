@@ -14,6 +14,7 @@ func _workplace() -> RefCounted:
 	var target = world.player_control.get_building(runtime.data.work_location_id)
 	if target==null or not target.is_built() or not world.world_locations.get_position(target.id) is Vector2: return null
 	if not target.definition.production_recipes.is_empty() and runtime.data.profession==target.definition.worker_profession: return target
+	if runtime.data.profession==Profession.Type.SHEPHERD and target.type==Types.Type.SHEPHERD_HUT: return target
 	if runtime.data.profession==Profession.Type.GATHERER and target.type==Types.Type.GATHERER_HUT: return target
 	return null
 func _eligible(workplace_id: StringName, source_ref: RefCounted = null) -> bool:
@@ -34,6 +35,7 @@ func task() -> Dictionary:
 	if place==null or runtime.data.inventory.amount!=0 or world.logistics.get_job(runtime.data.id)!=null: return {}
 	var recipes: Array=place.definition.production_recipes
 	if recipes.is_empty():
+		if place.type==Types.Type.SHEPHERD_HUT: return _export(place,[preload("res://scripts/resource_type.gd").Type.WOOL])
 		var natural: RefCounted=world.production.find_source(runtime.data)
 		if natural!=null: return {"kind":&"GATHER","source":natural}
 		return _export(place,[preload("res://scripts/resource_type.gd").Type.MUSHROOM])
