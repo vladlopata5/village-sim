@@ -87,6 +87,7 @@ func obstacles() -> void:
 	dispose(f)
 	f=fixture();actor=f[2];nav=f[1]
 	actor.data.habitat_radius=0.1
+	actor.data.habitat_center=actor.position
 	var random:=RandomNumberGenerator.new();random.seed=1
 	check(actor._wander_offer(random).is_empty() and nav.raw_calls<=Balance.SHEEP_TARGET_ATTEMPTS,"No acceptable target terminates within candidate bound")
 	dispose(f)

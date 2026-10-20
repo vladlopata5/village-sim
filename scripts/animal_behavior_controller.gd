@@ -11,6 +11,7 @@ var rng := RandomNumberGenerator.new()
 var wander_offer: Callable
 var token := 0
 var choices := 0
+var suspended := false
 var _clock: Node
 var _last_minute := -1
 func setup(animal: Animal, clock: Node) -> void:
@@ -21,6 +22,7 @@ func setup(animal: Animal, clock: Node) -> void:
 	clock.minute_changed.connect(_on_minute)
 	_choose(clock.total_minutes)
 func _choose(now: int) -> void:
+	if suspended: return
 	choices += 1
 	var time_of_day := posmod(now,Clock.MINUTES_PER_DAY)
 	if time_of_day >= Balance.SHEEP_SLEEP_AFTER or time_of_day < Balance.SHEEP_WAKE_MIN:
@@ -66,6 +68,7 @@ func finish_wander(completed_token: int, successful: bool) -> void:
 func _on_minute(now: int) -> void:
 	if now <= _last_minute: return
 	_last_minute = now
+	if suspended: return
 	# GameTime normally emits every minute; also tolerate a direct larger checkpoint.
 	while data.behavior_ends_at >= 0 and data.behavior_ends_at <= now:
 		var finished_at := data.behavior_ends_at
@@ -80,5 +83,14 @@ func _on_minute(now: int) -> void:
 		_choose(finished_at)
 func cancel_behavior() -> void:
 	if data != null: _set_behavior(Animal.Behavior.IDLE,_clock.total_minutes,-1)
+func suspend() -> void:
+	suspended = true
+	cancel_behavior()
+func resume() -> void:
+	if not suspended: return
+	suspended = false
+	if is_instance_valid(_clock):
+		_last_minute = _clock.total_minutes
+		_choose(_clock.total_minutes)
 func _exit_tree() -> void:
 	if is_instance_valid(_clock) and _clock.minute_changed.is_connected(_on_minute): _clock.minute_changed.disconnect(_on_minute)

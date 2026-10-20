@@ -11,6 +11,9 @@ var movement = preload("res://scripts/world_3d/grid_movement_3d.gd").new()
 var navigation: RefCounted
 var _active: Intent
 var _time_speed := 1
+var movement_owner: Node
+var _replacing_movement := false
+var _resume_after_frame := -1
 func setup(data: RefCounted) -> void:
 	resident_data = data
 	view.setup(data)
@@ -33,10 +36,12 @@ func get_drop_sim_position() -> Vector2:
 func set_selected(value: bool) -> void: view.set_selected(value)
 func set_time_speed(multiplier: int) -> void: _time_speed = multiplier
 func move_to(target: Vector2, prepared: Dictionary = {}) -> void:
+	_interrupt_escort()
 	_exit_building()
 	_active = null
 	movement.set_target(Coordinates.to_world(target),prepared)
 func apply_intent(intent: Intent) -> void:
+	_interrupt_escort()
 	if intent.courier_outside and is_instance_valid(_marker) and _marker.purpose == Slot.Purpose.COURIER and _building == intent.building_id:
 		movement.stop()
 		global_position = _entry_position
@@ -52,9 +57,37 @@ func apply_intent(intent: Intent) -> void:
 	intent.prepared_path = {}
 	_active = intent
 func _physics_process(delta: float) -> void:
-	movement.speed = Coordinates.length_to_world(Modifiers.movement_speed(resident_data, 120.0)) * _time_speed
+	if movement_owner != null: return
+	if _resume_after_frame >= 0:
+		if Engine.get_physics_frames()==_resume_after_frame: return
+		_resume_after_frame=-1
+	movement.speed = get_base_movement_speed() * _time_speed
 	movement.advance(delta)
+func get_base_movement_speed() -> float:
+	return Coordinates.length_to_world(Modifiers.movement_speed(resident_data,120.0))
+func claim_movement(requester: Node) -> bool:
+	if movement_owner != null or _waiting or not _building.is_empty() or (_active != null and not _active.building_id.is_empty()): return false
+	movement_owner = requester
+	return true
+func advance_owned(requester: Node, delta: float, cap: float, distance_limit: float) -> void:
+	if movement_owner != requester: return
+	movement.speed = minf(get_base_movement_speed(),cap)*_time_speed
+	movement.advance(delta,distance_limit)
+func release_movement(requester: Node, successful: bool) -> void:
+	if movement_owner != requester: return
+	movement.stop()
+	movement_owner = null
+	if Engine.is_in_physics_frame(): _resume_after_frame=Engine.get_physics_frames()
+	if successful: _arrived()
+	elif _replacing_movement: _active = null
+	else: _failed()
+func _interrupt_escort() -> void:
+	if not is_instance_valid(movement_owner): return
+	_replacing_movement = true
+	movement_owner.cancel("leader_replaced")
+	_replacing_movement = false
 func _arrived() -> void:
+	if movement_owner != null: return
 	if uses!=null and _active!=null and not _active.building_id.is_empty():
 		_enter_or_wait()
 		return
@@ -68,6 +101,7 @@ func _finish_arrival() -> void:
 		_reporting_arrival=false
 		_release_finished()
 func _failed() -> void:
+	if movement_owner != null: return
 	var failed_intent = _active
 	_active = null
 	if failed_intent != null: intent_failed.emit(failed_intent)
@@ -109,7 +143,9 @@ func exit_for_action(intent: Intent) -> bool:
 	_exit_building()
 	return _intents.current_intent == intent and _marker == null and _building.is_empty() and not _waiting and navigation.is_world_walkable(global_position)
 
-func _forced_exit(_intent: Intent) -> void: _exit_building()
+func _forced_exit(_intent: Intent) -> void:
+	_interrupt_escort()
+	_exit_building()
 func _check_activity() -> void:
 	if not _reporting_arrival: _release_finished()
 func _release_finished() -> void:
@@ -154,6 +190,7 @@ func _building_removed(id: StringName) -> void:
 		if _intents!=null: _intents.abort_current(_intents.current_intent)
 		_failed()
 func _exit_tree() -> void:
+	_interrupt_escort()
 	_exit_building()
 	if uses!=null: uses.executors.erase(resident_data.id)
 

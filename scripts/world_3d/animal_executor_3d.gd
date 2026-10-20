@@ -9,6 +9,8 @@ var behavior = preload("res://scripts/animal_behavior_controller.gd").new()
 var view = preload("res://scripts/world_3d/sheep_view_3d.gd").new()
 var _time_speed := 1
 var _motion_token := -1
+var movement_owner: Node
+var _resume_after_frame := -1
 func setup(animal: Animal, clock: Node) -> void:
 	data = animal
 	global_position = data.position
@@ -41,28 +43,61 @@ func _wander_offer(random: RandomNumberGenerator) -> Dictionary:
 		if not navigation.can_reach_point(global_position,target): continue
 		var raw: PackedVector3Array = navigation.find_raw_path(global_position,target)
 		# A destination inside the disk is insufficient: an obstacle detour can leave it.
-		if raw.is_empty() or not Array(raw).all(data.contains) or not navigation.is_raw_path_walkable(raw): continue
+		if raw.is_empty() or not _habitat_path(raw) or not navigation.is_raw_path_walkable(raw): continue
 		return {"target":target,"prepared":{"raw":raw,"navigation_id":navigation.get_instance_id(),"revision":navigation.revision,"start":global_position,"target":target}}
 	return {}
 func _move(action_token: int, target: Vector3, prepared: Dictionary) -> void:
+	if movement_owner != null: return
 	if action_token != behavior.token or data.behavior != Animal.Behavior.WANDER: return
 	_motion_token = action_token
 	movement.set_target(target,prepared)
 func _arrived() -> void:
 	data.position = global_position
+	if movement_owner != null: return
 	behavior.finish_wander(_motion_token,true)
 func _failed() -> void:
 	data.position = global_position
+	if movement_owner != null: return
 	behavior.finish_wander(_motion_token,false)
 func _path_changed(points: PackedVector3Array) -> void:
 	# Revision replans also have to stay inside the convex habitat disk.
-	if not points.is_empty() and not Array(points).all(data.contains):
+	if movement_owner == null and not points.is_empty() and not _habitat_path(points):
 		movement.stop()
 		_failed()
 func _physics_process(delta: float) -> void:
-	if data == null: return
+	if data == null or movement_owner != null: return
+	if _resume_after_frame >= 0:
+		if Engine.get_physics_frames()==_resume_after_frame: return
+		_resume_after_frame=-1
+	_advance(delta,INF,INF)
+func _advance(delta: float, cap: float, distance_limit: float) -> void:
 	var previous := global_position
-	movement.speed = Balance.SHEEP_WALK_SPEED*_time_speed
-	movement.advance(delta)
+	movement.speed = minf(get_base_movement_speed(),cap)*_time_speed
+	movement.advance(delta,distance_limit)
 	data.position = global_position
 	view.face_movement(global_position-previous)
+func get_base_movement_speed() -> float: return Balance.SHEEP_WALK_SPEED
+func claim_movement(requester: Node) -> bool:
+	if movement_owner != null: return false
+	movement_owner = requester
+	behavior.suspend()
+	return movement_owner == requester
+func advance_owned(requester: Node, delta: float, cap: float, distance_limit: float) -> void:
+	if movement_owner == requester: _advance(delta,cap,distance_limit)
+func release_movement(requester: Node, _successful: bool) -> void:
+	if movement_owner != requester: return
+	movement.stop()
+	movement_owner = null
+	if Engine.is_in_physics_frame(): _resume_after_frame=Engine.get_physics_frames()
+	behavior.resume()
+func interrupt_movement() -> void:
+	if is_instance_valid(movement_owner): movement_owner.cancel("follower_replaced")
+func _habitat_path(points: PackedVector3Array) -> bool:
+	# After an escort outside its wild habitat, a normal walk may return physically.
+	var entered := data.contains(points[0])
+	for point in points:
+		if data.contains(point): entered = true
+		elif entered: return false
+	return entered
+func _exit_tree() -> void:
+	if is_instance_valid(movement_owner): movement_owner.cancel("follower_removed")

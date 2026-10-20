@@ -1,4 +1,13 @@
 extends RefCounted
+# H2 preliminary pair movement parameters, WORLD units and game minutes.
+const ESCORT_GAP := 1.2
+const ESCORT_WAIT_GAP := 3.0
+const ESCORT_RESUME_GAP := 1.8
+const ESCORT_MAX_TRAIL := 6.0
+const ESCORT_MAX_POINTS := 256
+const ESCORT_STALL_MINUTES := 10
+const ESCORT_ARRIVAL_RADIUS := 0.8
+const ESCORT_STEP_DISTANCE := 0.25 # Local integration quantum for large physical deltas.
 ## S1 prototype animal values, in WORLD units and game minutes.
 const SHEEP_HABITAT_RADIUS := 10.0
 const SHEEP_WALK_SPEED := 0.6 # Resident base is 4.8 WORLD/second at x1.
