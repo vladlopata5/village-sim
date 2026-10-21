@@ -19,7 +19,7 @@ func _workplace() -> RefCounted:
 	return null
 func _eligible(workplace_id: StringName, source_ref: RefCounted = null) -> bool:
 	var place := _workplace()
-	return place!=null and place.id==workplace_id and runtime.data.inventory.amount==0 and world.game_time.get_phase()=="День" and not runtime.intents.player_controlled and runtime.intents.forced_priority==0 and not runtime.intents.has_current_action() and (source_ref == null or world.logistics.sources.ground_allowed(source_ref,runtime.view.get_sim_position(),place))
+	return place!=null and place.id==workplace_id and runtime.data.inventory.amount==0 and world.game_time.get_phase()=="День" and not runtime.intents.player_controlled and runtime.intents.forced_priority==0 and not runtime.intents.has_current_action() and (source_ref == null or world.logistics.sources.ground_allowed(source_ref,runtime.view.get_sim_position(),place,preload("res://scripts/building_work_area.gd").resolve(place,world.work_areas) if place.type==Types.Type.FARM else null))
 func _committed_workplace(id: StringName) -> bool:
 	var target = world.player_control.get_building(id)
 	return target!=null and target.is_built() and world.world_locations.get_position(id) is Vector2
@@ -111,6 +111,9 @@ func request_work() -> bool:
 		return false
 	if candidate.kind==&"PRODUCTION": return runtime.recipe_work.request_work()
 	if candidate.kind==&"SUPPLY": return _request_supply(place,candidate)
+	return _start_export(place,candidate)
+
+func _start_export(place: RefCounted, candidate: Dictionary) -> bool:
 	var job=world.logistics.claim_transport(runtime.data.id,candidate.source,candidate.destination,candidate.resource,_eligible.bind(place.id,candidate.source),true,_committed_workplace.bind(place.id))
 	if job==null: return false
 	if world.logistics.start_claimed_job(job,runtime.data.id): return true
@@ -120,3 +123,17 @@ func request_work() -> bool:
 func _gathering_finished(job: RefCounted) -> void:
 	if job.state==job.State.COMPLETED:
 		runtime.data.add_skill_xp(preload("res://scripts/skill_type.gd").Type.GATHERING,1)
+
+# Generic minimum-input provisioning, shared with porter demand/admission.
+func stock_task(place: RefCounted) -> Dictionary:
+	for resource in place.supply.stock_deficits():
+		var source: RefCounted=world.logistics.sources.find_first(resource,runtime.view.get_sim_position(),world.world_locations.get_position(place.id),place.id,place,preload("res://scripts/building_work_area.gd").resolve(place,world.work_areas))
+		if source!=null:return {"kind":&"IMPORT","source":source,"resource":resource,"destination":place}
+	return {}
+func request_stock_supply(place: RefCounted, candidate: Dictionary) -> bool:
+	if not place.supply.stock_deficits().has(candidate.resource):return false
+	var eligible: Callable=_eligible.bind(place.id,candidate.source)
+	var job=world.logistics.claim_transport(runtime.data.id,candidate.source,place,candidate.resource,eligible,true,_committed_workplace.bind(place.id))
+	if job==null:return false
+	if world.logistics.start_claimed_job(job,runtime.data.id):return true
+	world.logistics.cancel_transport(job,"снабжение минимального запаса не началось");return false

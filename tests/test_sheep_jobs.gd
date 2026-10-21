@@ -125,7 +125,7 @@ func shearing_and_export() -> void:
 	await physics_frame;await process_frame
 	var destination=f.world.warehouse_data
 	var categories=preload("res://scripts/resource_category.gd").Type
-	destination.resources.set_category_quota(categories.PLANK,50);destination.resources.set_category_quota(categories.WOOL,10)
+	destination.resources.set_category_quota(categories.PLANK,40);destination.resources.set_category_quota(categories.WOOL,10)
 	f.hut.resources.try_take(R.WOOL,15) # Leave five actual produced/output units in fixture.
 	check(f.runtime.self_logistics.request_work(),"Shepherd can export real wool with no porter")
 	var job=f.world.logistics.get_job(f.runtime.data.id)

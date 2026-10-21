@@ -55,7 +55,7 @@ func run() -> void:
 	var stocks: String=building.storage_rows[C.SIMPLE_FOOD].amount.text
 	world.warehouse_data.resources.reserve_out(R.FOOD,3)
 	building._refresh()
-	check(building.storage_rows[C.SIMPLE_FOOD].amount.text==stocks and stocks=="20 /" and building.storage_rows[C.SIMPLE_FOOD].editor.text=="20" and building.storage_rows[C.PLANK].amount.text=="60 /" and building.storage_rows[C.PLANK].editor.text=="60","Storage rows show actual stock and quotas, reserves not subtracted")
+	check(building.storage_rows[C.SIMPLE_FOOD].amount.text==stocks and stocks=="20 /" and building.storage_rows[C.SIMPLE_FOOD].editor.text=="20" and building.storage_rows[C.PLANK].amount.text=="0 /" and building.storage_rows[C.PLANK].editor.text=="50","Storage rows show actual stock and quotas, reserves not subtracted")
 	world.warehouse_data.resources.release_out(R.FOOD,3)
 	world.warehouse_data.resources.add(R.STONE,2)
 	check(building.storage_rows[C.STONE].amount.text=="2 /" and building.storage_rows[C.STONE].editor.text=="10","ResourceContainer.changed updates immediately")

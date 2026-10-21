@@ -20,7 +20,7 @@ func definitions() -> void:
 	check(R.WOOL==6 and R.WOOL_CLOTH==7 and R.WOOL_CLOTHING==8 and C.WOOL==5 and C.WOOL_CLOTH==6 and C.SIMPLE_CLOTHING==7,"New concrete goods/categories append IDs")
 	check(Catalog.types_in_category(C.WOOL_CLOTH)==[R.WOOL_CLOTH] and Catalog.types_in_category(C.SIMPLE_CLOTHING)==[R.WOOL_CLOTHING] and not Catalog.is_ready_food(R.WOOL_CLOTHING),"Concrete cloth and substitutable finished clothing remain separate categories, not food")
 	var catalog=preload("res://scripts/ui/construction_catalog_data.gd").categories()[0].entries
-	check(catalog.map(func(row):return row.definition.type)==[T.LUMBERJACK_HUT,T.QUARRY,T.GATHERER_HUT,T.SAWMILL,T.SHEPHERD_HUT,T.WEAVER_WORKSHOP,T.TAILOR_WORKSHOP],"Both independent workshops append to production catalogue; original order preserved")
+	check(catalog.map(func(row):return row.definition.type)==[T.LUMBERJACK_HUT,T.QUARRY,T.GATHERER_HUT,T.SAWMILL,T.SHEPHERD_HUT,T.WEAVER_WORKSHOP,T.TAILOR_WORKSHOP,T.FARM],"Both independent workshops append to production catalogue; original order preserved")
 	for type in [T.WEAVER_WORKSHOP,T.TAILOR_WORKSHOP]:
 		var definition=D.for_type(type);var weaving: bool=type==T.WEAVER_WORKSHOP
 		check(definition.construction_requirements==({R.LOG:4,R.PLANK:6,R.STONE:4} if weaving else {R.LOG:6,R.PLANK:8,R.STONE:4}) and definition.construction_work_required==(180 if weaving else 240),"Exact construction materials including stone and work")
@@ -105,11 +105,11 @@ func physical_chain() -> void:
 	world.game_time.debug_skip_minutes(50)
 	check(tailor.resources.get_amount(R.WOOL_CLOTHING)==1 and tailor.production_batches.is_empty(),"Remaining50 minutes finish exactly one clothing")
 	var warehouse=world.warehouse_data
-	warehouse.resources.set_category_quota(C.PLANK,50);warehouse.resources.set_category_quota(C.SIMPLE_CLOTHING,10)
+	warehouse.resources.set_category_quota(C.PLANK,40);warehouse.resources.set_category_quota(C.SIMPLE_CLOTHING,10)
 	var exported=await haul(world,sewing)
 	check(exported!=null and exported.resource_type==R.WOOL_CLOTHING and warehouse.resources.get_amount(R.WOOL_CLOTHING)==1,"Tailor self-exports actual clothing to real quota-admitting storage")
 	loom.resources.add(R.WOOL_CLOTH,1)
-	warehouse.resources.set_category_quota(C.PLANK,40);warehouse.resources.set_category_quota(C.WOOL_CLOTH,10)
+	warehouse.resources.set_category_quota(C.PLANK,30);warehouse.resources.set_category_quota(C.WOOL_CLOTH,10)
 	check(world.player_control.assign_workplace(porter.data.id,loom.id,P.PORTER) and not world.player_control.assign_workplace(world.resident_runtimes[3].data.id,loom.id,P.PORTER),"One optional porter only")
 	var carried=await haul(world,porter)
 	check(carried!=null and carried.resource_type==R.WOOL_CLOTH,"Optional porter uses common concrete resource transport")
@@ -123,7 +123,7 @@ func construction_and_demolition() -> void:
 		var site=world.placement.confirm()
 		check(site!=null and not site.is_built() and not world.player_control.assign_workplace(world.residents[0].id,site.id),"Real placement creates nonoperational construction site")
 		var builder=world.resident_runtimes[0];world.player_control.assign_profession(builder.data.id,P.BUILDER)
-		for resource in [R.LOG,R.STONE]:world.warehouse_data.resources.add(resource,site.get_required_amount(resource))
+		for resource in [R.LOG,R.STONE,R.PLANK]:world.warehouse_data.resources.add(resource,site.get_required_amount(resource))
 		var before: int=world.warehouse_data.resources.get_total_amount()
 		await physics_frame;await process_frame
 		world.game_time.set_speed(20)

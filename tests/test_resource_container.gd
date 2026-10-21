@@ -104,8 +104,8 @@ func check_warehouse_quotas() -> void:
 	check(other.set_category_quota(C.LOG,0) and stock.get_capacity(R.LOG)==10 and Balance.STORAGE_CATEGORY_QUOTAS[C.LOG]==40,"Quota edits do not change other warehouses or balance constants")
 	var town = LocalResources.new(&"town")
 	check(town.configure_warehouse(100,Balance.TOWN_CENTER_CATEGORY_QUOTAS),"Town Center preset fits")
-	check(town.get_capacity(R.LOG)==10 and town.get_capacity(R.STONE)==10 and town.get_capacity(R.PLANK)==60 and town.get_capacity(R.FOOD)==20,"Town Center preset preserves starting resource space")
-	check(town.add(R.PLANK,60) and town.add(R.FOOD,20) and town.get_total_amount()==80,"Existing Town Center starting stock fits prepared preset")
+	check(town.get_capacity(R.LOG)==10 and town.get_capacity(R.STONE)==10 and town.get_capacity(R.PLANK)==50 and town.get_capacity(R.WHEAT)==10 and town.get_capacity(R.FOOD)==20,"Town Center preset preserves starting resource space")
+	check(town.add(R.WHEAT,10) and town.add(R.FOOD,20) and town.get_total_amount()==30,"Existing Town Center starting stock fits prepared preset")
 	for invalid_capacity in [-1,1.5,true,"100"]:
 		var invalid = LocalResources.new(&"invalid")
 		check(not invalid.configure_warehouse(invalid_capacity,{}) and not invalid.is_warehouse(),"Invalid shared capacity does not activate warehouse mode")

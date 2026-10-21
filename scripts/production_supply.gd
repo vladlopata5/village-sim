@@ -157,3 +157,12 @@ func input_room(recipe_id: StringName, resource: int) -> bool:
 	var ignored: StringName=replaced.get("id",&"")
 	var output: int=building.definition.get_production_recipe(recipe_id).outputs.get(resource,0)
 	return building.resources.get_available_free_capacity(resource)-_outputs(resource,ignored)-output>=1
+
+func stock_deficits() -> Dictionary:
+	var building: RefCounted=_owner.get_ref()
+	var result: Dictionary={}
+	if building==null or not building.is_built():return result
+	for resource in building.stock_targets():
+		var missing: int=building.import_demand(resource)
+		if missing>0 and building.definition.allows_external_import(resource):result[resource]=missing
+	return result

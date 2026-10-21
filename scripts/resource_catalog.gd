@@ -7,6 +7,9 @@ static var _definitions: Dictionary = _build_definitions()
 
 static func _build_definitions() -> Dictionary:
 	var definitions := {
+		Resources.Type.WHEAT: {"id":Resources.Type.WHEAT,"display_name":"Пшеница","category":Categories.Type.WHEAT,"ready_food":false,"food_quality":FoodQuality.NONE,"quantity_compatible":true},
+		Resources.Type.SHEAF: {"id":Resources.Type.SHEAF,"display_name":"Сноп","category":Categories.Type.SHEAF,"ready_food":false,"food_quality":FoodQuality.NONE,"quantity_compatible":true},
+		Resources.Type.STRAW: {"id":Resources.Type.STRAW,"display_name":"Солома","category":Categories.Type.STRAW,"ready_food":false,"food_quality":FoodQuality.NONE,"quantity_compatible":true},
 		Resources.Type.WOOL_CLOTH: {"id":Resources.Type.WOOL_CLOTH,"display_name":"Шерстяная ткань","category":Categories.Type.WOOL_CLOTH,"ready_food":false,"food_quality":FoodQuality.NONE,"quantity_compatible":true},
 		Resources.Type.WOOL_CLOTHING: {"id":Resources.Type.WOOL_CLOTHING,"display_name":"Шерстяная одежда","category":Categories.Type.SIMPLE_CLOTHING,"equipment_slot":&"clothing","ready_food":false,"food_quality":FoodQuality.NONE,"quantity_compatible":true},
 		Resources.Type.WOOL: {"id":Resources.Type.WOOL,"display_name":"Шерсть","category":Categories.Type.WOOL,"ready_food":false,"food_quality":FoodQuality.NONE,"quantity_compatible":true},

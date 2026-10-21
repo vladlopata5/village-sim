@@ -121,6 +121,7 @@ func _run() -> void:
 	actor.intents.clear_reason(&"day_work")
 	actor.decision._deciding = true # Drive bounded work decision points explicitly; keep real work_request/controllers.
 	actor.intents.cancel_current(actor.intents.current_intent)
+	check(scene.warehouse_data.resources.add(Resources.PLANK,30), "Explicit transport fixture boards")
 	var starting_plank: int = scene.warehouse_data.resources.get_amount(Resources.PLANK)
 	check(scene._request_work(actor), "Existing builder chooses runtime 3D construction")
 	check(scene.warehouse_data.resources.get_reserved_out(Resources.PLANK) == 1 and site.get_construction_reserved_in(Resources.PLANK) == 1, "Existing physical reservation semantics apply")

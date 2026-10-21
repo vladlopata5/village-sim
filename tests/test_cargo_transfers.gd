@@ -157,6 +157,7 @@ func run() -> void:
 	dest.resources.changed.disconnect(delivery_callback)
 	check(job.state==Job.State.COMPLETED and actor.data.inventory.amount==0 and dest.resources.get_amount(R.FOOD)==before_delivery+1 and Stacks.total(world.ground_resources)==drops_before,"Cancellation callback cannot duplicate a completed delivery")
 	# Builder direct abort during source callbacks is deferred like forced interruption.
+	check(world.warehouse_data.resources.add(R.PLANK,10),"Explicit boards for cargo-cancellation regression")
 	var builder=world.resident_runtimes[1]
 	check(world.player_control.assign_profession(builder.data.id,P.BUILDER),"Builder assignment")
 	var definition=D.for_type(T.HOME)

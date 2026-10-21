@@ -86,11 +86,11 @@ func run() -> void:
 	check(world.change_construction_direction(center.id,false),"Restore Town Center")
 	begin_work(first);begin_work(second);world.game_time.debug_skip_minutes(10)
 	check(center.is_built() and world.logistics._buildings.get(center.id)==center and world.interactions._targets.has(center.id),"Starter activation restores logistics and context actions")
-	check(center.resources.get_amount(R.PLANK)==60 and center.resources.get_amount(R.FOOD)==20,"Town Center restoration retains initial contents")
+	check(center.resources.get_amount(R.PLANK)==0 and center.resources.get_amount(R.WHEAT)==10 and center.resources.get_amount(R.FOOD)==20,"Town Center restoration retains initial contents")
 	check(world.change_construction_direction(center.id,true),"Demolish restored Town Center")
 	for cycle in range(2):
 		begin_work(first);begin_work(second);world.game_time.debug_skip_minutes(60);world._poll_building_work()
 	check(center.state==B.State.REMOVED and world.player_control.get_building(center.id)==null,"Two builders remove Town Center after exactly 240 work")
-	check(ground_amount(R.PLANK)==60 and ground_amount(R.FOOD)==20 and world.demolition_results[center.id].planned_loss.is_empty(),"Town Center refunds contents only, no invented material recipe")
+	check(ground_amount(R.PLANK)==0 and ground_amount(R.WHEAT)==10 and ground_amount(R.FOOD)==20 and world.demolition_results[center.id].planned_loss.is_empty(),"Town Center refunds contents only, no invented material recipe")
 	world.free();await process_frame
 	print("Demolition safety: %d checks, %d failures" % [checks,failures]);quit(1 if failures else 0)

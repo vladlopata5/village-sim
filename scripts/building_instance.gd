@@ -59,6 +59,8 @@ var production_progress: int:
 	set(value):
 		if definition.production_recipe == null: _simple_production_progress = value
 
+signal logistics_policy_changed
+var _stock_targets: Dictionary = {}
 var logistics_weight: float = Balance.DEFAULT_BUILDING_LOGISTICS_WEIGHT
 # Compatibility accessors keep existing systems using the same instance data.
 var display_name: String:
@@ -95,6 +97,7 @@ func work_status() -> String:
 func _init(instance_id: StringName, building_definition: Definition, world_position: Vector2 = Vector2.ZERO, initial_state: State = State.BUILT) -> void:
 	id = instance_id
 	definition = building_definition
+	_stock_targets = definition.initial_stock_targets.duplicate()
 	position = world_position
 	_state = initial_state
 	if definition.animal_capacity>0: animal_housing=preload("res://scripts/animal_housing.gd").new(self)
@@ -414,3 +417,17 @@ func validate_production_batch(batch: Batch) -> bool:
 	_reconcile_preparations(batch.recipe_id)
 	if _production_batches.size()!=previous_size: production_changed.emit()
 	return owns_production_batch(batch) and not batch.is_terminal()
+
+func get_stock_target(resource: int) -> int:return int(_stock_targets.get(resource,0))
+func stock_targets() -> Dictionary:return _stock_targets.duplicate()
+func set_stock_target(resource: int, quantity: int) -> bool:
+	if not is_built() or not _stock_targets.has(resource) or quantity<0 or quantity>resources.get_capacity(resource):return false
+	if get_stock_target(resource)==quantity:return true
+	_stock_targets[resource]=quantity
+	production_revision+=1;logistics_policy_changed.emit();production_changed.emit()
+	return true
+func external_available(resource: int) -> int:
+	return maxi(0,resources.get_available_amount(resource)-get_stock_target(resource))
+func import_demand(resource: int) -> int:
+	var room: int=resources.get_available_free_capacity(resource)
+	return mini(room,maxi(0,get_stock_target(resource)-resources.get_amount(resource)-resources.get_reserved_in(resource))) if _stock_targets.has(resource) else room

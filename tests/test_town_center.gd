@@ -33,7 +33,7 @@ func run() -> void:
 	check(world.buildings.size()==1 and center.type==Types.TOWN_CENTER and center.is_built(),"Exactly one BUILT Town Center replaces all starter infrastructure")
 	check(world.residents.size()==4 and world.trees.size()>0,"Residents and forest retained")
 	check(center.definition.is_storage and center.definition.fallback_housing_capacity==10,"Data-driven storage and fallback capacity")
-	check(center.resources.get_amount(Resources.PLANK)==60 and center.resources.get_amount(Resources.FOOD)==20 and center.resources.get_amount(Resources.LOG)==0,"Initial stock 60 PLANK / 20 FOOD / 0 LOG")
+	check(center.resources.get_amount(Resources.PLANK)==0 and center.resources.get_amount(Resources.WHEAT)==10 and center.resources.get_amount(Resources.FOOD)==20 and center.resources.get_amount(Resources.LOG)==0,"Initial stock 0 PLANK / 10 WHEAT / 20 FOOD / 0 LOG")
 	for resource in Resources.values():
 		check(center.resources.get_capacity(resource)==Balance.TOWN_CENTER_CATEGORY_QUOTAS.get(preload("res://scripts/resource_catalog.gd").get_category(resource),0) and center.definition.allows_external_import(resource) and center.definition.allows_external_export(resource),"All current resources have approved quotas or zero unallocated quota and external policies")
 	check(center.resources.is_warehouse() and center.resources.shared_capacity==100,"Town Center opts into shared warehouse capacity")
@@ -48,6 +48,7 @@ func run() -> void:
 	world.placement.cancel()
 	var actor = world.resident_runtimes[0]
 	check(world.player_control.assign_profession(actor.data.id,Profession.PORTER) and actor.data.work_location_id==center.id,"Porter can use storage-capable Town Center workplace")
+	check(center.resources.add(Resources.PLANK,50),"Explicit full-quota boards for source/destination regression")
 	var source = Source.new(Source.Kind.CONTAINER,center.id)
 	check(world.logistics.sources.available(source,Resources.PLANK),"Builder source service can obtain Town Center PLANK")
 	var producer = Building.new(&"fixture_producer",Definition.for_type(Types.SAWMILL),Vector2(800,400))
@@ -107,7 +108,7 @@ func run() -> void:
 	check(actor.schedule._fallback_id.is_empty() and actor.intents.current_intent.target_position==world.world_locations.get_position(home.id),"Normal HOME has priority over fallback housing")
 	world.resident_selection.select_building(center)
 	var card = world.building_card_view()
-	check(card.management_button.visible and card.resources_label.text.contains("60"),"Town Center card exposes stock and management")
+	check(card.management_button.visible and card.resources_label.text.contains("50"),"Town Center card exposes stock and management")
 	card.management_button.pressed.emit()
 	check(world.settlement_panel.visible and world.settlement_panel.rows.size()==4,"Settlement panel lists current residents")
 	world.settlement_panel.activate_row(world.residents[1].id)

@@ -14,6 +14,7 @@ var worker_id := ""
 var work_required: int
 var inputs: Dictionary
 var outputs: Dictionary
+var optional_outputs: Dictionary
 var _resources: RefCounted
 var _inputs: Dictionary = {}
 var _outputs: Dictionary = {}
@@ -28,6 +29,7 @@ func _init(batch_id: StringName, definition: RefCounted, resources: RefCounted) 
 	work_required = definition.work_required
 	inputs = definition.inputs.duplicate()
 	outputs = definition.outputs.duplicate()
+	optional_outputs = definition.optional_outputs.duplicate()
 	_resources = resources
 
 func output_quantity() -> int:
@@ -106,10 +108,17 @@ func advance(worker: String, minutes: int) -> void:
 func finish(worker: String) -> bool:
 	if _mutating or state != State.RUNNING or not inputs_spent or worker != worker_id or progress < work_required or not reserves_valid(): return false
 	_mutating = true
+	state = State.COMPLETED # A nested callback cannot publish or cancel a committed completion.
+	worker_id = ""
+	# Only mandatory outputs have occupied capacity during work. Try optional
+	# capacity now, accounting for all foreign inbound promises. A miss is lost,
+	# not debt and never blocks the mandatory transaction.
+	for resource in optional_outputs:
+		if _outputs.has(resource) or _resources.get_available_free_capacity(resource)<int(optional_outputs[resource]):continue
+		_outputs[resource]=optional_outputs[resource]
+		if not _resources.reserve_in(resource,optional_outputs[resource]):_outputs.erase(resource)
 	var produced := _outputs
 	_outputs = {}
-	state = State.COMPLETED # A nested callback cannot publish this batch again.
-	worker_id = ""
 	var done: bool = _resources.transform_reserved({},produced)
 	if not done:
 		_outputs = produced

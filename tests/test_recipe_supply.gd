@@ -7,9 +7,9 @@ var measures: Array=[]
 class ProbeSources extends "res://scripts/resource_sources.gd":
 	var searches := 0
 	var routes := 0
-	func find_first(resource: int, origin: Vector2, destination: Vector2, excluded: StringName, workplace: RefCounted) -> Source:
+	func find_first(resource: int, origin: Vector2, destination: Vector2, excluded: StringName, workplace: RefCounted, area: RefCounted = null) -> Source:
 		searches+=1
-		return super.find_first(resource,origin,destination,excluded,workplace)
+		return super.find_first(resource,origin,destination,excluded,workplace,area)
 	func track_route(start: Vector2, end: Vector2, delegate: Callable) -> bool:
 		routes+=1
 		return delegate.call(start,end)

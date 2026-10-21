@@ -43,7 +43,7 @@ const STORAGE_CATEGORY_QUOTAS := {
 }
 const TOWN_CENTER_CATEGORY_QUOTAS := {
 	Categories.Type.LOG:10, Categories.Type.STONE:10,
-	Categories.Type.PLANK:60, Categories.Type.SIMPLE_FOOD:20, Categories.Type.MUSHROOM:0,
+	Categories.Type.PLANK:50, Categories.Type.WHEAT:10, Categories.Type.SIMPLE_FOOD:20, Categories.Type.MUSHROOM:0,
 }
 # Ground admission only: 25 simulation units = 1 world unit; build cell = 12.5.
 const BUILDER_GROUND_SEARCH_MULTIPLIER := 2.0
@@ -198,7 +198,8 @@ const TREE_TRAVERSAL_SPEED_MULTIPLIER := 0.20
 const DIRT_ROAD_SPEED_MULTIPLIER := 1.25
 
 const TOWN_CENTER_RESOURCE_CAPACITY := 100
-const TOWN_CENTER_STARTING_PLANK := 60
+const TOWN_CENTER_STARTING_PLANK := 0
+const TOWN_CENTER_STARTING_WHEAT := 10
 const TOWN_CENTER_STARTING_FOOD := 20
 const TOWN_CENTER_FALLBACK_CAPACITY := 10
 
@@ -229,3 +230,12 @@ const TRAMPLE_DECAY_PER_NIGHT := 1
 const TRAMPLE_MAX_LEVEL := 15
 const TRAMPLE_FAST_LEVEL := 11
 const TRAMPLE_SEED := 20261020
+
+# AG1: independent concrete buffers and field work in game minutes/world units.
+const FARM_BUFFER_CAPACITY := 50
+const FARM_WHEAT_TARGET := 5
+const FARM_WORK_RADIUS := 8.0
+const FARM_FIELD_WORK_MINUTES := 10
+const FARM_THRESH_MINUTES := 30
+const FARM_SOW_CELLS := 5
+const FARM_YIELD_SEED := 138752

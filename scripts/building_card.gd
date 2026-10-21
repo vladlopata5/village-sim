@@ -15,6 +15,11 @@ const ResourceType = preload("res://scripts/resource_type.gd")
 const Categories = preload("res://scripts/resource_category.gd")
 const Balance = preload("res://scripts/balance_config.gd")
 const RecipeView = preload("res://scripts/ui/production_recipe_view.gd")
+var farm_stock_section: VBoxContainer
+var farm_stock_editor: LineEdit
+var farm_stock_feedback: Label
+var _stock_dirty:=false
+var _stock_id: StringName
 var recipe_views: Dictionary = {}
 var _recipe_ids: Array = []
 const FOOD = ResourceType.Type.FOOD
@@ -53,6 +58,7 @@ func _ready() -> void:
 	construction_section.add_child(structural_progress)
 	get_node("%Demolish").pressed.connect(_change_construction_direction)
 	_setup_storage_rows()
+	_setup_stock_target()
 	_setup_work_area()
 	animal_summary=Label.new()
 	animal_summary.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
@@ -265,7 +271,7 @@ func _refresh_details(resource_lines: PackedStringArray) -> void:
 		var role := "Запас"
 		if not def.production_recipes.is_empty():
 			var input: bool = def.production_recipes.any(func(recipe): return recipe.inputs.has(resource))
-			var output: bool = def.production_recipes.any(func(recipe): return recipe.outputs.has(resource))
+			var output: bool = def.production_recipes.any(func(recipe): return recipe.outputs.has(resource) or recipe.optional_outputs.has(resource))
 			if input and output: role = "Вход и выход"
 			elif input: role = "Вход"
 			elif output: role = "Выход"
@@ -289,7 +295,7 @@ func _refresh_details(resource_lines: PackedStringArray) -> void:
 	_refresh_people(producers, porters)
 
 func _setup_storage_rows() -> void:
-	for category in [Categories.Type.LOG,Categories.Type.STONE,Categories.Type.PLANK,Categories.Type.SIMPLE_FOOD,Categories.Type.MUSHROOM,Categories.Type.WOOL,Categories.Type.WOOL_CLOTH,Categories.Type.SIMPLE_CLOTHING]:
+	for category in [Categories.Type.LOG,Categories.Type.STONE,Categories.Type.PLANK,Categories.Type.SIMPLE_FOOD,Categories.Type.MUSHROOM,Categories.Type.WOOL,Categories.Type.WOOL_CLOTH,Categories.Type.SIMPLE_CLOTHING,Categories.Type.WHEAT,Categories.Type.SHEAF,Categories.Type.STRAW]:
 		var section := VBoxContainer.new()
 		get_node("%StorageAmounts").add_child(section)
 		var row := HBoxContainer.new()
@@ -487,6 +493,7 @@ func _clear_recipe_views() -> void:
 	recipe_views.clear()
 	_recipe_ids.clear()
 func _refresh_recipes() -> void:
+	_refresh_stock_target()
 	var ids: Array = []
 	if _building!=null and _building.is_built() and not _building.production_removed:
 		ids = _building.definition.production_recipes.map(func(recipe): return recipe.id)
@@ -517,3 +524,28 @@ func _change_construction_direction() -> void:
 	if _building == null or _control == null: return
 	_control.change_construction_direction(_building.id,_building.is_built() or _building.work_direction == Instance.WorkDirection.BUILD)
 	_refresh()
+
+func _setup_stock_target() -> void:
+	farm_stock_section=VBoxContainer.new();get_node("%RecipeControls").add_child(farm_stock_section)
+	var title:=Label.new();title.text="Запас пшеницы";farm_stock_section.add_child(title)
+	var row:=HBoxContainer.new();farm_stock_section.add_child(row)
+	farm_stock_editor=LineEdit.new();farm_stock_editor.custom_minimum_size.x=72;farm_stock_editor.max_length=3;row.add_child(farm_stock_editor)
+	var apply:=Button.new();apply.text="Применить";row.add_child(apply)
+	apply.pressed.connect(_apply_stock_target)
+	farm_stock_editor.text_submitted.connect(func(_text):_apply_stock_target())
+	farm_stock_editor.text_changed.connect(func(_text):_stock_dirty=true;farm_stock_feedback.hide())
+	farm_stock_feedback=Label.new();farm_stock_feedback.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART;farm_stock_section.add_child(farm_stock_feedback)
+	farm_stock_section.hide()
+func _refresh_stock_target() -> void:
+	if farm_stock_section==null:return
+	farm_stock_section.visible=_building!=null and _building.is_built() and _building.stock_targets().has(ResourceType.Type.WHEAT)
+	if not farm_stock_section.visible:_stock_id=&"";return
+	if _stock_id!=_building.id:_stock_id=_building.id;_stock_dirty=false;farm_stock_feedback.hide()
+	if not _stock_dirty:farm_stock_editor.text=str(_building.get_stock_target(ResourceType.Type.WHEAT))
+func _apply_stock_target() -> void:
+	if _building==null or _control==null or _building.id!=_stock_id:return
+	var text:=farm_stock_editor.text.strip_edges()
+	var result: Dictionary={"ok":false,"error":"Введите целое число от 0 до 50."}
+	if text.is_valid_int():result=_control.set_production_stock_target(_stock_id,ResourceType.Type.WHEAT,text.to_int())
+	farm_stock_feedback.text="Сохранено" if result.ok else result.error;farm_stock_feedback.show()
+	if result.ok:_stock_dirty=false;_refresh_stock_target()

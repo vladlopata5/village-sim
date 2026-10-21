@@ -47,7 +47,7 @@ func available(source_ref: Source, resource: int) -> bool:
 	if not export_allowed(source_ref,resource) or not point(source_ref) is Vector2: return false
 	var entity: Variant = resolve(source_ref)
 	if source_ref.kind == Source.Kind.NATURAL_MUSHROOM: return nature.available_amount(source_ref.id)>0
-	return entity.available_amount() > 0 if source_ref.kind == Source.Kind.GROUND else entity.resources.get_available_amount(resource)>0
+	return entity.available_amount() > 0 if source_ref.kind == Source.Kind.GROUND else entity.external_available(resource)>0
 func reachable(start: Vector2, target: Vector2) -> bool:
 	return not route_available.is_valid() or route_available.call(start,target)
 func _current_work_object(workplace: RefCounted) -> RefCounted:
@@ -130,7 +130,7 @@ func reserved(source_ref: Source, resource: int, owner: StringName) -> bool:
 	var managed := 0
 	for row in _claims.values():
 		if row.source.stable_key()==source_ref.stable_key() and row.resource==resource: managed += 1
-	return entity.resources.get_reserved_out(resource)>=managed
+	return entity.resources.get_reserved_out(resource)>=managed and entity.resources.get_amount(resource)-entity.get_stock_target(resource)>=managed
 func pickup(source_ref: Source, resource: int, owner: StringName) -> bool:
 	if not reserved(source_ref,resource,owner): return false
 	var entity: Variant = resolve(source_ref)
@@ -194,11 +194,11 @@ func find_ground_in_area(resource: int, area: RefCounted, origin: Vector2, desti
 	return []
 
 # Same nearest-trip ordering as find; routes only until the first valid source.
-func find_first(resource: int, origin: Vector2, destination: Vector2, excluded: StringName, workplace: RefCounted) -> Source:
+func find_first(resource: int, origin: Vector2, destination: Vector2, excluded: StringName, workplace: RefCounted, area: RefCounted = null) -> Source:
 	var candidates: Array=[]
 	for building in buildings.values():
 		if building.id!=excluded: candidates.append(Source.new(Source.Kind.CONTAINER,building.id))
-	candidates.append_array(ground_candidates(resource,origin,workplace))
+	candidates.append_array(ground_candidates(resource,origin,workplace,area))
 	candidates=candidates.filter(func(ref): return available(ref,resource))
 	candidates.sort_custom(func(a,b):
 		var da: float=origin.distance_to(point(a))+point(a).distance_to(destination)

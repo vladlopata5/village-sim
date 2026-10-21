@@ -26,7 +26,7 @@ func setup(data: RefCounted) -> void:
 	visual.mesh = box
 	visual.position.y = height / 2.0
 	add_child(visual)
-	if data.type==preload("res://scripts/building_type.gd").Type.SHEPHERD_HUT:
+	if data.type==preload("res://scripts/building_type.gd").Type.SHEPHERD_HUT or data.type==preload("res://scripts/building_type.gd").Type.FARM:
 		var roof := MeshInstance3D.new()
 		var prism := PrismMesh.new()
 		prism.size=Vector3(size.x+0.4,0.9,size.y+0.4)
@@ -55,7 +55,7 @@ func setup(data: RefCounted) -> void:
 	add_child(indicator)
 	caption = Label3D.new()
 	caption.pixel_size = 0.018
-	caption.position.y = height + 0.36 + (0.9 if data.definition.animal_capacity>0 else 0.0)
+	caption.position.y = height + 0.36 + (0.9 if data.definition.animal_capacity>0 or data.type==preload("res://scripts/building_type.gd").Type.FARM else 0.0)
 	caption.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	add_child(caption)
 	if data.definition.work_radius > 0:
@@ -68,7 +68,7 @@ func setup(data: RefCounted) -> void:
 	data.construction_changed.connect(_refresh)
 	_refresh()
 func _refresh() -> void:
-	var colors := [Color("bd976b"), Color("829ba7"), Color("9aaa70"), Color("c2aa91"),Color("88735d"),Color("a28559"),Color("547ea8"),Color("89918b"),Color("b5a677"),Color("9186b0"),Color("bb8393")]
+	var colors := [Color("bd976b"), Color("829ba7"), Color("9aaa70"), Color("c2aa91"),Color("88735d"),Color("a28559"),Color("547ea8"),Color("89918b"),Color("b5a677"),Color("9186b0"),Color("bb8393"),Color("b69e69")]
 	material.albedo_color = colors[building_data.type] if building_data.is_built() else Color("8b7357")
 	set_inside_count(inside_count)
 	caption.text = building_data.display_name + ("" if building_data.is_built() else " — " + building_data.work_status().to_lower())

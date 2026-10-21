@@ -11,7 +11,8 @@ static func categories() -> Array:
 			building(Types.SAWMILL,"saw","Производство досок из брёвен."),
 			building(Types.SHEPHERD_HUT,"home","Содержание 8 животных. Пастух: 1; носильщик: 1 (необязателен)." ),
 			building(Types.WEAVER_WORKSHOP,"loom","1 шерсть → 1 шерстяная ткань за 60 рабочих минут."),
-			building(Types.TAILOR_WORKSHOP,"needle","3 шерстяные ткани → 1 шерстяная одежда за 120 рабочих минут.")]},
+			building(Types.TAILOR_WORKSHOP,"needle","3 шерстяные ткани → 1 шерстяная одежда за 120 рабочих минут."),
+			building(Types.FARM,"wheat","Полевые работы и обмолот: сноп → пшеница и солома. Фермер: 1; носильщик необязателен.")]},
 		{"id":&"logistics", "title":"Логистика", "entries":[building(Types.STORAGE,"storage","Хранение ресурсов и работа носильщиков.")]},
 		{"id":&"settlement", "title":"Поселение", "entries":[building(Types.HOME,"home","Жильё и отдых жителей."),building(Types.FOOD,"kitchen","Приготовление жареных грибов и питание жителей.")]},
 	]

@@ -365,3 +365,9 @@ func remove_work_area(area_id: StringName) -> bool:
 var construction_command: Callable
 func change_construction_direction(building_id: StringName, demolish: bool) -> bool:
 	return get_building(building_id) != null and construction_command.is_valid() and construction_command.call(building_id,demolish)
+
+func set_production_stock_target(building_id: StringName, resource: Variant, quantity: Variant) -> Dictionary:
+	var target:=get_building(building_id)
+	if target==null or not target.is_built() or typeof(resource)!=TYPE_INT or not target.stock_targets().has(resource):return {"ok":false,"error":"Настройка запаса недоступна для этого здания."}
+	if typeof(quantity)!=TYPE_INT or quantity<0 or quantity>target.resources.get_capacity(resource):return {"ok":false,"error":"Введите целое число от 0 до %d."%target.resources.get_capacity(resource)}
+	return {"ok":target.set_stock_target(resource,quantity),"error":""}

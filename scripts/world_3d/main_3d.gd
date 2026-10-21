@@ -8,6 +8,8 @@ const Geometry = preload("res://scripts/world_3d/world_geometry.gd")
 var navigation = preload("res://scripts/navigation_grid.gd").new()
 var navigation_debug = preload("res://scripts/world_3d/navigation_grid_debug.gd").new()
 var build_grid = preload("res://scripts/build_grid.gd").new()
+var farm_fields = preload("res://scripts/farm_fields.gd").new(build_grid)
+var farm_layer = preload("res://scripts/world_3d/farm_layer_3d.gd").new()
 var runtime_placement_blockers = preload("res://scripts/runtime_placement_blockers.gd").new()
 var mycelium = preload("res://scripts/mycelium.gd").new(build_grid)
 var mushroom_growth = preload("res://scripts/mushroom_growth.gd").new()
@@ -157,6 +159,7 @@ func _ready() -> void:
 	_setup_rocks()
 	_setup_roads()
 	_setup_mycelium()
+	_setup_fields()
 	_setup_season_visuals()
 	navigation.prepare_connectivity() # Once after all initial world registration.
 	_setup_wild_sheep()
@@ -295,8 +298,9 @@ func _season_changed(_previous: int, current: int) -> void:
 	$World/Ground/Mesh.material_override.albedo_color = palette.grass
 	road_layer.refresh_base_colors()
 func _trampling_cell_allowed(cell: Vector2i) -> bool:
-	return roads.in_bounds(cell) and build_grid.occupant(cell).is_empty() and not runtime_placement_blockers.static_cell_occupied(cell,build_grid)
+	return roads.in_bounds(cell) and farm_fields.state(cell)==farm_fields.State.BARE and build_grid.occupant(cell).is_empty() and not runtime_placement_blockers.static_cell_occupied(cell,build_grid)
 func _ground_base_color(cell: Vector2i) -> Color:
+	if farm_fields.terrain(cell)==farm_fields.Terrain.DIRT:return farm_layer.DIRT_COLOR
 	return mycelium_view.LAND_COLOR if mycelium.has_mycelium(cell) else $World/Ground/Mesh.material_override.albedo_color
 func _setup_mycelium() -> void:
 	mycelium.allowed=_mushroom_cell_allowed
@@ -318,7 +322,7 @@ func authored_mycelium_cells() -> Array:
 			if Vector2i(x,y) not in [Vector2i(-1,3),Vector2i(3,6),Vector2i(-4,7)]: result.append(origin+Vector2i(x,y))
 	return result
 func _mushroom_cell_allowed(cell: Vector2i) -> bool:
-	return mycelium.in_bounds(cell) and build_grid.occupant(cell).is_empty() and not roads.contains(cell) and ground_resources.get_at(cell)==null and not runtime_placement_blockers.static_cell_occupied(cell,build_grid)
+	return mycelium.in_bounds(cell) and farm_fields.state(cell)==farm_fields.State.BARE and build_grid.occupant(cell).is_empty() and not roads.contains(cell) and ground_resources.get_at(cell)==null and not runtime_placement_blockers.static_cell_occupied(cell,build_grid)
 func _clear_road_mushrooms() -> void:
 	mycelium.clear_cells(roads.cells())
 func _sync_catalogue() -> void:
@@ -457,7 +461,7 @@ func _building_cleanup_pending(building: BuildingInstance) -> bool:
 	if building.animal_housing!=null and (building.animal_housing.count()>0 or building.animal_housing.reserved_count()>0): return true
 	for runtime in resident_runtimes:
 		if runtime.view.is_inside_building(building.id): return true
-		if runtime.shepherd._mutating or runtime.clothing._mutating: return true
+		if runtime.shepherd._mutating or runtime.clothing._mutating or runtime.farmer._mutating: return true
 		if runtime.builder._mutating or runtime.recipe_work._mutating or runtime.data.inventory._transferring: return true
 	for resource in ResourceType.Type.values():
 		if building.resources.get_reserved_in(resource)>0 or building.resources.get_reserved_out(resource)>0 or building.get_construction_reserved_in(resource)>0: return true
@@ -866,7 +870,7 @@ func _create_starting_buildings() -> void:
 	warehouse_data = BuildingData.new(&"town_center", "Городской центр", BuildingType.Type.TOWN_CENTER)
 	warehouse_data.position = Vector2(300,237.5)
 	warehouse_data.resources.configure_warehouse(Balance.WAREHOUSE_SHARED_CAPACITY, Balance.TOWN_CENTER_CATEGORY_QUOTAS)
-	warehouse_data.resources.add(ResourceType.Type.PLANK,Balance.TOWN_CENTER_STARTING_PLANK)
+	warehouse_data.resources.add(ResourceType.Type.WHEAT,Balance.TOWN_CENTER_STARTING_WHEAT)
 	warehouse_data.resources.add(ResourceType.Type.FOOD,Balance.TOWN_CENTER_STARTING_FOOD)
 	buildings.append(warehouse_data)
 	var view = _create_building_presentation(warehouse_data)
@@ -1290,3 +1294,18 @@ func _ui_natural_progress(building_id: StringName) -> PackedStringArray:
 		if miner != null and miner.committed_context != null and miner.committed_context.workplace != null and miner.committed_context.workplace.id == building_id and miner.rock != null:
 			lines.append("%s • добыча: %d / %d мин" % [runtime.data.resident_name,miner.rock.work_done,miner.rock.work_required])
 	return lines
+
+func _setup_fields() -> void:
+	farm_fields.changed.connect(_farm_cells_changed)
+	farm_fields.setup(game_time)
+	$World.add_child(farm_layer);farm_layer.setup(farm_fields)
+func _farm_cell_allowed(cell: Vector2i) -> bool:
+	if not farm_fields.in_bounds(cell) or not build_grid.occupant(cell).is_empty() or ground_resources.get_at(cell)!=null:return false
+	var point: Vector3=build_grid.cell_to_world(cell)
+	return navigation.is_world_walkable(point) and not runtime_placement_blockers.static_cell_occupied(cell,build_grid)
+func _farm_cells_changed(cells: Array) -> void:
+	for cell in cells:
+		if farm_fields.state(cell)!=farm_fields.State.BARE:
+			roads.clear_trampling([cell])
+			if roads.contains(cell):roads.remove_road(cell)
+			mycelium.clear_cells([cell]) # Stock/claims only; persistent mycelium survives.

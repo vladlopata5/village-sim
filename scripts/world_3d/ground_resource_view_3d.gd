@@ -27,6 +27,11 @@ func setup(drop: RefCounted) -> void:
 		visual.rotation.z = PI / 2.0
 		visual.position.y = 0.12
 		material.albedo_color = Color(0.42,0.24,0.1)
+	elif drop.resource_type == Resources.Type.SHEAF:
+		var bundle:=CylinderMesh.new();bundle.top_radius=0.15;bundle.bottom_radius=0.18;bundle.height=0.42;bundle.radial_segments=6
+		visual.mesh=bundle;visual.position.y=0.21;material.albedo_color=Color("d6b350")
+		var tie:=MeshInstance3D.new();var band:=TorusMesh.new();band.inner_radius=0.12;band.outer_radius=0.16;band.rings=8;band.ring_segments=6;tie.mesh=band;tie.position.y=0.21
+		var string_material:=StandardMaterial3D.new();string_material.albedo_color=Color("80613b");tie.material_override=string_material;add_child(tie)
 	elif drop.resource_type == Resources.Type.STONE:
 		var stone := SphereMesh.new()
 		stone.radius = 0.18

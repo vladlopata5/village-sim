@@ -52,18 +52,19 @@ func run() -> void:
 	panel.set_expanded(true)
 	panel.select_tab(&"storage")
 	await settle()
-	check(town.resources.is_warehouse() and town.resources.shared_capacity==100 and town.resources.get_total_amount()==80,"Canonical Town Center preserves initial stock in shared capacity")
+	check(town.resources.is_warehouse() and town.resources.shared_capacity==100 and town.resources.get_total_amount()==30,"Canonical Town Center preserves initial stock in shared capacity")
 	for category in C.values(): check(town.resources.get_category_quota(category)==Balance.TOWN_CENTER_CATEGORY_QUOTAS.get(category,0),"Approved Town Center preset, wool initially unallocated")
-	check(card.storage_rows.size()==8 and card.get_node("%StorageSummary").text=="Занято: 80 / 100\nВ пути: 0\nРаспределено: 100 / 100","Eight persistent category rows and unchanged warehouse totals")
+	check(card.storage_rows.size()==11 and card.get_node("%StorageSummary").text=="Занято: 30 / 100\nВ пути: 0\nРаспределено: 100 / 100","All eleven category rows and approved starter totals")
 	await capture("town-initial")
 	card.storage_rows[C.SIMPLE_FOOD].expand.button_pressed = true
 	check(card.storage_rows[C.SIMPLE_FOOD].contents.visible and card.storage_rows[C.SIMPLE_FOOD].contents.text == "  FOOD: 20","Expanded category shows real concrete stock")
 	await capture("town-food-expanded")
 	var tab_rebuilds: int = panel.tab_rebuild_count
+	check(town.resources.add(R.PLANK,30),"Explicit stock for over-quota UI regression")
 	var row = card.storage_rows[C.PLANK]
 	await edit(card,C.PLANK,"10")
-	check(town.resources.get_amount(R.PLANK)==60 and town.resources.get_capacity(R.PLANK)==10 and row.amount.text=="60 /" and row.editor.text=="10","Inline edit preserves and displays over-quota stock")
-	check(card.get_node("%StorageSummary").text.contains("Распределено: 50 / 100") and panel.tab_rebuild_count==tab_rebuilds,"Quota edit updates totals without rebuilding tabs")
+	check(town.resources.get_amount(R.PLANK)==30 and town.resources.get_capacity(R.PLANK)==10 and row.amount.text=="30 /" and row.editor.text=="10","Inline edit preserves and displays over-quota stock")
+	check(card.get_node("%StorageSummary").text.contains("Распределено: 60 / 100") and panel.tab_rebuild_count==tab_rebuilds,"Quota edit updates totals without rebuilding tabs")
 	await capture("town-surplus")
 	for invalid in ["-1","1.5","abc","100","99999999999999999999"]:
 		await edit(card,C.PLANK,invalid)

@@ -30,7 +30,7 @@ func building_sources() -> void:
 		var world=F.create(self);var actor=world.resident_runtimes[0]
 		var place: RefCounted
 		if type==T.TOWN_CENTER:
-			place=world.warehouse_data;place.resources.set_category_quota(C.PLANK,50);place.resources.set_category_quota(C.SIMPLE_CLOTHING,10);place.resources.add(R.WOOL_CLOTHING,1)
+			place=world.warehouse_data;place.resources.set_category_quota(C.PLANK,40);place.resources.set_category_quota(C.SIMPLE_CLOTHING,10);place.resources.add(R.WOOL_CLOTHING,1)
 		else:place=source(world,type)
 		check(actor.decision.collect_actions(false).any(func(a):return a.id=="CLOTHING"),"Personal task joins UtilitySelector candidates")
 		var busy=Intent.new(Intent.Type.NONE,&"busy",Vector2.ZERO,50,false);actor.intents.submit(busy)

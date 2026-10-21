@@ -55,6 +55,7 @@ func run() -> void:
 		for need in actor.data.needs.values(): need.value=0
 	await physics_frame
 	var center = world.buildings[0]
+	check(center.resources.set_category_quota(C.WHEAT,0) and center.resources.set_category_quota(C.PLANK,60) and center.resources.add(R.PLANK,60),"Explicit historical bootstrap stock, independent of AG1 starter seed")
 	var builder = world.resident_runtimes[1]
 	check(world.player_control.assign_profession(builder.data.id,Profession.BUILDER),"Player assigns Builder without an artificial workplace")
 	var hut = construct(world,builder,Types.LUMBERJACK_HUT,Vector3(-18,0,-5))

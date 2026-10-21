@@ -69,8 +69,8 @@ func run() -> void:
 			need.base_weight = 0
 	await physics_frame
 	var center = world.warehouse_data
-	check(center.resources.get_amount(R.PLANK) == 60 and center.resources.get_amount(R.FOOD) == 20 and center.resources.get_amount(R.LOG) == 0 and center.resources.get_amount(R.STONE) == 0,"Canonical starter stock unchanged")
-	check(center.resources.reserve_out(R.PLANK,60),"Hold existing boards to prove manufacturing dependency")
+	check(center.resources.get_amount(R.PLANK) == 0 and center.resources.get_amount(R.WHEAT) == 10 and center.resources.get_amount(R.FOOD) == 20 and center.resources.get_amount(R.LOG) == 0 and center.resources.get_amount(R.STONE) == 0,"Canonical starter stock unchanged")
+	check(center.resources.get_amount(R.PLANK)==0,"No starter boards; all construction boards must be manufactured")
 	var lumber = world.resident_runtimes[3]
 	var miner = world.resident_runtimes[2]
 	var builder = world.resident_runtimes[1]
@@ -111,10 +111,10 @@ func run() -> void:
 		world.free()
 		quit(1)
 		return
-	check(saw.construction_delivered == {R.LOG:6,R.STONE:6} and center.resources.get_amount(R.PLANK) == 60,"Sawmill consumes six LOG/six STONE, no boards")
+	check(saw.construction_delivered == {R.LOG:6,R.STONE:6} and center.resources.get_amount(R.PLANK) == 0,"Sawmill consumes six LOG/six STONE, no boards")
 	# Construction frees physical room; redistribute quota and fetch the remaining
 	# extraction output before manufacturing. Preserve every unit, including FOOD.
-	check(center.resources.set_category_quotas({Categories.LOG:15,Categories.STONE:4,Categories.PLANK:61}),"Reallocate shared quota after consuming construction materials")
+	check(center.resources.set_category_quotas({Categories.LOG:15,Categories.STONE:4,Categories.PLANK:51}),"Reallocate shared quota after consuming construction materials")
 	check(saw.resources.reserve_in(R.LOG,12),"Hold Sawmill input while isolating the remaining Ground collection")
 	for drop in world.ground_resources.drops.duplicate():
 		for unit in range(drop.amount):
@@ -134,26 +134,26 @@ func run() -> void:
 		walk(miner)
 		world.game_time.debug_skip_minutes(Balance.SAWMILL_WORK_MINUTES)
 	check(saw.resources.get_amount(R.PLANK) == 6,"Six real LOG become six PLANK")
-	check(center.resources.set_category_quotas({Categories.LOG:10,Categories.PLANK:66}),"Allocate room for all six manufactured boards without exceeding total capacity")
+	check(center.resources.set_category_quotas({Categories.LOG:10,Categories.PLANK:56}),"Allocate room for all six manufactured boards without exceeding total capacity")
 	# Hold remaining timber for the next construction fixture, just as starter
 	# PLANK is held above; ordinary Porter input supply must not consume that fixture stock.
 	var held_logs: int = center.resources.get_available_amount(R.LOG)
 	check(center.resources.reserve_out(R.LOG,held_logs),"Hold next construction timber during board export")
 	for trip in range(20):
-		if center.resources.get_amount(R.PLANK) == 66: break
+		if center.resources.get_amount(R.PLANK) == 6: break
 		window()
 		check(world._request_work(porter),"Own Town Center Porter chooses normal Ground/output delivery")
 		walk(porter)
-	check(center.resources.get_amount(R.PLANK) == 66 and saw.resources.get_amount(R.PLANK) == 0,"Porter physically delivers all six manufactured boards to Town Center")
+	check(center.resources.get_amount(R.PLANK) == 6 and saw.resources.get_amount(R.PLANK) == 0,"Porter physically delivers all six manufactured boards to Town Center")
 	center.resources.release_out(R.LOG,held_logs)
 	await screenshot("manufactured_boards_delivered")
 	var storage = await construct(builder,T.STORAGE,Vector3(4,0,22))
 	if storage != null:
 		check(storage.construction_delivered == {R.LOG:2,R.STONE:4,R.PLANK:6},"Storage exact mixed recipe physically delivered")
-		check(saw.resources.get_amount(R.PLANK) == 0 and center.resources.get_amount(R.PLANK) == 60 and center.resources.get_reserved_out(R.PLANK) == 60,"Storage uses manufactured boards, not starter stock")
+		check(saw.resources.get_amount(R.PLANK) == 0 and center.resources.get_amount(R.PLANK) == 0 and center.resources.get_reserved_out(R.PLANK) == 0,"Storage uses manufactured boards, not starter stock")
 		check(center.resources.get_amount(R.LOG) + world.ground_resources.drops.filter(func(drop): return drop.resource_type == R.LOG).reduce(func(total,drop): return total + drop.amount,0) == 1 and center.resources.get_amount(R.STONE) + world.ground_resources.drops.filter(func(drop): return drop.resource_type == R.STONE).reduce(func(total,drop): return total + drop.amount,0) == 0,"Conservation: 15 LOG minus 6 build/6 production/2 Storage leaves one; all ten STONE used")
 		check(world.resident_runtimes.all(func(actor): return actor.data.inventory.amount == 0),"No lost/duplicated cargo")
-	center.resources.release_out(R.PLANK,60)
+	check(center.resources.get_reserved_out(R.PLANK)==0,"No artificial starter-board hold remains")
 	world.free()
 	print("Construction economy: %d checks, %d failures" % [checks,failures])
 	quit(1 if failures else 0)

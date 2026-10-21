@@ -1,6 +1,6 @@
 extends RefCounted
 ## Concrete, interchangeable goods. Warehouse grouping lives in ResourceCategory.
-enum Type { FOOD = 0, LOG = 1, PLANK = 2, STONE = 3, MUSHROOM = 4, FRIED_MUSHROOM = 5, WOOL = 6, WOOL_CLOTH = 7, WOOL_CLOTHING = 8 }
+enum Type { FOOD = 0, LOG = 1, PLANK = 2, STONE = 3, MUSHROOM = 4, FRIED_MUSHROOM = 5, WOOL = 6, WOOL_CLOTH = 7, WOOL_CLOTHING = 8, WHEAT = 9, SHEAF = 10, STRAW = 11 }
 
 static func display_name(resource: Type) -> String:
 	# Runtime load avoids a preload cycle: the catalog itself uses this enum.

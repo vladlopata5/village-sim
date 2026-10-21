@@ -62,7 +62,7 @@ func definitions_and_quotas() -> void:
 		var preset=Balance.STORAGE_CATEGORY_QUOTAS if type==Types.STORAGE else Balance.TOWN_CENTER_CATEGORY_QUOTAS
 		check(box.configure_warehouse(100,preset) and box.get_category_quota(Categories.MUSHROOM)==0 and not box.reserve_in(Resources.MUSHROOM,1),"Default zero mushroom quota forbids warehouse import")
 		check(box.get_category_quota(Categories.LOG)==(40 if type==Types.STORAGE else 10) and box.get_category_quota(Categories.STONE)==(20 if type==Types.STORAGE else 10),"Old log/stone quotas unchanged")
-		check(box.get_category_quota(Categories.PLANK)==(25 if type==Types.STORAGE else 60) and box.get_category_quota(Categories.SIMPLE_FOOD)==(15 if type==Types.STORAGE else 20),"Old plank/ready-food quotas unchanged")
+		check(box.get_category_quota(Categories.PLANK)==(25 if type==Types.STORAGE else 50) and box.get_category_quota(Categories.SIMPLE_FOOD)==(15 if type==Types.STORAGE else 20),"Old plank/ready-food quotas unchanged")
 	var shared=preload("res://scripts/resource_container.gd").new(&"real_dishes")
 	check(shared.configure_warehouse(100,Balance.STORAGE_CATEGORY_QUOTAS) and shared.add(Resources.FOOD,7) and shared.add(Resources.FRIED_MUSHROOM,5),"Real dishes share one fifteen-unit category quota")
 	check(shared.get_category_amount(Categories.SIMPLE_FOOD)==12 and shared.reserve_in(Resources.FRIED_MUSHROOM,2) and shared.get_available_free_capacity(Resources.FOOD)==1 and shared.get_available_free_capacity(Resources.FRIED_MUSHROOM)==1,"Physical food plus inbound uses aggregate category room once")

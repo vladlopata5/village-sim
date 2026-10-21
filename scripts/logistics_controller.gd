@@ -67,6 +67,7 @@ func register_building(building: BuildingInstance) -> void:
 	building.resources.reservations_changed.connect(_on_reservations_changed)
 	building.resources.quotas_changed.connect(_on_source_quotas_changed.bind(building.id))
 	building.construction_changed.connect(_on_state_changed)
+	building.logistics_policy_changed.connect(_on_state_changed)
 	_on_state_changed()
 func remove_building(id: StringName, unregister_assignment: bool = true) -> void:
 	var building: BuildingInstance = _buildings.get(id)
@@ -81,6 +82,7 @@ func remove_building(id: StringName, unregister_assignment: bool = true) -> void
 	building.resources.reservations_changed.disconnect(_on_reservations_changed)
 	building.resources.quotas_changed.disconnect(_on_source_quotas_changed.bind(building.id))
 	building.construction_changed.disconnect(_on_state_changed)
+	building.logistics_policy_changed.disconnect(_on_state_changed)
 	_buildings.erase(id)
 	if unregister_assignment and assignment_control != null: assignment_control.unregister_building(id)
 	for executor in _executors.values(): executor.validate_job()
@@ -144,7 +146,7 @@ func allows_external_delivery(source: BuildingInstance, destination: BuildingIns
 	if source.definition.is_storage and destination.definition.is_storage: return false
 	return source.definition.allows_external_export(resource) and destination.definition.allows_external_import(resource) and source.resources.allows_resource(resource) and destination.resources.allows_resource(resource) and (source.definition.is_storage or source.resources.get_capacity(resource)>0) and destination.resources.get_capacity(resource)>0
 func external_destinations(source: BuildingInstance, resource: int) -> Array:
-	return _buildings.values().filter(func(destination): return allows_external_delivery(source,destination,resource) and destination.resources.get_available_free_capacity(resource)>0)
+	return _buildings.values().filter(func(destination): return allows_external_delivery(source,destination,resource) and destination.import_demand(resource)>0)
 func _porter_pair(resident: ResidentData, source: BuildingInstance, destination: BuildingInstance) -> bool:
 	return source.id == resident.work_location_id or destination.id == resident.work_location_id
 func _pairs() -> Array:
@@ -170,7 +172,7 @@ func _valid_pair(pair: Dictionary) -> bool:
 	var source: BuildingInstance = pair.source
 	var destination: BuildingInstance = pair.destination
 	var resource: ResourceType.Type = pair.get("resource",FOOD)
-	return allows_external_delivery(source,destination,resource) and source.resources.get_available_amount(resource)>0 and destination.resources.get_available_free_capacity(resource)>0 and _point(source) is Vector2 and _point(destination) is Vector2
+	return allows_external_delivery(source,destination,resource) and source.external_available(resource)>0 and destination.import_demand(resource)>0 and _point(source) is Vector2 and _point(destination) is Vector2
 func _point(building: BuildingInstance) -> Variant:
 	return (_locations.get_resource_position(building.id) if _locations.has_method("get_resource_position") else _locations.get_position(building.id)) if _locations != null else building.position
 func _eligible(resident: ResidentData) -> bool:
@@ -442,6 +444,7 @@ func claim_transport(resident_id: String, source_ref: Source, destination: Build
 	if ground:
 		if not _ground_fallback_available(source_ref,resource): return null
 	elif not _admission_at_claim(resident,destination,resource,internal_workplace) or destination.resources.get_available_free_capacity(resource)<1: return null
+	if not ground and destination.import_demand(resource)<1:return null
 	var start: Variant = position_provider.call(resident_id) if position_provider.is_valid() else null
 	var end: Variant = sources.point(source_ref) if ground else _point(destination)
 	if not start is Vector2 or not end is Vector2 or not sources.available(source_ref,resource) or not sources.reachable(start,sources.point(source_ref)) or (not ground and not sources.reachable(sources.point(source_ref),end)): return null

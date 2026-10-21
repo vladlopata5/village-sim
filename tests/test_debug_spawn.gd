@@ -63,7 +63,7 @@ func run() -> void:
 		check(world.player_control.get_building(building.id)==building,"PlayerControl registration")
 		check(world.building_uses.view(building.id)!=null,"Ordinary authored layout / uses")
 		check(preload("res://scripts/world_3d/building_layouts_3d.gd").validate(world.world_locations.get_view(building.id).layout,definition),"Real WORKER/COURIER/entrance layout capacities")
-		for resource in definition.logistics_flow: check(building.resources.get_capacity(resource)>0 or (definition.is_storage and resource in [R.MUSHROOM,R.WOOL,R.WOOL_CLOTH,R.WOOL_CLOTHING] and building.resources.get_category_quota(preload("res://scripts/resource_catalog.gd").get_category(resource))==0),"Normal buffer or approved zero mushroom/wool/textile warehouse quota")
+		for resource in definition.logistics_flow: check(building.resources.get_capacity(resource)>0 or (definition.is_storage and resource in [R.MUSHROOM,R.WOOL,R.WOOL_CLOTH,R.WOOL_CLOTHING,R.WHEAT,R.SHEAF,R.STRAW] and building.resources.get_category_quota(preload("res://scripts/resource_catalog.gd").get_category(resource))==0),"Normal buffer or approved zero mushroom/wool/textile warehouse quota")
 		if not definition.logistics_flow.is_empty(): check(world.logistics._buildings.get(building.id)==building,"Resource container registration")
 		check(not service.spawn_building(C.to_world(building.position),definition).ok,"Overlap rejected")
 		world.resident_selection.select_building(building)
