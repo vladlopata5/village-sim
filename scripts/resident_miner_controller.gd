@@ -26,6 +26,7 @@ const Context = preload("res://scripts/natural_work_context.gd")
 const Types = preload("res://scripts/building_type.gd").Type
 const Resources = preload("res://scripts/resource_type.gd").Type
 const Source = preload("res://scripts/resource_source_ref.gd")
+const TargetScore = preload("res://scripts/work_target_score.gd")
 var committed_context: RefCounted
 func _context() -> RefCounted:
 	if world==null or runtime.data.profession!=Profession.Type.MINER: return null
@@ -62,13 +63,17 @@ func _identity(area: RefCounted) -> Array:
 func _eligible(source: RefCounted, area: RefCounted) -> bool:
 	return source in rocks and source.position.is_finite() and source.stock > 0 and source.reservation_owner_id.is_empty() and area.contains(source.position)
 func best_target() -> Dictionary:
-	var area = _area()
-	if area == null or not _room(_context()): return {}
+	var context := _context()
+	if context==null or not _room(context):return {}
+	var area = context.area
 	var eligible: Array = rocks.filter(func(source): return _eligible(source,area))
-	eligible.sort_custom(func(a,b):
-		var first: float = area.center.distance_squared_to(a.position)
-		var second: float = area.center.distance_squared_to(b.position)
-		return String(a.id)<String(b.id) if first==second else first<second)
+	if context.workplace!=null:
+		eligible=TargetScore.ordered(eligible,runtime.view.get_sim_position(),context.workplace.position,func(source):return source.position,func(source):return source.id)
+	else:
+		eligible.sort_custom(func(a,b):
+			var first: float = area.center.distance_squared_to(a.position)
+			var second: float = area.center.distance_squared_to(b.position)
+			return String(a.id)<String(b.id) if first==second else first<second)
 	for source in eligible:
 		var point: Variant = locations.resolve(source,runtime.view.get_sim_position())
 		if point is Vector2: return {"kind":&"MINE","rock":source,"point":point}

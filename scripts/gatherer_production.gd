@@ -5,6 +5,7 @@ const Profession = preload("res://scripts/resident_profession.gd").Type
 const Types = preload("res://scripts/building_type.gd").Type
 const Source = preload("res://scripts/resource_source_ref.gd")
 const MUSHROOM = preload("res://scripts/resource_type.gd").Type.MUSHROOM
+const TargetScore = preload("res://scripts/work_target_score.gd")
 var logger: RefCounted
 var building: RefCounted
 var additional_buildings: Array=[]
@@ -41,7 +42,7 @@ func find_source(data: RefCounted) -> RefCounted:
 	if _nature==null or hut==null or hut.resources.get_available_free_capacity(MUSHROOM)<1: return null
 	var origin: Variant=_position_provider.call(data.id)
 	if not origin is Vector2: return null
-	var stamp: Array=context(data)+[origin,_nature.revision,_locations.navigation.revision, hut.resources.get_available_free_capacity(MUSHROOM)]
+	var stamp: Array=context(data)+[origin,hut.position,_nature.revision,_locations.navigation.revision, hut.resources.get_available_free_capacity(MUSHROOM)]
 	var previous: Dictionary=_offers.get(data.id,{})
 	if previous.get("stamp",[])==stamp: return previous.source
 	var area: RefCounted=Area.resolve(hut,_areas)
@@ -49,8 +50,8 @@ func find_source(data: RefCounted) -> RefCounted:
 	for cell in _nature.mushroom_cells():
 		var id: StringName=_nature.source_id(cell)
 		var point: Vector2=_nature.position(id)
-		if _nature.available_amount(id)>0 and area.contains(point): candidates.append({"id":id,"point":point,"distance":origin.distance_squared_to(point)})
-	candidates.sort_custom(func(a,b):return a.distance<b.distance or (a.distance==b.distance and String(a.id)<String(b.id)))
+		if _nature.available_amount(id)>0 and area.contains(point): candidates.append({"id":id,"point":point})
+	candidates=TargetScore.ordered(candidates,origin,hut.position,func(candidate):return candidate.point,func(candidate):return candidate.id)
 	var found: RefCounted
 	for candidate in candidates:
 		if _service.sources.reachable(origin,candidate.point) and _service.sources.reachable(candidate.point,_service._point(hut)):

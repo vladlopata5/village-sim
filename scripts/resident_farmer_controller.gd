@@ -12,6 +12,7 @@ const Activity=preload("res://scripts/resident_activity.gd").Type
 const Balance=preload("res://scripts/balance_config.gd")
 const C=preload("res://scripts/world_3d/world_coordinates.gd")
 const Source=preload("res://scripts/resource_source_ref.gd")
+const TargetScore=preload("res://scripts/work_target_score.gd")
 enum Phase { NONE, TO_BUILDING, TO_FIELD, WORKING }
 signal completed(kind: StringName, cell: Vector2i, result: int)
 var runtime: Node
@@ -64,11 +65,8 @@ func _reachable(cell: Vector2i) -> bool:return world.logistics.sources.reachable
 func _in_area(cell: Vector2i, place: RefCounted) -> bool:return Area.resolve(place,world.work_areas).contains(_point(cell))
 func _eligible() -> bool:return not _ending and workplace()!=null and phase==Phase.NONE and runtime.data.inventory.amount==0 and world.logistics.get_job(runtime.data.id)==null and not runtime.intents.player_controlled and runtime.intents.forced_priority==0 and not runtime.intents.has_current_action() and world.game_time.get_phase()=="День"
 func _rank(cells: Array, mature: bool=false) -> void:
-	var origin:=_origin()
-	cells.sort_custom(func(a,b):
-		if mature and world.farm_fields.maturity(a)!=world.farm_fields.maturity(b):return world.farm_fields.maturity(a)>world.farm_fields.maturity(b)
-		var da:=origin.distance_squared_to(_point(a));var db:=origin.distance_squared_to(_point(b))
-		return (a.y<b.y or (a.y==b.y and a.x<b.x)) if da==db else da<db)
+	var priority: Callable=func(cell):return -world.farm_fields.maturity(cell) if mature else 0
+	cells.assign(TargetScore.ordered(cells,_origin(),workplace().position,_point,func(cell):return cell,priority))
 func _plow_candidates(place: RefCounted) -> Array:
 	var area: RefCounted=Area.resolve(place,world.work_areas)
 	var center: Vector3=C.to_world(area.center);var radius: float=C.length_to_world(area.radius)
@@ -95,7 +93,7 @@ func _collect(place: RefCounted) -> Dictionary:
 func task() -> Dictionary:
 	var place:=workplace()
 	if place==null or phase!=Phase.NONE or runtime.data.inventory.amount>0 or world.logistics.get_job(runtime.data.id)!=null:return {}
-	var stamp: Array=_identity(place)+[Engine.get_process_frames(),world.farm_fields.revision,world.logistics.availability_revision(),world.logistics.sources.revision,world.navigation.revision,_origin(),world.game_time.get_season()]
+	var stamp: Array=_identity(place)+[place.position,Engine.get_process_frames(),world.farm_fields.revision,world.logistics.availability_revision(),world.logistics.sources.revision,world.navigation.revision,_origin(),world.game_time.get_season()]
 	if stamp==_stamp and not _offer.is_empty():return _offer.duplicate()
 	_offer={};_stamp=stamp
 	var supply: Dictionary=runtime.self_logistics.stock_task(place)

@@ -73,16 +73,16 @@ func run() -> void:
 	var resolver = CountedLocations.new()
 	resolver.navigation=scene.navigation
 	worker.locations=resolver
-	var near = TreeData.new(&"near_hut",C.to_sim(Vector3(-24,0,-8)))
-	var far = TreeData.new(&"near_resident",C.to_sim(Vector3(-28,0,-8)))
+	var near = TreeData.new(&"near_hut",C.to_sim(Vector3(-26,0,-8)))
+	var far = TreeData.new(&"near_resident",C.to_sim(Vector3(-28,0,-12)))
 	worker.trees=[far,near]
 	actor.view.global_position=Vector3(-30,0,-8)
-	check(worker.best_target().tree==near,"Distance rank is from work-area hut, not resident")
+	check(worker.best_target().tree==near,"Minimum worker plus building distance ranks before navigation")
 	check(resolver.queried==[near.id],"Sort itself issues no navigation; first reachable tree stops search")
 	resolver.queried.clear()
-	var equal = TreeData.new(&"aaa_equal",C.to_sim(Vector3(-24,0,-8)))
+	var equal = TreeData.new(&"aaa_equal",C.to_sim(Vector3(-26,0,-8)))
 	worker.trees=[near,equal]
-	check(worker.best_target().tree==equal,"Equal squared distance uses stable ID")
+	check(worker.best_target().tree==equal,"Equal score and worker distance use stable ID")
 	worker.trees=[far,near]
 	near.claim(&"other")
 	check(worker.best_target().tree==far,"Occupied nearest tree excluded")
@@ -95,7 +95,7 @@ func run() -> void:
 	check(worker.best_target().is_empty(),"Outside work area excluded")
 	worker.trees=[far,near]
 	# Cover the whole approach disk; far tree remains reachable from left.
-	scene.navigation.add_blocker(&"covered_tree",Rect2(-26.3,-10.3,4.6,4.6))
+	scene.navigation.add_blocker(&"covered_tree",Rect2(-28.3,-10.3,4.6,4.6))
 	resolver.queried.clear()
 	check(worker.best_target().tree==far and resolver.queried==[near.id,far.id],"Unreachable nearest tree skipped; next reachable wins")
 	scene.navigation.remove_blocker(&"covered_tree")

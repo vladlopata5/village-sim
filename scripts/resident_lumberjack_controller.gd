@@ -10,6 +10,7 @@ const TreeData = preload("res://scripts/tree_data.gd")
 const Resources = preload("res://scripts/resource_type.gd")
 const EventLog = preload("res://scripts/game_logger.gd")
 const Coordinates = preload("res://scripts/world_3d/world_coordinates.gd")
+const TargetScore = preload("res://scripts/work_target_score.gd")
 var runtime: Node
 var clock: Node
 var trees: Array
@@ -63,11 +64,14 @@ func best_target() -> Dictionary:
 	var context = _context()
 	if context == null: return {}
 	var eligible: Array = trees.filter(func(candidate): return _eligible_tree(candidate,context))
-	eligible.sort_custom(func(a,b):
-		var first: float = context.area.center.distance_squared_to(a.position)
-		var second: float = context.area.center.distance_squared_to(b.position)
-		return String(a.id)<String(b.id) if first==second else first<second)
 	var origin: Vector2 = runtime.view.get_sim_position()
+	if context.mode==Context.Mode.BUILDING:
+		eligible=TargetScore.ordered(eligible,origin,context.hut.position,func(candidate):return candidate.position,func(candidate):return candidate.id)
+	else:
+		eligible.sort_custom(func(a,b):
+			var first: float=context.area.center.distance_squared_to(a.position)
+			var second: float=context.area.center.distance_squared_to(b.position)
+			return String(a.id)<String(b.id) if first==second else first<second)
 	for candidate in eligible:
 		var point: Variant = locations.resolve(candidate,origin)
 		if point is Vector2: return {"kind":&"CHOP","tree":candidate,"point":point}
