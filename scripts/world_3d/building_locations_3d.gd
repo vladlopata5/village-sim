@@ -58,4 +58,5 @@ func at_action(resident_id: String, building_id: StringName, purpose: int, _poin
 func get_resource_position(id: StringName) -> Variant:
 	if uses==null: return null
 	var point: Variant = uses.courier_position(id)
-	return Coordinates.to_sim(point) if point is Vector3 else null
+	if point is Vector3: return Coordinates.to_sim(point)
+	return null

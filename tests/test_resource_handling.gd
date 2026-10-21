@@ -83,7 +83,7 @@ func run() -> void:
 		world.game_time.set_speed(speed)
 		var before: int=kitchen.resources.get_amount(R.FOOD)
 		var stock: int=source.resources.get_amount(R.FOOD)
-		var job=haul(actor,S.new(S.Kind.CONTAINER,source.id),kitchen,R.FOOD)
+		var speed_job=haul(actor,S.new(S.Kind.CONTAINER,source.id),kitchen,R.FOOD)
 		walk(actor)
 		check(actor.view._marker!=null and actor.view.global_position.is_equal_approx(actor.view._marker.global_position) and G.footprint(source).has_point(C.world_plane(actor.view.global_position)),"Loading enters interior Courier after portal arrival")
 		check(world.building_uses.occupied_by(source.id,actor.data.id,Purpose.COURIER) and world.world_locations.get_view(source.id).inside_count==1,"Courier stays occupied and counts toward interior transparency")
@@ -104,7 +104,7 @@ func run() -> void:
 		minutes(9)
 		check(actor.data.inventory.amount==1 and kitchen.resources.get_amount(R.FOOD)==before,"9 unload minutes retains cargo and inbound")
 		minutes(1)
-		check(job.state==Job.State.COMPLETED and actor.data.inventory.amount==0 and kitchen.resources.get_amount(R.FOOD)==before+1,"Unloading commits exactly once")
+		check(speed_job.state==Job.State.COMPLETED and actor.data.inventory.amount==0 and kitchen.resources.get_amount(R.FOOD)==before+1,"Unloading commits exactly once")
 		check(source.resources.get_reserved_out(R.FOOD)==0 and kitchen.resources.get_reserved_in(R.FOOD)==0 and actor.view._marker==null,"Completion releases reservations and physical slot")
 		check(actor.view.global_position.is_equal_approx(world.building_uses.entrance(kitchen.id)),"Delivery exits through destination portal")
 		reset(actor)
@@ -159,10 +159,10 @@ func run() -> void:
 			minutes(10)
 			walk(actor)
 		minutes(4)
-		var drops: int=Stacks.total(world.ground_resources)
+		var command_drop_count: int=Stacks.total(world.ground_resources)
 		world.player_control.move_to(actor.data.id,C.to_sim(Vector3(0,0,-10)))
 		check(job.state==Job.State.CANCELLED and actor.view._marker==null and not world.logistics._executors[actor.data.id].handling.is_active(),"MOVE_TO cancels handling and physical occupancy")
-		check(Stacks.total(world.ground_resources)==drops+(1 if after_pickup else 0) and kitchen.resources.get_reserved_in(R.FOOD)==0,"Only already picked cargo becomes Ground")
+		check(Stacks.total(world.ground_resources)==command_drop_count+(1 if after_pickup else 0) and kitchen.resources.get_reserved_in(R.FOOD)==0,"Only already picked cargo becomes Ground")
 		if after_pickup: check(world.navigation.is_world_walkable(C.to_world(world.ground_resources.drops[-1].world_position)),"Cancelled interior cargo drops at walkable portal")
 		actor.commands.cancel_current()
 		reset(actor)
@@ -174,12 +174,12 @@ func run() -> void:
 			minutes(10)
 			walk(actor)
 		minutes(4)
-		var drops: int=Stacks.total(world.ground_resources)
+		var fatigue_drop_count: int=Stacks.total(world.ground_resources)
 		actor.decision._deciding=false
 		actor.data.fatigue=100
 		actor.decision._deciding=true
 		check(job.state==Job.State.CANCELLED and actor.view._marker==null and not world.logistics._executors[actor.data.id].handling.is_active(),"Critical fatigue cancels timer and Courier at either stage")
-		check(Stacks.total(world.ground_resources)==drops+(1 if after_pickup else 0) and kitchen.resources.get_reserved_in(R.FOOD)==0,"Critical cleanup drops only actual picked cargo")
+		check(Stacks.total(world.ground_resources)==fatigue_drop_count+(1 if after_pickup else 0) and kitchen.resources.get_reserved_in(R.FOOD)==0,"Critical cleanup drops only actual picked cargo")
 		reset(actor)
 	# Committed delivery crosses 17:00; work eligibility still rejects new tasks.
 	world.game_time.total_minutes=1015
