@@ -12,11 +12,11 @@ func ordinary_opening() -> void:
 	for type in [T.FARM,T.LUMBERJACK_HUT,T.QUARRY,T.GATHERER_HUT,T.SHEPHERD_HUT]:buildings.append(F.building(world,type,Vector3(-42+buildings.size()*14,0,30)))
 	await settle()
 	var identity: int=areas.get_instance_id()
-	var connections: Array=[areas.context_requested.get_connections().size(),areas.area_selected.get_connections().size(),areas.assignment_selected.get_connections().size(),areas.create_requested.get_connections().size()]
+	var connections: Array=[areas.context_requested.get_connections().size(),areas.area_selected.get_connections().size(),areas.create_requested.get_connections().size()]
 	for building in buildings:
 		world._view_registered_building(building.id);panel.select_tab(&"info")
 		await press(card.assign_area_button)
-		check(areas.visible and areas.mode==areas.Mode.VIEW and areas.create_button.visible and not areas.mode_label.visible,"All five building cards open ordinary Areas with creation")
+		check(areas.visible and areas.create_button.visible and areas.close_button.text=="Закрыть" and not areas.has_method("begin_assignment"),"All five building cards open ordinary Areas with creation")
 		check(areas.get_instance_id()==identity and selection.selected_building==building and world._area_assignment_source==null,"One component, source card preserved, no captured assignment mode")
 		await observe(world,"01-building-ordinary-areas")
 		await F.row_click(self,areas,str(first.id))
@@ -24,9 +24,9 @@ func ordinary_opening() -> void:
 		await press(world.area_departure_dialog.confirm_button)
 		check(building.work_area_override_id==first.id and selection.selected_building==building and not areas.visible,"Real assignment applies only to currently selected building")
 		F.click(self,world.construction_panel.buttons[&"areas"]);await settle()
-		check(areas.visible and areas.mode==areas.Mode.VIEW and areas.create_button.visible and selection.selected_building==building,"Green button opens the same interface with the same source")
+		check(areas.visible and areas.create_button.visible and areas.create_button.visible and selection.selected_building==building,"Green button opens the same interface with the same source")
 		await press(areas.close_button)
-	check(connections==[areas.context_requested.get_connections().size(),areas.area_selected.get_connections().size(),areas.assignment_selected.get_connections().size(),areas.create_requested.get_connections().size()],"Repeated opening and assignments add no subscriptions")
+	check(connections==[areas.context_requested.get_connections().size(),areas.area_selected.get_connections().size(),areas.create_requested.get_connections().size()],"Repeated opening and assignments add no subscriptions")
 	# A normal window follows current selection; there is no stale building captured at open.
 	world._view_registered_building(buildings[0].id);await press(card.assign_area_button)
 	world._view_registered_building(buildings[1].id)
@@ -65,9 +65,9 @@ func ordinary_opening() -> void:
 	check(selection.selected_work_area==second and not world.area_departure_dialog.visible,"No source selection opens ordinary area card")
 	world._view_registered_building(world.warehouse_data.id);ui.open_window(&"areas")
 	await F.row_click(self,areas,str(first.id))
-	check(world.area_departure_dialog.visible and world.area_departure_dialog.confirm_button.disabled and world.warehouse_data.work_area_override_id.is_empty(),"Normal path retains unsupported-building guard")
+	check(not world.area_departure_dialog.visible and selection.selected_work_area==first and world.warehouse_data.work_area_override_id.is_empty(),"Unsupported building context opens the area card without an invalid offer")
 	await press(world.area_departure_dialog.cancel_button);ui.close_window()
-	check(connections==[areas.context_requested.get_connections().size(),areas.area_selected.get_connections().size(),areas.assignment_selected.get_connections().size(),areas.create_requested.get_connections().size()],"Create/edit/delete retain single wiring and no conflicting assignment window")
+	check(connections==[areas.context_requested.get_connections().size(),areas.area_selected.get_connections().size(),areas.create_requested.get_connections().size()],"Create/edit/delete retain single wiring and no conflicting assignment window")
 	world.free()
 func run() -> void:
 	await ordinary_opening()

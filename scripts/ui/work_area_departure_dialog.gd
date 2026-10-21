@@ -48,7 +48,8 @@ func open(text: String) -> void:
 	coordinator.open_top_dialog(self)
 	size=Vector2(440,280)
 	position=(get_parent().size-size)/2
-func inspect_with(view: Callable, focus: Callable) -> void:
+func inspect_with(view: Callable, focus: Callable, caption: String = "Открыть карточку области") -> void:
+	view_button.text=caption
 	_view_action=view;_focus_action=focus
 	view_button.show();focus_button.show()
 func close() -> void:

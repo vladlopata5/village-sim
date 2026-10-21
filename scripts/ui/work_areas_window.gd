@@ -1,12 +1,8 @@
 extends "res://scripts/ui/settlement_list_window.gd"
-## VIEW opens cards; ASSIGN emits a target without changing world selection.
+## One list; current world selection determines a contextual assignment offer.
 signal context_requested(area_id: StringName)
 signal area_selected(area_id: StringName)
-signal assignment_selected(area_id: StringName)
 signal create_requested
-enum Mode { VIEW, ASSIGN }
-var mode := Mode.VIEW
-var mode_label: Label
 const Coordinates = preload("res://scripts/world_3d/world_coordinates.gd")
 var areas: RefCounted
 var control: RefCounted
@@ -23,10 +19,6 @@ var _pressed_id: StringName = &""
 func _ready() -> void:
 	super._ready()
 	configure_table("Рабочие области","AreasTable",["Область","Радиус (мир)","Назначено жителей"],[3,2,2])
-	mode_label = Label.new()
-	mode_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	header.add_child(mode_label)
-	mode_label.hide()
 	empty_label = Label.new()
 	empty_label.text = "Областей пока нет. Создайте область на карте."
 	empty_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -49,26 +41,10 @@ func setup(registry: RefCounted, player: RefCounted, selected: Node) -> void:
 	control.work_assignment_changed.connect(_assignment_changed)
 	selection.selection_changed.connect(_selection_changed)
 
-func begin_assignment(caption: String) -> void:
-	mode = Mode.ASSIGN
-	mode_label.text = caption
-	mode_label.show()
-	create_button.hide()
-	empty_label.text = "Областей пока нет. Создайте область в обычном режиме окна."
-	close_button.text = "Отмена"
-func end_assignment() -> void:
-	if mode == Mode.VIEW: return
-	mode = Mode.VIEW
-	mode_label.hide()
-	create_button.show()
-	empty_label.text = "Областей пока нет. Создайте область на карте."
-	close_button.text = "Закрыть"
-
 func _shown() -> void:
 	_pressed_id = &""
 	if is_visible_in_tree():
 		_flush()
-	else: end_assignment()
 
 func _assignment_changed(_resident_id: String) -> void: _changed()
 func _changed() -> void:
@@ -109,8 +85,7 @@ func _selection_changed() -> void:
 
 func activate_row(id: StringName) -> void:
 	if areas.get_area(id) == null: return
-	if mode == Mode.ASSIGN: assignment_selected.emit(id)
-	elif selection.selected_resident!=null or selection.selected_building!=null: context_requested.emit(id)
+	if selection.selected_resident!=null or selection.selected_building!=null: context_requested.emit(id)
 	else: area_selected.emit(id)
 
 func _table_input(event: InputEvent) -> void:

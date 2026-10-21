@@ -137,7 +137,7 @@ func run() -> void:
 	selection.select(actor.data)
 	panel.set_expanded(true);panel.select_tab(&"work")
 	world.resident_card_view().area_button.pressed.emit()
-	check(window.visible and window.mode==window.Mode.ASSIGN and selection.selected_resident==actor.data,"Resident button chooses an existing area without changing the source selection")
+	check(window.visible and window.create_button.visible and selection.selected_resident==actor.data,"Resident button chooses an existing area without changing the source selection")
 	world.game_ui.close_window()
 	# Legacy tool API remains covered; creation in ordinary VIEW is still independent.
 	world._start_work_area(actor.data.id)

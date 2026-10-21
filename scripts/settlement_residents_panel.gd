@@ -3,10 +3,7 @@ extends "res://scripts/ui/settlement_list_window.gd"
 var refresh_count := 0
 ## A Tree projection of PlayerControl's registry; never a second population model.
 signal assignment_requested(resident_id: String)
-signal area_assignment_selected(resident_id: String)
-enum Mode { VIEW, ASSIGN }
-var mode := Mode.VIEW
-var _assignment_caption := ""
+signal context_requested(resident_id: String)
 const Profession = preload("res://scripts/resident_profession.gd")
 var row_creation_count := 0
 var poll_count := 0
@@ -129,7 +126,7 @@ func _home_changed(id: String, _previous: StringName, _current: StringName) -> v
 func _building_removed(_id: StringName) -> void: _registry_changed()
 func _selection_changed() -> void:
 	var building = selection.selected_building
-	var caption: String = _assignment_caption if mode==Mode.ASSIGN else ("Жители" if building==null else "Жители • выбранное здание: "+building.display_name)
+	var caption: String = "Жители" if building==null else "Жители • выбранное здание: "+building.display_name
 	if context_label.text==caption: return
 	context_label.text=caption
 func _projection_changed() -> void:
@@ -143,24 +140,6 @@ func _visibility_changed() -> void:
 	_pressed_id=""
 	if is_visible_in_tree() and control!=null:
 		_flush()
-	elif not is_visible_in_tree(): end_assignment()
-func begin_assignment(caption: String) -> void:
-	mode=Mode.ASSIGN
-	set_assignment_caption(caption)
-	close_button.text="Отмена"
-	preset_profession()
-	for id in rows: _dirty_ids[id]=true
-	_selection_changed()
-func set_assignment_caption(caption: String) -> void:
-	_assignment_caption=caption
-	_selection_changed()
-func end_assignment() -> void:
-	if mode==Mode.VIEW: return
-	mode=Mode.VIEW
-	close_button.text="Закрыть"
-	for id in rows: _dirty_ids[id]=true
-	_projection_changed()
-	_selection_changed()
 func has_work_assignment(resident: RefCounted) -> bool:
 	return not resident.work_location_id.is_empty() or not resident.work_area_id.is_empty()
 func workplace_label(resident: RefCounted) -> String:
@@ -201,11 +180,6 @@ func _update_row(id: String) -> void:
 	var item: TreeItem=rows[id]
 	item.set_text(0,resident.resident_name)
 	item.set_text(1,Profession.display_name(resident.profession))
-	if mode==Mode.ASSIGN:
-		var eligible: bool=control.can_assign_work_area(id)
-		item.set_text(1,Profession.display_name(resident.profession)+( " • можно назначить" if eligible else " • недоступно"))
-		item.set_custom_color(1,Color("b8e5b5") if eligible else Color("a5a5a5"))
-	else: item.clear_custom_color(1)
 	item.set_text(2,workplace_label(resident))
 	_display_snapshot[id]=[resident.resident_name,resident.age,item.get_text(2)]
 func _flush() -> void:
@@ -250,8 +224,7 @@ func preset_profession(role: int=-1) -> void:
 func activate_row(id: String) -> void:
 	var resident = control.get_resident(id)
 	if resident==null: return
-	if mode==Mode.ASSIGN:
-		if control.can_assign_work_area(id): area_assignment_selected.emit(id)
+	if selection.selected_work_area!=null: context_requested.emit(id)
 	elif selection.selected_building!=null: assignment_requested.emit(id)
 	else: selection.select(resident)
 func _table_input(event: InputEvent) -> void:
