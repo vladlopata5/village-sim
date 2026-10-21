@@ -70,10 +70,11 @@ func run() -> void:
 	var views: Array = []
 	var assignments: Array = []
 	areas.area_selected.connect(func(id):views.append(id))
-	areas.assignment_selected.connect(func(id):assignments.append(id))
+	pc.building_work_area_changed.connect(func(id):
+		if id==hut.id:assignments.append(hut.work_area_override_id))
 	await press(card.assign_area_button)
 	await settle()
-	check(areas.visible and areas.mode==areas.Mode.ASSIGN and hut.display_name in areas.mode_label.text and not areas.create_button.visible,"Building button opens Areas ASSIGN with a clear source caption and no creation shortcut")
+	check(areas.visible and areas.mode==areas.Mode.VIEW and not areas.mode_label.visible and areas.create_button.visible,"Building button opens ordinary Areas with creation available")
 	check(selection.selected_building==hut and panel.expanded and card.visible,"Source building card stays selected and expanded")
 	check(not areas.get_global_rect().intersects(panel.get_global_rect()) and areas.get_global_rect().encloses(areas.close_button.get_global_rect()),"Area chooser fits beside the real blue card")
 	await capture("01-building-choose-area")
@@ -156,7 +157,7 @@ func run() -> void:
 	ui.close_window()
 	await press(card.assign_area_button)
 	pc.unregister_building(hut.id)
-	check(not areas.visible and areas.mode==areas.Mode.VIEW and world._area_assignment_source==null,"Removing the source building cancels selection immediately")
+	check(areas.visible and areas.mode==areas.Mode.VIEW and world._area_assignment_source==null and not world.area_departure_dialog.visible,"Removing a building leaves an ordinary browsing window without a stale assignment")
 	areas.activate_row(second.id)
 	check(hut.work_area_override_id.is_empty(),"Stale source cannot receive a deferred assignment")
 	world._view_work_area(second.id)

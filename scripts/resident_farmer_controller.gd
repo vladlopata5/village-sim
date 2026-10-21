@@ -96,23 +96,31 @@ func task() -> Dictionary:
 	var stamp: Array=_identity(place)+[place.position,Engine.get_process_frames(),world.farm_fields.revision,world.logistics.availability_revision(),world.logistics.sources.revision,world.navigation.revision,_origin(),world.game_time.get_season()]
 	if stamp==_stamp and not _offer.is_empty():return _offer.duplicate()
 	_offer={};_stamp=stamp
-	var supply: Dictionary=runtime.self_logistics.stock_task(place)
-	if not supply.is_empty():_offer=supply;return _offer.duplicate()
 	var collect:=_collect(place)
 	if not collect.is_empty():_offer=collect;return _offer.duplicate()
 	var fields=world.farm_fields;var season: int=world.game_time.get_season()
-	if season in [Season.Type.SPRING,Season.Type.SUMMER]:
+	var field_season: bool=season in [Season.Type.SPRING,Season.Type.SUMMER]
+	var plow: Variant=null
+	var plow_checked:=false
+	if field_season:
 		var plowed: Array=fields.plot_cells().filter(func(cell):return fields.available(cell,Field.State.PLOWED) and _in_area(cell,place) and world._farm_cell_allowed(cell))
 		_rank(plowed)
+		# Count the reachable prepared patch even when no seed is available yet.
 		var sow: Array=[]
-		if place.resources.get_available_amount(R.WHEAT)>0:
-			for cell in plowed:
-				if _reachable(cell):sow.append(cell)
-				if sow.size()==Balance.FARM_SOW_CELLS:break
-		var plow: Variant=null
-		if sow.size()<Balance.FARM_SOW_CELLS:plow=_first_plow(place)
-		if not sow.is_empty() and (sow.size()==Balance.FARM_SOW_CELLS or plow==null):_offer={"kind":&"SOW","cells":sow}
-		elif plow!=null:_offer={"kind":&"PLOW","cells":[plow]}
+		for cell in plowed:
+			if _reachable(cell):sow.append(cell)
+			if sow.size()==Balance.FARM_SOW_CELLS:break
+		if sow.size()<Balance.FARM_SOW_CELLS:
+			plow=_first_plow(place);plow_checked=true
+		if place.resources.get_available_amount(R.WHEAT)>0 and not sow.is_empty() and (sow.size()==Balance.FARM_SOW_CELLS or plow==null):_offer={"kind":&"SOW","cells":sow}
+		elif sow.size()<Balance.FARM_SOW_CELLS and plow!=null:_offer={"kind":&"PLOW","cells":[plow]}
+		if not _offer.is_empty():return _offer.duplicate()
+	var supply: Dictionary=runtime.self_logistics.stock_task(place)
+	if not supply.is_empty():_offer=supply;return _offer.duplicate()
+	# Same plow action as above; only its priority changes after a prepared patch.
+	if field_season:
+		if not plow_checked:plow=_first_plow(place)
+		if plow!=null:_offer={"kind":&"PLOW","cells":[plow]}
 	elif season==Season.Type.AUTUMN:
 		var mature: Array=fields.plot_cells().filter(func(cell):return fields.available(cell,Field.State.SOWN) and fields.maturity(cell)>=4 and _in_area(cell,place) and world._farm_cell_allowed(cell))
 		_rank(mature,true)

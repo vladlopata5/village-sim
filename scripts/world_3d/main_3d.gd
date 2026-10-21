@@ -897,9 +897,6 @@ func _choose_building_area(id: StringName) -> void:
 	var building = player_control.get_building(id)
 	if building == null or resident_selection.selected_building != building or player_control.get_building_work_area(id)==null: return
 	game_ui.open_window(&"areas")
-	_area_assignment_source = building
-	_area_assignment_kind = AreaAssignment.BUILDING
-	work_areas_window.begin_assignment("Выберите область для здания «%s» (%s)" % [building.display_name,building.id])
 func _choose_area_building(id: StringName) -> void:
 	var area = work_areas.get_area(id)
 	if area == null or resident_selection.selected_work_area != area: return
@@ -1020,6 +1017,7 @@ func _context_area_selected(id: StringName) -> void:
 		_area_assignment_source=source;_area_assignment_kind=AreaAssignment.RESIDENT
 		_offer_resident_area(source,area)
 	elif source is BuildingInstance:
+		if player_control.get_building(source.id)!=source:return
 		_area_assignment_source=source;_area_assignment_kind=AreaAssignment.BUILDING
 		_offer_building_area(source,area)
 func _offer_building_area(building: RefCounted, area: RefCounted) -> void:

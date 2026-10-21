@@ -53,7 +53,7 @@ func economy() -> void:
 	check(world.warehouse_data.resources.get_amount(R.PLANK)==0 and world.warehouse_data.resources.get_amount(R.WHEAT)==10 and world.warehouse_data.resources.get_amount(R.FOOD)==20,"Approved starter stock: zero boards, ten wheat, twenty food")
 	check(place.resources.get_capacity(R.WHEAT)==50 and place.resources.get_capacity(R.SHEAF)==50 and place.resources.get_capacity(R.STRAW)==50 and not place.resources.is_warehouse(),"Three independent buffers of fifty")
 	check(world.player_control.assign_workplace(actor.data.id,place.id,P.FARMER),"Farm employs real farmer")
-	check(actor.farmer.task().get("kind")==&"IMPORT" and place.supply.stock_deficits().get(R.WHEAT)==5,"Stock deficit precedes field work")
+	check(actor.farmer.task().get("kind")==&"PLOW" and place.supply.stock_deficits().get(R.WHEAT)==5,"Prepare first patch before unchanged stock deficit")
 	place.resources.reserve_in(R.WHEAT,2)
 	check(place.supply.stock_deficits().get(R.WHEAT)==3,"Accepted inbound promises reduce deficit")
 	place.resources.release_in(R.WHEAT,2);place.resources.add(R.WHEAT,12)
@@ -115,6 +115,11 @@ func stock_transport() -> void:
 	var farmer=world.resident_runtimes[0];var porter=world.resident_runtimes[1]
 	world.player_control.assign_workplace(farmer.data.id,place.id,P.FARMER)
 	world.player_control.assign_workplace(porter.data.id,place.id,P.PORTER)
+	# UX3: reach the import stage before exercising concurrent physical supply.
+	var prepared: Array=farmer.farmer._plow_candidates(place).filter(func(cell):return world._farm_cell_allowed(cell) and farmer.farmer._reachable(cell)).slice(0,5)
+	check(prepared.size()==5,"Five reachable cells prepared for import fixture")
+	for cell in prepared:
+		check(world.farm_fields.reserve([cell],&"import_fixture",Fields.State.BARE) and world.farm_fields.plow(cell,&"import_fixture"),"Import fixture uses existing field transitions")
 	check(farmer.farmer.request_work() and world._request_work(porter),"Farmer and optional porter independently claim shared stock supply")
 	check(place.resources.get_reserved_in(R.WHEAT)==2 and place.import_demand(R.WHEAT)==3,"Parallel imports account for both inbound units")
 	for actor in [farmer,porter]:
