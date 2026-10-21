@@ -1,9 +1,11 @@
 extends Node
 ## Simulation time has no dependencies on the visual world.
+const Season = preload("res://scripts/season.gd")
 const SUPPORTED_SPEEDS := [1, 2, 4, 10, 20]
 const MINUTES_PER_DAY := 1440
 const NIGHT_START := 1380 # 23:00, existing schedule boundary.
 const NIGHT_END := 360 # 06:00 of the next day.
+signal season_changed(previous: Season.Type, current: Season.Type)
 signal minute_changed(total_minutes: int)
 signal phase_changed(phase: String)
 signal speed_changed(multiplier: int)
@@ -38,6 +40,12 @@ func _advance_game_minutes(whole_minutes: int) -> void:
 	for _minute in range(whole_minutes):
 		var previous_phase := get_phase()
 		total_minutes += 1
+		# Absolute midnight, no second calendar state and no per-frame polling.
+		if total_minutes % MINUTES_PER_DAY == 0:
+			var current_season := get_season()
+			var previous_season := Season.for_day(get_day()-1)
+			if current_season != previous_season:
+				season_changed.emit(previous_season,current_season)
 		minute_changed.emit(total_minutes)
 		var current_phase := get_phase()
 		if current_phase != previous_phase:
@@ -77,6 +85,15 @@ func toggle_pause() -> void:
 	_process(0.0)
 	get_tree().paused = not get_tree().paused
 	_last_tick_usec = Time.get_ticks_usec()
+
+func get_day() -> int:
+	# Deliberate whole-day/season arithmetic preserves exact large integer calendars.
+	@warning_ignore("integer_division")
+	return total_minutes/MINUTES_PER_DAY+1
+func get_season() -> Season.Type:
+	return Season.for_day(get_day())
+func get_season_name() -> String:
+	return Season.display_name(get_season())
 
 func get_clock_text() -> String:
 	var minute_of_day := total_minutes % 1440

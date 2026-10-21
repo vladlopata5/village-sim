@@ -27,6 +27,10 @@ func color_for(cell: Vector2i) -> Color:
 	if roads.contains(cell): return DIRT_COLOR
 	var ground: Color = base_color.call(cell) if base_color.is_valid() else Color(0.28,0.43,0.27)
 	return ground.lerp(DIRT_COLOR,float(roads.trample_level(cell))/15.0)
+func refresh_base_colors() -> void:
+	# Reuse visible instances, preserve every level/slot and the independent dirt color.
+	for cell in _cells:
+		multimesh.set_instance_color(_slots[cell],color_for(cell))
 func _refresh() -> void:
 	for cell in _cells: _dirty[cell] = true
 	for cell in roads.cells(): _dirty[cell] = true

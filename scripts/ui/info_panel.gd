@@ -135,11 +135,11 @@ func _close() -> void:
 		preview_close_requested.emit()
 		clear_type_preview()
 	elif selection != null: selection.clear()
-func _minute(minutes: int) -> void:
-	var day := floori(float(minutes)/1440.0)
-	day_summary.text = "День %d" % (day+1)
+func _minute(_minutes: int) -> void:
+	var day: int = clock.get_day()
 	if day != _last_day:
 		_last_day = day
+		day_summary.text = "День %d · %s" % [day,clock.get_season_name()]
 		resident_details._refresh_diary()
 func _resident_removed(id: String) -> void:
 	if selection.selected_resident != null and selection.selected_resident.id == id: selection.clear()

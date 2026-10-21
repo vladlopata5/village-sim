@@ -39,7 +39,7 @@ func run() -> void:
 	var transform_before:=camera.global_transform
 	var zoom_before: float=camera.get_zoom_distance()
 	check(world.game_ui.residents_button.text=="↗ Жители: 4","Existing residents caption uses correct UTF-8 text")
-	check(panel.visible and panel.day_summary.visible and panel.day_summary.text=="День 1" and not panel.expanded,"Initial persistent day card")
+	check(panel.visible and panel.day_summary.visible and panel.day_summary.text=="День 1 · Весна" and not panel.expanded,"Initial persistent day card")
 	selection.select(a)
 	check(resident.visible and not panel.expanded and panel.active_tab==&"bio","First selection compact with default Bio")
 	check(resident.name_label.text.contains(a.resident_name) and resident.age_label.text.contains(str(a.age)) and resident.summary_label.text==preload("res://scripts/resident_profession.gd").display_name(a.profession),"Real compact resident fields")
@@ -79,7 +79,7 @@ func run() -> void:
 	check(diary.visible,"Diary foldout operates")
 	world.game_time.total_minutes=2880
 	world.game_time.minute_changed.emit(2880)
-	check(panel.day_summary.text=="День 3" and diary.text.contains("За текущий день записей нет"),"Midnight changes day and diary empty state")
+	check(panel.day_summary.text=="День 3 · Весна" and diary.text.contains("За текущий день записей нет"),"Midnight changes day and diary empty state")
 	var old_connections: int=a.relationship_changed.get_connections().size()
 	selection.select(b)
 	check(a.relationship_changed.get_connections().size()==old_connections-1 and not a.get_need(Need.HUNGER).changed.is_connected(resident._refresh),"Old relationship/need subscriptions disconnected")

@@ -18,6 +18,7 @@ var road_navigation = preload("res://scripts/world_3d/road_navigation_3d.gd").ne
 var road_layer = preload("res://scripts/world_3d/road_layer_3d.gd").new()
 var _road_events: Array[Dictionary] = []
 var _road_dragging := false
+var _spring_grass_color: Color
 var building_ghost: Node3D
 var work_areas = preload("res://scripts/work_areas.gd").new()
 var work_highlight = preload("res://scripts/world_3d/resident_work_highlight_3d.gd").new()
@@ -156,6 +157,7 @@ func _ready() -> void:
 	_setup_rocks()
 	_setup_roads()
 	_setup_mycelium()
+	_setup_season_visuals()
 	navigation.prepare_connectivity() # Once after all initial world registration.
 	_setup_wild_sheep()
 	ready_for_play = true
@@ -281,6 +283,17 @@ func _setup_roads() -> void:
 	$World.add_child(road_layer)
 	road_navigation.setup(roads,navigation)
 	road_layer.setup(roads)
+func _setup_season_visuals() -> void:
+	var grass: MeshInstance3D = $World/Ground/Mesh
+	# Own one material per world; other worlds and non-grass surfaces stay independent.
+	grass.material_override = grass.material_override.duplicate()
+	_spring_grass_color = grass.material_override.albedo_color
+	game_time.season_changed.connect(_season_changed)
+	_season_changed(game_time.get_season(),game_time.get_season())
+func _season_changed(_previous: int, current: int) -> void:
+	var palette := preload("res://scripts/season.gd").palette(current,_spring_grass_color)
+	$World/Ground/Mesh.material_override.albedo_color = palette.grass
+	road_layer.refresh_base_colors()
 func _trampling_cell_allowed(cell: Vector2i) -> bool:
 	return roads.in_bounds(cell) and build_grid.occupant(cell).is_empty() and not runtime_placement_blockers.static_cell_occupied(cell,build_grid)
 func _ground_base_color(cell: Vector2i) -> Color:
