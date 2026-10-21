@@ -219,7 +219,7 @@ func _work_available(runtime: ResidentRuntime) -> bool:
 		Profession.Type.PORTER:
 			return logistics.has_available_job(runtime.data.id)
 		Profession.Type.BUILDER: return runtime.builder.has_work()
-		Profession.Type.SAWYER, Profession.Type.COOK: return runtime.self_logistics.has_work()
+		Profession.Type.SAWYER, Profession.Type.COOK, Profession.Type.WEAVER, Profession.Type.TAILOR: return runtime.self_logistics.has_work()
 		Profession.Type.GATHERER: return runtime.self_logistics.has_work()
 		Profession.Type.SHEPHERD: return runtime.shepherd.has_work() or runtime.self_logistics.has_work()
 		_: return false
@@ -228,7 +228,7 @@ func _request_work(runtime: ResidentRuntime) -> bool:
 	match runtime.data.profession:
 		Profession.Type.PORTER: return _request_haul_work(runtime)
 		Profession.Type.BUILDER: return runtime.builder.request_work()
-		Profession.Type.SAWYER, Profession.Type.COOK: return runtime.self_logistics.request_work()
+		Profession.Type.SAWYER, Profession.Type.COOK, Profession.Type.WEAVER, Profession.Type.TAILOR: return runtime.self_logistics.request_work()
 		Profession.Type.GATHERER: return runtime.self_logistics.request_work()
 		Profession.Type.SHEPHERD: return runtime.shepherd.request_work() or runtime.self_logistics.request_work()
 		_: return false
@@ -331,7 +331,7 @@ func _activate_completed_building(building: BuildingInstance) -> void:
 			building.resources.set_capacity(ResourceType.Type.LOG,Balance.SAWMILL_INPUT_CAPACITY)
 			building.resources.set_capacity(ResourceType.Type.PLANK,Balance.SAWMILL_OUTPUT_CAPACITY)
 			logistics.register_building(building)
-		BuildingType.Type.SHEPHERD_HUT:
+		BuildingType.Type.SHEPHERD_HUT, BuildingType.Type.WEAVER_WORKSHOP, BuildingType.Type.TAILOR_WORKSHOP:
 			logistics.register_building(building)
 		BuildingType.Type.GATHERER_HUT:
 			if gatherer_hut_data == null:

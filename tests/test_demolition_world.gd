@@ -115,7 +115,7 @@ func run() -> void:
 	actor=world.resident_runtimes[0];world.player_control.assign_profession(actor.data.id,P.BUILDER)
 	var warehouse=built_at(Vector3(5,0,22),T.STORAGE)
 	var categories=preload("res://scripts/resource_category.gd").Type
-	check(warehouse.resources.set_category_quotas({categories.LOG:10,categories.STONE:10,categories.PLANK:10,categories.SIMPLE_FOOD:20,categories.MUSHROOM:20,categories.WOOL:10}),"Fixture quotas for all concrete contents including wool")
+	check(warehouse.resources.set_category_quotas({categories.LOG:10,categories.STONE:10,categories.PLANK:10,categories.SIMPLE_FOOD:20,categories.MUSHROOM:20,categories.WOOL:10,categories.WOOL_CLOTH:10,categories.SIMPLE_CLOTHING:10}),"Fixture quotas for all concrete contents including wool")
 	for resource in R.values():check(warehouse.resources.add(resource,5),"All actual content types seeded")
 	var porter=world.resident_runtimes[1]
 	check(world.player_control.assign_workplace(porter.data.id,warehouse.id,P.PORTER),"Porter assigned")
@@ -137,7 +137,7 @@ func run() -> void:
 	check(warehouse.state!=B.State.REMOVED,"Inside occupant bars final removal")
 	marker.occupant=""
 	world.ready_for_play=false;world._poll_building_work()
-	check(warehouse.resources.get_total_amount()==R.size()*5 and not warehouse.removal_started,"Technical unready world leaves all seven content types untouched")
+	check(warehouse.resources.get_total_amount()==R.size()*5 and not warehouse.removal_started,"Technical unready world leaves all concrete content types untouched")
 	world.ready_for_play=true;world._poll_building_work()
 	check(warehouse.state==B.State.REMOVED and warehouse.resources.get_total_amount()==0,"Drain and final removal")
 	for resource in R.values():

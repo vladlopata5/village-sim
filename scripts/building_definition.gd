@@ -6,6 +6,8 @@ const ResourceType = preload("res://scripts/resource_type.gd")
 const BuildingType = preload("res://scripts/building_type.gd")
 const Recipe = preload("res://scripts/production_recipe.gd")
 const CONSTRUCTION_BALANCE = {
+	BuildingType.Type.WEAVER_WORKSHOP: {"requirements":{ResourceType.Type.LOG:4,ResourceType.Type.PLANK:6,ResourceType.Type.STONE:4},"minutes":180,"builders":2},
+	BuildingType.Type.TAILOR_WORKSHOP: {"requirements":{ResourceType.Type.LOG:6,ResourceType.Type.PLANK:8,ResourceType.Type.STONE:4},"minutes":240,"builders":2},
 	BuildingType.Type.SHEPHERD_HUT: {"requirements":{ResourceType.Type.LOG:4,ResourceType.Type.PLANK:6},"minutes":180,"builders":2},
 	BuildingType.Type.TOWN_CENTER: {"requirements":{},"minutes":240,"builders":2},
 	BuildingType.Type.QUARRY: {"requirements": {ResourceType.Type.LOG:8,ResourceType.Type.STONE:4},"minutes":180,"builders":2},
@@ -18,6 +20,8 @@ const CONSTRUCTION_BALANCE = {
 }
 # Explicit 3D physical area in build cells; size remains the shared logical footprint in simulation coordinates.
 const FOOTPRINT_CELLS = {
+	BuildingType.Type.WEAVER_WORKSHOP: Vector2i(12,8),
+	BuildingType.Type.TAILOR_WORKSHOP: Vector2i(12,8),
 	BuildingType.Type.SHEPHERD_HUT: Vector2i(12,8),
 	BuildingType.Type.QUARRY: Vector2i(12,8),
 	BuildingType.Type.TOWN_CENTER: Vector2i(16,12),
@@ -30,6 +34,8 @@ const FOOTPRINT_CELLS = {
 }
 # External haul policy is independent from ResourceContainer storage/direct deposits.
 const LOGISTICS_FLOW = {
+	BuildingType.Type.WEAVER_WORKSHOP: {ResourceType.Type.WOOL:{"import":true,"export":false},ResourceType.Type.WOOL_CLOTH:{"import":false,"export":true}},
+	BuildingType.Type.TAILOR_WORKSHOP: {ResourceType.Type.WOOL_CLOTH:{"import":true,"export":false},ResourceType.Type.WOOL_CLOTHING:{"import":false,"export":true}},
 	BuildingType.Type.SHEPHERD_HUT: {ResourceType.Type.WOOL:{"import":false,"export":true}},
 	BuildingType.Type.QUARRY: {ResourceType.Type.STONE:{"import":false,"export":true}},
 	BuildingType.Type.TOWN_CENTER: {
@@ -40,6 +46,8 @@ const LOGISTICS_FLOW = {
 		ResourceType.Type.MUSHROOM: {"import":true,"export":true},
 		ResourceType.Type.FRIED_MUSHROOM: {"import":true,"export":true},
 		ResourceType.Type.WOOL: {"import":true,"export":true},
+		ResourceType.Type.WOOL_CLOTH: {"import":true,"export":true},
+		ResourceType.Type.WOOL_CLOTHING: {"import":true,"export":true},
 	},
 	BuildingType.Type.SAWMILL: {
 		ResourceType.Type.LOG: {"import":true,"export":false},
@@ -53,6 +61,8 @@ const LOGISTICS_FLOW = {
 		ResourceType.Type.MUSHROOM: {"import":true,"export":true},
 		ResourceType.Type.FRIED_MUSHROOM: {"import":true,"export":true},
 		ResourceType.Type.WOOL: {"import":true,"export":true},
+		ResourceType.Type.WOOL_CLOTH: {"import":true,"export":true},
+		ResourceType.Type.WOOL_CLOTHING: {"import":true,"export":true},
 	},
 	BuildingType.Type.FOOD: {ResourceType.Type.FOOD:{"import":true,"export":false}, ResourceType.Type.MUSHROOM:{"import":true,"export":false}, ResourceType.Type.FRIED_MUSHROOM:{"import":false,"export":true}},
 	BuildingType.Type.GATHERER_HUT: {ResourceType.Type.MUSHROOM:{"import":false,"export":true}},
@@ -100,8 +110,8 @@ func _init(type_id: StringName, category: BuildingType.Type, label: String, foot
 	max_builders = maxi(builder_limit, 0)
 	housing_capacity = maxi(resident_capacity, 0)
 static func for_type(category: BuildingType.Type, label: String = ""):
-	var ids := [&"kitchen", &"warehouse", &"gatherer_hut", &"home", &"lumberjack_hut", &"sawmill", &"town_center", &"quarry", &"shepherd_hut"]
-	var labels := ["Общая кухня", "Склад", "Хижина собирателя", "Дом", "Хижина лесоруба", "Лесопилка", "Городской центр", "Каменоломня", "Хижина пастуха"]
+	var ids := [&"kitchen", &"warehouse", &"gatherer_hut", &"home", &"lumberjack_hut", &"sawmill", &"town_center", &"quarry", &"shepherd_hut", &"weaver_workshop", &"tailor_workshop"]
+	var labels := ["Общая кухня", "Склад", "Хижина собирателя", "Дом", "Хижина лесоруба", "Лесопилка", "Городской центр", "Каменоломня", "Хижина пастуха", "Мастерская ткача", "Швейная мастерская"]
 	var footprint_size := Vector2(64, 48) if category == BuildingType.Type.HOME else Vector2(144, 96)
 	var construction: Dictionary = CONSTRUCTION_BALANCE.get(category,{"requirements":{},"minutes":0,"builders":0})
 	var result = load("res://scripts/building_definition.gd").new(ids[category], category, labels[category] if label.is_empty() else label, footprint_size, construction.requirements, construction.minutes, construction.builders, Balance.HOUSE_RESIDENT_CAPACITY if category == BuildingType.Type.HOME else 0)
@@ -141,6 +151,16 @@ static func for_type(category: BuildingType.Type, label: String = ""):
 		result.planned_wool_capacity = Balance.SHEPHERD_WOOL_CAPACITY
 		result.resource_capacities = {ResourceType.Type.WOOL:Balance.SHEPHERD_WOOL_CAPACITY}
 		result.internal_resources = [ResourceType.Type.WOOL]
+	if category == BuildingType.Type.WEAVER_WORKSHOP:
+		result.worker_profession = Profession.Type.WEAVER
+		result.worker_capacity = 1
+		result.resource_capacities = {ResourceType.Type.WOOL:Balance.WEAVER_INPUT_CAPACITY,ResourceType.Type.WOOL_CLOTH:Balance.WEAVER_OUTPUT_CAPACITY}
+		result.production_recipes.append(Recipe.new({ResourceType.Type.WOOL:1},{ResourceType.Type.WOOL_CLOTH:1},Balance.WEAVER_WORK_MINUTES,&"wool_cloth"))
+	if category == BuildingType.Type.TAILOR_WORKSHOP:
+		result.worker_profession = Profession.Type.TAILOR
+		result.worker_capacity = 1
+		result.resource_capacities = {ResourceType.Type.WOOL_CLOTH:Balance.TAILOR_INPUT_CAPACITY,ResourceType.Type.WOOL_CLOTHING:Balance.TAILOR_OUTPUT_CAPACITY}
+		result.production_recipes.append(Recipe.new({ResourceType.Type.WOOL_CLOTH:3},{ResourceType.Type.WOOL_CLOTHING:1},Balance.TAILOR_WORK_MINUTES,&"wool_clothing"))
 	if category == BuildingType.Type.SAWMILL:
 		result.worker_capacity = Balance.SAWMILL_WORKER_CAPACITY
 		result.production_recipes.append(Recipe.new({ResourceType.Type.LOG:1},{ResourceType.Type.PLANK:1},Balance.SAWMILL_WORK_MINUTES,&"sawmill_plank"))

@@ -1,6 +1,6 @@
 extends RefCounted
 ## Warehouse grouping only; these IDs never replace a concrete ResourceType.
-enum Type { SIMPLE_FOOD, LOG, PLANK, STONE, MUSHROOM, WOOL }
+enum Type { SIMPLE_FOOD, LOG, PLANK, STONE, MUSHROOM, WOOL, WOOL_CLOTH, SIMPLE_CLOTHING }
 const INVALID := -1
 
 static func display_name(category: Variant) -> String:
@@ -12,4 +12,6 @@ static func display_name(category: Variant) -> String:
 		Type.STONE: return "Камень"
 		Type.MUSHROOM: return "Грибы"
 		Type.WOOL: return "Шерсть"
+		Type.WOOL_CLOTH: return "Шерстяная ткань"
+		Type.SIMPLE_CLOTHING: return "Простая одежда"
 		_: return ""

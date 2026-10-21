@@ -2,6 +2,13 @@ extends RefCounted
 # S2: shared animal capacity, not resident housing. Wool has no economic type yet.
 const SHEPHERD_ANIMAL_CAPACITY := 8
 const SHEPHERD_WOOL_CAPACITY := 20
+# T1 concrete textile production buffers and actual work minutes.
+const WEAVER_INPUT_CAPACITY := 20
+const WEAVER_OUTPUT_CAPACITY := 20
+const WEAVER_WORK_MINUTES := 60
+const TAILOR_INPUT_CAPACITY := 20
+const TAILOR_OUTPUT_CAPACITY := 10
+const TAILOR_WORK_MINUTES := 120
 # H2 preliminary pair movement parameters, WORLD units and game minutes.
 const ESCORT_GAP := 1.2
 const ESCORT_WAIT_GAP := 3.0

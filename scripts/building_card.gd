@@ -289,7 +289,7 @@ func _refresh_details(resource_lines: PackedStringArray) -> void:
 	_refresh_people(producers, porters)
 
 func _setup_storage_rows() -> void:
-	for category in [Categories.Type.LOG,Categories.Type.STONE,Categories.Type.PLANK,Categories.Type.SIMPLE_FOOD,Categories.Type.MUSHROOM,Categories.Type.WOOL]:
+	for category in [Categories.Type.LOG,Categories.Type.STONE,Categories.Type.PLANK,Categories.Type.SIMPLE_FOOD,Categories.Type.MUSHROOM,Categories.Type.WOOL,Categories.Type.WOOL_CLOTH,Categories.Type.SIMPLE_CLOTHING]:
 		var section := VBoxContainer.new()
 		get_node("%StorageAmounts").add_child(section)
 		var row := HBoxContainer.new()
@@ -299,6 +299,7 @@ func _setup_storage_rows() -> void:
 		label.toggle_mode = true
 		label.flat = true
 		label.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		label.tooltip_text = "Показать конкретные товары"
 		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		row.add_child(label)

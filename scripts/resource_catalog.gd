@@ -7,6 +7,8 @@ static var _definitions: Dictionary = _build_definitions()
 
 static func _build_definitions() -> Dictionary:
 	var definitions := {
+		Resources.Type.WOOL_CLOTH: {"id":Resources.Type.WOOL_CLOTH,"display_name":"Шерстяная ткань","category":Categories.Type.WOOL_CLOTH,"ready_food":false,"food_quality":FoodQuality.NONE,"quantity_compatible":true},
+		Resources.Type.WOOL_CLOTHING: {"id":Resources.Type.WOOL_CLOTHING,"display_name":"Шерстяная одежда","category":Categories.Type.SIMPLE_CLOTHING,"ready_food":false,"food_quality":FoodQuality.NONE,"quantity_compatible":true},
 		Resources.Type.WOOL: {"id":Resources.Type.WOOL,"display_name":"Шерсть","category":Categories.Type.WOOL,"ready_food":false,"food_quality":FoodQuality.NONE,"quantity_compatible":true},
 		Resources.Type.FOOD: {"id":Resources.Type.FOOD,"display_name":"FOOD","category":Categories.Type.SIMPLE_FOOD,"ready_food":true,"food_quality":FoodQuality.SIMPLE,"quantity_compatible":true},
 		Resources.Type.LOG: {"id":Resources.Type.LOG,"display_name":"Бревно","category":Categories.Type.LOG,"ready_food":false,"food_quality":FoodQuality.NONE,"quantity_compatible":true},
