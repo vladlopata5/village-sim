@@ -29,7 +29,7 @@ func register_building(building: RefCounted, position: Callable) -> void:
 		BuildingType.Type.SAWMILL:
 			capabilities.append(&"employment")
 			profession = Profession.Type.SAWYER
-		BuildingType.Type.WEAVER_WORKSHOP, BuildingType.Type.TAILOR_WORKSHOP, BuildingType.Type.FARM:
+		BuildingType.Type.WEAVER_WORKSHOP, BuildingType.Type.TAILOR_WORKSHOP, BuildingType.Type.FARM, BuildingType.Type.WINDMILL, BuildingType.Type.BAKERY:
 			capabilities.append(&"employment")
 			profession = building.definition.worker_profession
 		BuildingType.Type.SHEPHERD_HUT:

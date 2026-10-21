@@ -1,4 +1,11 @@
 extends RefCounted
+# AG2: independent input/output buffers; ordinary building-owned batches.
+const MILL_INPUT_CAPACITY := 20
+const MILL_OUTPUT_CAPACITY := 20
+const BAKERY_INPUT_CAPACITY := 20
+const BAKERY_OUTPUT_CAPACITY := 20
+const MILL_WORK_MINUTES := 60
+const BAKERY_WORK_MINUTES := 60
 # S2: shared animal capacity, not resident housing. Wool has no economic type yet.
 const SHEPHERD_ANIMAL_CAPACITY := 8
 const SHEPHERD_WOOL_CAPACITY := 20

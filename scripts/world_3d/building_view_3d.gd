@@ -10,6 +10,7 @@ var work_area: MeshInstance3D
 var layout: Node3D
 var _indexed_layout_id := 0
 var _marker_groups: Dictionary = {} # Script -> ordered node references, never occupancy.
+var bread_visual: Node3D
 var inside_count := 0
 var caption: Label3D
 func setup(data: RefCounted) -> void:
@@ -36,6 +37,10 @@ func setup(data: RefCounted) -> void:
 		roof_material.albedo_color=Color("705f48")
 		roof.material_override=roof_material
 		add_child(roof)
+	if data.type in [preload("res://scripts/building_type.gd").Type.WINDMILL,preload("res://scripts/building_type.gd").Type.BAKERY]:
+		bread_visual = preload("res://scripts/world_3d/bread_building_visuals_3d.gd").create(data.type)
+		bread_visual.rotation.y = data.quarter_turns*PI/2.0
+		add_child(bread_visual)
 	var shape := BoxShape3D.new()
 	shape.size = box.size
 	var collider := CollisionShape3D.new()
@@ -55,7 +60,7 @@ func setup(data: RefCounted) -> void:
 	add_child(indicator)
 	caption = Label3D.new()
 	caption.pixel_size = 0.018
-	caption.position.y = height + 0.36 + (0.9 if data.definition.animal_capacity>0 or data.type==preload("res://scripts/building_type.gd").Type.FARM else 0.0)
+	caption.position.y = (6.5 if data.type==preload("res://scripts/building_type.gd").Type.WINDMILL else 5.0 if data.type==preload("res://scripts/building_type.gd").Type.BAKERY else height + 0.36) + (0.9 if data.definition.animal_capacity>0 or data.type==preload("res://scripts/building_type.gd").Type.FARM else 0.0)
 	caption.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	add_child(caption)
 	if data.definition.work_radius > 0:
@@ -68,8 +73,12 @@ func setup(data: RefCounted) -> void:
 	data.construction_changed.connect(_refresh)
 	_refresh()
 func _refresh() -> void:
-	var colors := [Color("bd976b"), Color("829ba7"), Color("9aaa70"), Color("c2aa91"),Color("88735d"),Color("a28559"),Color("547ea8"),Color("89918b"),Color("b5a677"),Color("9186b0"),Color("bb8393"),Color("b69e69")]
+	var colors := [Color("bd976b"), Color("829ba7"), Color("9aaa70"), Color("c2aa91"),Color("88735d"),Color("a28559"),Color("547ea8"),Color("89918b"),Color("b5a677"),Color("9186b0"),Color("bb8393"),Color("b69e69"),Color("d4c6a3"),Color("c59a79")]
 	material.albedo_color = colors[building_data.type] if building_data.is_built() else Color("8b7357")
+	if bread_visual!=null:
+		bread_visual.visible = building_data.is_built()
+		var rotor: Node = bread_visual.get_node_or_null("Rotor")
+		if rotor!=null:rotor.set_process(building_data.is_built())
 	set_inside_count(inside_count)
 	caption.text = building_data.display_name + ("" if building_data.is_built() else " — " + building_data.work_status().to_lower())
 func set_selected(value: bool) -> void:

@@ -295,13 +295,17 @@ func _refresh_details(resource_lines: PackedStringArray) -> void:
 	_refresh_people(producers, porters)
 
 func _setup_storage_rows() -> void:
-	for category in [Categories.Type.LOG,Categories.Type.STONE,Categories.Type.PLANK,Categories.Type.SIMPLE_FOOD,Categories.Type.MUSHROOM,Categories.Type.WOOL,Categories.Type.WOOL_CLOTH,Categories.Type.SIMPLE_CLOTHING,Categories.Type.WHEAT,Categories.Type.SHEAF,Categories.Type.STRAW]:
+	for category in [Categories.Type.LOG,Categories.Type.STONE,Categories.Type.PLANK,Categories.Type.SIMPLE_FOOD,Categories.Type.MUSHROOM,Categories.Type.WOOL,Categories.Type.WOOL_CLOTH,Categories.Type.SIMPLE_CLOTHING,Categories.Type.WHEAT,Categories.Type.SHEAF,Categories.Type.STRAW,Categories.Type.FLOUR]:
 		var section := VBoxContainer.new()
 		get_node("%StorageAmounts").add_child(section)
 		var row := HBoxContainer.new()
 		section.add_child(row)
 		var label := Button.new()
 		label.text = "▸ " + Categories.display_name(category)
+		if category==Categories.Type.FLOUR:
+			label.icon=preload("res://assets/ui/catalog/flour.svg")
+			label.expand_icon=true
+			label.add_theme_constant_override("icon_max_width",24)
 		label.toggle_mode = true
 		label.flat = true
 		label.alignment = HORIZONTAL_ALIGNMENT_LEFT

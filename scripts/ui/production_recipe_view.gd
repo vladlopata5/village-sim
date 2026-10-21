@@ -35,6 +35,16 @@ func setup(building: Instance, definition: RefCounted, control: RefCounted) -> v
 	size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	add_theme_constant_override("separation", 5)
 	add_child(HSeparator.new())
+	for resource in recipe.outputs:
+		var icon_path: String = preload("res://scripts/resource_catalog.gd").get_definition(resource).get("icon", "")
+		if not icon_path.is_empty():
+			var icon := TextureRect.new()
+			icon.texture = load(icon_path)
+			icon.custom_minimum_size = Vector2(32,32)
+			icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+			icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+			icon.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+			add_child(icon)
 	title = _label()
 	title.text = " / ".join(recipe.outputs.keys().map(func(resource): return Goods.display_name(resource)))
 	title.tooltip_text = str(recipe.id)

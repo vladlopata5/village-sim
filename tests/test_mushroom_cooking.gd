@@ -37,7 +37,7 @@ func definitions_and_quotas() -> void:
 	check(Profession.MINER==6 and Profession.COOK==7 and preload("res://scripts/resident_profession.gd").display_name(Profession.COOK)=="Повар","Profession IDs and Cook label")
 	check(not Catalog.is_ready_food(Resources.MUSHROOM) and Catalog.supports_quantity(Resources.MUSHROOM) and Catalog.get_category(Resources.MUSHROOM)==Categories.MUSHROOM,"Raw mushroom is a quantity ingredient in its own category")
 	check(Catalog.is_ready_food(Resources.FRIED_MUSHROOM) and Catalog.is_ready_food(Resources.FOOD) and Catalog.get_food_quality(Resources.FRIED_MUSHROOM)==Catalog.FoodQuality.SIMPLE,"Both concrete ready foods have SIMPLE quality")
-	check(Catalog.types_in_category(Categories.SIMPLE_FOOD)==[Resources.FOOD,Resources.FRIED_MUSHROOM] and Catalog.types_in_category(Categories.MUSHROOM)==[Resources.MUSHROOM],"Real multi-type ready-food category")
+	check(Catalog.types_in_category(Categories.SIMPLE_FOOD)==[Resources.FOOD,Resources.FRIED_MUSHROOM,Resources.BREAD] and Catalog.types_in_category(Categories.MUSHROOM)==[Resources.MUSHROOM],"Real multi-type ready-food category")
 	for resource in [Resources.MUSHROOM,Resources.FRIED_MUSHROOM]: check(not Catalog.get_display_name(resource).is_empty(),"Catalog owns each new label")
 	var kitchen=Instance.new(&"kitchen_test",Definitions.for_type(Types.FOOD))
 	var hut=Instance.new(&"hut_test",Definitions.for_type(Types.GATHERER_HUT))

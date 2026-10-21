@@ -32,6 +32,15 @@ func setup(drop: RefCounted) -> void:
 		visual.mesh=bundle;visual.position.y=0.21;material.albedo_color=Color("d6b350")
 		var tie:=MeshInstance3D.new();var band:=TorusMesh.new();band.inner_radius=0.12;band.outer_radius=0.16;band.rings=8;band.ring_segments=6;tie.mesh=band;tie.position.y=0.21
 		var string_material:=StandardMaterial3D.new();string_material.albedo_color=Color("80613b");tie.material_override=string_material;add_child(tie)
+	elif drop.resource_type in [Resources.Type.FLOUR,Resources.Type.BREAD]:
+		var good := SphereMesh.new()
+		good.radius = .18
+		good.height = .4 if drop.resource_type==Resources.Type.FLOUR else .2
+		good.radial_segments = 8
+		good.rings = 4
+		visual.mesh = good
+		visual.position.y = good.height/2.0
+		material.albedo_color = Color("eee0bc") if drop.resource_type==Resources.Type.FLOUR else Color("cb9144")
 	elif drop.resource_type == Resources.Type.STONE:
 		var stone := SphereMesh.new()
 		stone.radius = 0.18

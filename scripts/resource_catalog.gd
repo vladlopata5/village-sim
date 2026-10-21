@@ -19,6 +19,8 @@ static func _build_definitions() -> Dictionary:
 		Resources.Type.STONE: {"id":Resources.Type.STONE,"display_name":"Камень","category":Categories.Type.STONE,"ready_food":false,"food_quality":FoodQuality.NONE,"quantity_compatible":true},
 		Resources.Type.MUSHROOM: {"id":Resources.Type.MUSHROOM,"display_name":"Грибы","category":Categories.Type.MUSHROOM,"ready_food":false,"food_quality":FoodQuality.NONE,"quantity_compatible":true},
 		Resources.Type.FRIED_MUSHROOM: {"id":Resources.Type.FRIED_MUSHROOM,"display_name":"Жареные грибы","category":Categories.Type.SIMPLE_FOOD,"ready_food":true,"food_quality":FoodQuality.SIMPLE,"quantity_compatible":true},
+		Resources.Type.FLOUR: {"id":Resources.Type.FLOUR,"display_name":"Мука","category":Categories.Type.FLOUR,"icon":"res://assets/ui/catalog/flour.svg","ready_food":false,"food_quality":FoodQuality.NONE,"quantity_compatible":true},
+		Resources.Type.BREAD: {"id":Resources.Type.BREAD,"display_name":"Хлеб","category":Categories.Type.SIMPLE_FOOD,"icon":"res://assets/ui/catalog/bread.svg","ready_food":true,"food_quality":FoodQuality.SIMPLE,"quantity_compatible":true},
 	}
 	# Values contain only scalars. Freeze both levels before exposing any definition.
 	for definition: Dictionary in definitions.values(): definition.make_read_only()

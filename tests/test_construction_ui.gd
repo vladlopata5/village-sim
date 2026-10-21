@@ -55,7 +55,7 @@ func run() -> void:
 	var names:=[]
 	for category in catalog.categories: names.append(category.title)
 	check(names==["Производство","Логистика","Поселение"],"Three ordered building categories; no free road brush")
-	var expected:=[[T.LUMBERJACK_HUT,T.QUARRY,T.GATHERER_HUT,T.SAWMILL,T.SHEPHERD_HUT,T.WEAVER_WORKSHOP,T.TAILOR_WORKSHOP,T.FARM],[T.STORAGE],[T.HOME,T.FOOD]]
+	var expected:=[[T.LUMBERJACK_HUT,T.QUARRY,T.GATHERER_HUT,T.SAWMILL,T.SHEPHERD_HUT,T.WEAVER_WORKSHOP,T.TAILOR_WORKSHOP,T.WINDMILL,T.BAKERY,T.FARM],[T.STORAGE],[T.HOME,T.FOOD]]
 	for index in range(3):
 		var category: Dictionary=catalog.categories[index]
 		var types:=[]
@@ -64,7 +64,7 @@ func run() -> void:
 			var tile: Button=catalog.tiles[entry.id]
 			check(not tile.get_node("Content/Title").text.is_empty() and tile.get_node("Content/Icon").texture!=null,"Permanent title and real icon: "+entry.name)
 		check(types==expected[index],"Correct category contents "+category.title)
-	check(catalog.tiles.size()==11 and catalog.tile_for_type(T.TOWN_CENTER)==null,"Eleven buildings including the farm; no manual road or Town Center")
+	check(catalog.tiles.size()==13 and catalog.tile_for_type(T.TOWN_CENTER)==null,"Thirteen buildings including farm, mill and bakery; no manual road or Town Center")
 	check(not catalog.entries.has(&"dirt_road"),"No free manual road in ordinary catalogue")
 	click(panel.collapse_button)
 	await process_frame

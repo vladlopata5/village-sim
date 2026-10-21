@@ -115,7 +115,7 @@ func run() -> void:
 	actor=world.resident_runtimes[0];world.player_control.assign_profession(actor.data.id,P.BUILDER)
 	var warehouse=built_at(Vector3(5,0,22),T.STORAGE)
 	var categories=preload("res://scripts/resource_category.gd").Type
-	check(warehouse.resources.set_category_quotas({categories.LOG:10,categories.STONE:10,categories.PLANK:10,categories.SIMPLE_FOOD:10,categories.MUSHROOM:10,categories.WOOL:10,categories.WOOL_CLOTH:10,categories.SIMPLE_CLOTHING:10,categories.WHEAT:5,categories.SHEAF:5,categories.STRAW:5}),"Fixture quotas for all concrete contents including wool")
+	check(warehouse.resources.set_category_quotas({categories.LOG:5,categories.STONE:5,categories.PLANK:10,categories.SIMPLE_FOOD:15,categories.MUSHROOM:10,categories.WOOL:10,categories.WOOL_CLOTH:10,categories.SIMPLE_CLOTHING:10,categories.WHEAT:5,categories.SHEAF:5,categories.STRAW:5,categories.FLOUR:5}),"Fixture quotas for all concrete contents including wool")
 	for resource in R.values():check(warehouse.resources.add(resource,5),"All actual content types seeded")
 	var porter=world.resident_runtimes[1]
 	check(world.player_control.assign_workplace(porter.data.id,warehouse.id,P.PORTER),"Porter assigned")
