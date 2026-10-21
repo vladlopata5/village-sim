@@ -129,7 +129,7 @@ func run() -> void:
 		check(not card.staffing_buttons.has(P.PORTER) and card.housing_count.text=="Жильцы: 1 / 4","House has housing action and no fictitious Porter role")
 		await capture(prefix+"home_occupants")
 		selection.select(worker);await settle()
-		check(info.resident_details.name_label.text.contains(worker.resident_name) and info._tabs==[&"bio",&"work",&"relations"],"Resident contents and tabs preserved")
+		check(info.resident_details.name_label.text.contains(worker.resident_name) and info._tabs==[&"bio",&"work",&"relations",&"inventory"],"Resident contents and tabs preserved")
 		await capture(prefix+"resident")
 		F.click(self,info.get_node("Column/Header/Close"));await settle()
 		check(selection.selected_entity==null and info.day_summary.visible and not info.expanded,"Close symbol clears selection, leaves compact day")

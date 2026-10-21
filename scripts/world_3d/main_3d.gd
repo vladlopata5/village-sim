@@ -444,7 +444,7 @@ func _building_cleanup_pending(building: BuildingInstance) -> bool:
 	if building.animal_housing!=null and (building.animal_housing.count()>0 or building.animal_housing.reserved_count()>0): return true
 	for runtime in resident_runtimes:
 		if runtime.view.is_inside_building(building.id): return true
-		if runtime.shepherd._mutating: return true
+		if runtime.shepherd._mutating or runtime.clothing._mutating: return true
 		if runtime.builder._mutating or runtime.recipe_work._mutating or runtime.data.inventory._transferring: return true
 	for resource in ResourceType.Type.values():
 		if building.resources.get_reserved_in(resource)>0 or building.resources.get_reserved_out(resource)>0 or building.get_construction_reserved_in(resource)>0: return true

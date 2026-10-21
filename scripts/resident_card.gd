@@ -2,6 +2,12 @@ extends PanelContainer
 # Presentation counters for focused UI diagnostics; never used by simulation.
 var refresh_count := 0
 @export var close_path: NodePath
+var inventory_body: VBoxContainer
+var equipment_label: Label
+var equipment_quality: Label
+var equipment_durability: Label
+var durability_bar: ProgressBar
+var _equipment_view: RefCounted
 var clock: Node
 var _refresh_elapsed := 0.0
 func _widget(id: String) -> Node:
@@ -53,6 +59,13 @@ var summary_label: Label
 
 func _ready() -> void:
 	hide()
+	inventory_body=VBoxContainer.new();inventory_body.name="Inventory"
+	get_node("%Content").add_child(inventory_body)
+	for text in ["Одежда", "", "", ""]:
+		var label:=Label.new();label.text=text;label.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART;inventory_body.add_child(label)
+	equipment_label=inventory_body.get_child(1);equipment_quality=inventory_body.get_child(2);equipment_durability=inventory_body.get_child(3)
+	durability_bar=ProgressBar.new();durability_bar.max_value=100;durability_bar.show_percentage=false;durability_bar.custom_minimum_size.y=14;inventory_body.add_child(durability_bar)
+	visibility_changed.connect(_bind_equipment)
 	summary_label = _widget("Summary")
 	summary_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	profession_choice = OptionButton.new()
@@ -188,6 +201,7 @@ func _on_selection_changed() -> void:
 		_assignment_resident.relationship_changed.connect(_on_relationship_changed)
 		_assignment_resident.diary_changed.connect(_refresh_diary)
 		_assignment_resident.trait_preferences_changed.connect(_on_preferences_changed)
+	_bind_equipment()
 	_refresh_skills()
 	_refresh_traits()
 	_refresh_preferences()
@@ -351,6 +365,8 @@ func apply_presentation(expanded: bool, tab: StringName) -> void:
 	get_node("%Bio").visible = tab == &"bio"
 	get_node("%Work").visible = tab == &"work"
 	get_node("%Relations").visible = tab == &"relations"
+	inventory_body.visible = tab == &"inventory"
+	_bind_equipment()
 func _clear_home() -> void:
 	if _control != null and _selection.selected_resident != null:
 		_control.clear_home(_selection.selected_resident.id)
@@ -409,6 +425,7 @@ func refresh_work_task() -> void:
 		intent_label.text = "Рабочая задача: " + (_intent_text(reason) if is_work else "нет активной задачи")
 	intent_label.show()
 func _exit_tree() -> void:
+	if _equipment_view!=null and _equipment_view.changed.is_connected(_refresh_equipment):_equipment_view.changed.disconnect(_refresh_equipment)
 	_disconnect_need_signals()
 	if _assignment_resident != null:
 		for pair in [["assignments_changed",_refresh_assignments],["skill_changed",_on_skill_changed],["traits_changed",_refresh_traits],["relationship_changed",_on_relationship_changed],["diary_changed",_refresh_diary],["trait_preferences_changed",_on_preferences_changed]]:
@@ -419,3 +436,19 @@ func _exit_tree() -> void:
 		if _control.get("work_areas") != null and _control.get("work_areas").changed.is_connected(_areas_changed): _control.get("work_areas").changed.disconnect(_areas_changed)
 		if _control.get("work_areas") != null and _control.get("work_areas").presentation_changed.is_connected(_areas_changed): _control.get("work_areas").presentation_changed.disconnect(_areas_changed)
 	if _selection != null and _selection.selection_changed.is_connected(_on_selection_changed): _selection.selection_changed.disconnect(_on_selection_changed)
+
+func _bind_equipment() -> void:
+	var selected: RefCounted=_selection.selected_resident if _selection!=null else null
+	var equipment: RefCounted=selected.equipment if selected!=null and is_visible_in_tree() and inventory_body.visible and _widget("Scroll").visible else null
+	if equipment==_equipment_view:return
+	if _equipment_view!=null and _equipment_view.changed.is_connected(_refresh_equipment):_equipment_view.changed.disconnect(_refresh_equipment)
+	_equipment_view=equipment
+	if equipment!=null:equipment.changed.connect(_refresh_equipment)
+	_refresh_equipment()
+func _refresh_equipment() -> void:
+	var item: RefCounted=_equipment_view.item() if _equipment_view!=null else null
+	equipment_label.text="Одежда: отсутствует" if item==null else preload("res://scripts/resource_catalog.gd").get_display_name(item.resource_type)
+	equipment_quality.text="Примитивные обмотки" if item==null else preload("res://scripts/resource_category.gd").display_name(preload("res://scripts/resource_catalog.gd").get_category(item.resource_type))
+	equipment_durability.text="" if item==null else "Прочность: %d%%"%roundi(item.durability*100)
+	durability_bar.visible=item!=null
+	durability_bar.value=0 if item==null else item.durability*100

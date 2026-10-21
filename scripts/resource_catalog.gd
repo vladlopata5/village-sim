@@ -8,7 +8,7 @@ static var _definitions: Dictionary = _build_definitions()
 static func _build_definitions() -> Dictionary:
 	var definitions := {
 		Resources.Type.WOOL_CLOTH: {"id":Resources.Type.WOOL_CLOTH,"display_name":"Шерстяная ткань","category":Categories.Type.WOOL_CLOTH,"ready_food":false,"food_quality":FoodQuality.NONE,"quantity_compatible":true},
-		Resources.Type.WOOL_CLOTHING: {"id":Resources.Type.WOOL_CLOTHING,"display_name":"Шерстяная одежда","category":Categories.Type.SIMPLE_CLOTHING,"ready_food":false,"food_quality":FoodQuality.NONE,"quantity_compatible":true},
+		Resources.Type.WOOL_CLOTHING: {"id":Resources.Type.WOOL_CLOTHING,"display_name":"Шерстяная одежда","category":Categories.Type.SIMPLE_CLOTHING,"equipment_slot":&"clothing","ready_food":false,"food_quality":FoodQuality.NONE,"quantity_compatible":true},
 		Resources.Type.WOOL: {"id":Resources.Type.WOOL,"display_name":"Шерсть","category":Categories.Type.WOOL,"ready_food":false,"food_quality":FoodQuality.NONE,"quantity_compatible":true},
 		Resources.Type.FOOD: {"id":Resources.Type.FOOD,"display_name":"FOOD","category":Categories.Type.SIMPLE_FOOD,"ready_food":true,"food_quality":FoodQuality.SIMPLE,"quantity_compatible":true},
 		Resources.Type.LOG: {"id":Resources.Type.LOG,"display_name":"Бревно","category":Categories.Type.LOG,"ready_food":false,"food_quality":FoodQuality.NONE,"quantity_compatible":true},
@@ -50,4 +50,10 @@ static func _types_in_category(definitions: Dictionary, category: Variant) -> Ar
 	if typeof(category) != TYPE_INT or category not in Categories.Type.values(): return result
 	for resource: int in definitions:
 		if definitions[resource].category == category: result.append(resource)
+	return result
+
+static func equipment_types(slot: StringName) -> Array[int]:
+	var result: Array[int]=[]
+	for resource: int in _definitions:
+		if _definitions[resource].get("equipment_slot",&"")==slot and not slot.is_empty():result.append(resource)
 	return result

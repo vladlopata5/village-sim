@@ -44,7 +44,8 @@ const Inventory = preload("res://scripts/resident_inventory.gd")
 const Assignment = preload("res://scripts/resident_assignment.gd")
 signal assignments_changed
 var assignments: Array[Assignment] = []
-var inventory = Inventory.new()
+var inventory = Inventory.new() # Work cargo only.
+var equipment = preload("res://scripts/resident_equipment.gd").new()
 signal traits_changed
 var traits: Array[Trait.Type] = []
 func has_trait(trait_type: Trait.Type) -> bool: return traits.has(trait_type)

@@ -363,6 +363,7 @@ func _create_resident_runtime(data: ResidentData, start: Vector2) -> ResidentRun
 
 func _bind_resident_control(runtime: ResidentRuntime) -> void:
 	runtime.shepherd.setup(runtime,self)
+	runtime.clothing.setup(runtime,self)
 	player_control.register_intents(runtime.data.id, runtime.intents)
 	player_control.register_commands(runtime.data.id, runtime.commands)
 	player_control.register_assignments(runtime.data.id, runtime.assignments)

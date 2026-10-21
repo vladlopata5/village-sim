@@ -2,7 +2,7 @@ extends PanelContainer
 ## Owns only presentation state. Selection and simulation objects remain external.
 signal preview_close_requested
 signal presentation_changed # Read-only map overlays; never an action request.
-const TITLES = {&"bio":"Био",&"work":"Работа",&"relations":"Отношения",&"info":"Инфо",&"production":"Производство",&"storage":"Склад"}
+const TITLES = {&"bio":"Био",&"work":"Работа",&"relations":"Отношения",&"inventory":"Инвентарь",&"info":"Инфо",&"production":"Производство",&"storage":"Склад"}
 var tab_rebuild_count := 0
 var selection: Node
 var clock: Node
@@ -49,7 +49,7 @@ func _selection_changed() -> void:
 func _sync_tabs() -> void:
 	if selection == null: return
 	var tabs: Array[StringName] = []
-	if selection.selected_resident != null: tabs.assign([&"bio",&"work",&"relations"])
+	if selection.selected_resident != null: tabs.assign([&"bio",&"work",&"relations",&"inventory"])
 	elif selection.selected_building != null: tabs = building_details.available_tabs()
 	elif selection.selected_work_area != null: tabs.assign([&"info"])
 	if active_tab not in tabs: active_tab = tabs[0] if not tabs.is_empty() else &""
@@ -69,9 +69,16 @@ func _sync_tabs() -> void:
 			button.pressed.connect(select_tab.bind(id))
 			button.set_meta("tab_id",id)
 			$Column/Tabs.add_child(button)
+			if _tabs.size()>3:
+				for state in ["normal","hover","pressed","hover_pressed","disabled"]:
+					var style: StyleBox=button.get_theme_stylebox(state).duplicate()
+					style.content_margin_left=3;style.content_margin_right=3
+					button.add_theme_stylebox_override(state,style)
 		var width := 0.0
 		for button in $Column/Tabs.get_children(): width = maxf(width,button.get_minimum_size().x)
-		for button in $Column/Tabs.get_children(): button.custom_minimum_size.x = width
+		# Four resident tabs fit their natural widths; do not multiply the longest title.
+		if _tabs.size()<4:
+			for button in $Column/Tabs.get_children(): button.custom_minimum_size.x = width
 	_apply()
 func select_tab(id: StringName) -> void:
 	if id not in _tabs: return

@@ -29,6 +29,7 @@ var _work_cycle_active := false
 var _work_cycle_ends_at := 0
 var _work_assignment: Dictionary = {}
 var decision_count := 0
+var clothing: Node
 var assignments: Node
 var social: Node
 var wander: Node
@@ -137,6 +138,7 @@ func collect_actions(has_available_work: bool) -> Array:
 			actions.append({"id": id, "priority": effective})
 	if is_instance_valid(wander) and wander.has_action(): actions.append({"id": "WANDER", "priority": Balance.WANDER_PRIORITY})
 	if is_instance_valid(assignments): actions.append_array(assignments.collect_actions())
+	if is_instance_valid(clothing) and clothing.has_action(): actions.append({"id":"CLOTHING","priority":Balance.CLOTHING_PRIORITY})
 	return actions
 
 func _choose_need(has_available_work: bool) -> bool:
@@ -167,6 +169,7 @@ func _choose_need(has_available_work: bool) -> bool:
 			"SOCIAL": started = social.try_social(priority)
 			"LEISURE": started = social.try_leisure(priority)
 			"WANDER": started = wander.try_wander(priority)
+			"CLOTHING": started = clothing.start(priority)
 			_:
 				if selected.id.begins_with("ASSIGNMENT:"):
 					started = assignments.start(StringName(selected.id.trim_prefix("ASSIGNMENT:")))

@@ -11,6 +11,7 @@ const Wander = preload("res://scripts/resident_wander_controller.gd")
 const Social = preload("res://scripts/resident_social_controller.gd")
 const Commands = preload("res://scripts/player_command_controller.gd")
 const Assignments = preload("res://scripts/resident_assignment_controller.gd")
+var clothing = preload("res://scripts/resident_clothing_controller.gd").new()
 var shepherd = preload("res://scripts/resident_shepherd_controller.gd").new()
 var self_logistics = preload("res://scripts/resident_self_logistics.gd").new()
 var recipe_work = preload("res://scripts/resident_recipe_controller.gd").new()
@@ -32,7 +33,7 @@ func setup(resident: RefCounted, presentation: Node, clock: Node, locations: Ref
 	data = resident
 	data.skill_changed.connect(_on_skill_changed)
 	view = presentation
-	for controller in [intents, commands, schedule, need_dynamics, needs, assignments, decision, social, wander, builder, recipe_work, self_logistics, shepherd]:
+	for controller in [intents, commands, schedule, need_dynamics, needs, assignments, decision, social, wander, builder, recipe_work, self_logistics, shepherd, clothing]:
 		add_child(controller)
 	for controller in [commands, schedule, needs, assignments, decision, social, wander, builder, recipe_work]:
 		controller.logger = logger
@@ -56,6 +57,7 @@ func setup(resident: RefCounted, presentation: Node, clock: Node, locations: Ref
 	needs.setup(clock, data, buildings, locations, intents, schedule)
 	assignments.setup(data, needs, intents, social, clock)
 	decision.assignments = assignments
+	decision.clothing = clothing
 	social.setup(self, clock)
 	social.conversation_position_requested.connect(view.move_to)
 	wander.setup(self, clock)
