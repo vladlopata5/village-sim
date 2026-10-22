@@ -3,6 +3,7 @@ const Coordinates = preload("res://scripts/world_3d/world_coordinates.gd")
 const Resources = preload("res://scripts/resource_type.gd")
 var ground_resource: RefCounted
 var quantity_label: Label3D
+var log_visual: Node3D
 func setup(drop: RefCounted) -> void:
 	ground_resource = drop
 	position = Coordinates.to_world(drop.world_position)
@@ -15,22 +16,17 @@ func setup(drop: RefCounted) -> void:
 	quantity_label.outline_size=10
 	quantity_label.no_depth_test=true
 	add_child(quantity_label)
+	if drop.resource_type==Resources.Type.LOG:
+		log_visual=preload("res://scripts/world_3d/log_stack_visual_3d.gd").new()
+		add_child(log_visual)
 	_sync_position()
+	if log_visual!=null: return
 	if drop.resource_type==Resources.Type.WATER:
 		add_child(preload("res://scripts/world_3d/water_bucket_visual_3d.gd").create())
 		return
 	var visual := MeshInstance3D.new()
 	var material := StandardMaterial3D.new()
-	if drop.resource_type == Resources.Type.LOG:
-		var cylinder := CylinderMesh.new()
-		cylinder.top_radius = 0.12
-		cylinder.bottom_radius = 0.12
-		cylinder.height = 0.65
-		visual.mesh = cylinder
-		visual.rotation.z = PI / 2.0
-		visual.position.y = 0.12
-		material.albedo_color = Color(0.42,0.24,0.1)
-	elif drop.resource_type == Resources.Type.SHEAF:
+	if drop.resource_type == Resources.Type.SHEAF:
 		var bundle:=CylinderMesh.new();bundle.top_radius=0.15;bundle.bottom_radius=0.18;bundle.height=0.42;bundle.radial_segments=6
 		visual.mesh=bundle;visual.position.y=0.21;material.albedo_color=Color("d6b350")
 		var tie:=MeshInstance3D.new();var band:=TorusMesh.new();band.inner_radius=0.12;band.outer_radius=0.16;band.rings=8;band.ring_segments=6;tie.mesh=band;tie.position.y=0.21
@@ -70,4 +66,5 @@ func _sync_position() -> void:
 	position = Coordinates.to_world(ground_resource.world_position)
 	if quantity_label!=null:
 		quantity_label.text="×%d" % ground_resource.amount
-		quantity_label.visible=ground_resource.amount>1
+		quantity_label.visible=ground_resource.resource_type!=Resources.Type.LOG and ground_resource.amount>1
+	if log_visual!=null:log_visual.set_amount(ground_resource.amount)

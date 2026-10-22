@@ -59,11 +59,11 @@ func run() -> void:
 		check(stone.resource_type==R.STONE and stone.amount<=4 and stone.cell!=log_stack.cell,"STONE does not mix with LOG")
 	check(world.navigation.revision==nav_revision,"Stacks never occupy navigation")
 	var view: Node=world._ground_views[partial]
-	check(view.quantity_label.visible and view.quantity_label.text=="×5","Replenishment updates one Label3D")
+	check(not view.quantity_label.visible and view.log_visual.visible_count==5,"LOG replenishment updates physical models without a quantity label")
 	await capture("stacks-before",Vector3(5,0,18))
 	check(partial.reserve(&"one",4) and partial.reserve(&"two",1),"Two owners reserve different units")
 	check(world.ground_resources.take_reserved(partial,&"one",4) and partial.amount==1 and partial.id==id and partial.reserved_amount(&"two")==1,"Partial pickup keeps other owner and ID")
-	check(not view.quantity_label.visible,"One remaining unit hides the label")
+	check(not view.quantity_label.visible and view.log_visual.visible_count==1,"One remaining LOG retains exactly one visible model and no label")
 	await capture("stacks-after",Vector3(5,0,18))
 	var cell: Vector2i=partial.cell
 	check(world.ground_resources.take_reserved(partial,&"two") and world.ground_resources.get_by_id(id)==null and world.ground_resources.get_at(cell)==null and not world._ground_views.has(partial),"Last pickup removes ID/cell/view")
