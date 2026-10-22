@@ -127,8 +127,7 @@ func run() -> void:
 	dialog.open_for(b.id)
 	check(dialog.buttons.keys()==[P.SAWYER,P.PORTER] and dialog.buttons.values().all(func(button): return button.disabled),"UC applicability known, both roles disabled")
 	check(dialog.reasons[P.SAWYER].text=="Здание ещё строится","UC readable reason")
-	for resource in site.definition.construction_requirements: site.add_delivered_material(resource,site.get_required_amount(resource))
-	site.add_construction_work(site.definition.construction_work_required)
+	preload("res://tests/construction_recipe_expectations.gd").complete(site,false)
 	check(site.complete_construction(),"Existing domain completion after real required materials/work")
 	check(site.is_built() and not dialog.buttons[P.SAWYER].disabled,"Same UC to BUILT live admission updates without stale callback")
 	world.cancel_construction(site.id) # BUILT deletion remains forbidden; no new demolition.

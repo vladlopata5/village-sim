@@ -27,7 +27,8 @@ func fixture() -> Node:
 		actor.view.set_physics_process(false)
 		for need in actor.data.needs.values(): need.value=0
 	var definition = Def.for_type(Types.HOME)
-	# Fully supplied actual recipe; this test isolates work-time accrual.
+	# Same complete recipe in one explicit stage isolates work-time accrual.
+	preload("res://tests/construction_recipe_expectations.gd").single_stage(definition)
 	world.placement.select(definition)
 	world.placement.update_world_position(Vector3(-12,0,14))
 	var site = world.placement.confirm()

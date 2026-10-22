@@ -69,8 +69,8 @@ func run() -> void:
 		var card = world.building_card_view()
 		world.resident_selection.select_building(site)
 		for resource in R.values():
-			check(site.get_missing_amount(resource) == cost.get(resource,0),"Missing amount matches recipe")
-			check(((preload("res://scripts/resource_type.gd").display_name(resource) + ":") in card.construction_materials.text) == cost.has(resource),"Card only lists required resources")
+			check(site.get_missing_amount(resource) == site.current_construction_stage().materials.get(resource,0),"Missing amount matches recipe")
+			check(((preload("res://scripts/resource_type.gd").display_name(resource) + ":") in card.construction_materials.text) == site.current_construction_stage().materials.has(resource),"Card only lists active-stage required resources")
 		var button: Button = world.construction_panel.catalogue.tile_for_type(category)
 		check(button != null,"Construction catalogue exposes type")
 		world.resident_selection.clear()
@@ -106,25 +106,21 @@ func run() -> void:
 		actor = world.resident_runtimes[1]
 		world.player_control.assign_profession(actor.data.id,P.BUILDER)
 		check(world._request_work(actor),"Full recipe starts ordinary Builder workflow")
-		for trip in range(40):
-			if actor.builder.phase not in [Phase.GOING_TO_SOURCE,Phase.CARRYING_TO_SITE]: break
-			world.game_time.total_minutes = 420
-			walk(actor,actor.builder.phase)
+		for task in range(80):
+			if site.is_built():break
+			world.game_time.total_minutes=420
+			if actor.builder.phase==Phase.NONE:check(world._request_work(actor),"Next ordinary decision resumes construction")
+			if actor.builder.phase==Phase.BUILDING:
+				var minutes: int=mini(site.current_work_remaining(),60-actor.builder.work_minutes)
+				world.game_time.total_minutes+=minutes
+				actor.builder._on_minute(world.game_time.total_minutes)
+			else:walk(actor,actor.builder.phase)
 		check(site.are_construction_materials_complete(),"All required materials physically delivered")
 		for resource in R.values():
 			check(site.get_delivered_amount(resource) == cost.get(resource,0) and source.resources.get_amount(resource) == initial_stock[resource]-cost.get(resource,0),"Exact consumption from the filled quota, no absent or surplus resource spent")
 			check(source.resources.get_reserved_out(resource) == 0 and site.get_construction_reserved_in(resource) == 0,"Full delivery clears resource reservations")
 			check(not site.add_delivered_material(resource,1),"No extra material accepted after exact supply")
 		await capture("recipe_%s_supplied" % definition.id)
-		walk(actor,Phase.GOING_TO_SITE)
-		check(actor.builder.phase == Phase.BUILDING,"Real access-point arrival starts work")
-		for cycle in range(4):
-			if site.is_built(): break
-			if actor.builder.phase == Phase.NONE:
-				check(world._request_work(actor),"Normal cycle decision resumes work")
-				walk(actor,Phase.GOING_TO_SITE)
-			world.game_time.total_minutes += 60
-			actor.builder._on_minute(world.game_time.total_minutes)
 		check(site.is_built() and site.construction_progress == definition.construction_work_required and site.active_builder_ids.is_empty(),"Exact materials plus unchanged work complete existing lifecycle")
 		await capture("recipe_%s_built" % definition.id)
 		world.free()

@@ -36,6 +36,7 @@ func place(scene: Node, point: Vector3):
 	var definition = Definition.for_type(Types.HOME)
 	# Synthetic one-resource fixture isolates ownership/timing from construction balance.
 	definition.construction_requirements = {preload("res://scripts/resource_type.gd").Type.PLANK: 10}
+	preload("res://tests/construction_recipe_expectations.gd").single_stage(definition)
 	scene.placement.select(definition)
 	scene.placement.update_position(Coordinates.to_sim(point))
 	return scene.placement.confirm()
@@ -178,6 +179,7 @@ func _run() -> void:
 	for ending in ["player","critical","schedule","complete","cancel","profession"]:
 		scene = scenario()
 		a = place(scene,Vector3(4,0,14))
+		a.definition.construction_stages.assign([preload("res://scripts/construction_stage.gd").new(&"first","First",{Resources.PLANK:8},27,&"base"),preload("res://scripts/construction_stage.gd").new(&"second","Second",{Resources.PLANK:2},153,&"complete")])
 		a.add_delivered_material(Resources.PLANK,8)
 		a.add_construction_work(27)
 		a.reserve_construction_material(Resources.PLANK,2)
@@ -220,8 +222,8 @@ func canonical_waiting() -> void:
 	world.placement.update_world_position(Vector3(4,0,14))
 	var target=world.placement.confirm()
 	check(target!=null,"Canonical waiting site passes validators")
-	for resource in target.definition.construction_requirements:
-		check(target.reserve_construction_material(resource,target.get_required_amount(resource)),"Incoming materials reserved by domain")
+	for resource in target.current_construction_stage().materials:
+		check(target.reserve_construction_material(resource,target.current_construction_stage().materials[resource]),"Incoming materials reserved by domain")
 	check(target.claim_builder_slot(actor.data.id),"Canonical domain Builder slot")
 	actor.builder.site=target
 	check(actor.builder._continue_task(),"Canonical waiter issues normal arrival intent")
@@ -232,8 +234,8 @@ func canonical_waiting() -> void:
 	var searches: int=actor.builder.source_search_count
 	for minute in range(5): actor.builder._on_minute(420+minute)
 	check(target.construction_progress==0 and actor.builder.source_search_count==searches,"Canonical wait neither builds nor repeats material queries")
-	for resource in target.definition.construction_requirements:
-		target.deliver_reserved_construction_material(resource,target.get_required_amount(resource))
+	for resource in target.current_construction_stage().materials:
+		target.deliver_reserved_construction_material(resource,target.current_construction_stage().materials[resource])
 	await process_frame
 	await process_frame
 	for step in range(2000):

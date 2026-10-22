@@ -69,7 +69,7 @@ func run() -> void:
 		for cycle in range(8):
 			if saw.is_built():break
 			world.game_time.total_minutes=420
-			check(world._request_work(builder),"Normal Builder work request")
+			if builder.builder.phase==B.Phase.NONE:check(world._request_work(builder),"Normal Builder work request")
 			for leg in range(40):
 				if builder.builder.phase not in [B.Phase.GOING_TO_SOURCE,B.Phase.CARRYING_TO_SITE]:break
 				F.walk(world,builder)

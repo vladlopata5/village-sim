@@ -301,10 +301,11 @@ func _wait_for_materials() -> bool:
 
 func _resume_waiting() -> void:
 	_waiting_resume_queued = false
-	if not _is_waiting() or not _valid_site(): return
+	if (not _is_waiting() and phase!=Phase.BUILDING) or not _valid_site(): return
 	if site.ready_for_structural_work():
 		if logger != null: logger.info(EventLog.BUILDING, "%s: материалы доставлены — продолжает строительство %s" % [_data.resident_name, site.id])
 	elif _materials_incoming():
+		if phase==Phase.BUILDING:_wait_for_materials() # A completed stage can now wait for an already promised next-stage delivery.
 		return # Still covered: no new reservation or source search.
 	elif logger != null:
 		logger.info(EventLog.BUILDING, "%s: ожидаемая поставка отменена — пересматривает работу %s" % [_data.resident_name, site.id])
@@ -389,7 +390,7 @@ func _complete_arrival(intent: Intent) -> void:
 			_continue_task()
 			return
 		phase = Phase.BUILDING
-		work_minutes = 0
+		# Preserve labour-cycle contribution across this site's material stages.
 		_last_work_minute = _clock.total_minutes
 		_data.activity = Activity.Type.WORKING
 		work_cycle_started.emit(site.id)
@@ -407,12 +408,18 @@ func _accrue_work(now: int) -> void:
 	if minute_of_day<420 or minute_of_day>=1020: return
 	var elapsed := mini(maxi(now-previous,0),1020-minute_of_day)
 	elapsed = mini(elapsed,Balance.BUILDER_WORK_CYCLE_MINUTES-work_minutes)
-	elapsed = mini(elapsed,site.work_remaining())
+	elapsed = mini(elapsed,site.current_work_remaining())
 	if elapsed<=0: return
 	var worked_site := site
 	work_minutes += elapsed # Action timing only; already applied work is never buffered.
 	_mutating = true
-	worked_site.add_construction_work(elapsed)
+	if not worked_site.add_construction_work(elapsed):
+		# A nested callback may observe another worker publishing a boundary.
+		# Keep this interval uncredited so its ordinary minute callback can retry once.
+		work_minutes-=elapsed
+		_last_work_minute=previous
+		_mutating=false
+		return
 	var completed := worked_site.can_complete_construction() and worked_site.complete_construction()
 	_mutating = false
 	if completed:
@@ -424,6 +431,8 @@ func _accrue_work(now: int) -> void:
 		abort("прерывание во время work update",false)
 	elif work_minutes>=Balance.BUILDER_WORK_CYCLE_MINUTES:
 		_finish_task("завершил строительный цикл",true)
+	elif not worked_site.ready_for_structural_work():
+		_continue_task() # Next stage uses the same claims, one-unit transport and cleanup.
 
 func _on_minute(now: int) -> void:
 	if phase == Phase.NONE or _is_waiting(): return
@@ -520,7 +529,7 @@ func _on_world_changed() -> void:
 	if _exiting or _mutating: return
 	if site != null and phase != Phase.NONE and not _valid_site():
 		abort("изменение доступности стройки")
-	if _is_waiting() and not _waiting_resume_queued:
+	if (_is_waiting() or (phase==Phase.BUILDING and site!=null and not site.ready_for_structural_work())) and not _waiting_resume_queued:
 		_waiting_resume_queued = true
 		call_deferred("_resume_waiting")
 

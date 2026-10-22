@@ -26,7 +26,9 @@ func start_world() -> void:
 		actor.decision._deciding=true;actor.schedule._phase="День";actor.intents.abort_current(actor.intents.current_intent);actor.view.set_physics_process(false)
 		for need in actor.data.needs.values():need.value=0;need.base_weight=0
 func site_at(point: Vector3, category: int = T.HOME) -> RefCounted:
-	world.placement.select(D.for_type(category));world.placement.update_world_position(point)
+	var definition=D.for_type(category)
+	preload("res://tests/construction_recipe_expectations.gd").single_stage(definition)
+	world.placement.select(definition);world.placement.update_world_position(point)
 	var site=world.placement.confirm();check(site!=null,"Ordinary site creation")
 	return site
 func built_at(point: Vector3, category: int) -> RefCounted:

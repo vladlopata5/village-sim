@@ -159,6 +159,7 @@ func _run() -> void:
 				var definition = Definition.for_type(HOME)
 				# One-source fixture isolates movement trait from current mixed recipe.
 				definition.construction_requirements = {preload("res://scripts/resource_type.gd").Type.PLANK:1}
+				preload("res://tests/construction_recipe_expectations.gd").single_stage(definition)
 				scene.placement.select(definition)
 				scene.placement.update_position(Vector2(-500, 200))
 				scene.placement.confirm()

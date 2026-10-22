@@ -128,6 +128,7 @@ func radii() -> void:
 		var workplace: RefCounted
 		if role==P.BUILDER:
 			var definition=D.for_type(T.HOME);definition.construction_requirements={R.PLANK:1}
+			preload("res://tests/construction_recipe_expectations.gd").single_stage(definition)
 			w.placement.select(definition);w.placement.update_world_position(Vector3(-40,0,25));workplace=w.placement.confirm()
 			check(workplace!=null,"Builder range fixture has a real site")
 			pc.assign_profession(actor.data.id,role)

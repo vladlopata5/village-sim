@@ -12,7 +12,9 @@ func _initialize() -> void:call_deferred("run")
 func run() -> void:
 	var definition=D.for_type(T.HOME)
 	definition.construction_requirements={R.LOG:11,R.STONE:7,R.PLANK:4}
+	preload("res://tests/construction_recipe_expectations.gd").single_stage(definition)
 	definition.construction_work_required=100
+	preload("res://tests/construction_recipe_expectations.gd").single_stage(definition)
 	var site=B.new(&"site",definition,Vector2.ZERO,B.State.UNDER_CONSTRUCTION)
 	check(site.add_delivered_material(R.LOG,3),"Record delivered quantity only")
 	check(site.set_work_direction(B.WorkDirection.DEMOLISH) and site.ready_for_removal(),"Zero-progress cancellation is immediately terminal")

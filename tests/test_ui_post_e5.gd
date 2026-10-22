@@ -211,8 +211,7 @@ func run() -> void:
 		selection.select_building(site);info.set_expanded(true);await settle()
 		check(card.get_node("%Summary").visible and card.get_node("%Summary").text=="Строительство" and info._tabs==[&"info"],"Construction is clearly distinguished without technical fields")
 		await capture(prefix+"construction_site")
-		for resource in site.definition.construction_requirements: site.add_delivered_material(resource,site.get_required_amount(resource))
-		site.add_construction_work(site.definition.construction_work_required)
+		preload("res://tests/construction_recipe_expectations.gd").complete(site,false)
 		check(site.complete_construction() and not card.get_node("%Summary").visible,"Real lifecycle completion updates shared header")
 		check(not card.get_node("%Demolish").disabled and card.get_node("%Demolish").pressed.get_connections().size()==1,"D1 command enabled with one callback")
 		if not rendered:

@@ -110,13 +110,19 @@ func run() -> void:
 	for step in range(16000):
 		preload("res://tests/handling_test_step.gd").move_3d(builder,0.05)
 		if builder.builder.phase==Builder.Phase.BUILDING: break
-	check(quarry.get_delivered_amount(R.LOG)==8 and quarry.get_delivered_amount(R.STONE)==4,"Actual extracted LOG and STONE transported through storage to site")
-	for cycle in range(int(180.0/Balance.BUILDER_WORK_CYCLE_MINUTES)):
-		if builder.builder.phase==Builder.Phase.NONE:
-			clear(builder)
-			builder.builder.request_work()
-			walk(builder)
-		world.game_time.debug_skip_minutes(Balance.BUILDER_WORK_CYCLE_MINUTES)
+	check(quarry.get_delivered_amount(R.LOG)==0 and quarry.get_delivered_amount(R.STONE)==4,"First stage receives only extracted stone before timber demand")
+	for task in range(80):
+		if quarry.is_built():break
+		if builder.builder.phase==Builder.Phase.NONE:check(builder.builder.request_work(),"Ordinary request resumes staged Quarry")
+		if builder.builder.phase==Builder.Phase.BUILDING:
+			var minutes: int=mini(quarry.current_work_remaining(),Balance.BUILDER_WORK_CYCLE_MINUTES-builder.builder.work_minutes)
+			world.game_time.total_minutes+=minutes;builder.builder._on_minute(world.game_time.total_minutes)
+		else:
+			var old_phase: int=builder.builder.phase
+			for step in range(16000):
+				if builder.builder.phase!=old_phase:break
+				preload("res://tests/handling_test_step.gd").move_3d(builder,.05)
+	check(quarry.get_delivered_amount(R.LOG)==8 and quarry.get_delivered_amount(R.STONE)==4,"All extracted LOG and STONE physically delivered across stages")
 	check(quarry.is_built() and quarry.construction_progress==180,"Existing incremental construction completes Quarry")
 	check(quarry.resources.get_capacity(R.STONE)==12 and world.logistics._buildings.get(quarry.id)==quarry,"Built activation creates normal buffer and registry")
 	clear(miner)

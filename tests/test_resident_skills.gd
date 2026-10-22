@@ -28,6 +28,7 @@ func site_in(scene: Node):
 	var definition = Definition.for_type(HOME)
 	# Synthetic one-resource fixture isolates ownership/timing from construction balance.
 	definition.construction_requirements = {preload("res://scripts/resource_type.gd").Type.PLANK: 10}
+	preload("res://tests/construction_recipe_expectations.gd").single_stage(definition)
 	scene.placement.select(definition)
 	scene.placement.update_position(Vector2(-500, 200))
 	return scene.placement.confirm()

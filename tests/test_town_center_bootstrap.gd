@@ -24,6 +24,7 @@ func construct(world: Node, actor: Node, type: int, point: Vector3):
 	var definition = Def.for_type(type)
 	# Historical bootstrap fixture isolates unchanged Town Center/worker/portal semantics.
 	definition.construction_requirements = {R.PLANK:10 if type in [Types.HOME,Types.LUMBERJACK_HUT,Types.GATHERER_HUT] else 15}
+	preload("res://tests/construction_recipe_expectations.gd").single_stage(definition)
 	world.placement.select(definition)
 	world.placement.update_world_position(point)
 	var site = world.placement.confirm()

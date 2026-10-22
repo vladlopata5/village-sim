@@ -12,3 +12,17 @@ const COSTS = {
 	T.STORAGE: {R.LOG:2,R.STONE:4,R.PLANK:6},
 	T.FOOD: {R.LOG:6},
 }
+
+# Synthetic one-material tests isolate existing ownership/timing, not type stages.
+static func single_stage(definition: RefCounted) -> void:
+	definition.construction_stages.clear()
+	definition.construction_stages.append(preload("res://scripts/construction_stage.gd").new(&"fixture","Строительство",definition.construction_requirements,definition.construction_work_required,&"complete"))
+static func complete(site: RefCounted, activate: bool = true) -> void:
+	for index in range(site.definition.construction_stages.size()+1):
+		if site.can_complete_construction():break
+		var stage: RefCounted=site.current_construction_stage()
+		for resource in stage.materials:
+			var missing: int=site.get_uncovered_construction_amount(resource)
+			if missing>0:assert(site.add_delivered_material(resource,missing))
+		assert(site.add_construction_work(site.current_work_remaining()))
+	if activate:assert(site.complete_construction())

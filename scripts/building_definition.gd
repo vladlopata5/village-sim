@@ -86,6 +86,77 @@ const LOGISTICS_FLOW = {
 	BuildingType.Type.GATHERER_HUT: {ResourceType.Type.MUSHROOM:{"import":false,"export":true}},
 	BuildingType.Type.LUMBERJACK_HUT: {ResourceType.Type.LOG:{"import":false,"export":true}},
 }
+const Stage = preload("res://scripts/construction_stage.gd")
+const CONSTRUCTION_STAGES = {
+	BuildingType.Type.FOOD: [
+		[&"step_1","Основание",{ResourceType.Type.LOG:2},60,&"base"],
+		[&"step_2","Каркас",{ResourceType.Type.LOG:2},100,&"frame"],
+		[&"step_3","Завершение",{ResourceType.Type.LOG:2},80,&"complete"],
+	],
+	BuildingType.Type.STORAGE: [
+		[&"step_1","Основание",{ResourceType.Type.STONE:4},60,&"base"],
+		[&"step_2","Каркас",{ResourceType.Type.LOG:2},100,&"frame"],
+		[&"step_3","Стены и завершение",{ResourceType.Type.PLANK:6},80,&"complete"],
+	],
+	BuildingType.Type.GATHERER_HUT: [
+		[&"step_1","Основание",{ResourceType.Type.LOG:2},45,&"base"],
+		[&"step_2","Каркас",{ResourceType.Type.LOG:2},75,&"frame"],
+		[&"step_3","Завершение",{ResourceType.Type.LOG:2},60,&"complete"],
+	],
+	BuildingType.Type.HOME: [
+		[&"step_1","Основание",{ResourceType.Type.STONE:2},45,&"base"],
+		[&"step_2","Каркас",{ResourceType.Type.LOG:4},75,&"frame"],
+		[&"step_3","Завершение",{ResourceType.Type.LOG:4},60,&"complete"],
+	],
+	BuildingType.Type.LUMBERJACK_HUT: [
+		[&"step_1","Основание",{ResourceType.Type.LOG:3},45,&"base"],
+		[&"step_2","Каркас",{ResourceType.Type.LOG:4},75,&"frame"],
+		[&"step_3","Завершение",{ResourceType.Type.LOG:3},60,&"complete"],
+	],
+	BuildingType.Type.SAWMILL: [
+		[&"step_1","Основание",{ResourceType.Type.STONE:6},60,&"base"],
+		[&"step_2","Каркас",{ResourceType.Type.LOG:3},100,&"frame"],
+		[&"step_3","Завершение",{ResourceType.Type.LOG:3},80,&"complete"],
+	],
+	BuildingType.Type.TOWN_CENTER: [
+		[&"step_1","Восстановление конструкции",{},240,&"complete"],
+	],
+	BuildingType.Type.QUARRY: [
+		[&"step_1","Основание",{ResourceType.Type.STONE:4},45,&"base"],
+		[&"step_2","Каркас",{ResourceType.Type.LOG:4},75,&"frame"],
+		[&"step_3","Завершение",{ResourceType.Type.LOG:4},60,&"complete"],
+	],
+	BuildingType.Type.SHEPHERD_HUT: [
+		[&"step_1","Основание",{ResourceType.Type.LOG:2},45,&"base"],
+		[&"step_2","Каркас",{ResourceType.Type.LOG:2},75,&"frame"],
+		[&"step_3","Завершение",{ResourceType.Type.PLANK:6},60,&"complete"],
+	],
+	BuildingType.Type.WEAVER_WORKSHOP: [
+		[&"step_1","Основание",{ResourceType.Type.STONE:4},45,&"base"],
+		[&"step_2","Каркас",{ResourceType.Type.LOG:4},75,&"frame"],
+		[&"step_3","Завершение",{ResourceType.Type.PLANK:6},60,&"complete"],
+	],
+	BuildingType.Type.TAILOR_WORKSHOP: [
+		[&"step_1","Основание",{ResourceType.Type.STONE:4},60,&"base"],
+		[&"step_2","Каркас",{ResourceType.Type.LOG:6},100,&"frame"],
+		[&"step_3","Завершение",{ResourceType.Type.PLANK:8},80,&"complete"],
+	],
+	BuildingType.Type.FARM: [
+		[&"step_1","Основание",{ResourceType.Type.STONE:4},60,&"base"],
+		[&"step_2","Каркас",{ResourceType.Type.LOG:6},100,&"frame"],
+		[&"step_3","Завершение",{ResourceType.Type.PLANK:8},80,&"complete"],
+	],
+	BuildingType.Type.WINDMILL: [
+		[&"step_1","Основание",{ResourceType.Type.STONE:4},45,&"base"],
+		[&"step_2","Каркас",{ResourceType.Type.LOG:4},75,&"frame"],
+		[&"step_3","Завершение",{ResourceType.Type.PLANK:6},60,&"complete"],
+	],
+	BuildingType.Type.WELL: [
+		[&"step_1","Каменное основание",{ResourceType.Type.STONE:4},60,&"base"],
+		[&"step_2","Навес и завершение",{ResourceType.Type.LOG:4},60,&"complete"],
+	],
+}
+var construction_stages: Array[Stage] = []
 const Profession = preload("res://scripts/resident_profession.gd")
 var initial_stock_targets: Dictionary = {} # Generic minimum inputs, separate from recipe kits.
 var animal_capacity := 0
@@ -127,6 +198,7 @@ func _init(type_id: StringName, category: BuildingType.Type, label: String, foot
 	size = footprint_size
 	construction_requirements = requirements.duplicate()
 	construction_work_required = maxi(work_minutes, 0)
+	if construction_work_required>0:construction_stages.append(Stage.new(&"build","Строительство",requirements,construction_work_required,&"complete"))
 	max_builders = maxi(builder_limit, 0)
 	housing_capacity = maxi(resident_capacity, 0)
 static func for_type(category: BuildingType.Type, label: String = ""):
@@ -136,6 +208,9 @@ static func for_type(category: BuildingType.Type, label: String = ""):
 	var construction: Dictionary = CONSTRUCTION_BALANCE.get(category,{"requirements":{},"minutes":0,"builders":0})
 	var result = load("res://scripts/building_definition.gd").new(ids[category], category, labels[category] if label.is_empty() else label, footprint_size, construction.requirements, construction.minutes, construction.builders, Balance.HOUSE_RESIDENT_CAPACITY if category == BuildingType.Type.HOME else 0)
 
+	result.construction_stages.clear()
+	for row in CONSTRUCTION_STAGES[category]:result.construction_stages.append(Stage.new(row[0],row[1],row[2],row[3],row[4]))
+	assert(result.validate_construction_stages(),"Construction stages must preserve type balance")
 	result.worker_profession = {BuildingType.Type.FOOD:Profession.Type.COOK, BuildingType.Type.QUARRY:Profession.Type.MINER, BuildingType.Type.GATHERER_HUT:Profession.Type.GATHERER, BuildingType.Type.SAWMILL:Profession.Type.SAWYER, BuildingType.Type.LUMBERJACK_HUT:Profession.Type.LUMBERJACK}.get(category,Profession.Type.NONE)
 	if category == BuildingType.Type.LUMBERJACK_HUT: result.internal_resources = [ResourceType.Type.LOG]
 	if category == BuildingType.Type.GATHERER_HUT: result.worker_capacity = Balance.GATHERER_WORKER_CAPACITY
@@ -226,3 +301,13 @@ func get_production_recipe(recipe_id: StringName) -> Recipe:
 			if found!=null: return null # Duplicate IDs cannot identify a recipe safely.
 			found=recipe
 	return found
+
+func validate_construction_stages() -> bool:
+	if construction_work_required<=0:return construction_stages.is_empty() and construction_requirements.is_empty()
+	if construction_stages.is_empty():return false
+	var totals: Dictionary={};var ids: Dictionary={};var minutes:=0
+	for stage in construction_stages:
+		if stage==null or not stage.is_valid() or ids.has(stage.id):return false
+		ids[stage.id]=true;minutes+=stage.work_minutes
+		for resource in stage.materials:totals[resource]=int(totals.get(resource,0))+stage.materials[resource]
+	return totals==construction_requirements and minutes==construction_work_required

@@ -31,6 +31,7 @@ func fixture() -> Node:
 func place(world: Node, type: int, position: Vector3, built: bool = true) -> RefCounted:
 	var definition = D.for_type(type)
 	if not built: definition.construction_requirements={R.PLANK:1}
+	preload("res://tests/construction_recipe_expectations.gd").single_stage(definition)
 	world.placement.select(definition); world.placement.update_world_position(position)
 	var result = world.placement.confirm()
 	check(result!=null,"Real placement succeeds")

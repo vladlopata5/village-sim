@@ -169,6 +169,7 @@ func run() -> void:
 	var loose_plank = Stacks.create(scene.ground_resources,R.PLANK,1,C.to_sim(Vector3(-23,0,-9)))
 	var build_definition = preload("res://scripts/building_definition.gd").for_type(preload("res://scripts/building_type.gd").Type.HOME)
 	build_definition.construction_requirements = {R.PLANK:1}
+	preload("res://tests/construction_recipe_expectations.gd").single_stage(build_definition)
 	var site = preload("res://scripts/building_instance.gd").new(&"ground_source_site",build_definition,C.to_sim(Vector3(-17,0,-16)),preload("res://scripts/building_instance.gd").State.UNDER_CONSTRUCTION)
 	scene.buildings.append(site)
 	scene._show_building(site)

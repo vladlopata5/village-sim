@@ -38,6 +38,7 @@ func replace_builder(world: Node, actor: Node, requests: Node) -> CountingBuilde
 func place(world: Node, point: Vector2):
 	var definition = Definition.for_type(Types.HOME)
 	definition.construction_requirements = {PLANK: 10}
+	preload("res://tests/construction_recipe_expectations.gd").single_stage(definition)
 	world.placement.select(definition)
 	world.placement.update_position(point)
 	return world.placement.confirm()

@@ -36,6 +36,7 @@ func place(world: Node, type: int, at: Vector3, built: bool = true):
 	var definition = Def.for_type(type)
 	# Synthetic PLANK site isolates shared source competition and cleanup.
 	if not built: definition.construction_requirements = {R.PLANK:10}
+	preload("res://tests/construction_recipe_expectations.gd").single_stage(definition)
 	world.placement.select(definition)
 	world.placement.update_world_position(at)
 	var building = world.placement.confirm()
@@ -138,9 +139,11 @@ func run() -> void:
 	saw = place(world,Types.SAWMILL,Vector3(4,0,14))
 	saw.resources.add(R.LOG,2)
 	site.definition.construction_requirements={R.LOG:1}
+	preload("res://tests/construction_recipe_expectations.gd").single_stage(site.definition)
 	worker.builder._on_world_changed()
 	check(worker.builder.nearest_source(R.LOG,worker.view.get_sim_position())==null and not worker.builder.has_work(),"Builder generic LOG requirement cannot steal nonexportable Sawmill input")
 	site.definition.construction_requirements={R.PLANK:10}
+	preload("res://tests/construction_recipe_expectations.gd").single_stage(site.definition)
 	saw.resources.add(R.PLANK,1)
 	worker.builder._on_world_changed()
 	check(world._request_work(worker) and worker.builder.source==saw,"Builder can use exportable Sawmill PLANK")

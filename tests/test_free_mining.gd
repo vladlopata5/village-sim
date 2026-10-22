@@ -174,7 +174,9 @@ func run() -> void:
 	# Mixed requirements use the unchanged Builder material executor.
 	var definition = preload("res://scripts/building_definition.gd").for_type(preload("res://scripts/building_type.gd").Type.HOME)
 	definition.construction_requirements = {R.LOG:1,R.STONE:1}
+	preload("res://tests/construction_recipe_expectations.gd").single_stage(definition)
 	definition.construction_work_required = 3
+	preload("res://tests/construction_recipe_expectations.gd").single_stage(definition)
 	var site = preload("res://scripts/building_instance.gd").new(&"mixed_site",definition,C.to_sim(Vector3(4,0,-12)),preload("res://scripts/building_instance.gd").State.UNDER_CONSTRUCTION)
 	scene.buildings.append(site)
 	scene._show_building(site)

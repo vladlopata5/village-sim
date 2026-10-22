@@ -97,9 +97,7 @@ func _run() -> void:
 	for i in range(4): control.clear_home(population[i].id); control.assign_home(population[i].id, b.id)
 	check(not service.execute([population[5].id], stale) and population[5].home_location_id.is_empty(), "Context revalidates capacity at execution")
 	# House completion enables assignment only; it never auto-fills.
-	for resource in unfinished.definition.construction_requirements:
-		unfinished.add_delivered_material(resource,unfinished.get_required_amount(resource))
-	unfinished.construction_progress = unfinished.definition.construction_work_required
+	preload("res://tests/construction_recipe_expectations.gd").complete(unfinished,false)
 	check(unfinished.complete_construction() and control.get_home_occupants(unfinished.id).is_empty(), "Completed house has no automatic occupants")
 	service.register_building(unfinished, func(): return Vector2.ZERO)
 	check(housing_options(service, population[5].id, unfinished.id)[0].enabled and control.assign_home(population[5].id, unfinished.id), "Completed house immediately eligible")
@@ -152,9 +150,7 @@ func _run() -> void:
 	var placed = scene.placement.confirm()
 	scene.resident_selection.select_building(placed)
 	check(building_card.construction_section.visible and not building_card.housing_section.visible and not scene.player_control.assign_home(actor.data.id, placed.id), "Placed unfinished house has no active housing")
-	for resource in placed.definition.construction_requirements:
-		placed.add_delivered_material(resource,placed.get_required_amount(resource))
-	placed.construction_progress = placed.definition.construction_work_required
+	preload("res://tests/construction_recipe_expectations.gd").complete(placed,false)
 	placed.complete_construction()
 	check(building_card.housing_section.visible and building_card.housing_count.text == "Жильцы: 0 / 4" and not building_card.construction_section.visible, "Completion event reveals empty housing section")
 	check(housing_options(scene.interactions, actor.data.id, placed.id)[0].enabled, "Main registers completed house housing interaction")

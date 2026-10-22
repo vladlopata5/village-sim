@@ -62,6 +62,7 @@ func site(world: Node):
 	var definition=Def.for_type(Types.HOME)
 	definition.ground_search_radius=1000 # Ranking/handoff fixture; default locality tested separately.
 	definition.construction_requirements={R.PLANK:2} # Ownership edge fixture; normal recipes covered by full suite/soak.
+	preload("res://tests/construction_recipe_expectations.gd").single_stage(definition)
 	world.placement.select(definition);world.placement.update_world_position(Vector3(-10,0,25))
 	return world.placement.confirm()
 func finish_leg(actor: Node,phase: int) -> void:

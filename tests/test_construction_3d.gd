@@ -21,6 +21,7 @@ func place(scene: Node, point: Vector3, turns: int = 0):
 	var definition = Definition.for_type(Types.HOME)
 	# Explicit synthetic PLANK supply tests the unchanged transport lifecycle.
 	definition.construction_requirements = {Resources.PLANK:10}
+	preload("res://tests/construction_recipe_expectations.gd").single_stage(definition)
 	scene.placement.select(definition)
 	scene.placement.update_world_position(point)
 	for turn in range(turns): scene.placement.rotate()

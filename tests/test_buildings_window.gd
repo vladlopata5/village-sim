@@ -109,9 +109,7 @@ func run() -> void:
 	check(window.refresh_count==refreshes and window.row_creation_count==rows_created,"Progress and reservations do not repaint unchanged list columns")
 	await F.row_click(self,window,str(hut.id))
 	await settle()
-	for resource in site.definition.construction_requirements:
-		site.add_delivered_material(resource,site.get_missing_amount(resource))
-	site.add_construction_work(site.definition.construction_work_required)
+	preload("res://tests/construction_recipe_expectations.gd").complete(site,false)
 	check(site.complete_construction(),"Existing completion API finishes the same construction entity")
 	await settle()
 	check(window.rows[site.id].get_text(2)=="Построено" and window.rows[hut.id]==row and window.table.get_selected()==row and selection.selected_building==hut,"Completion updates state while preserving the other selected row/card")

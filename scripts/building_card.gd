@@ -98,14 +98,6 @@ func _on_selection_changed() -> void:
 	if _building != null:
 		_building.construction_changed.connect(_refresh)
 		_building.production_changed.connect(_refresh_recipes)
-		for key in _building.consumable_stocks:
-			var stock: RefCounted=_building.consumable_stocks[key]
-			var box:=VBoxContainer.new()
-			var label:=Label.new()
-			var bar:=ProgressBar.new()
-			box.add_child(label);box.add_child(bar);consumable_section.add_child(box)
-			consumable_rows[key]={"box":box,"label":label,"bar":bar}
-			stock.changed.connect(_refresh_consumables)
 	if _building != null and _building.resources != null:
 		_building.resources.changed.connect(_on_resources_changed)
 		_building.resources.reservations_changed.connect(_on_reservations_changed)
@@ -155,11 +147,15 @@ func _refresh() -> void:
 	construction_section.visible = not _building.is_built()
 	_refresh_housing()
 	var materials := PackedStringArray()
-	for resource in _building.definition.construction_requirements:
-		materials.append("%s: %d / %d" % [ResourceType.display_name(resource), _building.get_delivered_amount(resource), _building.get_required_amount(resource)])
+	var stage: RefCounted=_building.current_construction_stage()
+	var requirements: Dictionary=stage.materials if stage!=null else {}
+	for resource in requirements:
+		materials.append("%s: %d / %d" % [ResourceType.display_name(resource), _building.stage_delivered_amount(resource), requirements[resource]])
 	construction_materials.text = "Материалы:\n" + ("\n".join(materials) if not materials.is_empty() else "Не требуются")
 	if _building.previously_built: construction_materials.text = "Материалы остаются в конструкции.\nДля восстановления новые материалы не нужны."
 	construction_work.text = _building.work_status() + ": %d / %d мин\n%.0f%%" % [_building.construction_progress, _building.definition.construction_work_required, _building.get_construction_progress_ratio() * 100.0]
+	if not _building.previously_built and stage!=null:
+		construction_work.text="%s: этап %d/%d — %s\nРаботы этапа: %d / %d мин\nВсего: %d / %d мин (%.0f%%)" % [_building.work_status(),_building.construction_stage_index()+1,_building.definition.construction_stages.size(),stage.display_name,_building.stage_work_progress(),stage.work_minutes,_building.construction_progress,_building.definition.construction_work_required,_building.get_construction_progress_ratio()*100.0]
 	structural_progress.value = _building.get_construction_progress_ratio()*100.0
 	construction_work.text += "\nОсталось работы: %d мин" % _building.work_remaining()
 	if _building.work_paused: construction_work.text += "\nОжидание завершения действий внутри"
@@ -497,6 +493,16 @@ func _clear_person(id: String, building_id: StringName, housing: bool, role: int
 	_refresh()
 func _refresh_consumables() -> void:
 	if _building==null:return
+	# Construction may configure these stocks after this instance was selected.
+	for key in _building.consumable_stocks:
+		if consumable_rows.has(key):continue
+		var stock: RefCounted=_building.consumable_stocks[key]
+		var box:=VBoxContainer.new()
+		var label:=Label.new()
+		var bar:=ProgressBar.new()
+		box.add_child(label);box.add_child(bar);consumable_section.add_child(box)
+		consumable_rows[key]={"box":box,"label":label,"bar":bar}
+		stock.changed.connect(_refresh_consumables)
 	for key in consumable_rows:
 		var stock: RefCounted=_building.consumable_stocks[key]
 		var row: Dictionary=consumable_rows[key]

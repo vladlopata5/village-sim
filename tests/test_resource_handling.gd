@@ -29,6 +29,7 @@ func building(type: int, point: Vector3, built: bool = true, turns: int = 0):
 	var definition = Def.for_type(type)
 	# Synthetic final-unit fixture isolates handling and portal cancellation.
 	if not built: definition.construction_requirements = {R.PLANK:10}
+	preload("res://tests/construction_recipe_expectations.gd").single_stage(definition)
 	var data = B.new(StringName("handling_%d"%world.buildings.size()),definition,C.to_sim(point),B.State.BUILT if built else B.State.UNDER_CONSTRUCTION)
 	data.quarter_turns=turns
 	world.buildings.append(data)

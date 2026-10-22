@@ -42,8 +42,7 @@ func run() -> void:
 	check(site!=null,"Real site fixture placed")
 	selection.select_building(site)
 	check(card.construction_section.visible and card.available_tabs()==[&"info"],"Construction has only applicable tab")
-	for resource in site.definition.construction_requirements: site.add_delivered_material(resource,site.get_required_amount(resource))
-	site.add_construction_work(site.definition.construction_work_required)
+	preload("res://tests/construction_recipe_expectations.gd").complete(site,false)
 	check(site.complete_construction(),"One-way real construction lifecycle")
 	check(not card.construction_section.visible and &"production" in card.available_tabs(),"Same selected object updates tabs on BUILT")
 	site.production_progress=17

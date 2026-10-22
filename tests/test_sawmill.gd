@@ -39,9 +39,7 @@ func place(world: Node, point: Vector3 = Vector3(4,0,14)):
 	world.placement.rotate()
 	return world.placement.confirm()
 func finish(target: RefCounted) -> void:
-	for resource in target.definition.construction_requirements:
-		target.add_delivered_material(resource,target.get_required_amount(resource))
-	target.add_construction_work(target.definition.construction_work_required)
+	preload("res://tests/construction_recipe_expectations.gd").complete(target,false)
 	check(target.complete_construction(),"Existing construction completes same instance")
 func walk(actor: Node, reason: StringName = &"") -> void:
 	for step in range(2000):

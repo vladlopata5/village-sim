@@ -58,10 +58,7 @@ func run() -> void:
 				check(construction!=null and construction in expected_slots,"Construction uses original perimeter marker")
 				uses.release(data.id,construction,"builder")
 				data.release_builder_slot("builder")
-				for resource in Resources.values():
-					var required: int=data.get_required_amount(resource)
-					if required>0: data.add_delivered_material(resource,required)
-				data.add_construction_work(definition.construction_work_required)
+				preload("res://tests/construction_recipe_expectations.gd").complete(data,false)
 				check(data.complete_construction(),"Existing completion lifecycle")
 			check(view.get_markers(Slot)==expected_slots and view.visits==0,"BUILT preserves index and marker identity")
 			var events: Array=[]

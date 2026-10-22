@@ -33,13 +33,20 @@ var construction_delivered: Dictionary:
 var _active_builder_ids: Array[String] = []
 var active_builder_ids: Array[String]:
 	get: return _active_builder_ids.duplicate()
+var _updating_progress := false
 var construction_progress: int = 0:
 	set(value):
-		if is_built(): return
-		var clamped := clampi(value, 0, definition.construction_work_required)
+		if is_built() or _updating_progress: return
+		var limit: int=definition.construction_work_required
+		if needs_materials() and value>construction_progress:
+			if current_construction_stage()==null or not are_stage_materials_complete():return
+			limit=mini(limit,stage_work_start()+current_construction_stage().work_minutes)
+		var clamped := clampi(value, 0, limit)
 		if clamped == construction_progress: return
+		_updating_progress=true
 		construction_progress = clamped
 		_notify_construction_changed()
+		_updating_progress=false
 var animal_housing: RefCounted
 var consumable_stocks: Dictionary = {}
 var consumable_receivers: Dictionary = {}
@@ -74,7 +81,7 @@ func is_structural_work() -> bool:
 func needs_materials() -> bool:
 	return not previously_built and work_direction == WorkDirection.BUILD
 func ready_for_structural_work() -> bool:
-	return not needs_materials() or are_construction_materials_complete()
+	return not needs_materials() or are_stage_materials_complete()
 func work_remaining() -> int:
 	return construction_progress if work_direction == WorkDirection.DEMOLISH else definition.construction_work_required-construction_progress
 func ready_for_removal() -> bool:
@@ -178,7 +185,7 @@ func get_required_amount(resource: int) -> int:
 func get_delivered_amount(resource: int) -> int:
 	return _construction_delivered.get(resource, 0)
 func get_missing_amount(resource: int) -> int:
-	return maxi(get_required_amount(resource) - get_delivered_amount(resource), 0)
+	return maxi(stage_cumulative_requirement(resource) - get_delivered_amount(resource), 0)
 func add_delivered_material(resource: int, amount: int) -> bool:
 	# Caller records actual arrival only. No reservation/warehouse lookup or transfer here.
 	if not is_structural_work() or not needs_materials() or amount <= 0 or amount > get_uncovered_construction_amount(resource): return false
@@ -193,8 +200,8 @@ func get_construction_progress_ratio() -> float:
 	if definition.construction_work_required == 0: return 1.0
 	return float(construction_progress) / definition.construction_work_required
 func add_construction_work(minutes: int) -> bool:
-	if not is_structural_work() or minutes <= 0 or work_remaining() <= 0: return false
-	construction_progress += -mini(minutes,work_remaining()) if work_direction == WorkDirection.DEMOLISH else mini(minutes,work_remaining())
+	if not is_structural_work() or _updating_progress or not ready_for_structural_work() or minutes <= 0 or current_work_remaining() <= 0: return false
+	construction_progress += -mini(minutes,work_remaining()) if work_direction == WorkDirection.DEMOLISH else mini(minutes,current_work_remaining())
 	return true
 func has_free_builder_slot() -> bool:
 	return is_structural_work() and _active_builder_ids.size() < definition.max_builders
@@ -466,3 +473,45 @@ func import_receivers(resource: int, available_only: bool = true) -> Array:
 func import_receiver(resource: int) -> RefCounted:
 	var receivers:=import_receivers(resource)
 	return receivers[0] if not receivers.is_empty() else null
+
+# Stage state is derived from the one authoritative work counter. Reverse D1 work
+# can expose earlier stages; delivered materials remain part of the same structure.
+func completed_construction_stage_count() -> int:
+	var end:=0;var count:=0
+	for stage in definition.construction_stages:
+		end+=stage.work_minutes
+		if construction_progress<end:break
+		count+=1
+	return count
+func construction_stage_index() -> int:
+	return mini(completed_construction_stage_count(),definition.construction_stages.size()-1)
+func current_construction_stage() -> RefCounted:
+	return definition.construction_stages[construction_stage_index()] if not definition.construction_stages.is_empty() else null
+func stage_work_start() -> int:
+	var minutes:=0
+	for stage in definition.construction_stages.slice(0,construction_stage_index()):minutes+=stage.work_minutes
+	return minutes
+func stage_work_progress() -> int:
+	return construction_progress-stage_work_start()
+func stage_cumulative_requirement(resource: int) -> int:
+	var quantity:=0
+	for stage in definition.construction_stages.slice(0,construction_stage_index()+1):quantity+=int(stage.materials.get(resource,0))
+	return quantity
+func stage_delivered_amount(resource: int) -> int:
+	var stage:=current_construction_stage()
+	if stage==null:return 0
+	var required: int=stage.materials.get(resource,0)
+	return clampi(get_delivered_amount(resource)-(stage_cumulative_requirement(resource)-required),0,required)
+func are_stage_materials_complete() -> bool:
+	var stage:=current_construction_stage()
+	if stage==null:return definition.construction_requirements.is_empty()
+	for resource in stage.materials:
+		if stage_delivered_amount(resource)<stage.materials[resource]:return false
+	return true
+func current_work_remaining() -> int:
+	if not needs_materials():return work_remaining()
+	var stage:=current_construction_stage()
+	return mini(work_remaining(),stage.work_minutes-stage_work_progress()) if stage!=null else work_remaining()
+func construction_visual_id() -> StringName:
+	var count:=completed_construction_stage_count()
+	return definition.construction_stages[count-1].visual_id if count>0 else &"site"

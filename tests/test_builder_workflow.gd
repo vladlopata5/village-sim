@@ -30,6 +30,7 @@ func place(scene: Node, category: int = Types.HOME, point: Vector2 = Vector2(-50
 	var definition = Definition.for_type(category)
 	# Synthetic one-resource fixture isolates ownership/timing from construction balance.
 	definition.construction_requirements = {preload("res://scripts/resource_type.gd").Type.PLANK: 10}
+	preload("res://tests/construction_recipe_expectations.gd").single_stage(definition)
 	scene.placement.select(definition)
 	scene.placement.update_position(point)
 	return scene.placement.confirm()
@@ -52,6 +53,7 @@ func _run() -> void:
 	var base: float = actor.builder.site_priority(site, site.position)
 	site.add_delivered_material(PLANK, 8)
 	check(is_equal_approx(actor.builder.site_priority(site, site.position) - base, 1600), "Delivered material fraction adds 1600")
+	site.definition.construction_stages.assign([preload("res://scripts/construction_stage.gd").new(&"first","First",{PLANK:8},90,&"base"),preload("res://scripts/construction_stage.gd").new(&"second","Second",{PLANK:2},90,&"complete")])
 	site.add_construction_work(90)
 	check(is_equal_approx(actor.builder.site_priority(site, site.position), 2600), "Construction half-progress adds 1000")
 	site.claim_builder_slot("other")

@@ -162,6 +162,7 @@ func run() -> void:
 	check(world.player_control.assign_profession(builder.data.id,P.BUILDER),"Builder assignment")
 	var definition=D.for_type(T.HOME)
 	definition.construction_requirements={R.PLANK:2} # Existing one-material handling fixture.
+	preload("res://tests/construction_recipe_expectations.gd").single_stage(definition)
 	world._select_building_definition(definition)
 	world.placement.update_world_position(Vector3(-10,0,25))
 	var site=world.placement.confirm()

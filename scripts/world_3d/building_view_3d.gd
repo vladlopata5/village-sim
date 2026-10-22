@@ -10,6 +10,8 @@ var work_area: MeshInstance3D
 var layout: Node3D
 var _indexed_layout_id := 0
 var _marker_groups: Dictionary = {} # Script -> ordered node references, never occupancy.
+var construction_visual: MultiMeshInstance3D
+var _finished_visuals: Array[Node3D] = []
 var well_visual: Node3D
 var well_placeholder: Node3D
 var bread_visual: Node3D
@@ -29,10 +31,12 @@ func setup(data: RefCounted) -> void:
 	visual.mesh = box
 	visual.position.y = height / 2.0
 	add_child(visual)
+	_finished_visuals.append(visual)
 	if data.type==preload("res://scripts/building_type.gd").Type.WELL:
 		well_placeholder=visual
 		well_visual=preload("res://scripts/world_3d/well_visual_3d.gd").create()
 		add_child(well_visual)
+		_finished_visuals.append(well_visual)
 	if data.type==preload("res://scripts/building_type.gd").Type.SHEPHERD_HUT or data.type==preload("res://scripts/building_type.gd").Type.FARM:
 		var roof := MeshInstance3D.new()
 		var prism := PrismMesh.new()
@@ -43,10 +47,12 @@ func setup(data: RefCounted) -> void:
 		roof_material.albedo_color=Color("705f48")
 		roof.material_override=roof_material
 		add_child(roof)
+		_finished_visuals.append(roof)
 	if data.type == preload("res://scripts/building_type.gd").Type.WINDMILL:
 		bread_visual = preload("res://scripts/world_3d/bread_building_visuals_3d.gd").create(data.type)
 		bread_visual.rotation.y = data.quarter_turns*PI/2.0
 		add_child(bread_visual)
+		_finished_visuals.append(bread_visual)
 	var shape := BoxShape3D.new()
 	shape.size = box.size
 	var collider := CollisionShape3D.new()
@@ -87,6 +93,17 @@ func _refresh() -> void:
 		bread_visual.visible = building_data.is_built()
 		var rotor: Node = bread_visual.get_node_or_null("Rotor")
 		if rotor!=null:rotor.set_process(building_data.is_built())
+	var staged: bool=not building_data.is_built() and not building_data.previously_built
+	for visual in _finished_visuals:visual.visible=not staged
+	if not staged:
+		if well_visual!=null:well_visual.visible=building_data.is_built();well_placeholder.visible=not building_data.is_built()
+		if bread_visual!=null:bread_visual.visible=building_data.is_built()
+		if construction_visual!=null:construction_visual.free();construction_visual=null
+	else:
+		if construction_visual==null:
+			construction_visual=preload("res://scripts/world_3d/construction_visual_3d.gd").new()
+			add_child(construction_visual)
+		construction_visual.present(building_data.construction_visual_id(),Geometry.building_size(building_data),Geometry.building_height(building_data))
 	set_inside_count(inside_count)
 	caption.text = building_data.display_name + ("" if building_data.is_built() else " — " + building_data.work_status().to_lower())
 func set_selected(value: bool) -> void:

@@ -40,15 +40,16 @@ func construct(actor: Node, category: int, point: Vector3):
 	for cycle in range(8):
 		if site.is_built(): break
 		window()
-		check(world._request_work(actor),"Normal Builder WORK uses physical resources")
+		if actor.builder.phase==Phase.NONE:check(world._request_work(actor),"Normal Builder WORK uses physical resources")
 		for leg in range(40):
 			if actor.builder.phase not in [Phase.GOING_TO_SOURCE,Phase.CARRYING_TO_SITE]: break
 			window()
 			walk(actor)
 		walk(actor)
 		check(actor.builder.phase == Phase.BUILDING,"Actual delivery and access-point arrival start work")
+		var expected: int=site.construction_progress+mini(10,mini(site.current_work_remaining(),Balance.BUILDER_WORK_CYCLE_MINUTES-actor.builder.work_minutes))
 		world.game_time.debug_skip_minutes(10)
-		check(site.construction_progress == mini(cycle*60+10,site.definition.construction_work_required),"Incremental work unchanged")
+		check(site.construction_progress == expected,"Incremental actual work stops at the current stage or cycle boundary")
 		await screenshot("%s_work_%d" % [site.definition.id,cycle])
 		world.game_time.debug_skip_minutes(50)
 	check(site.is_built(),"Exact actual materials plus actual work complete construction")
