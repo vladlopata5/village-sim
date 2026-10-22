@@ -51,6 +51,9 @@ func setup(building: Instance, definition: RefCounted, control: RefCounted) -> v
 	title.add_theme_font_size_override("font_size",16)
 	composition = _label()
 	composition.text = "%s → %s\n%d рабочих минут" % [_goods(recipe.inputs),_goods(recipe.outputs),recipe.work_required]
+	for key in recipe.consumables:
+		var stock: RefCounted=_building.consumable_stocks.get(key)
+		if stock!=null:composition.text+="\nПри начале: %s ×%d" % [stock.display_name,recipe.consumables[key]]
 	if not recipe.optional_outputs.is_empty():composition.text+="\nДополнительно при завершении, если есть место: "+_goods(recipe.optional_outputs)
 	batches = _label()
 	mode = OptionButton.new()

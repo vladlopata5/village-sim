@@ -5,6 +5,7 @@ const ResourceType = preload("res://scripts/resource_type.gd")
 var source_ref: RefCounted
 var source: Instance
 const Receiver = preload("res://scripts/haul_job.gd").Receiver
+var receiver: RefCounted # Exact import endpoint, null only for ground/legacy values.
 var receiver_kind: Receiver = Receiver.CONTAINER
 var destination: Instance
 var resource_type: ResourceType.Type
@@ -17,4 +18,4 @@ var personal_modifier := 0.0
 var porter_score := 0.0
 func stable_key() -> String:
 	if receiver_kind == Receiver.GROUND: return "%d:%s:GROUND:%s" % [resource_type,source_ref.stable_key(),source_ref.id]
-	return "%d:%s:%s" % [resource_type, source_ref.stable_key() if source_ref != null else source.id, destination.id]
+	return "%d:%s:%s%s" % [resource_type, source_ref.stable_key() if source_ref != null else source.id, destination.id, ":"+String(receiver.stock.id) if receiver!=null and receiver!=destination.resources else ""]

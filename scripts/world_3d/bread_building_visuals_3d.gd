@@ -40,9 +40,4 @@ static func create(type: int) -> Node3D:
 			box(arm,Vector3(.12,1.7,.14),Vector3(0,.9,0),Color("634b31"))
 			box(arm,Vector3(.42,1.1,.08),Vector3(.15,1.05,0),Color("e2d6b1"))
 		box(rotor,Vector3(.35,.35,.3),Vector3.ZERO,Color("72583a"))
-	else:
-		box(model,Vector3(.7,2.0,.7),Vector3(1.7,3.6,-.7),Color("776c65"))
-		box(model,Vector3(.95,.18,.95),Vector3(1.7,4.6,-.7),Color("554d48"))
-		box(model,Vector3(1.25,1.3,.45),Vector3(-1.65,.65,2.05),Color("b7754f"))
-		box(model,Vector3(.8,.65,.04),Vector3(-1.65,.5,2.3),Color("463c32"))
 	return model

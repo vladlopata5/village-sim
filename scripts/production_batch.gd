@@ -15,6 +15,9 @@ var work_required: int
 var inputs: Dictionary
 var outputs: Dictionary
 var optional_outputs: Dictionary
+var consumables: Dictionary
+var _stocks: Dictionary
+var _stock_claims: Dictionary = {}
 var _resources: RefCounted
 var _inputs: Dictionary = {}
 var _outputs: Dictionary = {}
@@ -22,7 +25,7 @@ var _mutating := false
 var _cancel_pending := false
 var _release_pending := false
 
-func _init(batch_id: StringName, definition: RefCounted, resources: RefCounted) -> void:
+func _init(batch_id: StringName, definition: RefCounted, resources: RefCounted, stocks: Dictionary = {}) -> void:
 	id = batch_id
 	recipe = definition
 	recipe_id = definition.id
@@ -31,6 +34,8 @@ func _init(batch_id: StringName, definition: RefCounted, resources: RefCounted) 
 	outputs = definition.outputs.duplicate()
 	optional_outputs = definition.optional_outputs.duplicate()
 	_resources = resources
+	_stocks = stocks.duplicate()
+	consumables = definition.consumables.duplicate()
 
 func output_quantity() -> int:
 	return int(outputs.values()[0]) if outputs.size()==1 else 0 # The batch snapshot, never the live definition.
@@ -44,11 +49,14 @@ func _holds(claims: Dictionary, incoming: bool) -> bool:
 	return true
 
 func reserves_valid() -> bool:
-	return not is_terminal() and _holds(_inputs,false) and _holds(_outputs,true)
+	if is_terminal() or not _holds(_inputs,false) or not _holds(_outputs,true):return false
+	for stock in _stock_claims:
+		if not stock.holds(id,_stock_claims[stock]):return false
+	return true
 
 func prepare(worker: String) -> bool:
 	if state != State.PREPARING or _mutating or not worker_id.is_empty() or worker.is_empty() or work_required<=0: return false
-	if outputs.is_empty() or not Recipe.valid_quantities(inputs) or not Recipe.valid_quantities(outputs): return false
+	if not Recipe.valid_consumables(consumables) or outputs.is_empty() or not Recipe.valid_quantities(inputs) or not Recipe.valid_quantities(outputs): return false
 	worker_id = worker
 	_mutating = true
 	var ok := true
@@ -67,6 +75,14 @@ func prepare(worker: String) -> bool:
 				ok = false
 				break
 			if _cancel_pending or _release_pending: break
+	if ok and not _cancel_pending and not _release_pending:
+		for key in consumables:
+			var stock: RefCounted=_stocks.get(key)
+			if stock==null:ok=false;break
+			_stock_claims[stock]=consumables[key]
+			if not stock.reserve(id,consumables[key]):
+				_stock_claims.erase(stock);ok=false;break
+			if _cancel_pending or _release_pending:break
 	if ok: state = State.READY
 	_mutating = false
 	if not ok: _cancel_pending = true
@@ -92,8 +108,13 @@ func begin(worker: String) -> bool:
 	inputs_spent = true
 	var consumed := _inputs
 	_inputs = {}
-	var done: bool = _resources.transform_reserved(consumed,{})
+	var claims := _stock_claims
+	_stock_claims={}
+	var payments: Dictionary={}
+	for stock in claims:payments[stock]={"owner":id,"units":claims[stock]}
+	var done: bool = _resources.transform_reserved(consumed,{},payments)
 	if not done: # A failed transaction emits no callbacks and changes no quantities.
+		_stock_claims = claims
 		_inputs = consumed
 		inputs_spent = false
 		state = State.READY
@@ -146,11 +167,14 @@ func cancel() -> void:
 		return
 	state = State.CANCELLED
 	worker_id = ""
+	var stock_claims := _stock_claims
+	_stock_claims={}
 	var outgoing := _inputs
 	var incoming := _outputs
 	_inputs = {}
 	_outputs = {}
 	# Clear obligations before release can reenter deletion/cleanup.
+	for stock in stock_claims:stock.release(id)
 	for resource in outgoing: _resources.release_out(resource,outgoing[resource])
 	for resource in incoming: _resources.release_in(resource,incoming[resource])
 

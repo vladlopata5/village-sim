@@ -155,7 +155,7 @@ func _deliver(intent: Intent) -> void:
 	if job.receiver_kind == Job.Receiver.GROUND:
 		_deliver_ground(intent)
 		return
-	if resident.inventory.amount != job.amount or destination.resources.get_reserved_in(job.resource_type) < job.amount:
+	if resident.inventory.amount != job.amount or job.receiver.get_reserved_in(job.resource_type) < job.amount:
 		cancel("доставка невозможна")
 		return
 	_mutating = true

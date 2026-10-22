@@ -4,6 +4,7 @@ const ResourceType = preload("res://scripts/resource_type.gd")
 signal finished(job: RefCounted) # Local workflow cleanup, not work availability.
 enum State { ASSIGNED, GOING_TO_SOURCE, CARRYING, GOING_TO_DESTINATION, COMPLETED, CANCELLED }
 enum Receiver { CONTAINER, GROUND }
+var receiver: RefCounted # Exact import endpoint, null only for ground/legacy values.
 var receiver_kind: Receiver = Receiver.CONTAINER
 
 enum Admission { EXTERNAL, INTERNAL, SURPLUS }

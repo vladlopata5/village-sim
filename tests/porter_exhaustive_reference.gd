@@ -19,8 +19,9 @@ func collect_candidates(resident_id: String) -> Array:
 		candidate.source = pair.source
 		candidate.source_ref = Source.new(Source.Kind.CONTAINER,pair.source.id)
 		candidate.destination = pair.destination
+		candidate.receiver = pair.receiver
 		candidate.resource_type = pair.get("resource",FOOD)
-		candidate.world_urgency = Priority.export_priority(pair.source.resources, candidate.resource_type, pair.source.logistics_weight) if pair.export else Priority.import_priority(pair.destination.resources, candidate.resource_type, pair.destination.logistics_weight)
+		candidate.world_urgency = Priority.export_priority(pair.source.resources, candidate.resource_type, pair.source.logistics_weight) if pair.export else Priority.import_priority(pair.receiver, candidate.resource_type, pair.destination.logistics_weight)
 		if not sources.reachable(position,_point(pair.source)) or not sources.reachable(_point(pair.source),_point(pair.destination)): continue
 		candidate.route_distance = position.distance_to(_point(pair.source)) + _point(pair.source).distance_to(_point(pair.destination))
 		candidate.distance_penalty = distance_penalty(candidate.route_distance)
@@ -32,13 +33,14 @@ func collect_candidates(resident_id: String) -> Array:
 		for drop in sources.ground.drops:
 			if drop.world_position.distance_squared_to(position) > (Balance.RESIDENT_GROUND_SEARCH_RADIUS * Balance.PORTER_GROUND_SEARCH_MULTIPLIER) ** 2 and drop.world_position.distance_squared_to(base.position) > (base.definition.get_ground_search_radius() * Balance.PORTER_GROUND_SEARCH_MULTIPLIER) ** 2: continue
 			var source_ref := Source.new(Source.Kind.GROUND,drop.id)
-			if not sources.available(source_ref,drop.resource_type) or not base.definition.allows_external_import(drop.resource_type) or base.resources.get_available_free_capacity(drop.resource_type)<1: continue
+			if not sources.available(source_ref,drop.resource_type) or not base.definition.allows_external_import(drop.resource_type) or base.import_receiver(drop.resource_type)==null: continue
 			if not sources.reachable(position,drop.world_position) or not sources.reachable(drop.world_position,_point(base)): continue
 			var candidate := Candidate.new()
 			candidate.source_ref = source_ref
 			candidate.destination = base
+			candidate.receiver = base.import_receiver(drop.resource_type)
 			candidate.resource_type = drop.resource_type
-			candidate.world_urgency = Priority.import_priority(base.resources,drop.resource_type,base.logistics_weight)
+			candidate.world_urgency = Priority.import_priority(candidate.receiver,drop.resource_type,base.logistics_weight)
 			candidate.route_distance = position.distance_to(drop.world_position)+drop.world_position.distance_to(_point(base))
 			candidate.distance_penalty = distance_penalty(candidate.route_distance)
 			candidate.personal_modifier = _get_personal_delivery_modifier(resident,candidate)

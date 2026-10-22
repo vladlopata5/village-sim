@@ -286,7 +286,7 @@ func _emit_availability(resource: ResourceType.Type, previous_available: int) ->
 	if available != previous_available: availability_changed.emit(resource, available)
 
 
-func transform_reserved(inputs: Dictionary, outputs: Dictionary) -> bool:
+func transform_reserved(inputs: Dictionary, outputs: Dictionary, payments: Dictionary = {}) -> bool:
 	if _removed: return false
 	# Validate the entire local transaction before signals can invoke other consumers.
 	var types: Array = inputs.keys()
@@ -298,12 +298,18 @@ func transform_reserved(inputs: Dictionary, outputs: Dictionary) -> bool:
 		if consumed < 0 or produced < 0 or consumed > get_reserved_out(resource) or produced > get_reserved_in(resource): return false
 		var next_amount := get_amount(resource)-consumed+produced
 		if not allows_resource(resource) or next_amount < get_reserved_out(resource)-consumed or next_amount+get_reserved_in(resource)-produced > get_capacity(resource): return false
+	for stock in payments:
+		var payment: Dictionary=payments[stock]
+		if not stock.holds(payment.owner,payment.units):return false
+	# Both physical and numerical payments validate before either changes.
+	for stock in payments:stock.commit_payment(payments[stock].owner)
 	var previous: Dictionary = {}
 	for resource in types:
 		previous[resource] = get_available_amount(resource)
 		_amounts[resource] = get_amount(resource)-int(inputs.get(resource,0))+int(outputs.get(resource,0))
 		_reserved_out[resource] = get_reserved_out(resource)-int(inputs.get(resource,0))
 		_reserved_in[resource] = get_reserved_in(resource)-int(outputs.get(resource,0))
+	for stock in payments:stock.changed.emit()
 	# All quantities/reservations are already final even inside synchronous callbacks.
 	for resource in types:
 		_emit_availability(resource,previous[resource])
@@ -324,3 +330,8 @@ func drain_for_removal() -> Dictionary:
 		availability_changed.emit(resource,0)
 		changed.emit(resource,0)
 	return {"ok":true,"contents":contents}
+
+func import_fill(resource: int) -> float:
+	var capacity: int=get_category_quota(get_resource_category(resource)) if is_warehouse() else get_capacity(resource)
+	var projected: int=get_category_amount(get_resource_category(resource))+get_category_reserved_in(get_resource_category(resource)) if is_warehouse() else get_amount(resource)+get_reserved_in(resource)
+	return float(projected)/capacity if capacity>0 else 1.0

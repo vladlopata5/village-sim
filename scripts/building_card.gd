@@ -20,6 +20,8 @@ var farm_stock_editor: LineEdit
 var farm_stock_feedback: Label
 var _stock_dirty:=false
 var _stock_id: StringName
+var consumable_rows: Dictionary = {}
+var consumable_section: VBoxContainer
 var recipe_views: Dictionary = {}
 var _recipe_ids: Array = []
 const FOOD = ResourceType.Type.FOOD
@@ -59,6 +61,8 @@ func _ready() -> void:
 	get_node("%Demolish").pressed.connect(_change_construction_direction)
 	_setup_storage_rows()
 	_setup_stock_target()
+	consumable_section=VBoxContainer.new()
+	_info_body().add_child(consumable_section)
 	_setup_work_area()
 	animal_summary=Label.new()
 	animal_summary.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
@@ -86,12 +90,22 @@ func _on_selection_changed() -> void:
 		row.contents.hide()
 		row.expand.text = "▸ " + Categories.display_name(storage_rows.find_key(row))
 	get_node("%StorageError").text = ""
+	for row in consumable_rows.values():row.box.free()
+	consumable_rows.clear()
 	_building = _selection.selected_building
 	_presented_tabs.clear()
 	_last_snapshot = []
 	if _building != null:
 		_building.construction_changed.connect(_refresh)
 		_building.production_changed.connect(_refresh_recipes)
+		for key in _building.consumable_stocks:
+			var stock: RefCounted=_building.consumable_stocks[key]
+			var box:=VBoxContainer.new()
+			var label:=Label.new()
+			var bar:=ProgressBar.new()
+			box.add_child(label);box.add_child(bar);consumable_section.add_child(box)
+			consumable_rows[key]={"box":box,"label":label,"bar":bar}
+			stock.changed.connect(_refresh_consumables)
 	if _building != null and _building.resources != null:
 		_building.resources.changed.connect(_on_resources_changed)
 		_building.resources.reservations_changed.connect(_on_reservations_changed)
@@ -110,6 +124,7 @@ func _process(delta: float) -> void:
 func _refresh() -> void:
 	refresh_count += 1
 	_refresh_recipes()
+	_refresh_consumables()
 	_refresh_work_area()
 	_refresh_construction_command()
 	if management_button != null: management_button.visible = _building != null and _building.is_built() and _building.type == Types.Type.TOWN_CENTER
@@ -479,7 +494,17 @@ func _clear_person(id: String, building_id: StringName, housing: bool, role: int
 		if current.home_location_id == building_id: _control.clear_home(id)
 	elif current.work_location_id == building_id and current.profession==role: _control.clear_work_assignment(id)
 	_refresh()
+func _refresh_consumables() -> void:
+	if _building==null:return
+	for key in consumable_rows:
+		var stock: RefCounted=_building.consumable_stocks[key]
+		var row: Dictionary=consumable_rows[key]
+		row.label.text="%s: %d / %d" % [stock.display_name,stock.amount,stock.capacity]
+		row.bar.max_value=stock.capacity;row.bar.value=stock.amount
 func _disconnect_building() -> void:
+	if _building!=null:
+		for stock in _building.consumable_stocks.values():
+			if stock.changed.is_connected(_refresh_consumables):stock.changed.disconnect(_refresh_consumables)
 	if _building==null: return
 	for pair in [
 		[_building.construction_changed,_refresh],

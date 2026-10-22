@@ -150,6 +150,8 @@ func run() -> void:
 	var worker=lumber.get_node("Lumberjack")
 	check(hut_b.resources.get_available_free_capacity(Resources.LOG)==12 and not scene.logistics.allows_external_delivery(hut,hut_b,Resources.LOG),"Empty hut stores LOG but cannot externally import it")
 	check(not scene.logistics.external_destinations(hut,Resources.LOG).has(hut_b),"Generic external destination provider rejects second hut")
+	scene.kitchen_data.consumable_receivers[&"fuel"].reserve_in(Resources.LOG,4)
+	scene.kitchen_data.consumable_receivers[&"fuel"].add_reserved(Resources.LOG,4) # Isolate warehouse fallback from the new valid fuel receiver.
 	check(worker.best_task().kind==&"EXPORT" and worker.best_task().destination==storage,"Forestry fallback respects shared policy, chooses Storage")
 	check(scene.logistics.collect_candidates(other.data.id).any(func(c): return c.source==hut and c.destination==storage and c.resource_type==Resources.LOG),"Porter B can import hut LOG only into B")
 	check(scene.logistics.claim_own_export(lumber.data.id,hut_b)==null and hut.resources.get_reserved_out(Resources.LOG)==0 and hut_b.resources.get_reserved_in(Resources.LOG)==0,"Direct external claim cannot bypass hut import policy")

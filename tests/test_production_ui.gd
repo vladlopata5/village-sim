@@ -25,6 +25,8 @@ func real_cards() -> void:
 	var world=UI.create(self)
 	var saw=UI.building(world,Types.SAWMILL,Vector3(-13,0,0))
 	var kitchen=UI.building(world,Types.FOOD,Vector3(-10,0,-10))
+	kitchen.consumable_receivers[&"fuel"].reserve_in(Resources.LOG,4)
+	kitchen.consumable_receivers[&"fuel"].add_reserved(Resources.LOG,4)
 	var card=open_card(world,saw)
 	var saw_view=card.recipe_views[&"sawmill_plank"]
 	check(card.recipe_views.size()==1 and saw_view.mode.selected==Mode.UNLIMITED and not saw_view.amount.visible,"Real sawmill starts with one unlimited recipe")
@@ -40,7 +42,7 @@ func real_cards() -> void:
 	actor.commands.move_to(Vector2(0,500));actor.commands.cancel_current();actor.intents.abort_current(actor.intents.current_intent)
 	card=open_card(world,kitchen)
 	var view=card.recipe_views[&"fried_mushroom"]
-	check(card.recipe_views.size()==1 and view.mode.selected==Mode.UNLIMITED,"Kitchen starts with its own unlimited fried recipe")
+	check(card.recipe_views.size()==2 and view.mode.selected==Mode.UNLIMITED,"Kitchen starts with its own unlimited fried recipe")
 	check(view.composition.text.contains("Грибы ×1") and view.composition.text.contains("Жареные грибы ×2") and view.composition.text.contains("30 рабочих минут"),"Kitchen inputs, concrete output and work duration")
 	check(world.player_control.assign_workplace(actor.data.id,kitchen.id) and card.staffing_buttons.has(Profession.COOK),"Existing COOK staffing remains available")
 	kitchen.resources.add(Resources.MUSHROOM,3)

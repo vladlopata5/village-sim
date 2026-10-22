@@ -43,7 +43,7 @@ func task() -> Dictionary:
 	if not _offer.is_empty() and _offer_stamp==identity:
 		if _offer.kind!=&"SUPPLY" or (world.logistics.sources.available(_offer.source,_offer.resource) and world.logistics.sources.ground_allowed(_offer.source,runtime.view.get_sim_position(),place)): return _offer.duplicate()
 	var checked: Dictionary={} # One lookup per missing concrete input in this read, including misses.
-	var selected: Dictionary=place.select_production_work(runtime.data.id,_source_for.bind(place,checked))
+	var selected: Dictionary=place.select_production_work(runtime.data.id,_source_for.bind(place,checked),_stock_source.bind(place,checked))
 	var result: Dictionary={}
 	if not selected.is_empty():
 		if selected.kind==&"SUPPLY":
@@ -74,17 +74,19 @@ func has_work() -> bool: return not task().is_empty()
 func _supply_valid(workplace_id: StringName, need_id: StringName) -> bool:
 	var place = world.player_control.get_building(workplace_id)
 	return place!=null and _committed_workplace(workplace_id) and place.supply.valid(need_id)
-func _supply_eligible(workplace_id: StringName, need_id: StringName, revision: int, source_ref: RefCounted) -> bool:
+func _supply_eligible(workplace_id: StringName, need_id: StringName, revision: int, source_ref: RefCounted, stock_id: StringName = &"") -> bool:
+	var place=world.player_control.get_building(workplace_id)
+	if not stock_id.is_empty() and (place==null or not place.consumable_stocks.has(stock_id) or place.consumable_stocks[stock_id].amount!=0):return false
 	return runtime.data.work_assignment_revision==revision and _eligible(workplace_id,source_ref) and _supply_valid(workplace_id,need_id)
 func _request_supply(place: RefCounted, candidate: Dictionary) -> bool:
 	var need: Dictionary=place.supply.open(candidate.recipe_id,world.logistics)
 	if need.is_empty(): return false
 	var missing: Dictionary=place.supply.deficits(candidate.recipe_id)
-	if not missing.has(candidate.resource) or not world.logistics.sources.available(candidate.source,candidate.resource):
+	if (not _stock_supply_needed(place,candidate) if candidate.has("stock_id") else not missing.has(candidate.resource)) or not world.logistics.sources.available(candidate.source,candidate.resource):
 		place.supply.end_claim(need,null)
 		return false
 	place.supply.begin_claim(need)
-	var job=world.logistics.claim_transport(runtime.data.id,candidate.source,place,candidate.resource,_supply_eligible.bind(place.id,need.id,runtime.data.work_assignment_revision,candidate.source),true,_supply_valid.bind(place.id,need.id))
+	var job=world.logistics.claim_transport(runtime.data.id,candidate.source,place,candidate.resource,_supply_eligible.bind(place.id,need.id,runtime.data.work_assignment_revision,candidate.source,candidate.get("stock_id",&"")),true,_supply_valid.bind(place.id,need.id),false,0.0,null,&"",false,0,candidate.get("receiver",place.resources))
 	if not place.supply.end_claim(need,job):
 		if job!=null: world.logistics.cancel_transport(job,"снабжение не закреплено")
 		return false
@@ -137,3 +139,25 @@ func request_stock_supply(place: RefCounted, candidate: Dictionary) -> bool:
 	if job==null:return false
 	if world.logistics.start_claimed_job(job,runtime.data.id):return true
 	world.logistics.cancel_transport(job,"снабжение минимального запаса не началось");return false
+
+func _stock_supply_needed(place: RefCounted, candidate: Dictionary) -> bool:
+	var stock: RefCounted=place.consumable_stocks.get(candidate.stock_id)
+	return stock!=null and stock.amount==0 and stock.incoming_units()==0 and stock.room_for(candidate.resource)>0 and candidate.receiver==place.consumable_receivers.get(candidate.stock_id)
+func _stock_source(key: StringName, place: RefCounted, checked: Dictionary) -> Dictionary:
+	var stock: RefCounted=place.consumable_stocks[key]
+	var best: RefCounted=null
+	var best_resource := -1
+	var best_yield := -1
+	var best_distance := INF
+	var origin: Vector2=runtime.view.get_sim_position()
+	var destination: Vector2=world.world_locations.get_position(place.id)
+	for resource in stock.conversions:
+		var units: int=stock.yield_for(resource)
+		if stock.room_for(resource)<1 or units<best_yield:continue
+		var source:=_source_for(resource,place,checked)
+		if source==null:continue
+		var point: Vector2=world.logistics.sources.point(source)
+		var distance:=origin.distance_to(point)+point.distance_to(destination)
+		if units>best_yield or distance<best_distance or (distance==best_distance and (best==null or source.stable_key()<best.stable_key())):
+			best=source;best_resource=resource;best_yield=units;best_distance=distance
+	return {"source":best,"resource":best_resource,"receiver":place.consumable_receivers[key],"stock_id":key} if best!=null else {}

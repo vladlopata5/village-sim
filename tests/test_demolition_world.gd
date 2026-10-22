@@ -148,6 +148,8 @@ func run() -> void:
 	var cook=world.resident_runtimes[2]
 	check(world.player_control.assign_workplace(cook.data.id,delivery.id,P.COOK),"Cook workplace")
 	check(delivery.resources.add(R.MUSHROOM,1),"One cooking input")
+	delivery.consumable_receivers[&"fuel"].reserve_in(R.LOG,1)
+	delivery.consumable_receivers[&"fuel"].add_reserved(R.LOG,1)
 	var batch=delivery.claim_production_work(cook.data.id)
 	check(batch!=null and batch.begin(cook.data.id),"Actual paid production batch")
 	check(world.change_construction_direction(delivery.id,true) and batch.is_terminal(),"Demolition cancels paid batch")

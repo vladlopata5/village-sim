@@ -26,14 +26,16 @@ func definitions_and_snapshots() -> void:
 	done(target,saved,"worker")
 	check(target.resources.get_amount(Resources.PLANK)==2 and target.resources.get_amount(Resources.FOOD)==0 and target.get_recipe_settings(A).produced==2,"Completion and ORDER count snapshot output, not live product")
 func output_space() -> void:
-	for stock_amount in [18,19,20]:
+	for stock_amount in [8,9,10]:
 		var kitchen=Building.new(&"kitchen",Definitions.for_type(Types.FOOD))
+		kitchen.consumable_receivers[&"fuel"].reserve_in(Resources.LOG,1)
+		kitchen.consumable_receivers[&"fuel"].add_reserved(Resources.LOG,1)
 		kitchen.resources.add(Resources.MUSHROOM,1);kitchen.resources.add(Resources.FRIED_MUSHROOM,stock_amount)
 		var batch=kitchen.prepare_production_batch("cook")
-		check((batch!=null)==(stock_amount==18),"Full output required at stock "+str(stock_amount))
+		check((batch!=null)==(stock_amount==8),"Full output required at stock "+str(stock_amount))
 		if batch!=null:
 			check(kitchen.resources.get_reserved_in(Resources.FRIED_MUSHROOM)==2 and batch.begin("cook"),"Full output promised before input payment")
-			batch.advance("cook",30);check(batch.finish("cook") and not batch.finish("cook") and kitchen.resources.get_amount(Resources.FRIED_MUSHROOM)==20,"Indivisible output fits exactly and publishes once")
+			batch.advance("cook",30);check(batch.finish("cook") and not batch.finish("cook") and kitchen.resources.get_amount(Resources.FRIED_MUSHROOM)==10,"Indivisible output fits exactly and publishes once")
 		else:check(kitchen.resources.get_amount(Resources.MUSHROOM)==1 and kitchen.resources.get_reserved_out(Resources.MUSHROOM)==0,"Failed start preserves raw input")
 	var target=factory();only(target,A);target.resources.set_capacity(Resources.PLANK,4)
 	var first=take(target,"one");var second=take(target,"two")

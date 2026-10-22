@@ -12,6 +12,8 @@ var observer: Callable
 
 func quiet_world() -> Node:
 	var world=scene()
+	world.kitchen_data.consumable_receivers[&"fuel"].reserve_in(Resources.LOG,4)
+	world.kitchen_data.consumable_receivers[&"fuel"].add_reserved(Resources.LOG,4)
 	for building in world.buildings:
 		for resource in Resources.values(): building.resources.try_take(resource,building.resources.get_amount(resource))
 	for actor in world.resident_runtimes:
@@ -40,10 +42,12 @@ func definitions_and_quotas() -> void:
 	check(Catalog.types_in_category(Categories.SIMPLE_FOOD)==[Resources.FOOD,Resources.FRIED_MUSHROOM,Resources.BREAD] and Catalog.types_in_category(Categories.MUSHROOM)==[Resources.MUSHROOM],"Real multi-type ready-food category")
 	for resource in [Resources.MUSHROOM,Resources.FRIED_MUSHROOM]: check(not Catalog.get_display_name(resource).is_empty(),"Catalog owns each new label")
 	var kitchen=Instance.new(&"kitchen_test",Definitions.for_type(Types.FOOD))
+	kitchen.consumable_receivers[&"fuel"].reserve_in(Resources.LOG,4)
+	kitchen.consumable_receivers[&"fuel"].add_reserved(Resources.LOG,4)
 	var hut=Instance.new(&"hut_test",Definitions.for_type(Types.GATHERER_HUT))
 	check(hut.resources.get_capacity(Resources.MUSHROOM)==5 and not hut.resources.allows_resource(Resources.FOOD),"Unchanged five-unit extraction buffer, now mushrooms only")
 	check(kitchen.definition.worker_profession==Profession.COOK and kitchen.production_capacity()==1 and kitchen.definition.visitor_capacity==4,"One cook plus four independent visitors")
-	check(not kitchen.resources.is_warehouse() and kitchen.resources.get_capacity(Resources.MUSHROOM)==8 and kitchen.resources.get_capacity(Resources.FRIED_MUSHROOM)==20 and kitchen.resources.get_capacity(Resources.FOOD)==20,"Concrete production buffers remain separate from category quotas")
+	check(not kitchen.resources.is_warehouse() and kitchen.resources.get_capacity(Resources.MUSHROOM)==10 and kitchen.resources.get_capacity(Resources.FRIED_MUSHROOM)==10 and kitchen.resources.get_capacity(Resources.FOOD)==20,"Concrete production buffers remain separate from category quotas")
 	var recipe=kitchen.definition.production_recipe
 	check(recipe.id==&"fried_mushroom" and recipe.inputs=={Resources.MUSHROOM:1} and recipe.outputs=={Resources.FRIED_MUSHROOM:2} and recipe.work_required==30 and kitchen.get_recipe_mode(recipe.id)==Instance.ProductionMode.UNLIMITED,"Real ordinary recipe and default UNLIMITED")
 	check(kitchen.definition.allows_external_import(Resources.MUSHROOM) and not kitchen.definition.allows_external_export(Resources.MUSHROOM) and not kitchen.definition.allows_external_import(Resources.FRIED_MUSHROOM) and kitchen.definition.allows_external_export(Resources.FRIED_MUSHROOM),"Raw enters, dish exports without a ready-dish return cycle")
@@ -68,14 +72,14 @@ func definitions_and_quotas() -> void:
 	check(shared.get_category_amount(Categories.SIMPLE_FOOD)==12 and shared.reserve_in(Resources.FRIED_MUSHROOM,2) and shared.get_available_free_capacity(Resources.FOOD)==1 and shared.get_available_free_capacity(Resources.FRIED_MUSHROOM)==1,"Physical food plus inbound uses aggregate category room once")
 	check(shared.reserve_out(Resources.FOOD,1) and shared.reserve_out(Resources.FRIED_MUSHROOM,1) and shared.take_reserved(Resources.FRIED_MUSHROOM,1) and shared.get_reserved_out(Resources.FOOD)==1 and shared.get_amount(Resources.FOOD)==7,"Concrete dish reserves never consume or release each other")
 	check(kitchen.resources.add(Resources.MUSHROOM,1),"Production buffer accepts mushrooms independently of warehouse zero quota")
-	check(kitchen.resources.add(Resources.FRIED_MUSHROOM,20) and not kitchen.can_start_production(recipe.id) and kitchen.resources.get_amount(Resources.MUSHROOM)==1,"Full cooked buffer blocks new batch without losing raw input")
+	check(kitchen.resources.add(Resources.FRIED_MUSHROOM,10) and not kitchen.can_start_production(recipe.id) and kitchen.resources.get_amount(Resources.MUSHROOM)==1,"Full cooked buffer blocks new batch without losing raw input")
 	kitchen.resources.try_take(Resources.FRIED_MUSHROOM,1)
 	check(not kitchen.can_start_production(recipe.id) and kitchen.resources.get_amount(Resources.MUSHROOM)==1,"One free output place does not admit an indivisible two-dish batch")
 	kitchen.resources.try_take(Resources.FRIED_MUSHROOM,1)
 	var batch=kitchen.prepare_production_batch("cook")
 	check(batch!=null and kitchen.resources.get_amount(Resources.MUSHROOM)==1 and batch.begin("cook") and kitchen.resources.get_amount(Resources.MUSHROOM)==0,"Normal batch preparation then actual beginning spends exactly one mushroom")
 	batch.advance("cook",30)
-	check(batch.finish("cook") and not batch.finish("cook") and kitchen.resources.get_amount(Resources.FRIED_MUSHROOM)==20,"Repeated finish cannot produce another two dishes")
+	check(batch.finish("cook") and not batch.finish("cook") and kitchen.resources.get_amount(Resources.FRIED_MUSHROOM)==10,"Repeated finish cannot produce another two dishes")
 	kitchen.retire_production_batch(batch)
 
 func real_chain() -> void:

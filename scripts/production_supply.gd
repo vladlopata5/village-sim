@@ -70,7 +70,8 @@ func deficits(recipe_id: StringName) -> Dictionary:
 	# First protect inbound units already promised specifically to each kit.
 	for need in rows:
 		var owned: Dictionary={}
-		for row in _active_jobs(need): owned[row.job.resource_type]=int(owned.get(row.job.resource_type,0))+1
+		for row in _active_jobs(need):
+			if row.job.receiver==building.resources:owned[row.job.resource_type]=int(owned.get(row.job.resource_type,0))+1
 		incoming[need.recipe_id]=owned
 		for resource in need.recipe.inputs:
 			if not pool.has(resource): pool[resource]=building.resources.get_available_amount(resource)+building.resources.get_reserved_in(resource)

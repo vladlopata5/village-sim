@@ -18,9 +18,9 @@ class Counted extends "res://scripts/logistics_controller.gd":
 	func _pairs() -> Array:
 		global_scans += 1
 		return super._pairs()
-	func allows_external_delivery(a: BuildingInstance,b: BuildingInstance,resource: int) -> bool:
+	func allows_external_delivery(a: BuildingInstance,b: BuildingInstance,resource: int, endpoint: RefCounted = null) -> bool:
 		policies += 1
-		return super.allows_external_delivery(a,b,resource)
+		return super.allows_external_delivery(a,b,resource,endpoint)
 	func _routes_available(candidate: Candidate,point: Vector2) -> bool:
 		routes += 1
 		return super._routes_available(candidate,point)

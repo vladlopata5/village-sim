@@ -41,6 +41,8 @@ var construction_progress: int = 0:
 		construction_progress = clamped
 		_notify_construction_changed()
 var animal_housing: RefCounted
+var consumable_stocks: Dictionary = {}
+var consumable_receivers: Dictionary = {}
 var resources: ResourceContainer
 var _production_batches: Array[Batch] = []
 var production_batches: Array[Batch]:
@@ -109,6 +111,14 @@ func _init(instance_id: StringName, building_definition: Definition, world_posit
 	for recipe in definition.production_recipes:
 		_recipe_settings[recipe.id] = {"mode":ProductionMode.UNLIMITED,"target":0,"produced":0,"revision":0,"order":false}
 func _configure_resource_buffers() -> void:
+	for key in definition.consumable_definitions:
+		if consumable_stocks.has(key):continue
+		var row: Dictionary=definition.consumable_definitions[key]
+		var stock=preload("res://scripts/consumable_stock.gd").new(key,row.label,row.capacity,row.materials)
+		consumable_stocks[key]=stock
+		consumable_receivers[key]=preload("res://scripts/consumable_receiver.gd").new(id,stock)
+		stock.changed.connect(_on_consumables_changed)
+
 	if definition.resource_capacities.is_empty(): return
 	resources.set_allowed_resource_types(definition.resource_capacities.keys())
 	for resource in definition.resource_capacities:
@@ -120,7 +130,7 @@ func prepare_production_batch(worker: String, recipe_id: StringName = &"") -> Ba
 	var recipe = definition.get_production_recipe(selected.recipe_id)
 	supply.consume_for_start(recipe.id)
 	if not can_start_production(recipe.id): return null
-	var created := Batch.new(StringName("%s:batch_%04d" % [id,_next_batch_id]),recipe,resources)
+	var created := Batch.new(StringName("%s:batch_%04d" % [id,_next_batch_id]),recipe,resources,consumable_stocks)
 	created.order_revision = _recipe_settings[recipe.id].revision
 	_next_batch_id += 1
 	production_revision += 1
@@ -335,13 +345,15 @@ func _maintain_stock(product: int, excluding_prepared: StringName = &"") -> int:
 func can_start_production(recipe_id: StringName) -> bool:
 	var recipe = definition.get_production_recipe(recipe_id)
 	if not is_built() or production_removed or recipe==null or not recipe.is_valid() or not supply.allows(recipe_id): return false
+	for key in recipe.consumables:
+		if not consumable_stocks.has(key) or consumable_stocks[key].available()<int(recipe.consumables[key]):return false
 	for resource in recipe.inputs:
 		if resources.get_available_amount(resource)<int(recipe.inputs[resource]): return false
 	for resource in recipe.outputs:
 		if resources.get_available_free_capacity(resource)<int(recipe.outputs[resource]): return false
 	return true
 
-func select_production_work(worker: String = "", source_provider: Callable = Callable()) -> Dictionary:
+func select_production_work(worker: String = "", source_provider: Callable = Callable(), stock_provider: Callable = Callable()) -> Dictionary:
 	if production_removed or not is_built() or (not worker.is_empty() and _worker_has_batch(worker)): return {}
 	var paused := resumable_production_batch()
 	if paused!=null: return {"kind":&"RESUME","batch":paused,"recipe_id":paused.recipe_id}
@@ -353,6 +365,14 @@ func select_production_work(worker: String = "", source_provider: Callable = Cal
 			var recipe = recipes[index]
 			if get_recipe_mode(recipe.id)!=mode: continue
 			if can_start_production(recipe.id): return {"kind":&"START","recipe_id":recipe.id}
+			if supply.allows(recipe.id) and stock_provider.is_valid():
+				for key in recipe.consumables:
+					var stock: RefCounted=consumable_stocks.get(key)
+					if stock==null or stock.amount!=0 or stock.incoming_units()>0:continue
+					var offer: Dictionary=stock_provider.call(key)
+					if not offer.is_empty():
+						offer.kind=&"SUPPLY";offer.recipe_id=recipe.id
+						return offer
 			if not source_provider.is_valid(): continue
 			var missing: Dictionary = supply.deficits(recipe.id)
 			for resource in recipe.inputs:
@@ -431,3 +451,18 @@ func external_available(resource: int) -> int:
 func import_demand(resource: int) -> int:
 	var room: int=resources.get_available_free_capacity(resource)
 	return mini(room,maxi(0,get_stock_target(resource)-resources.get_amount(resource)-resources.get_reserved_in(resource))) if _stock_targets.has(resource) else room
+
+func _on_consumables_changed() -> void:
+	production_revision+=1
+	production_changed.emit()
+func owns_receiver(receiver: RefCounted) -> bool:
+	return receiver==resources or receiver in consumable_receivers.values()
+func import_receivers(resource: int, available_only: bool = true) -> Array:
+	var result: Array=[]
+	if resources.allows_resource(resource) and resources.get_capacity(resource)>0 and (not available_only or import_demand(resource)>0):result.append(resources)
+	for receiver in consumable_receivers.values():
+		if receiver.allows_resource(resource) and (not available_only or receiver.get_available_free_capacity(resource)>0):result.append(receiver)
+	return result
+func import_receiver(resource: int) -> RefCounted:
+	var receivers:=import_receivers(resource)
+	return receivers[0] if not receivers.is_empty() else null

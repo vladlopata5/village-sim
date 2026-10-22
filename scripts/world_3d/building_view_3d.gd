@@ -37,7 +37,7 @@ func setup(data: RefCounted) -> void:
 		roof_material.albedo_color=Color("705f48")
 		roof.material_override=roof_material
 		add_child(roof)
-	if data.type in [preload("res://scripts/building_type.gd").Type.WINDMILL,preload("res://scripts/building_type.gd").Type.BAKERY]:
+	if data.type == preload("res://scripts/building_type.gd").Type.WINDMILL:
 		bread_visual = preload("res://scripts/world_3d/bread_building_visuals_3d.gd").create(data.type)
 		bread_visual.rotation.y = data.quarter_turns*PI/2.0
 		add_child(bread_visual)
@@ -60,7 +60,7 @@ func setup(data: RefCounted) -> void:
 	add_child(indicator)
 	caption = Label3D.new()
 	caption.pixel_size = 0.018
-	caption.position.y = (6.5 if data.type==preload("res://scripts/building_type.gd").Type.WINDMILL else 5.0 if data.type==preload("res://scripts/building_type.gd").Type.BAKERY else height + 0.36) + (0.9 if data.definition.animal_capacity>0 or data.type==preload("res://scripts/building_type.gd").Type.FARM else 0.0)
+	caption.position.y = (6.5 if data.type==preload("res://scripts/building_type.gd").Type.WINDMILL else height + 0.36) + (0.9 if data.definition.animal_capacity>0 or data.type==preload("res://scripts/building_type.gd").Type.FARM else 0.0)
 	caption.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	add_child(caption)
 	if data.definition.work_radius > 0:

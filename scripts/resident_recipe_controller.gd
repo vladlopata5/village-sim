@@ -169,7 +169,7 @@ func _on_intent_changed(intent: Intent) -> void:
 func on_assignment_changed(id: String) -> void:
 	if id == _runtime.data.id and building != null and not _eligible(building): abort()
 func _on_production_changed() -> void:
-	if building!=null and not _valid(): abort()
+	if not _mutating and building!=null and not _valid(): abort() # Own preparation publishes the batch after reservation callbacks.
 func _on_resource(_resource: int, _amount: int) -> void: _queue_availability()
 func _on_reservation(_resource: int) -> void: _queue_availability()
 func _queue_availability() -> void:
