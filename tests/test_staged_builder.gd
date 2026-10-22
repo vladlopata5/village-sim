@@ -10,7 +10,7 @@ func place(world: Node,type: int,point: Vector3) -> RefCounted:
 	check(site!=null,"Real staged site passes ordinary placement")
 	return site
 func supply(world: Node,site: RefCounted) -> void:
-	for resource in site.definition.construction_requirements:
+	for resource in site.construction_definition().construction_requirements:
 		check(world.warehouse_data.resources.add(resource,site.get_required_amount(resource)),"Exact unchanged construction materials prepared in source")
 func drive(world: Node,site: RefCounted,actors: Array,stop: Callable=Callable()) -> void:
 	var observed: int=site.completed_construction_stage_count()

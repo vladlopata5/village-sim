@@ -15,7 +15,7 @@ static func markers(layout: Node, script: Script) -> Array:
 static func validate(layout: Node, definition: RefCounted) -> bool:
 	var entrances := markers(layout,Entrance)
 	if entrances.size()!=1: return false
-	var slots := markers(layout,Slot)
+	var slots := markers(layout,Slot).filter(func(marker):return marker.minimum_level<=definition.development_level)
 	var physical := Rect2(-Vector2(definition.footprint_cells)*0.25,Vector2(definition.footprint_cells)*0.5)
 	for marker in slots:
 		if marker.purpose!=Slot.Purpose.COURIER: continue

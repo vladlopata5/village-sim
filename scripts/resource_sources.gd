@@ -127,7 +127,7 @@ func reserve(source_ref: Source, resource: int, owner: StringName) -> bool:
 	if source_ref.kind == Source.Kind.NATURAL_MUSHROOM: return nature.reserve(source_ref.id,owner)
 	if source_ref.kind == Source.Kind.GROUND: return entity.reserve(owner)
 	# Record ownership before synchronous reserve callbacks observe the ledger.
-	_claims[owner] = {"source":source_ref,"resource":resource}
+	_claims[owner] = {"source":source_ref,"resource":resource,"entity":entity}
 	if not entity.resources.reserve_out(resource,1):
 		_claims.erase(owner)
 		return false
@@ -140,10 +140,10 @@ func reserved(source_ref: Source, resource: int, owner: StringName) -> bool:
 	if source_ref.kind == Source.Kind.NATURAL_MUSHROOM: return nature.reserved(source_ref.id,owner)
 	if source_ref.kind == Source.Kind.GROUND: return entity.reserved_amount(owner)>=1
 	var claim: Dictionary = _claims.get(owner,{})
-	if claim.is_empty() or claim.source.stable_key()!=source_ref.stable_key() or claim.resource!=resource: return false
+	if claim.is_empty() or claim.source.stable_key()!=source_ref.stable_key() or claim.resource!=resource or claim.entity!=entity: return false
 	var managed := 0
 	for row in _claims.values():
-		if row.source.stable_key()==source_ref.stable_key() and row.resource==resource: managed += 1
+		if row.entity==entity and row.source.stable_key()==source_ref.stable_key() and row.resource==resource: managed += 1
 	return entity.resources.get_reserved_out(resource)>=managed and entity.resources.get_amount(resource)-entity.get_stock_target(resource)>=managed
 func pickup(source_ref: Source, resource: int, owner: StringName) -> bool:
 	if not reserved(source_ref,resource,owner): return false
@@ -173,7 +173,7 @@ func release(source_ref: Source, resource: int, owner: StringName, reserved_enti
 		var claim: Dictionary = _claims.get(owner,{})
 		if not claim.is_empty() and claim.source.stable_key()==source_ref.stable_key() and claim.resource==resource:
 			_claims.erase(owner)
-			if entity != null: entity.resources.release_out(resource,1)
+			if claim.entity != null: claim.entity.resources.release_out(resource,1)
 	_queue_changed()
 func storage_destinations(source: Source, resource: int, origin: Vector2) -> Array:
 	var result: Array = []

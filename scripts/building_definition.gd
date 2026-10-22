@@ -157,6 +157,8 @@ const CONSTRUCTION_STAGES = {
 	],
 }
 var construction_stages: Array[Stage] = []
+var upgrades: Array = []
+var development_level := 1
 const Profession = preload("res://scripts/resident_profession.gd")
 var initial_stock_targets: Dictionary = {} # Generic minimum inputs, separate from recipe kits.
 var animal_capacity := 0
@@ -280,6 +282,38 @@ static func for_type(category: BuildingType.Type, label: String = ""):
 	if category == BuildingType.Type.SAWMILL:
 		result.worker_capacity = Balance.SAWMILL_WORKER_CAPACITY
 		result.production_recipes.append(Recipe.new({ResourceType.Type.LOG:1},{ResourceType.Type.PLANK:1},Balance.SAWMILL_WORK_MINUTES,&"sawmill_plank"))
+	if category in [BuildingType.Type.FOOD,BuildingType.Type.LUMBERJACK_HUT]:
+		var upgrade=preload("res://scripts/building_upgrade.gd").new()
+		upgrade.construction_requirements={ResourceType.Type.LOG:4,ResourceType.Type.PLANK:6,ResourceType.Type.STONE:2}
+		upgrade.construction_stages.assign([
+			Stage.new(&"prepare","Подготовка",{ResourceType.Type.STONE:2},40,&"base"),
+			Stage.new(&"structure","Конструкция",{ResourceType.Type.LOG:4},60,&"frame"),
+			Stage.new(&"finish","Завершение",{ResourceType.Type.PLANK:6},80,&"complete")])
+		upgrade.worker_capacity=result.worker_capacity+(1 if category==BuildingType.Type.LUMBERJACK_HUT else 0)
+		upgrade.recipes=result.production_recipes.duplicate()
+		if category==BuildingType.Type.LUMBERJACK_HUT:
+			upgrade.capacities={ResourceType.Type.LOG:result.local_resource_capacity+10}
+			upgrade.local_resource_capacity=result.local_resource_capacity+10
+			upgrade.description="Лесорубы: %d → %d\nБрёвна: %d → %d\nНосильщик и рабочая область без изменений"%[result.worker_capacity,upgrade.worker_capacity,result.local_resource_capacity,upgrade.local_resource_capacity]
+		else:
+			upgrade.capacities={ResourceType.Type.MUSHROOM:20,ResourceType.Type.FLOUR:20,ResourceType.Type.FRIED_MUSHROOM:20,ResourceType.Type.BREAD:20}
+			upgrade.description="Грибы, мука, жареные грибы и хлеб: 10 → 20\nТопливо и вода: 20 → 20\nПовар и носильщик: 1 → 1"
+		assert(upgrade.is_valid())
+		result.upgrades.append(upgrade)
+	return result
+
+func upgraded_configuration(upgrade: RefCounted):
+	# Definitions may be shared by isolated fixtures; never mutate another instance.
+	var result=load("res://scripts/building_definition.gd").new(id,type,display_name,size)
+	for property in get_property_list():
+		if property.usage & PROPERTY_USAGE_SCRIPT_VARIABLE and property.name!=&"production_recipe":
+			var value: Variant=get(property.name)
+			result.set(property.name,value.duplicate() if value is Array or value is Dictionary else value)
+	result.development_level=upgrade.to_level
+	result.worker_capacity=upgrade.worker_capacity
+	if upgrade.local_resource_capacity>0:result.local_resource_capacity=upgrade.local_resource_capacity
+	for resource in upgrade.capacities:result.resource_capacities[resource]=upgrade.capacities[resource]
+	result.production_recipes.assign(upgrade.recipes)
 	return result
 
 func get_ground_search_radius() -> float:

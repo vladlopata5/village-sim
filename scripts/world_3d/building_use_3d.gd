@@ -35,7 +35,7 @@ func choices(id: StringName, purpose: int, origin: Vector3) -> Array:
 	elif not target.building_data.is_built(): return []
 	var result: Array = []
 	for marker in target.get_markers(Slot):
-		if marker.purpose!=purpose or not marker.occupant.is_empty(): continue
+		if marker.minimum_level>target.building_data.level or marker.purpose!=purpose or not marker.occupant.is_empty(): continue
 		if purpose==Slot.Purpose.CONSTRUCTION and not navigation.is_world_walkable(marker.global_position): continue
 		result.append(marker)
 	result.sort_custom(func(a,b):

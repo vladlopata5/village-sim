@@ -33,11 +33,15 @@ var construction_delivered: Dictionary:
 var _active_builder_ids: Array[String] = []
 var active_builder_ids: Array[String]:
 	get: return _active_builder_ids.duplicate()
+var _restoring_structure := false
 var _updating_progress := false
 var construction_progress: int = 0:
 	set(value):
+		if _restoring_structure:
+			construction_progress=value
+			return
 		if is_built() or _updating_progress: return
-		var limit: int=definition.construction_work_required
+		var limit: int=construction_definition().construction_work_required
 		if needs_materials() and value>construction_progress:
 			if current_construction_stage()==null or not are_stage_materials_complete():return
 			limit=mini(limit,stage_work_start()+current_construction_stage().work_minutes)
@@ -79,39 +83,42 @@ var type: int:
 func is_structural_work() -> bool:
 	return _state == State.UNDER_CONSTRUCTION and not work_paused and not removal_started
 func needs_materials() -> bool:
-	return not previously_built and work_direction == WorkDirection.BUILD
+	return (is_upgrading() or not previously_built) and work_direction == WorkDirection.BUILD
 func ready_for_structural_work() -> bool:
 	return not needs_materials() or are_stage_materials_complete()
 func work_remaining() -> int:
-	return construction_progress if work_direction == WorkDirection.DEMOLISH else definition.construction_work_required-construction_progress
+	return construction_progress if work_direction == WorkDirection.DEMOLISH else construction_definition().construction_work_required-construction_progress
 func ready_for_removal() -> bool:
 	return _state == State.UNDER_CONSTRUCTION and work_direction == WorkDirection.DEMOLISH and construction_progress == 0
 func set_work_direction(direction: WorkDirection) -> bool:
 	if removal_started or _state == State.REMOVED or direction not in WorkDirection.values(): return false
 	if not is_built() and work_direction == direction: return false
+	if is_upgrading(): return false # Upgrade cancellation is a project command, never building demolition.
 	if is_built():
 		if direction != WorkDirection.DEMOLISH: return false
 		previously_built = true
 		_state = State.UNDER_CONSTRUCTION
-		construction_progress = definition.construction_work_required
+		construction_progress = construction_definition().construction_work_required
 	work_paused = true
 	work_direction = direction
 	direction_revision += 1
 	_notify_construction_changed()
 	return true
 func work_status() -> String:
+	if is_upgrading():return "Отмена улучшения" if work_direction==WorkDirection.DEMOLISH else "Улучшение до уровня II"
 	if work_direction == WorkDirection.DEMOLISH: return "Демонтаж"
 	return "Восстановление" if previously_built and not is_built() else ("Готово" if is_built() else "Строительство")
 
 func _init(instance_id: StringName, building_definition: Definition, world_position: Vector2 = Vector2.ZERO, initial_state: State = State.BUILT) -> void:
 	id = instance_id
 	definition = building_definition
+	_structural_cost=definition.construction_requirements.duplicate()
 	_stock_targets = definition.initial_stock_targets.duplicate()
 	position = world_position
 	_state = initial_state
 	if definition.animal_capacity>0: animal_housing=preload("res://scripts/animal_housing.gd").new(self)
 	previously_built = initial_state == State.BUILT
-	for resource in definition.construction_requirements:
+	for resource in construction_definition().construction_requirements:
 		_construction_delivered[resource] = 0
 	resources = ResourceContainer.new(id)
 	if is_built(): _configure_resource_buffers()
@@ -181,7 +188,7 @@ func is_built() -> bool: return state == State.BUILT
 func footprint() -> Rect2: return Rect2(position - definition.size / 2.0, definition.size)
 
 func get_required_amount(resource: int) -> int:
-	return definition.construction_requirements.get(resource, 0)
+	return construction_definition().construction_requirements.get(resource, 0)
 func get_delivered_amount(resource: int) -> int:
 	return _construction_delivered.get(resource, 0)
 func get_missing_amount(resource: int) -> int:
@@ -193,18 +200,18 @@ func add_delivered_material(resource: int, amount: int) -> bool:
 	_notify_construction_changed()
 	return true
 func are_construction_materials_complete() -> bool:
-	for resource in definition.construction_requirements:
+	for resource in construction_definition().construction_requirements:
 		if get_delivered_amount(resource) < get_required_amount(resource): return false
 	return true
 func get_construction_progress_ratio() -> float:
-	if definition.construction_work_required == 0: return 1.0
-	return float(construction_progress) / definition.construction_work_required
+	if construction_definition().construction_work_required == 0: return 1.0
+	return float(construction_progress) / construction_definition().construction_work_required
 func add_construction_work(minutes: int) -> bool:
 	if not is_structural_work() or _updating_progress or not ready_for_structural_work() or minutes <= 0 or current_work_remaining() <= 0: return false
 	construction_progress += -mini(minutes,work_remaining()) if work_direction == WorkDirection.DEMOLISH else mini(minutes,current_work_remaining())
 	return true
 func has_free_builder_slot() -> bool:
-	return is_structural_work() and _active_builder_ids.size() < definition.max_builders
+	return is_structural_work() and _active_builder_ids.size() < construction_definition().max_builders
 func claim_builder_slot(resident_id: String) -> bool:
 	if resident_id.is_empty() or resident_id in _active_builder_ids or not has_free_builder_slot(): return false
 	_active_builder_ids.append(resident_id)
@@ -216,9 +223,10 @@ func release_builder_slot(resident_id: String) -> bool:
 	_notify_construction_changed()
 	return true
 func can_complete_construction() -> bool:
-	return is_structural_work() and work_direction == WorkDirection.BUILD and ready_for_structural_work() and construction_progress >= definition.construction_work_required
+	return is_structural_work() and work_direction == WorkDirection.BUILD and ready_for_structural_work() and construction_progress >= construction_definition().construction_work_required
 func complete_construction() -> bool:
 	if not can_complete_construction(): return false
+	if is_upgrading(): return complete_upgrade()
 	if not previously_built: _configure_resource_buffers()
 	previously_built = true
 	production_removed = false
@@ -250,7 +258,7 @@ func deliver_reserved_construction_material(resource: int, amount: int) -> bool:
 func get_construction_material_ratio() -> float:
 	var required := 0
 	var delivered := 0
-	for resource in definition.construction_requirements:
+	for resource in construction_definition().construction_requirements:
 		required += get_required_amount(resource)
 		delivered += mini(get_delivered_amount(resource), get_required_amount(resource))
 	return float(delivered) / required if required > 0 else 1.0
@@ -478,24 +486,24 @@ func import_receiver(resource: int) -> RefCounted:
 # can expose earlier stages; delivered materials remain part of the same structure.
 func completed_construction_stage_count() -> int:
 	var end:=0;var count:=0
-	for stage in definition.construction_stages:
+	for stage in construction_definition().construction_stages:
 		end+=stage.work_minutes
 		if construction_progress<end:break
 		count+=1
 	return count
 func construction_stage_index() -> int:
-	return mini(completed_construction_stage_count(),definition.construction_stages.size()-1)
+	return mini(completed_construction_stage_count(),construction_definition().construction_stages.size()-1)
 func current_construction_stage() -> RefCounted:
-	return definition.construction_stages[construction_stage_index()] if not definition.construction_stages.is_empty() else null
+	return construction_definition().construction_stages[construction_stage_index()] if not construction_definition().construction_stages.is_empty() else null
 func stage_work_start() -> int:
 	var minutes:=0
-	for stage in definition.construction_stages.slice(0,construction_stage_index()):minutes+=stage.work_minutes
+	for stage in construction_definition().construction_stages.slice(0,construction_stage_index()):minutes+=stage.work_minutes
 	return minutes
 func stage_work_progress() -> int:
 	return construction_progress-stage_work_start()
 func stage_cumulative_requirement(resource: int) -> int:
 	var quantity:=0
-	for stage in definition.construction_stages.slice(0,construction_stage_index()+1):quantity+=int(stage.materials.get(resource,0))
+	for stage in construction_definition().construction_stages.slice(0,construction_stage_index()+1):quantity+=int(stage.materials.get(resource,0))
 	return quantity
 func stage_delivered_amount(resource: int) -> int:
 	var stage:=current_construction_stage()
@@ -504,7 +512,7 @@ func stage_delivered_amount(resource: int) -> int:
 	return clampi(get_delivered_amount(resource)-(stage_cumulative_requirement(resource)-required),0,required)
 func are_stage_materials_complete() -> bool:
 	var stage:=current_construction_stage()
-	if stage==null:return definition.construction_requirements.is_empty()
+	if stage==null:return construction_definition().construction_requirements.is_empty()
 	for resource in stage.materials:
 		if stage_delivered_amount(resource)<stage.materials[resource]:return false
 	return true
@@ -514,4 +522,79 @@ func current_work_remaining() -> int:
 	return mini(work_remaining(),stage.work_minutes-stage_work_progress()) if stage!=null else work_remaining()
 func construction_visual_id() -> StringName:
 	var count:=completed_construction_stage_count()
-	return definition.construction_stages[count-1].visual_id if count>0 else &"site"
+	return construction_definition().construction_stages[count-1].visual_id if count>0 else &"site"
+
+# Development changes the same entity. Its additional plan reuses every B1 operation.
+var level := 1
+var upgrade: RefCounted
+var _upgrade_snapshot: Dictionary = {}
+var _structural_cost: Dictionary = {}
+var _upgrade_mutating := false
+func is_upgrading() -> bool: return upgrade!=null
+func construction_definition() -> RefCounted: return upgrade if upgrade!=null else definition
+func next_upgrade() -> RefCounted:
+	for candidate in definition.upgrades:
+		if candidate.from_level==level:return candidate
+	return null
+func structural_material_amount(resource: int) -> int: return int(_structural_cost.get(resource,0))
+func begin_upgrade() -> bool:
+	var plan:=next_upgrade()
+	if _upgrade_mutating or not is_built() or removal_started or upgrade!=null or plan==null or not plan.is_valid():return false
+	# Enlargements only. A paid batch and all its promises must fit unchanged.
+	for resource in plan.capacities:
+		if plan.capacities[resource]<resources.get_capacity(resource):return false
+	_upgrade_mutating=true
+	_upgrade_snapshot={"progress":construction_progress,"delivered":_construction_delivered.duplicate(),"inbound":_construction_reserved_in.duplicate()}
+	upgrade=plan
+	_state=State.UNDER_CONSTRUCTION # Existing eligibility gates fence normal work immediately.
+	_construction_delivered={};_construction_reserved_in={}
+	_restoring_structure=true;construction_progress=0;_restoring_structure=false
+	work_direction=WorkDirection.BUILD
+	work_paused=true
+	direction_revision+=1
+	_upgrade_mutating=false
+	_notify_construction_changed()
+	return true
+func cancel_upgrade() -> bool:
+	if _upgrade_mutating or upgrade==null or work_direction==WorkDirection.DEMOLISH:return false
+	work_direction=WorkDirection.DEMOLISH;work_paused=true;direction_revision+=1
+	_notify_construction_changed()
+	return true
+func _restore_upgrade_structure() -> void:
+	upgrade=null
+	_construction_delivered=_upgrade_snapshot.delivered
+	_construction_reserved_in=_upgrade_snapshot.inbound
+	# State guard prevents publishing a fictitious project transition during restoration.
+	_state=State.UNDER_CONSTRUCTION
+	var saved: int=_upgrade_snapshot.progress
+	_restoring_structure=true;construction_progress=saved;_restoring_structure=false
+	_upgrade_snapshot={};_active_builder_ids.clear()
+	work_direction=WorkDirection.BUILD;work_paused=false;previously_built=true
+	_state=State.BUILT;direction_revision+=1
+func complete_upgrade() -> bool:
+	if _upgrade_mutating or upgrade==null or not can_complete_construction():return false
+	_upgrade_mutating=true
+	var completed: RefCounted=upgrade
+	# All final data are installed before quantity/state callbacks can observe II.
+	definition=definition.upgraded_configuration(completed)
+	level=completed.to_level
+	for resource in completed.construction_requirements:_structural_cost[resource]=structural_material_amount(resource)+int(completed.construction_requirements[resource])
+	for resource in completed.capacities:
+		var changed: bool=resources.set_capacity(resource,completed.capacities[resource])
+		assert(changed,"Validated upgrade enlargement must preserve stock and reservations")
+	for recipe in definition.production_recipes:
+		if not _recipe_settings.has(recipe.id):_recipe_settings[recipe.id]={"mode":ProductionMode.UNLIMITED,"target":0,"produced":0,"revision":0,"order":false}
+	_restore_upgrade_structure()
+	production_revision+=1
+	_upgrade_mutating=false
+	_notify_construction_changed()
+	logistics_policy_changed.emit();production_changed.emit()
+	return true
+func finish_upgrade_cancellation() -> bool:
+	if _upgrade_mutating or upgrade==null or work_direction!=WorkDirection.DEMOLISH or construction_progress!=0 or not _construction_reserved_in.values().all(func(amount):return amount==0):return false
+	_upgrade_mutating=true
+	_restore_upgrade_structure()
+	production_revision+=1
+	_upgrade_mutating=false
+	_notify_construction_changed();logistics_policy_changed.emit();production_changed.emit()
+	return true

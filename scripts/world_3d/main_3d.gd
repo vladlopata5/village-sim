@@ -72,6 +72,8 @@ func _ready() -> void:
 	player_control.work_areas = work_areas
 	super._ready()
 	player_control.construction_command = change_construction_direction
+	player_control.upgrade_command = start_building_upgrade
+	player_control.upgrade_cancel_command = cancel_building_upgrade
 	game_ui.cancel_world_tool = _cancel_active_world_tool
 	game_ui.bind_context_menu(interaction_menu)
 	game_ui.blocking_ui_changed.connect(_clear_world_input)
@@ -422,6 +424,10 @@ func ground_pick(screen_position: Vector2) -> Dictionary:
 var _offline_buildings: Dictionary = {}
 var _direction_commands: Dictionary = {}
 var _removal_operations: Dictionary = {}
+var _upgrade_commands: Dictionary = {}
+var _upgrade_demolish_after: Dictionary = {}
+var _upgrade_refunds: Dictionary = {}
+var upgrade_results: Dictionary = {}
 var demolition_results: Dictionary = {} # Completed operation receipts; quantities, never resource storage.
 func cancel_construction(id: StringName) -> bool:
 	var building: BuildingInstance = player_control.get_building(id)
@@ -429,7 +435,11 @@ func cancel_construction(id: StringName) -> bool:
 	return change_construction_direction(id,true)
 func change_construction_direction(id: StringName, demolish: bool) -> bool:
 	var building: BuildingInstance = player_control.get_building(id)
-	if building == null or building.removal_started or _direction_commands.has(id): return false
+	if building == null or building.removal_started or _direction_commands.has(id) or _upgrade_commands.has(id): return false
+	if building.is_upgrading():
+		if not demolish:return false
+		_upgrade_demolish_after[id]=true
+		return cancel_building_upgrade(id) if building.work_direction==BuildingInstance.WorkDirection.BUILD else true
 	var direction := BuildingInstance.WorkDirection.DEMOLISH if demolish else BuildingInstance.WorkDirection.BUILD
 	if not building.is_built() and building.work_direction == direction: return false
 	_direction_commands[id] = true # Covers callbacks from the final accrued work minute too.
@@ -475,10 +485,16 @@ func _building_cleanup_pending(building: BuildingInstance) -> bool:
 func _poll_building_work() -> void:
 	for id in _offline_buildings.keys():
 		var building: BuildingInstance = _offline_buildings.get(id)
-		if building == null or _direction_commands.has(id) or _building_cleanup_pending(building): continue
+		if building == null or _direction_commands.has(id) or _upgrade_commands.has(id): continue
+		if building.is_upgrading():
+			if _upgrade_cleanup_pending(building):continue
+			if building.work_paused:building.work_paused=false;building._notify_construction_changed()
+			if building.work_direction==BuildingInstance.WorkDirection.DEMOLISH and building.construction_progress==0:_finish_upgrade_refund(building)
+			continue
 		if building.is_built():
 			_offline_buildings.erase(id)
 			continue
+		if _building_cleanup_pending(building): continue
 		if building.work_paused:
 			building.work_paused = false
 			building._notify_construction_changed()
@@ -522,7 +538,7 @@ func _finish_building_removal(building: BuildingInstance) -> void:
 	for resource in ResourceType.Type.values():
 		var amount: int = building.resources.get_amount(resource)
 		if amount>0: groups[0][resource] = amount
-		var required: int = building.get_required_amount(resource)
+		var required: int = building.structural_material_amount(resource)
 		var refund: int = floori(required*Balance.DEMOLITION_MATERIAL_RETURN_RATIO) if building.previously_built else building.get_delivered_amount(resource)
 		if refund>0: groups[1][resource] = refund
 		if building.previously_built and required-refund>0: planned_loss[resource] = required-refund
@@ -1341,3 +1357,79 @@ func _terrain_cell_editable(cell: Vector2i, kind: int) -> bool:
 		var intent: RefCounted=actor.intents.current_intent
 		if intent!=null and build_grid.world_to_cell(Coordinates.to_world(intent.target_position))==cell:return false
 	return true
+
+# B2: local project commands. Ordinary owners keep their existing cancellation rules.
+func start_building_upgrade(id: StringName) -> bool:
+	var building: BuildingInstance=player_control.get_building(id)
+	if building==null or _upgrade_commands.has(id) or _direction_commands.has(id) or not building.is_built() or building.is_upgrading():return false
+	_upgrade_commands[id]=true
+	if not building.begin_upgrade():_upgrade_commands.erase(id);return false
+	_offline_buildings[id]=building
+	# State is fenced before cleanup emits any callbacks. Do not unregister, dispose,
+	# evict staff or replace containers: paid batches belong to this same building.
+	_stop_upgrade_actions(building)
+	_upgrade_commands.erase(id)
+	_poll_building_work()
+	return true
+func _stop_upgrade_actions(building: BuildingInstance) -> void:
+	building.supply.clear()
+	for job in logistics.jobs.duplicate():
+		if job.source_location_id==building.id or job.destination_location_id==building.id or job.workplace_location_id==building.id:logistics.cancel_transport(job,"улучшение здания")
+	for runtime in resident_runtimes:
+		if runtime.builder.source==building or runtime.builder.site==building:runtime.builder.abort("изменён строительный проект")
+		var intent: RefCounted=runtime.intents.current_intent
+		var lumberjack: Node=runtime.get_node_or_null("Lumberjack")
+		if lumberjack!=null and lumberjack.hut==building:lumberjack.abort(false)
+		if runtime.recipe_work.building==building:runtime.recipe_work.abort()
+		if intent!=null and intent.building_id==building.id:runtime.intents.abort_current(intent)
+		if runtime.intents.pending_intent.building_id==building.id:runtime.intents.pending_intent=preload("res://scripts/resident_intent.gd").new()
+		runtime.view.interrupt_building_use(building.id)
+	# Ownerless unpaid preparations can exist only in fixtures/reentrant callbacks.
+	for batch in building.production_batches:
+		if batch.worker_id.is_empty() and not batch.inputs_spent:batch.cancel();building.retire_production_batch(batch)
+	logistics.recalculate()
+func cancel_building_upgrade(id: StringName) -> bool:
+	var building: BuildingInstance=player_control.get_building(id)
+	if building==null or not building.is_upgrading() or _upgrade_commands.has(id):return false
+	_upgrade_commands[id]=true
+	for runtime in resident_runtimes:
+		if runtime.builder.site==building:runtime.builder._accrue_work(game_time.total_minutes)
+	if not building.cancel_upgrade():_upgrade_commands.erase(id);return false
+	for runtime in resident_runtimes:
+		if runtime.builder.site==building:runtime.builder.abort("отмена улучшения")
+	_upgrade_commands.erase(id)
+	_poll_building_work()
+	return true
+func _upgrade_cleanup_pending(building: BuildingInstance) -> bool:
+	if building_uses.inside_count(building.id)>0:return true
+	for runtime in resident_runtimes:
+		if runtime.view.is_inside_building(building.id):return true
+		if runtime.builder._mutating or runtime.recipe_work._mutating or runtime.data.inventory._transferring:return true
+	# Paid production output promises are deliberately retained, unlike D1 demolition.
+	return false
+func _finish_upgrade_refund(building: BuildingInstance) -> void:
+	var id: StringName=building.id
+	if _upgrade_commands.has(id):return
+	_upgrade_commands[id]=true
+	if not _upgrade_refunds.has(id):
+		var anchors: Array=[]
+		for runtime in resident_runtimes:
+			var point:=Coordinates.to_world(runtime.view.get_drop_sim_position())
+			if navigation.is_world_walkable(point):anchors.append(point)
+		_upgrade_refunds[id]={"remaining":building.construction_delivered,"placed":{},"discarded":{},"cells":_demolition_cells(build_grid.occupied_cells(id),String(id).hash()),"anchors":anchors}
+	var receipt: Dictionary=_upgrade_refunds[id]
+	for resource in receipt.remaining.keys():
+		var quantity: int=receipt.remaining[resource]
+		if quantity<=0:continue
+		var result: Dictionary=ground_resources.place_in_cells(resource,quantity,receipt.cells,_demolition_cell_allowed.bind(receipt.anchors))
+		receipt.placed[resource]=int(receipt.placed.get(resource,0))+result.placed
+		receipt.discarded[resource]=int(receipt.discarded.get(resource,0))+result.discarded
+		receipt.remaining[resource]=result.remaining
+		if result.remaining>0:_upgrade_commands.erase(id);return
+	if building.finish_upgrade_cancellation():
+		upgrade_results[id]={"cancelled":true,"placed":receipt.placed,"discarded":receipt.discarded}
+		_upgrade_refunds.erase(id);_offline_buildings.erase(id)
+	_upgrade_commands.erase(id)
+	if _upgrade_demolish_after.has(id):
+		_upgrade_demolish_after.erase(id)
+		change_construction_direction(id,true)

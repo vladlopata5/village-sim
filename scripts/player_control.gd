@@ -362,6 +362,15 @@ func remove_work_area(area_id: StringName) -> bool:
 		if building.work_area_override_id == area_id: reset_building_work_area(building.id)
 	return true
 
+var upgrade_command: Callable
+var upgrade_cancel_command: Callable
+func start_building_upgrade(building_id: StringName) -> Dictionary:
+	var building:=get_building(building_id)
+	if building==null or not building.is_built() or building.next_upgrade()==null or not upgrade_command.is_valid():return {"ok":false,"error":"Улучшение недоступно для этого здания."}
+	var ok: bool=upgrade_command.call(building_id)
+	return {"ok":ok,"error":"" if ok else "Состояние здания изменилось. Улучшение не начато."}
+func cancel_building_upgrade(building_id: StringName) -> bool:
+	return upgrade_cancel_command.is_valid() and upgrade_cancel_command.call(building_id)
 var construction_command: Callable
 func change_construction_direction(building_id: StringName, demolish: bool) -> bool:
 	return get_building(building_id) != null and construction_command.is_valid() and construction_command.call(building_id,demolish)

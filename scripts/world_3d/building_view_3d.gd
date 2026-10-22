@@ -12,6 +12,7 @@ var _indexed_layout_id := 0
 var _marker_groups: Dictionary = {} # Script -> ordered node references, never occupancy.
 var construction_visual: MultiMeshInstance3D
 var _finished_visuals: Array[Node3D] = []
+var level_visual: MeshInstance3D
 var well_visual: Node3D
 var well_placeholder: Node3D
 var bread_visual: Node3D
@@ -93,7 +94,7 @@ func _refresh() -> void:
 		bread_visual.visible = building_data.is_built()
 		var rotor: Node = bread_visual.get_node_or_null("Rotor")
 		if rotor!=null:rotor.set_process(building_data.is_built())
-	var staged: bool=not building_data.is_built() and not building_data.previously_built
+	var staged: bool=building_data.is_upgrading() or (not building_data.is_built() and not building_data.previously_built)
 	for visual in _finished_visuals:visual.visible=not staged
 	if not staged:
 		if well_visual!=null:well_visual.visible=building_data.is_built();well_placeholder.visible=not building_data.is_built()
@@ -104,8 +105,17 @@ func _refresh() -> void:
 			construction_visual=preload("res://scripts/world_3d/construction_visual_3d.gd").new()
 			add_child(construction_visual)
 		construction_visual.present(building_data.construction_visual_id(),Geometry.building_size(building_data),Geometry.building_height(building_data))
+	if building_data.level>1 and level_visual==null:
+		level_visual=MeshInstance3D.new()
+		var band:=BoxMesh.new();var size:=Geometry.building_size(building_data)
+		band.size=Vector3(size.x*.85,.22,size.y*.85);level_visual.mesh=band
+		level_visual.position.y=Geometry.building_height(building_data)+.12
+		var tint:=StandardMaterial3D.new();tint.albedo_color=Color("557b86");level_visual.material_override=tint
+		add_child(level_visual)
+	if level_visual!=null:level_visual.visible=not staged
+	for marker in _marker_groups.get(preload("res://scripts/world_3d/building_slot_3d.gd"),[]):marker.visible=marker.minimum_level<=building_data.level
 	set_inside_count(inside_count)
-	caption.text = building_data.display_name + ("" if building_data.is_built() else " — " + building_data.work_status().to_lower())
+	caption.text = building_data.display_name + (" II" if building_data.level==2 else "") + (" — улучшение II" if building_data.is_upgrading() else "" if building_data.is_built() else " — " + building_data.work_status().to_lower())
 func set_selected(value: bool) -> void:
 	_selected = value
 	indicator.visible = _selected or _workplace_highlighted

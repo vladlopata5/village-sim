@@ -130,7 +130,7 @@ func nearest_source(resource: ResourceType.Type, from_position: Vector2) -> Inst
 func _material_trip(candidate: Instance) -> Dictionary:
 	var current_position: Variant = _position()
 	if not current_position is Vector2: return {}
-	for resource in candidate.definition.construction_requirements:
+	for resource in candidate.construction_definition().construction_requirements:
 		if candidate.get_uncovered_construction_amount(resource) <= 0: continue
 		var end: Variant = _locations.get_position(candidate.id)
 		if not end is Vector2: continue
@@ -152,7 +152,7 @@ func _material_trip(candidate: Instance) -> Dictionary:
 	return {}
 
 func _trip_offer_valid(candidate: Instance, resource: int, origin: Vector2, destination: Vector2) -> bool:
-	if _trip_offer.is_empty() or _offer_site != candidate or candidate not in _buildings or candidate.is_built(): return false
+	if _trip_offer.is_empty() or _offer_site != candidate or candidate not in _buildings or (candidate.is_built() and not candidate.is_upgrading()): return false
 	if _trip_offer.resource != resource or candidate.get_uncovered_construction_amount(resource) <= 0: return false
 	if _trip_offer.get("search_identity",[]) != sources.GroundAreas.identity(origin,candidate,null,Balance.BUILDER_GROUND_SEARCH_MULTIPLIER): return false
 	var reference: Source = _trip_offer.reference
@@ -163,7 +163,7 @@ func on_navigation_changed(_revision: int) -> void:
 	_availability_dirty = true # Invalidate, never wake idle workers.
 
 func _eligible(candidate: Instance) -> bool:
-	return not candidate.is_built() and candidate.work_remaining() > 0 and candidate.has_free_builder_slot() and _locations.get_position(candidate.id) is Vector2 and (candidate.ready_for_structural_work() or not _material_trip(candidate).is_empty())
+	return not (candidate.is_built() and not candidate.is_upgrading()) and candidate.work_remaining() > 0 and candidate.has_free_builder_slot() and _locations.get_position(candidate.id) is Vector2 and (candidate.ready_for_structural_work() or not _material_trip(candidate).is_empty())
 
 func best_site() -> Instance:
 	var current_position: Variant = _position()
@@ -190,9 +190,9 @@ func has_work() -> bool:
 	current_identity.append(navigation.revision if navigation != null else 0)
 	var resources: Array = []
 	for candidate in _buildings:
-		if candidate.is_built(): continue
-		current_identity.append([candidate.get_instance_id(),candidate.construction_revision,candidate.definition.max_builders,candidate.definition.construction_work_required,candidate.definition.construction_requirements.duplicate(),_locations.get_position(candidate.id),sources.GroundAreas.identity(current_position,candidate,null,Balance.BUILDER_GROUND_SEARCH_MULTIPLIER)])
-		for resource in candidate.definition.construction_requirements:
+		if (candidate.is_built() and not candidate.is_upgrading()): continue
+		current_identity.append([candidate.get_instance_id(),candidate.construction_revision,candidate.construction_definition().max_builders,candidate.construction_definition().construction_work_required,candidate.construction_definition().construction_requirements.duplicate(),_locations.get_position(candidate.id),sources.GroundAreas.identity(current_position,candidate,null,Balance.BUILDER_GROUND_SEARCH_MULTIPLIER)])
+		for resource in candidate.construction_definition().construction_requirements:
 			if resource not in resources: resources.append(resource)
 	# Container changes do not all advance ResourceSources.revision. Read their
 	# relevant one-unit availability, never a route, so a cached false cannot stick.
@@ -274,7 +274,7 @@ func _continue_task() -> bool:
 	return _move(&"builder_source", sources.point(source_ref),trip.get("source_path",{}))
 
 func _materials_incoming() -> bool:
-	for resource in site.definition.construction_requirements:
+	for resource in site.construction_definition().construction_requirements:
 		if site.get_uncovered_construction_amount(resource) > 0: return false
 	return true
 
@@ -285,7 +285,7 @@ func _wait_for_materials() -> bool:
 	var was_waiting := _is_waiting()
 	if not was_waiting and logger != null:
 		var counts: Array[String] = []
-		for resource in site.definition.construction_requirements:
+		for resource in site.construction_definition().construction_requirements:
 			counts.append("%s %d/%d, в пути %d" % [ResourceType.Type.keys()[resource], site.get_delivered_amount(resource), site.get_required_amount(resource), site.get_construction_reserved_in(resource)])
 		logger.info(EventLog.BUILDING, "%s: ждёт материалы — %s (%s)" % [_data.resident_name, site.id, "; ".join(counts)])
 	var point: Vector2 = _locations.get_position(site.id)

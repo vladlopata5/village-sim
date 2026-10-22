@@ -81,6 +81,7 @@ func bind_selection(selection: Selection) -> void:
 	_selection.selection_changed.connect(_on_selection_changed)
 	_on_selection_changed()
 func _on_selection_changed() -> void:
+	_confirm_upgrade_id=&""
 	_disconnect_building()
 	_clear_recipe_views()
 	_quota_dirty.clear()
@@ -119,6 +120,7 @@ func _refresh() -> void:
 	_refresh_consumables()
 	_refresh_work_area()
 	_refresh_construction_command()
+	_refresh_upgrade()
 	if management_button != null: management_button.visible = _building != null and _building.is_built() and _building.type == Types.Type.TOWN_CENTER
 	if _building == null:
 		return
@@ -132,11 +134,11 @@ func _refresh() -> void:
 	if _building.type==Types.Type.WELL:resource_lines.append("Источник воды • запас неограничен • набор 10 минут")
 	var workers_snapshot: Array = _control.get_workplace_workers(_building.id).map(func(worker): return worker.id) if _control != null else []
 	var porter_snapshot: Array = _control.get_porters(_building.id).map(func(worker): return worker.id) if _control != null else []
-	var snapshot: Array = [workers_snapshot,porter_snapshot,_building.definition.porter_capacity,_building.definition.worker_capacity,_building.definition.housing_capacity,_building.display_name, _building.id, _building.state, _building.work_direction, _building.work_paused, _building.type, amount, capacity, _building.production_progress, _building.construction_delivered, _building.construction_progress, _building.active_builder_ids, _building.definition.construction_requirements.duplicate(), _building.definition.construction_work_required, _building.definition.max_builders, resource_lines]
+	var snapshot: Array = [workers_snapshot,porter_snapshot,_building.definition.porter_capacity,_building.definition.worker_capacity,_building.definition.housing_capacity,_building.display_name, _building.id, _building.state, _building.work_direction, _building.work_paused, _building.type, amount, capacity, _building.production_progress, _building.construction_delivered, _building.construction_progress, _building.active_builder_ids, _building.construction_definition().construction_requirements.duplicate(), _building.construction_definition().construction_work_required, _building.construction_definition().max_builders, resource_lines]
 	_refresh_details(resource_lines)
 	if snapshot == _last_snapshot: return
 	_last_snapshot = snapshot
-	name_label.text = _building.display_name
+	name_label.text = _building.display_name + (" II" if _building.level==2 else " I" if not _building.definition.upgrades.is_empty() else "")
 	if _control != null and _building.is_built() and _building.definition.worker_profession != preload("res://scripts/resident_profession.gd").Type.NONE:
 		var workers: Array = _control.get_workplace_workers(_building.id)
 		resource_lines.append("Работники производства: %d / %d" % [workers.size(),_building.definition.worker_capacity])
@@ -152,14 +154,14 @@ func _refresh() -> void:
 	for resource in requirements:
 		materials.append("%s: %d / %d" % [ResourceType.display_name(resource), _building.stage_delivered_amount(resource), requirements[resource]])
 	construction_materials.text = "Материалы:\n" + ("\n".join(materials) if not materials.is_empty() else "Не требуются")
-	if _building.previously_built: construction_materials.text = "Материалы остаются в конструкции.\nДля восстановления новые материалы не нужны."
-	construction_work.text = _building.work_status() + ": %d / %d мин\n%.0f%%" % [_building.construction_progress, _building.definition.construction_work_required, _building.get_construction_progress_ratio() * 100.0]
-	if not _building.previously_built and stage!=null:
-		construction_work.text="%s: этап %d/%d — %s\nРаботы этапа: %d / %d мин\nВсего: %d / %d мин (%.0f%%)" % [_building.work_status(),_building.construction_stage_index()+1,_building.definition.construction_stages.size(),stage.display_name,_building.stage_work_progress(),stage.work_minutes,_building.construction_progress,_building.definition.construction_work_required,_building.get_construction_progress_ratio()*100.0]
+	if _building.previously_built and not _building.is_upgrading(): construction_materials.text = "Материалы остаются в конструкции.\nДля восстановления новые материалы не нужны."
+	construction_work.text = _building.work_status() + ": %d / %d мин\n%.0f%%" % [_building.construction_progress, _building.construction_definition().construction_work_required, _building.get_construction_progress_ratio() * 100.0]
+	if (_building.is_upgrading() or not _building.previously_built) and stage!=null:
+		construction_work.text="%s: этап %d/%d — %s\nРаботы этапа: %d / %d мин\nВсего: %d / %d мин (%.0f%%)" % [_building.work_status(),_building.construction_stage_index()+1,_building.construction_definition().construction_stages.size(),stage.display_name,_building.stage_work_progress(),stage.work_minutes,_building.construction_progress,_building.construction_definition().construction_work_required,_building.get_construction_progress_ratio()*100.0]
 	structural_progress.value = _building.get_construction_progress_ratio()*100.0
 	construction_work.text += "\nОсталось работы: %d мин" % _building.work_remaining()
 	if _building.work_paused: construction_work.text += "\nОжидание завершения действий внутри"
-	construction_builders.text = "Строители: %d / %d" % [_building.active_builder_ids.size(), _building.definition.max_builders]
+	construction_builders.text = "Строители: %d / %d" % [_building.active_builder_ids.size(), _building.construction_definition().max_builders]
 	var tabs := available_tabs()
 	if tabs != _presented_tabs:
 		_presented_tabs = tabs
@@ -531,7 +533,7 @@ func _clear_recipe_views() -> void:
 func _refresh_recipes() -> void:
 	_refresh_stock_target()
 	var ids: Array = []
-	if _building!=null and _building.is_built() and not _building.production_removed:
+	if _building!=null and (_building.is_built() or _building.is_upgrading()) and not _building.production_removed:
 		ids = _building.definition.production_recipes.map(func(recipe): return recipe.id)
 	if ids!=_recipe_ids:
 		_clear_recipe_views()
@@ -553,12 +555,13 @@ func _refresh_construction_command() -> void:
 	var button: Button = get_node("%Demolish")
 	button.disabled = _building == null or _control == null or not _control.construction_command.is_valid() or _building.removal_started or _building.state == Instance.State.REMOVED
 	if _building == null: return
-	if _building.is_built(): button.text = "Демонтировать"
+	if _building.is_upgrading():button.text="Демонтировать здание"
+	elif _building.is_built(): button.text = "Демонтировать"
 	elif _building.work_direction == Instance.WorkDirection.DEMOLISH: button.text = "Отменить демонтаж" if _building.previously_built else "Возобновить строительство"
 	else: button.text = "Демонтировать" if _building.previously_built else "Отменить строительство"
 func _change_construction_direction() -> void:
 	if _building == null or _control == null: return
-	_control.change_construction_direction(_building.id,_building.is_built() or _building.work_direction == Instance.WorkDirection.BUILD)
+	_control.change_construction_direction(_building.id,_building.is_upgrading() or _building.is_built() or _building.work_direction == Instance.WorkDirection.BUILD)
 	_refresh()
 
 func _setup_stock_target() -> void:
@@ -585,3 +588,43 @@ func _apply_stock_target() -> void:
 	if text.is_valid_int():result=_control.set_production_stock_target(_stock_id,ResourceType.Type.WHEAT,text.to_int())
 	farm_stock_feedback.text="Сохранено" if result.ok else result.error;farm_stock_feedback.show()
 	if result.ok:_stock_dirty=false;_refresh_stock_target()
+
+var upgrade_section: VBoxContainer
+var upgrade_button: Button
+var upgrade_cancel: Button
+var upgrade_summary: Label
+var upgrade_confirm: Button
+var upgrade_back: Button
+var _confirm_upgrade_id: StringName = &""
+func _refresh_upgrade() -> void:
+	if upgrade_section==null:
+		upgrade_section=VBoxContainer.new();get_node("%Demolish").get_parent().add_child(upgrade_section)
+		upgrade_button=Button.new();upgrade_button.text="Улучшить";upgrade_section.add_child(upgrade_button);upgrade_button.pressed.connect(_preview_upgrade)
+		upgrade_summary=Label.new();upgrade_summary.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART;upgrade_section.add_child(upgrade_summary)
+		upgrade_confirm=Button.new();upgrade_confirm.text="Подтвердить улучшение";upgrade_section.add_child(upgrade_confirm);upgrade_confirm.pressed.connect(_start_upgrade)
+		upgrade_back=Button.new();upgrade_back.text="Назад";upgrade_section.add_child(upgrade_back);upgrade_back.pressed.connect(func():_confirm_upgrade_id=&"";_refresh_upgrade())
+		upgrade_cancel=Button.new();upgrade_cancel.text="Отменить улучшение";upgrade_section.add_child(upgrade_cancel);upgrade_cancel.pressed.connect(_cancel_upgrade)
+	var plan: RefCounted=_building.next_upgrade() if _building!=null else null
+	var active: bool=_building!=null and _building.is_upgrading()
+	var preview: bool=_building!=null and _confirm_upgrade_id==_building.id and _building.is_built() and plan!=null
+	upgrade_section.visible=active or (_building!=null and _building.is_built() and plan!=null)
+	upgrade_button.visible=upgrade_section.visible and not active and not preview
+	upgrade_button.disabled=_control==null or not _control.upgrade_command.is_valid()
+	upgrade_summary.visible=active or preview
+	upgrade_confirm.visible=preview;upgrade_back.visible=preview
+	upgrade_cancel.visible=active;upgrade_cancel.disabled=active and _building.work_direction==Instance.WorkDirection.DEMOLISH
+	if active:upgrade_summary.text="Улучшение до уровня II" if _building.work_direction==Instance.WorkDirection.BUILD else "Отмена улучшения • разборка проекта"
+	elif preview:
+		var materials:=PackedStringArray()
+		for resource in plan.construction_requirements:materials.append("%s ×%d"%[ResourceType.display_name(resource),plan.construction_requirements[resource]])
+		upgrade_summary.text="%s I → II\n%s\n%d рабочих минут\n%s"%[_building.display_name,", ".join(materials),plan.construction_work_required,plan.description]
+func _preview_upgrade() -> void:
+	if _building==null:return
+	_confirm_upgrade_id=_building.id;_refresh_upgrade()
+func _start_upgrade() -> void:
+	if _building==null or _control==null or _confirm_upgrade_id!=_building.id:return
+	var result: Dictionary=_control.start_building_upgrade(_building.id)
+	_confirm_upgrade_id=&"";_refresh()
+	if not result.ok:upgrade_summary.text=result.error;upgrade_summary.show()
+func _cancel_upgrade() -> void:
+	if _building!=null and _control!=null:_control.cancel_building_upgrade(_building.id);_refresh()
