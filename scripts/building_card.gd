@@ -303,13 +303,13 @@ func _refresh_details(resource_lines: PackedStringArray) -> void:
 	get_node("%Recipe").text = "\n".join(recipe_lines)
 	get_node("%Recipe").visible = def.production_recipes.is_empty()
 	production_section.visible = _building.is_built() and _building.type == Types.Type.GATHERER_HUT
-	var natural: PackedStringArray = natural_progress_provider.call(_building.id) if def.worker_profession in [profession.Type.LUMBERJACK,profession.Type.MINER] and natural_progress_provider.is_valid() else PackedStringArray()
+	var natural: PackedStringArray = natural_progress_provider.call(_building.id) if def.worker_profession in [profession.Type.LUMBERJACK,profession.Type.MINER,profession.Type.CLAY_DIGGER] and natural_progress_provider.is_valid() else PackedStringArray()
 	get_node("%NaturalProgress").text = "\n".join(natural)
 	get_node("%NaturalProgress").visible = not natural.is_empty()
 	_refresh_people(producers, porters)
 
 func _setup_storage_rows() -> void:
-	for category in [Categories.Type.LOG,Categories.Type.STONE,Categories.Type.PLANK,Categories.Type.SIMPLE_FOOD,Categories.Type.MUSHROOM,Categories.Type.WOOL,Categories.Type.WOOL_CLOTH,Categories.Type.SIMPLE_CLOTHING,Categories.Type.WHEAT,Categories.Type.SHEAF,Categories.Type.STRAW,Categories.Type.FLOUR]:
+	for category in [Categories.Type.LOG,Categories.Type.STONE,Categories.Type.PLANK,Categories.Type.SIMPLE_FOOD,Categories.Type.MUSHROOM,Categories.Type.WOOL,Categories.Type.WOOL_CLOTH,Categories.Type.SIMPLE_CLOTHING,Categories.Type.WHEAT,Categories.Type.SHEAF,Categories.Type.STRAW,Categories.Type.FLOUR,Categories.Type.CLAY,Categories.Type.BRICK]:
 		var section := VBoxContainer.new()
 		get_node("%StorageAmounts").add_child(section)
 		var row := HBoxContainer.new()

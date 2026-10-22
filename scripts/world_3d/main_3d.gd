@@ -836,13 +836,13 @@ func _deplete_tree(tree: RefCounted) -> void:
 	tree_views.erase(tree.id)
 	place_ground_resources(tree.yield_resource_type,tree.yield_amount,tree.position)
 func _work_available(runtime: ResidentRuntime) -> bool:
-	if runtime.data.profession in [Profession.Type.LUMBERJACK,Profession.Type.MINER]:
-		var controller = runtime.get_node_or_null("Miner" if runtime.data.profession == Profession.Type.MINER else "Lumberjack")
+	if runtime.data.profession in [Profession.Type.LUMBERJACK,Profession.Type.MINER,Profession.Type.CLAY_DIGGER]:
+		var controller = runtime.get_node_or_null("Miner" if runtime.data.profession in [Profession.Type.MINER,Profession.Type.CLAY_DIGGER] else "Lumberjack")
 		return controller != null and controller.has_work()
 	return super._work_available(runtime)
 func _request_work(runtime: ResidentRuntime) -> bool:
-	if runtime.data.profession in [Profession.Type.LUMBERJACK,Profession.Type.MINER]:
-		var controller = runtime.get_node_or_null("Miner" if runtime.data.profession == Profession.Type.MINER else "Lumberjack")
+	if runtime.data.profession in [Profession.Type.LUMBERJACK,Profession.Type.MINER,Profession.Type.CLAY_DIGGER]:
+		var controller = runtime.get_node_or_null("Miner" if runtime.data.profession in [Profession.Type.MINER,Profession.Type.CLAY_DIGGER] else "Lumberjack")
 		return controller != null and controller.request_work()
 	return super._request_work(runtime)
 func _show_ground_resource(drop) -> void:
@@ -1166,6 +1166,10 @@ func _confirm_work_area() -> void:
 	if independent and area != null: game_ui.open_window(&"areas")
 var _work_updates: Dictionary = {}
 func _work_assignment_updated(id: String) -> void:
+	for runtime in resident_runtimes:
+		if is_instance_valid(runtime) and runtime.data.id==id:
+			var miner=runtime.get_node_or_null("Miner")
+			if miner!=null:miner.assignment_changed()
 	decision_dispatcher.cancel(id)
 	if _work_updates.has(id): return
 	_work_updates[id] = true
@@ -1178,7 +1182,7 @@ var _work_area_versions: Dictionary = {}
 func _building_work_area_updated(building_id: StringName) -> void:
 	logistics.recalculate() # Cancel invalid accepted gathering; never wake idle gatherers.
 	for runtime in resident_runtimes:
-		if runtime.data.profession in [Profession.Type.LUMBERJACK,Profession.Type.MINER] and runtime.data.work_location_id == building_id: _work_assignment_updated(runtime.data.id)
+		if runtime.data.profession in [Profession.Type.LUMBERJACK,Profession.Type.MINER,Profession.Type.CLAY_DIGGER] and runtime.data.work_location_id == building_id: _work_assignment_updated(runtime.data.id)
 func _work_areas_updated() -> void:
 	logistics.recalculate()
 	# Creating an unrelated, unassigned area is presentation, not an AI wake-up.
@@ -1192,7 +1196,7 @@ func _work_areas_updated() -> void:
 		if not versions.has(id): changed[id] = true
 	_work_area_versions = versions
 	for runtime in resident_runtimes:
-		var building = player_control.get_building(runtime.data.work_location_id) if runtime.data.profession in [Profession.Type.LUMBERJACK,Profession.Type.MINER] else null
+		var building = player_control.get_building(runtime.data.work_location_id) if runtime.data.profession in [Profession.Type.LUMBERJACK,Profession.Type.MINER,Profession.Type.CLAY_DIGGER] else null
 		if changed.has(runtime.data.work_area_id) or (building != null and changed.has(building.work_area_override_id)): _work_assignment_updated(runtime.data.id)
 
 func _setup_rocks() -> void:
@@ -1219,7 +1223,7 @@ func _complete_rock_cycle(rock: RefCounted, receipt: int, worker_position: Vecto
 	# Mark before emitting Ground added/navigation signals (which can reenter).
 	_rock_receipts[key] = true
 	assert(rock_locations.is_available(worker_position),"Mining yield must be on walkable ground")
-	place_ground_resources(ResourceType.Type.STONE,1,worker_position)
+	place_ground_resources(rock.resource_type,1,worker_position)
 	if rock.stock > 0: return
 	rocks.erase(rock)
 	var view: Node = rock_views.get(rock.id)

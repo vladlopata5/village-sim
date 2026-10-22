@@ -66,6 +66,7 @@ func setup(commands: RefCounted) -> void:
 	resources.add_child(resource_choice)
 	resource_count=_count(resources,100)
 	_button(resources,"Создать ресурсы",func(): begin_placement(&"resource",resource_choice.get_selected_id(),int(resource_count.value)))
+	_button(resources,"Создать залежь глины",func():begin_placement(&"clay_deposit",null,1))
 	_note(resources,"Отдельные единицы на земле. Подбор и срок жизни — обычные игровые правила.")
 	var buildings := _section(tabs,"Здания")
 	building_choice=OptionButton.new()
@@ -157,7 +158,7 @@ func begin_placement(kind: StringName, type: Variant, count: int) -> void:
 	placement_kind=kind
 	_type=type
 	_quantity=count
-	status.text="Размещение: %s ×%d. ЛКМ по земле — создать; Esc / ПКМ — отменить." % [{&"resident":"жители",&"resource":"ресурсы",&"building":"готовое здание",&"terrain":"местность"}.get(kind,"?"),count]
+	status.text="Размещение: %s ×%d. ЛКМ по земле — создать; Esc / ПКМ — отменить." % [{&"resident":"жители",&"resource":"ресурсы",&"building":"готовое здание",&"terrain":"местность",&"clay_deposit":"залежь глины"}.get(kind,"?"),count]
 	placement_started.emit()
 func cancel_placement() -> void:
 	_paused_clicks.clear()
@@ -169,6 +170,7 @@ func confirm_world(point: Vector3) -> Dictionary:
 	var result: Dictionary
 	match placement_kind:
 		&"resident": result=service.spawn_residents(point,_quantity,int(_type))
+		&"clay_deposit": result=service.spawn_clay_deposit(point)
 		&"resource": result=service.spawn_resources(point,_quantity,int(_type))
 		&"building": result=service.spawn_building(point,_type)
 		&"terrain": result=service.paint_terrain(point,int(_type),_quantity)

@@ -103,3 +103,23 @@ func paint_terrain(point: Vector3, kind: int, width: int = 2) -> Dictionary:
 		for x in width:cells.append(first+Vector2i(x,y))
 	if not world.paint_terrain(cells,kind):return rejected("Клетки заняты, используются заданием или недопустимы для изменения")
 	return {"ok":true,"created":cells.size(),"objects":[],"reason":"Изменено клеток: %d"%cells.size()}
+
+var _clay_sequence := 1
+func spawn_clay_deposit(point: Vector3) -> Dictionary:
+	if not available() or not point.is_finite():return rejected("Некорректная позиция залежи")
+	var radius: float=preload("res://scripts/balance_config.gd").ROCK_PHYSICAL_RADIUS
+	var cells: Array=world.build_grid.footprint_cells(point,Vector2i(4,4))
+	var reason: String=world.build_grid.validation_reason(cells)
+	if not reason.is_empty():return rejected(reason)
+	for cell in cells:
+		if world.ground_resources.get_at(cell)!=null or (world.farm_fields.state(cell)!=world.farm_fields.State.BARE or world.farm_fields.claimed(cell)):return rejected("Клетка занята ресурсами или полем")
+	var box:=Rect2(Coordinates.world_plane(point)-Vector2.ONE*radius,Vector2.ONE*radius*2.0)
+	if not world.runtime_placement_blockers.first_overlap(box).is_empty():return rejected("Место занято объектом")
+	if not world.entrance_zones.validation_reason(box,box).is_empty():return rejected("Нельзя закрывать вход здания")
+	var id:=StringName("clay_%04d"%_clay_sequence)
+	while world.rock_views.has(id):
+		_clay_sequence+=1;id=StringName("clay_%04d"%_clay_sequence)
+	_clay_sequence+=1
+	var deposit=preload("res://scripts/clay_deposit_data.gd").new(id,Coordinates.to_sim(point))
+	world._register_rock(deposit)
+	return {"ok":true,"created":1,"objects":[deposit],"reason":"Создана залежь глины: %d единиц"%deposit.stock}

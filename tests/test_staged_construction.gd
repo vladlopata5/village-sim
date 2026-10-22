@@ -2,7 +2,7 @@ extends "res://tests/test_textile_production.gd"
 const Stage=preload("res://scripts/construction_stage.gd")
 const View=preload("res://scripts/world_3d/building_view_3d.gd")
 const Expected=preload("res://tests/construction_recipe_expectations.gd")
-const TIMES=[240,240,180,180,180,240,240,180,180,180,240,240,180,120]
+const TIMES=[240,240,180,180,180,240,240,180,180,180,240,240,180,120,180,180]
 func run() -> void:
 	definitions_and_execution()
 	validation()
@@ -10,7 +10,7 @@ func run() -> void:
 	print("Staged construction: %d checks, %d failures"%[checks,failures]);quit(1 if failures else 0)
 func definitions_and_execution() -> void:
 	var costs: Dictionary=Expected.COSTS.duplicate(true)
-	costs.merge({T.TOWN_CENTER:{},T.WELL:{R.LOG:4,R.STONE:4},T.WEAVER_WORKSHOP:{R.LOG:4,R.PLANK:6,R.STONE:4},T.TAILOR_WORKSHOP:{R.LOG:6,R.PLANK:8,R.STONE:4},T.FARM:{R.LOG:6,R.PLANK:8,R.STONE:4},T.WINDMILL:{R.LOG:4,R.PLANK:6,R.STONE:4}})
+	costs.merge({T.CLAY_HUT:{R.LOG:8,R.STONE:4},T.POTTERY_WORKSHOP:{R.LOG:4,R.PLANK:6,R.STONE:4},T.TOWN_CENTER:{},T.WELL:{R.LOG:4,R.STONE:4},T.WEAVER_WORKSHOP:{R.LOG:4,R.PLANK:6,R.STONE:4},T.TAILOR_WORKSHOP:{R.LOG:6,R.PLANK:8,R.STONE:4},T.FARM:{R.LOG:6,R.PLANK:8,R.STONE:4},T.WINDMILL:{R.LOG:4,R.PLANK:6,R.STONE:4}})
 	for type in T.values():
 		var definition=D.for_type(type)
 		check(definition.validate_construction_stages() and definition.construction_requirements==costs[type] and definition.construction_work_required==TIMES[type],"Every current type retains independently expected cost/time")

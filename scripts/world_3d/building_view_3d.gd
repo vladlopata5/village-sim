@@ -38,7 +38,7 @@ func setup(data: RefCounted) -> void:
 		well_visual=preload("res://scripts/world_3d/well_visual_3d.gd").create()
 		add_child(well_visual)
 		_finished_visuals.append(well_visual)
-	if data.type==preload("res://scripts/building_type.gd").Type.SHEPHERD_HUT or data.type==preload("res://scripts/building_type.gd").Type.FARM:
+	if data.type==preload("res://scripts/building_type.gd").Type.SHEPHERD_HUT or data.type in [preload("res://scripts/building_type.gd").Type.FARM,preload("res://scripts/building_type.gd").Type.CLAY_HUT]:
 		var roof := MeshInstance3D.new()
 		var prism := PrismMesh.new()
 		prism.size=Vector3(size.x+0.4,0.9,size.y+0.4)
@@ -54,6 +54,12 @@ func setup(data: RefCounted) -> void:
 		bread_visual.rotation.y = data.quarter_turns*PI/2.0
 		add_child(bread_visual)
 		_finished_visuals.append(bread_visual)
+	if data.type==preload("res://scripts/building_type.gd").Type.POTTERY_WORKSHOP:
+		var chimney:=MeshInstance3D.new()
+		var stack:=BoxMesh.new();stack.size=Vector3(.7,1.2,.7)
+		chimney.mesh=stack;chimney.position=Vector3(-size.x*.3,height+.4,-size.y*.25)
+		var clay_material:=StandardMaterial3D.new();clay_material.albedo_color=Color("80503b")
+		chimney.material_override=clay_material;add_child(chimney);_finished_visuals.append(chimney)
 	var shape := BoxShape3D.new()
 	shape.size = box.size
 	var collider := CollisionShape3D.new()
@@ -86,7 +92,7 @@ func setup(data: RefCounted) -> void:
 	data.construction_changed.connect(_refresh)
 	_refresh()
 func _refresh() -> void:
-	var colors := [Color("bd976b"), Color("829ba7"), Color("9aaa70"), Color("c2aa91"),Color("88735d"),Color("a28559"),Color("547ea8"),Color("89918b"),Color("b5a677"),Color("9186b0"),Color("bb8393"),Color("b69e69"),Color("d4c6a3"),Color("c59a79")]
+	var colors := [Color("bd976b"), Color("829ba7"), Color("9aaa70"), Color("c2aa91"),Color("88735d"),Color("a28559"),Color("547ea8"),Color("89918b"),Color("b5a677"),Color("9186b0"),Color("bb8393"),Color("b69e69"),Color("d4c6a3"),Color("c59a79"),Color("b58259"),Color("c16e4c")]
 	material.albedo_color = colors[building_data.type] if building_data.is_built() else Color("8b7357")
 	if well_visual!=null:
 		well_visual.visible=building_data.is_built();well_placeholder.visible=not building_data.is_built()

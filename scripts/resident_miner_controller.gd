@@ -1,5 +1,5 @@
 extends Node
-## Ordinary WORK: FREE mining or own Quarry COLLECT -> MINE -> EXPORT.
+## Ordinary WORK: stone (FREE/Quarry) or building-owned clay; COLLECT -> MINE -> EXPORT.
 const Profession = preload("res://scripts/resident_profession.gd")
 const Intent = preload("res://scripts/resident_intent.gd")
 const Activity = preload("res://scripts/resident_activity.gd")
@@ -28,16 +28,19 @@ const Resources = preload("res://scripts/resource_type.gd").Type
 const Source = preload("res://scripts/resource_source_ref.gd")
 const TargetScore = preload("res://scripts/work_target_score.gd")
 var committed_context: RefCounted
+func _resource() -> int:
+	return Resources.CLAY if runtime.data.profession==Profession.Type.CLAY_DIGGER else Resources.STONE
 func _context() -> RefCounted:
-	if world==null or runtime.data.profession!=Profession.Type.MINER: return null
+	if world==null or runtime.data.profession not in [Profession.Type.MINER,Profession.Type.CLAY_DIGGER]: return null
 	if not runtime.data.work_location_id.is_empty():
 		var place = world.player_control.get_building(runtime.data.work_location_id)
-		if place==null or not place.is_built() or place.type!=Types.QUARRY or not world.world_locations.get_position(place.id) is Vector2: return null
+		if place==null or not place.is_built() or place.type!=(Types.CLAY_HUT if _resource()==Resources.CLAY else Types.QUARRY) or not world.world_locations.get_position(place.id) is Vector2: return null
 		return Context.for_building(place,world.work_areas)
+	if _resource()==Resources.CLAY: return null # Clay mining is owned by its hut.
 	var area = world.work_areas.get_area(runtime.data.work_area_id)
 	return Context.new(area) if area!=null else null
 func _room(context: RefCounted) -> bool:
-	return context.workplace==null or context.workplace.resources.get_available_free_capacity(Resources.STONE)>=1
+	return context.workplace==null or context.workplace.resources.get_available_free_capacity(_resource())>=1
 func _transport_eligible(id: StringName, source_ref: RefCounted = null) -> bool:
 	var context := _context()
 	return context!=null and context.workplace!=null and context.workplace.id==id and clock.get_phase()=="День" and runtime.data.inventory.amount==0 and not runtime.intents.has_current_action() and (source_ref == null or world.logistics.sources.ground_allowed(source_ref,runtime.view.get_sim_position(),context.workplace,context.area))
@@ -58,10 +61,10 @@ func _area() -> RefCounted:
 	return context.area if context!=null else null
 func _identity(area: RefCounted) -> Array:
 	var context := _context()
-	var room: int = context.workplace.resources.get_available_free_capacity(Resources.STONE) if context.workplace!=null else -1
+	var room: int = context.workplace.resources.get_available_free_capacity(_resource()) if context.workplace!=null else -1
 	return world.logistics.sources.GroundAreas.identity(runtime.view.get_sim_position(),context.workplace,context.area) + [world.logistics.sources.revision,room,runtime.data.work_location_id,runtime.data.work_area_id,area.id,area.revision,area.center,area.radius,Engine.get_process_frames(),clock.total_minutes,locations.navigation.revision,runtime.view.get_sim_position()]
 func _eligible(source: RefCounted, area: RefCounted) -> bool:
-	return source in rocks and source.position.is_finite() and source.stock > 0 and source.reservation_owner_id.is_empty() and area.contains(source.position)
+	return source in rocks and source.resource_type==_resource() and source.position.is_finite() and source.stock > 0 and source.reservation_owner_id.is_empty() and area.contains(source.position)
 func best_target() -> Dictionary:
 	var context := _context()
 	if context==null or not _room(context):return {}
@@ -86,13 +89,13 @@ func best_task() -> Dictionary:
 	var origin: Vector2 = runtime.view.get_sim_position()
 	var access: Vector2 = world.world_locations.get_position(place.id)
 	if _room(context):
-		var matches: Array = world.logistics.sources.find_ground_in_area(Resources.STONE,context.area,origin,access,place)
+		var matches: Array = world.logistics.sources.find_ground_in_area(_resource(),context.area,origin,access,place)
 		if not matches.is_empty(): return {"kind":&"COLLECT","source":matches[0],"destination":place}
 		var extraction := best_target()
 		if not extraction.is_empty(): return extraction
 	var source_ref := Source.new(Source.Kind.CONTAINER,place.id)
-	if not world.logistics.sources.available(source_ref,Resources.STONE) or not world.logistics.sources.reachable(origin,access): return {}
-	var destinations: Array = world.logistics.sources.storage_destinations(source_ref,Resources.STONE,access)
+	if not world.logistics.sources.available(source_ref,_resource()) or not world.logistics.sources.reachable(origin,access): return {}
+	var destinations: Array = world.logistics.sources.storage_destinations(source_ref,_resource(),access)
 	return {"kind":&"EXPORT","source":source_ref,"destination":destinations[0]} if not destinations.is_empty() else {}
 func has_work() -> bool:
 	_available = {}
@@ -105,9 +108,9 @@ func _candidate_valid(candidate: Dictionary, context: RefCounted) -> bool:
 	if candidate.is_empty(): return false
 	if candidate.kind==&"MINE": return _room(context) and _eligible(candidate.rock,context.area) and locations.is_available(candidate.point)
 	if context.workplace==null: return false
-	if not world.logistics.sources.available(candidate.source,Resources.STONE): return false
+	if not world.logistics.sources.available(candidate.source,_resource()): return false
 	if candidate.kind==&"COLLECT": return _room(context) and candidate.destination==context.workplace and world.logistics.sources.ground_allowed(candidate.source,runtime.view.get_sim_position(),context.workplace,context.area)
-	return candidate.source.id==context.workplace.id and candidate.destination.is_built() and candidate.destination.resources.get_available_free_capacity(Resources.STONE)>=1
+	return candidate.source.id==context.workplace.id and candidate.destination.is_built() and candidate.destination.resources.get_available_free_capacity(_resource())>=1
 func request_work() -> bool:
 	if clock.get_phase() != "День" or runtime.intents.has_current_action() or runtime.data.inventory.amount != 0: return false
 	var context := _context()
@@ -119,8 +122,8 @@ func request_work() -> bool:
 	if candidate.is_empty(): return false
 	if candidate.kind!=&"MINE":
 		var job: RefCounted
-		if candidate.kind==&"COLLECT": job = world.logistics.claim_internal(runtime.data.id,candidate.source,context.workplace,Resources.STONE,_transport_eligible.bind(context.workplace.id,candidate.source))
-		else: job = world.logistics.claim_worker_export(runtime.data.id,context.workplace,candidate.destination,Resources.STONE,_transport_eligible.bind(context.workplace.id,candidate.source))
+		if candidate.kind==&"COLLECT": job = world.logistics.claim_internal(runtime.data.id,candidate.source,context.workplace,_resource(),_transport_eligible.bind(context.workplace.id,candidate.source))
+		else: job = world.logistics.claim_worker_export(runtime.data.id,context.workplace,candidate.destination,_resource(),_transport_eligible.bind(context.workplace.id,candidate.source))
 		if job==null: return false
 		if world.logistics.start_claimed_job(job,runtime.data.id): return true
 		world.logistics.cancel_job(job)
@@ -134,12 +137,17 @@ func request_work() -> bool:
 	if not claimed or _interrupt_pending:
 		abort(false)
 		return false
-	_intent = Intent.new(Intent.Type.MOVE_TO,&"mine_rock",target,Balance.WORK_PRIORITY,false)
+	_intent = Intent.new(Intent.Type.MOVE_TO,&"mine_clay" if rock.resource_type==Resources.CLAY else &"mine_rock",target,Balance.WORK_PRIORITY,false)
 	if not runtime.intents.submit(_intent):
 		abort(false)
 		return false
-	if runtime.logger != null: runtime.logger.info(EventLog.AI,"%s: выбрал добычу камня — %s" % [runtime.data.resident_name,rock.id])
+	if runtime.logger != null: runtime.logger.info(EventLog.AI,"%s: выбрал добычу %s — %s" % [runtime.data.resident_name,"глины" if rock.resource_type==Resources.CLAY else "камня",rock.id])
 	return true
+func assignment_changed() -> void:
+	# CL1 requires incompatible accepted clay work to end on area/assignment edits.
+	if rock!=null and rock.resource_type==Resources.CLAY:
+		var context := _context()
+		if context==null or context.workplace!=committed_context.workplace or not context.area.contains(rock.position): abort(false)
 func _valid() -> bool:
 	return committed_context!=null and (committed_context.workplace==null or (world.player_control.get_building(committed_context.workplace.id)==committed_context.workplace and committed_context.workplace.is_built())) and rock != null and rock in rocks and rock.stock > 0 and rock.reservation_owner_id == StringName(runtime.data.id) and locations.is_available(target) and locations.in_range(rock,target)
 func _arrived(intent: RefCounted) -> void:
@@ -150,7 +158,7 @@ func _arrived(intent: RefCounted) -> void:
 	mining = true
 	_last_minute = clock.total_minutes
 	runtime.data.activity = Activity.Type.WORKING
-	if runtime.logger != null: runtime.logger.info(EventLog.AI,"%s: начал добычу камня — %s" % [runtime.data.resident_name,rock.id])
+	if runtime.logger != null: runtime.logger.info(EventLog.AI,"%s: начал добычу %s — %s" % [runtime.data.resident_name,"глины" if rock.resource_type==Resources.CLAY else "камня",rock.id])
 func _accrue(now: int) -> bool:
 	if not mining or not _valid() or not is_instance_valid(runtime.view) or not locations.in_range(rock,runtime.view.get_sim_position()) or runtime.view.get_sim_position().distance_to(target)>8.0: return false
 	var elapsed := maxi(now-_last_minute,0)

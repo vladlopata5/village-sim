@@ -257,7 +257,7 @@ func _assignment_state_text(state: Assignment.State) -> String:
 		_: return ""
 
 func _intent_text(reason: String) -> String:
-	var labels := {"chop_tree": "Рубка дерева", "plant_tree": "Посадка дерева", "mine_rock": "Добыча камня", "recipe_work": "Производственная работа", "builder_wait_materials": "Ожидает строительные материалы", "builder_source": "Идёт за строительным материалом", "builder_delivery": "Доставляет материалы на стройку", "builder_site": "Строительная работа", "eat": "Идёт поесть", "social": "Идёт к собеседнику", "leisure": "Отдыхает", "wander": "Прогулка", "day_work": "Работа по расписанию", "night_home": "Возвращается домой", "night_outdoor": "Спит снаружи", "haul_source": "Идёт за грузом", "haul_destination": "Доставляет груз", "player_move": "Идёт по приказу игрока", "critical_sleep": "Восстанавливает силы", "rest": "Отдыхает"}
+	var labels := {"chop_tree": "Рубка дерева", "plant_tree": "Посадка дерева", "mine_rock": "Добыча камня", "mine_clay": "Добыча глины", "recipe_work": "Производственная работа", "builder_wait_materials": "Ожидает строительные материалы", "builder_source": "Идёт за строительным материалом", "builder_delivery": "Доставляет материалы на стройку", "builder_site": "Строительная работа", "eat": "Идёт поесть", "social": "Идёт к собеседнику", "leisure": "Отдыхает", "wander": "Прогулка", "day_work": "Работа по расписанию", "night_home": "Возвращается домой", "night_outdoor": "Спит снаружи", "haul_source": "Идёт за грузом", "haul_destination": "Доставляет груз", "player_move": "Идёт по приказу игрока", "critical_sleep": "Восстанавливает силы", "rest": "Отдыхает"}
 	return labels.get(reason, reason)
 
 
@@ -421,7 +421,7 @@ func refresh_work_task() -> void:
 		if intent != null and not intent.resource_handling.is_empty(): stage = "Погрузка" if intent.resource_handling == &"loading" else "Разгрузка"
 		intent_label.text = "Рабочая задача: %s ×%d → %s\n%s" % [preload("res://scripts/resource_type.gd").display_name(job.resource_type), job.amount, title, stage]
 	else:
-		var is_work := reason.begins_with("builder_") or reason in ["haul_source","haul_destination","chop_tree","plant_tree","mine_rock","recipe_work","day_work"]
+		var is_work := reason.begins_with("builder_") or reason in ["haul_source","haul_destination","chop_tree","plant_tree","mine_rock","mine_clay","recipe_work","day_work"]
 		intent_label.text = "Рабочая задача: " + (_intent_text(reason) if is_work else "нет активной задачи")
 	intent_label.show()
 func _exit_tree() -> void:

@@ -2,6 +2,7 @@ extends RefCounted
 ## Domain truth. A completion receipt is unique even across reentrant signals.
 const Balance = preload("res://scripts/balance_config.gd")
 signal changed
+var resource_type := preload("res://scripts/resource_type.gd").Type.STONE
 var id: StringName
 var position: Vector2
 var physical_radius := Balance.ROCK_PHYSICAL_RADIUS

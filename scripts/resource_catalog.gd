@@ -7,6 +7,8 @@ static var _definitions: Dictionary = _build_definitions()
 
 static func _build_definitions() -> Dictionary:
 	var definitions := {
+		Resources.Type.CLAY: {"id":Resources.Type.CLAY,"display_name":"Глина","icon":"res://assets/ui/catalog/clay.svg","category":Categories.Type.CLAY,"ready_food":false,"food_quality":FoodQuality.NONE,"quantity_compatible":true},
+		Resources.Type.BRICK: {"id":Resources.Type.BRICK,"display_name":"Кирпич","icon":"res://assets/ui/catalog/pottery.svg","category":Categories.Type.BRICK,"ready_food":false,"food_quality":FoodQuality.NONE,"quantity_compatible":true},
 		Resources.Type.WATER: {"id":Resources.Type.WATER,"display_name":"Ведро воды","category":Categories.Type.WATER,"ready_food":false,"food_quality":FoodQuality.NONE,"quantity_compatible":true},
 		Resources.Type.WHEAT: {"id":Resources.Type.WHEAT,"display_name":"Пшеница","category":Categories.Type.WHEAT,"ready_food":false,"food_quality":FoodQuality.NONE,"quantity_compatible":true},
 		Resources.Type.SHEAF: {"id":Resources.Type.SHEAF,"display_name":"Сноп","category":Categories.Type.SHEAF,"ready_food":false,"food_quality":FoodQuality.NONE,"quantity_compatible":true},

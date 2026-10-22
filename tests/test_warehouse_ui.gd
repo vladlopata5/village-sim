@@ -54,7 +54,7 @@ func run() -> void:
 	await settle()
 	check(town.resources.is_warehouse() and town.resources.shared_capacity==100 and town.resources.get_total_amount()==30,"Canonical Town Center preserves initial stock in shared capacity")
 	for category in C.values(): check(town.resources.get_category_quota(category)==Balance.TOWN_CENTER_CATEGORY_QUOTAS.get(category,0),"Approved Town Center preset, wool initially unallocated")
-	check(card.storage_rows.size()==12 and card.get_node("%StorageSummary").text=="Занято: 30 / 100\nВ пути: 0\nРаспределено: 100 / 100","All twelve category rows and approved starter totals")
+	check(card.storage_rows.size()==14 and card.get_node("%StorageSummary").text=="Занято: 30 / 100\nВ пути: 0\nРаспределено: 100 / 100","All fourteen category rows and approved starter totals")
 	await capture("town-initial")
 	card.storage_rows[C.SIMPLE_FOOD].expand.button_pressed = true
 	check(card.storage_rows[C.SIMPLE_FOOD].contents.visible and card.storage_rows[C.SIMPLE_FOOD].contents.text == "  FOOD: 20","Expanded category shows real concrete stock")
