@@ -333,7 +333,7 @@ func _activate_completed_building(building: BuildingInstance) -> void:
 			building.resources.set_capacity(ResourceType.Type.LOG,Balance.SAWMILL_INPUT_CAPACITY)
 			building.resources.set_capacity(ResourceType.Type.PLANK,Balance.SAWMILL_OUTPUT_CAPACITY)
 			logistics.register_building(building)
-		BuildingType.Type.SHEPHERD_HUT, BuildingType.Type.WEAVER_WORKSHOP, BuildingType.Type.TAILOR_WORKSHOP, BuildingType.Type.FARM, BuildingType.Type.WINDMILL:
+		BuildingType.Type.SHEPHERD_HUT, BuildingType.Type.WEAVER_WORKSHOP, BuildingType.Type.TAILOR_WORKSHOP, BuildingType.Type.FARM, BuildingType.Type.WINDMILL, BuildingType.Type.WELL:
 			logistics.register_building(building)
 		BuildingType.Type.GATHERER_HUT:
 			if gatherer_hut_data == null:

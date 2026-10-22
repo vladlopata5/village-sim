@@ -7,6 +7,8 @@ func fuel(place: RefCounted) -> void:
 	if not place.consumable_receivers.has(&"fuel"):return
 	var receiver: RefCounted=place.consumable_receivers[&"fuel"]
 	if receiver.reserve_in(R.LOG,4):receiver.add_reserved(R.LOG,4)
+	place.consumable_receivers[&"water"].reserve_in(R.WATER,4)
+	place.consumable_receivers[&"water"].add_reserved(R.WATER,4)
 	place.set_recipe_mode(&"fried_mushroom",B.ProductionMode.OFF)
 func bread_recipe(place: RefCounted) -> RefCounted:
 	return place.definition.get_production_recipe(&"bake_bread") if place.type==T.FOOD else place.definition.production_recipe

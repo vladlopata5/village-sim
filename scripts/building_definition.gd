@@ -6,6 +6,7 @@ const ResourceType = preload("res://scripts/resource_type.gd")
 const BuildingType = preload("res://scripts/building_type.gd")
 const Recipe = preload("res://scripts/production_recipe.gd")
 const CONSTRUCTION_BALANCE = {
+	BuildingType.Type.WELL: {"requirements":{ResourceType.Type.LOG:4,ResourceType.Type.STONE:4},"minutes":120,"builders":2},
 	BuildingType.Type.WINDMILL: {"requirements":{ResourceType.Type.LOG:4,ResourceType.Type.PLANK:6,ResourceType.Type.STONE:4},"minutes":180,"builders":2},
 	BuildingType.Type.FARM: {"requirements":{ResourceType.Type.LOG:6,ResourceType.Type.PLANK:8,ResourceType.Type.STONE:4},"minutes":240,"builders":2},
 	BuildingType.Type.WEAVER_WORKSHOP: {"requirements":{ResourceType.Type.LOG:4,ResourceType.Type.PLANK:6,ResourceType.Type.STONE:4},"minutes":180,"builders":2},
@@ -22,6 +23,7 @@ const CONSTRUCTION_BALANCE = {
 }
 # Explicit 3D physical area in build cells; size remains the shared logical footprint in simulation coordinates.
 const FOOTPRINT_CELLS = {
+	BuildingType.Type.WELL: Vector2i(6,4),
 	BuildingType.Type.WINDMILL: Vector2i(12,8),
 	BuildingType.Type.FARM: Vector2i(12,8),
 	BuildingType.Type.WEAVER_WORKSHOP: Vector2i(12,8),
@@ -80,7 +82,7 @@ const LOGISTICS_FLOW = {
 		ResourceType.Type.FLOUR: {"import":true,"export":true},
 		ResourceType.Type.BREAD: {"import":true,"export":true},
 	},
-	BuildingType.Type.FOOD: {ResourceType.Type.LOG:{"import":true,"export":false},ResourceType.Type.FLOUR:{"import":true,"export":false},ResourceType.Type.BREAD:{"import":false,"export":true},ResourceType.Type.FOOD:{"import":true,"export":false}, ResourceType.Type.MUSHROOM:{"import":true,"export":false}, ResourceType.Type.FRIED_MUSHROOM:{"import":false,"export":true}},
+	BuildingType.Type.FOOD: {ResourceType.Type.WATER:{"import":true,"export":false},ResourceType.Type.LOG:{"import":true,"export":false},ResourceType.Type.FLOUR:{"import":true,"export":false},ResourceType.Type.BREAD:{"import":false,"export":true},ResourceType.Type.FOOD:{"import":true,"export":false}, ResourceType.Type.MUSHROOM:{"import":true,"export":false}, ResourceType.Type.FRIED_MUSHROOM:{"import":false,"export":true}},
 	BuildingType.Type.GATHERER_HUT: {ResourceType.Type.MUSHROOM:{"import":false,"export":true}},
 	BuildingType.Type.LUMBERJACK_HUT: {ResourceType.Type.LOG:{"import":false,"export":true}},
 }
@@ -118,7 +120,7 @@ var player_buildable := true
 func _init(type_id: StringName, category: BuildingType.Type, label: String, footprint_size: Vector2, requirements: Dictionary = {}, work_minutes: int = 0, builder_limit: int = 0, resident_capacity: int = 0) -> void:
 	id = type_id
 	type = category
-	porter_capacity = 0 if category == BuildingType.Type.HOME else (2 if category in [BuildingType.Type.STORAGE,BuildingType.Type.TOWN_CENTER] else 1)
+	porter_capacity = 0 if category in [BuildingType.Type.HOME,BuildingType.Type.WELL] else (2 if category in [BuildingType.Type.STORAGE,BuildingType.Type.TOWN_CENTER] else 1)
 	logistics_flow = LOGISTICS_FLOW.get(category,{}).duplicate(true)
 	footprint_cells = FOOTPRINT_CELLS[category]
 	display_name = label
@@ -128,8 +130,8 @@ func _init(type_id: StringName, category: BuildingType.Type, label: String, foot
 	max_builders = maxi(builder_limit, 0)
 	housing_capacity = maxi(resident_capacity, 0)
 static func for_type(category: BuildingType.Type, label: String = ""):
-	var ids := [&"kitchen", &"warehouse", &"gatherer_hut", &"home", &"lumberjack_hut", &"sawmill", &"town_center", &"quarry", &"shepherd_hut", &"weaver_workshop", &"tailor_workshop", &"farm", &"windmill"]
-	var labels := ["Кухня", "Склад", "Хижина собирателя", "Дом", "Хижина лесоруба", "Лесопилка", "Городской центр", "Каменоломня", "Хижина пастуха", "Мастерская ткача", "Швейная мастерская", "Ферма", "Мельница"]
+	var ids := [&"kitchen", &"warehouse", &"gatherer_hut", &"home", &"lumberjack_hut", &"sawmill", &"town_center", &"quarry", &"shepherd_hut", &"weaver_workshop", &"tailor_workshop", &"farm", &"windmill", &"well"]
+	var labels := ["Кухня", "Склад", "Хижина собирателя", "Дом", "Хижина лесоруба", "Лесопилка", "Городской центр", "Каменоломня", "Хижина пастуха", "Мастерская ткача", "Швейная мастерская", "Ферма", "Мельница", "Колодец"]
 	var footprint_size := Vector2(64, 48) if category == BuildingType.Type.HOME else Vector2(144, 96)
 	var construction: Dictionary = CONSTRUCTION_BALANCE.get(category,{"requirements":{},"minutes":0,"builders":0})
 	var result = load("res://scripts/building_definition.gd").new(ids[category], category, labels[category] if label.is_empty() else label, footprint_size, construction.requirements, construction.minutes, construction.builders, Balance.HOUSE_RESIDENT_CAPACITY if category == BuildingType.Type.HOME else 0)
@@ -148,8 +150,11 @@ static func for_type(category: BuildingType.Type, label: String = ""):
 		result.production_recipes.append(Recipe.new({ResourceType.Type.MUSHROOM:1},{ResourceType.Type.FRIED_MUSHROOM:2},Balance.KITCHEN_WORK_MINUTES,&"fried_mushroom"))
 		result.production_recipes[-1].consumables={&"fuel":1}
 		result.production_recipes.append(Recipe.new({ResourceType.Type.FLOUR:1},{ResourceType.Type.BREAD:2},Balance.KITCHEN_WORK_MINUTES,&"bake_bread"))
-		result.production_recipes[-1].consumables={&"fuel":1}
+		result.production_recipes[-1].consumables={&"fuel":1,&"water":1}
 		result.consumable_definitions={&"fuel":{"label":"Топливо","capacity":Balance.KITCHEN_FUEL_CAPACITY,"materials":{ResourceType.Type.LOG:Balance.KITCHEN_LOG_FUEL}}}
+	if category == BuildingType.Type.FOOD:
+		result.consumable_definitions[&"water"]={"label":"Вода","capacity":Balance.KITCHEN_WATER_CAPACITY,"materials":{ResourceType.Type.WATER:Balance.WATER_CARGO_UNITS}}
+	if category == BuildingType.Type.WELL:result.porter_capacity=0
 	result.is_storage = category in [BuildingType.Type.STORAGE,BuildingType.Type.TOWN_CENTER]
 	if category == BuildingType.Type.TOWN_CENTER:
 		result.fallback_housing_capacity = Balance.TOWN_CENTER_FALLBACK_CAPACITY

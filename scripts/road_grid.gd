@@ -12,6 +12,7 @@ var _roads: Dictionary = {}
 signal levels_changed(cells: Array[Vector2i])
 var levels := PackedByteArray()
 var allowed: Callable
+var surface_allowed: Callable
 var chance: float = Balance.TRAMPLE_CHANCE
 var decay_per_night: int = Balance.TRAMPLE_DECAY_PER_NIGHT
 var _active: Dictionary = {}
@@ -139,7 +140,7 @@ func edit(points: Array, erase: bool) -> bool:
 		if not in_bounds(cell): continue
 		if erase:
 			if _roads.erase(cell): modified=true
-		elif not contains(cell):
+		elif not contains(cell) and (not surface_allowed.is_valid() or surface_allowed.call(cell)):
 			_roads[cell]=true
 			modified=true
 	if modified: changed.emit()

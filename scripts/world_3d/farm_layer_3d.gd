@@ -1,6 +1,8 @@
 extends Node3D
 ## Three shared batches, no per-cell Nodes, collision or navigation geometry.
 const Fields=preload("res://scripts/farm_fields.gd")
+const WATER_COLOR:=Color("328bb1")
+const SAND_COLOR:=Color("cdb980")
 const DIRT_COLOR:=Color("805f40")
 const PLOWED_COLOR:=Color("4d3827")
 const FURROW_COLOR:=Color("342317")
@@ -35,7 +37,7 @@ func setup(model: RefCounted) -> void:
 		view.multimesh.instance_count=fields.geometry.grid_size().x*fields.geometry.grid_size().y;view.multimesh.visible_instance_count=0
 		batches[entry[0]]={"view":view,"cells":[],"slots":{}}
 	fields.changed.connect(_queue)
-	_queue(fields.dirt_cells());flush()
+	_queue(fields.surface_cells());flush()
 func _queue(cells: Array) -> void:
 	var empty:=_dirty.is_empty()
 	for cell in cells:_dirty[cell]=true
@@ -45,7 +47,8 @@ func _write(kind: StringName, cell: Vector2i, slot: int) -> void:
 	var crop_basis:=Basis.IDENTITY
 	var color:=DIRT_COLOR
 	if kind==&"soil":
-		point.y=0.007;color=PLOWED_COLOR if fields.state(cell)!=Fields.State.BARE else DIRT_COLOR
+		point.y=0.007
+		color=WATER_COLOR if fields.terrain(cell)==Fields.Terrain.WATER else SAND_COLOR if fields.terrain(cell)==Fields.Terrain.SAND else PLOWED_COLOR if fields.state(cell)!=Fields.State.BARE else DIRT_COLOR
 	elif kind==&"furrows":point.y=0.009;color=FURROW_COLOR
 	else:
 		var stage:=mini(fields.maturity(cell),6)
@@ -64,7 +67,7 @@ func _set_cell(kind: StringName, cell: Vector2i, visible_cell: bool) -> void:
 	batch.view.multimesh.visible_instance_count=batch.cells.size()
 func flush() -> void:
 	for cell in _dirty:
-		_set_cell(&"soil",cell,fields.terrain(cell)==Fields.Terrain.DIRT)
+		_set_cell(&"soil",cell,fields.terrain(cell)!=Fields.Terrain.GRASS)
 		_set_cell(&"furrows",cell,fields.state(cell)!=Fields.State.BARE)
 		_set_cell(&"crop",cell,fields.state(cell)==Fields.State.SOWN)
 	_dirty.clear()

@@ -248,3 +248,8 @@ const KITCHEN_FLOUR_CAPACITY := 10
 const KITCHEN_BREAD_CAPACITY := 10
 const KITCHEN_FUEL_CAPACITY := 20
 const KITCHEN_LOG_FUEL := 5
+
+# WAT1 water is gathered into ordinary one-unit cargo.
+const KITCHEN_WATER_CAPACITY := 20
+const WATER_CARGO_UNITS := 5
+const WATER_COLLECTION_MINUTES := 10

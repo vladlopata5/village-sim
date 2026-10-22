@@ -64,7 +64,8 @@ func start(claimed: Job) -> bool:
 	if not target is Vector2: return false
 	claimed.state = Job.State.GOING_TO_SOURCE
 	_haul_intent = Intent.new(Intent.Type.MOVE_TO, &"haul_source", target, claimed.execution_priority, false)
-	if claimed.source_ref.kind==preload("res://scripts/resource_source_ref.gd").Kind.CONTAINER and locations.has_method("configure_intent"): locations.configure_intent(_haul_intent,claimed.source_ref.id,Purpose.COURIER,resident.id)
+	var source_building: StringName=claimed.source_ref.id if claimed.source_ref.kind==preload("res://scripts/resource_source_ref.gd").Kind.CONTAINER else service.sources.water.building_id(claimed.source_ref.id) if claimed.source_ref.kind==preload("res://scripts/resource_source_ref.gd").Kind.WATER else &""
+	if not source_building.is_empty() and locations.has_method("configure_intent"): locations.configure_intent(_haul_intent,source_building,Purpose.COURIER,resident.id)
 	if not intents.submit(_haul_intent):
 		_haul_intent = null
 		claimed.state = Job.State.ASSIGNED
@@ -106,7 +107,8 @@ func _on_arrival(intent: Intent) -> void:
 	var loading := job.state == Job.State.GOING_TO_SOURCE
 	intent.interruptible = false
 	intent.resource_handling = &"loading" if loading else &"unloading"
-	handling.start(intent.resource_handling,clock.total_minutes,Balance.RESOURCE_LOADING_MINUTES if loading else Balance.RESOURCE_UNLOADING_MINUTES)
+	var minutes: int=Balance.WATER_COLLECTION_MINUTES if loading and job.source_ref.kind==preload("res://scripts/resource_source_ref.gd").Kind.WATER else Balance.RESOURCE_LOADING_MINUTES if loading else Balance.RESOURCE_UNLOADING_MINUTES
+	handling.start(intent.resource_handling,clock.total_minutes,minutes)
 	resident.activity = Activity.Type.HAULING
 	if service.logger != null: service.logger.info(EventLog.LOGISTICS, "%s: %s (%d игровых минут)" % [resident.resident_name,"погрузка" if intent.resource_handling==&"loading" else "разгрузка",Balance.RESOURCE_LOADING_MINUTES if loading else Balance.RESOURCE_UNLOADING_MINUTES])
 

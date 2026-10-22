@@ -10,6 +10,8 @@ var work_area: MeshInstance3D
 var layout: Node3D
 var _indexed_layout_id := 0
 var _marker_groups: Dictionary = {} # Script -> ordered node references, never occupancy.
+var well_visual: Node3D
+var well_placeholder: Node3D
 var bread_visual: Node3D
 var inside_count := 0
 var caption: Label3D
@@ -27,6 +29,10 @@ func setup(data: RefCounted) -> void:
 	visual.mesh = box
 	visual.position.y = height / 2.0
 	add_child(visual)
+	if data.type==preload("res://scripts/building_type.gd").Type.WELL:
+		well_placeholder=visual
+		well_visual=preload("res://scripts/world_3d/well_visual_3d.gd").create()
+		add_child(well_visual)
 	if data.type==preload("res://scripts/building_type.gd").Type.SHEPHERD_HUT or data.type==preload("res://scripts/building_type.gd").Type.FARM:
 		var roof := MeshInstance3D.new()
 		var prism := PrismMesh.new()
@@ -75,6 +81,8 @@ func setup(data: RefCounted) -> void:
 func _refresh() -> void:
 	var colors := [Color("bd976b"), Color("829ba7"), Color("9aaa70"), Color("c2aa91"),Color("88735d"),Color("a28559"),Color("547ea8"),Color("89918b"),Color("b5a677"),Color("9186b0"),Color("bb8393"),Color("b69e69"),Color("d4c6a3"),Color("c59a79")]
 	material.albedo_color = colors[building_data.type] if building_data.is_built() else Color("8b7357")
+	if well_visual!=null:
+		well_visual.visible=building_data.is_built();well_placeholder.visible=not building_data.is_built()
 	if bread_visual!=null:
 		bread_visual.visible = building_data.is_built()
 		var rotor: Node = bread_visual.get_node_or_null("Rotor")

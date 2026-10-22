@@ -1,7 +1,7 @@
 extends RefCounted
 ## World-owned soil/crops and short operation claims, independent from farm ownership.
 const Season=preload("res://scripts/season.gd")
-enum Terrain { GRASS, DIRT }
+enum Terrain { GRASS, DIRT, WATER, SAND }
 enum State { BARE, PLOWED, SOWN }
 signal changed(cells: Array)
 signal operation_invalidated(owner: StringName)
@@ -28,7 +28,7 @@ func plot_cells() -> Array:return _plots.keys()
 func claimed(cell: Vector2i) -> bool:return _claims.has(cell)
 func owned(cell: Vector2i, owner: StringName) -> bool:return not owner.is_empty() and _claims.get(cell,&"")==owner
 func owned_cells(owner: StringName) -> Array:return _owners.get(owner,[]).duplicate()
-func available(cell: Vector2i, expected: State) -> bool:return in_bounds(cell) and state(cell)==expected and not claimed(cell)
+func available(cell: Vector2i, expected: State) -> bool:return in_bounds(cell) and terrain(cell)!=Terrain.WATER and state(cell)==expected and not claimed(cell)
 func reserve(cells: Array, owner: StringName, expected: State, valid: Callable=Callable()) -> bool:
 	if owner.is_empty() or cells.is_empty() or cells.size()>5 or not _season_allows(expected):return false
 	if _owners.has(owner):return owned_cells(owner)==cells and cells.all(func(cell):return owned(cell,owner) and state(cell)==expected)
@@ -103,3 +103,21 @@ func _season_allows(expected: State) -> bool:
 	if _clock==null:return false
 	var current: int=_clock.get_season()
 	return current==Season.Type.AUTUMN if expected==State.SOWN else current in [Season.Type.SPRING,Season.Type.SUMMER]
+
+func set_terrain(cells: Array, kind: int, validation: Callable = Callable()) -> bool:
+	if kind not in Terrain.values() or cells.is_empty():return false
+	var unique: Dictionary={}
+	for cell in cells:
+		if not cell is Vector2i or not in_bounds(cell) or state(cell)!=State.BARE or claimed(cell) or (validation.is_valid() and not validation.call(cell)):return false
+		unique[cell]=true
+	var modified: Array=[]
+	for cell in unique:
+		if terrain(cell)!=kind:_soil[_index(cell)]=kind;modified.append(cell)
+	if not modified.is_empty():_notify(modified)
+	return true
+func surface_cells() -> Array:
+	var result: Array=[]
+	var width: int=geometry.grid_size().x
+	for index in _soil.size():
+		if _soil[index]!=Terrain.GRASS:result.append(Vector2i(index%width,floori(float(index)/width)))
+	return result

@@ -5,7 +5,11 @@ const GroundAreas = preload("res://scripts/ground_search_areas.gd")
 signal changed
 var buildings: Dictionary = {}
 var locations: RefCounted
+var water: RefCounted
 var nature: RefCounted
+func bind_water(model: RefCounted) -> void:
+	water=model
+	water.changed.connect(_queue_changed)
 func bind_nature(model: RefCounted) -> void:
 	if nature!=null and nature.availability_changed.is_connected(_queue_changed): nature.availability_changed.disconnect(_queue_changed)
 	nature=model
@@ -22,30 +26,37 @@ func bind_ground(value: Node) -> void:
 	if not ground.availability_changed.is_connected(_queue_changed): ground.availability_changed.connect(_queue_changed)
 func resolve(source_ref: Source) -> Variant:
 	if source_ref == null: return null
+	if source_ref.kind==Source.Kind.WATER:
+		if water!=null and water.exists(source_ref.id):return source_ref.id
+		return null
 	if source_ref.kind == Source.Kind.CONTAINER: return buildings.get(source_ref.id)
 	if source_ref.kind == Source.Kind.NATURAL_MUSHROOM: return nature.source_cell(source_ref.id) if nature!=null else null
 	if is_instance_valid(ground):
 		return ground.get_by_id(source_ref.id)
 	return null
 func point(source_ref: Source) -> Variant:
+	if source_ref!=null and source_ref.kind==Source.Kind.WATER:return water.point(source_ref.id) if water!=null else null
 	var entity: Variant = resolve(source_ref)
 	if entity == null: return null
 	if source_ref.kind == Source.Kind.NATURAL_MUSHROOM: return nature.position(source_ref.id)
 	if source_ref.kind == Source.Kind.GROUND: return entity.world_position
 	return (locations.get_resource_position(entity.id) if locations.has_method("get_resource_position") else locations.get_position(entity.id)) if locations != null else entity.position
 func label(source_ref: Source) -> String:
+	if source_ref.kind==Source.Kind.WATER:return "вода (%s)"%source_ref.id
 	if source_ref.kind == Source.Kind.NATURAL_MUSHROOM: return "природные грибы (%s)" % source_ref.id
 	var entity: Variant = resolve(source_ref)
 	return "земля (%s)" % source_ref.id if source_ref.kind == Source.Kind.GROUND else (entity.display_name if entity != null else String(source_ref.id))
 func export_allowed(source_ref: Source, resource: int) -> bool:
 	var entity: Variant = resolve(source_ref)
 	if entity == null: return false
+	if source_ref.kind==Source.Kind.WATER:return resource==water.RESOURCE_TYPE
 	if source_ref.kind == Source.Kind.NATURAL_MUSHROOM: return resource == nature.RESOURCE_TYPE
 	if source_ref.kind == Source.Kind.GROUND: return entity.resource_type == resource
 	return entity.is_built() and entity.definition.allows_external_export(resource) and entity.resources.allows_resource(resource)
 func available(source_ref: Source, resource: int) -> bool:
 	if not export_allowed(source_ref,resource) or not point(source_ref) is Vector2: return false
 	var entity: Variant = resolve(source_ref)
+	if source_ref.kind==Source.Kind.WATER:return water.available(source_ref.id)
 	if source_ref.kind == Source.Kind.NATURAL_MUSHROOM: return nature.available_amount(source_ref.id)>0
 	return entity.available_amount() > 0 if source_ref.kind == Source.Kind.GROUND else entity.external_available(resource)>0
 func reachable(start: Vector2, target: Vector2) -> bool:
@@ -56,7 +67,7 @@ func _current_work_object(workplace: RefCounted) -> RefCounted:
 	return workplace if buildings.get(workplace.id) == workplace else null
 func ground_allowed(source_ref: Source, origin: Variant, workplace: RefCounted = null, area: RefCounted = null, radius_multiplier: float = 1.0) -> bool:
 	if source_ref == null: return false
-	if source_ref.kind == Source.Kind.CONTAINER: return true
+	if source_ref.kind in [Source.Kind.CONTAINER,Source.Kind.WATER]: return true
 	if source_ref.kind == Source.Kind.NATURAL_MUSHROOM: return false # Dedicated building WorkArea, never loose-ground OR radii.
 	var target: Variant = point(source_ref)
 	# Removed/replaced work objects cannot contribute a stale search circle.
@@ -77,6 +88,7 @@ func find(resource: int, origin: Vector2, destination: Vector2, excluded: String
 	for building in buildings.values():
 		if building.id != excluded: result.append(Source.new(Source.Kind.CONTAINER,building.id))
 	result.append_array(ground_candidates(resource,origin,workplace,area,Callable(),radius_multiplier))
+	if water!=null and resource==water.RESOURCE_TYPE:result.append_array(water.candidates())
 	result = result.filter(func(ref): return available(ref,resource) and reachable(origin,point(ref)) and reachable(point(ref),destination))
 	result.sort_custom(func(a,b):
 		var da: float = origin.distance_to(point(a))+point(a).distance_to(destination)
@@ -111,6 +123,7 @@ func find_construction_trip(resource: int, origin: Vector2, destination: Vector2
 func reserve(source_ref: Source, resource: int, owner: StringName) -> bool:
 	if owner.is_empty() or _claims.has(owner) or not available(source_ref,resource): return false
 	var entity: Variant = resolve(source_ref)
+	if source_ref.kind==Source.Kind.WATER:return water.reserve(source_ref.id,owner)
 	if source_ref.kind == Source.Kind.NATURAL_MUSHROOM: return nature.reserve(source_ref.id,owner)
 	if source_ref.kind == Source.Kind.GROUND: return entity.reserve(owner)
 	# Record ownership before synchronous reserve callbacks observe the ledger.
@@ -123,6 +136,7 @@ func reserve(source_ref: Source, resource: int, owner: StringName) -> bool:
 func reserved(source_ref: Source, resource: int, owner: StringName) -> bool:
 	var entity: Variant = resolve(source_ref)
 	if entity == null or not export_allowed(source_ref,resource): return false
+	if source_ref.kind==Source.Kind.WATER:return water.reserved(source_ref.id,owner)
 	if source_ref.kind == Source.Kind.NATURAL_MUSHROOM: return nature.reserved(source_ref.id,owner)
 	if source_ref.kind == Source.Kind.GROUND: return entity.reserved_amount(owner)>=1
 	var claim: Dictionary = _claims.get(owner,{})
@@ -134,6 +148,7 @@ func reserved(source_ref: Source, resource: int, owner: StringName) -> bool:
 func pickup(source_ref: Source, resource: int, owner: StringName) -> bool:
 	if not reserved(source_ref,resource,owner): return false
 	var entity: Variant = resolve(source_ref)
+	if source_ref.kind==Source.Kind.WATER:return water.pickup(source_ref.id,owner)
 	if source_ref.kind == Source.Kind.NATURAL_MUSHROOM: return nature.take_reserved(source_ref.id,owner)
 	if source_ref.kind == Source.Kind.GROUND: return ground.take_reserved(entity,owner)
 	var claim: Dictionary = _claims[owner]
@@ -148,7 +163,9 @@ func release(source_ref: Source, resource: int, owner: StringName, reserved_enti
 	# The caller retains the original object only until owned rollback completes.
 	var entity: Variant = reserved_entity if reserved_entity != null else resolve(source_ref)
 	if source_ref == null: return
-	if source_ref.kind == Source.Kind.NATURAL_MUSHROOM:
+	if source_ref.kind==Source.Kind.WATER:
+		if water!=null:water.release(source_ref.id,owner)
+	elif source_ref.kind == Source.Kind.NATURAL_MUSHROOM:
 		if nature!=null: nature.release(source_ref.id,owner)
 	elif source_ref.kind == Source.Kind.GROUND:
 		if entity != null: entity.release(owner)
@@ -199,10 +216,15 @@ func find_first(resource: int, origin: Vector2, destination: Vector2, excluded: 
 	for building in buildings.values():
 		if building.id!=excluded: candidates.append(Source.new(Source.Kind.CONTAINER,building.id))
 	candidates.append_array(ground_candidates(resource,origin,workplace,area))
+	if water!=null and resource==water.RESOURCE_TYPE:candidates.append_array(water.candidates())
 	candidates=candidates.filter(func(ref): return available(ref,resource))
+	var distances: Dictionary={}
+	for candidate in candidates:
+		var position: Vector2=point(candidate)
+		distances[candidate]=origin.distance_to(position)+position.distance_to(destination)
 	candidates.sort_custom(func(a,b):
-		var da: float=origin.distance_to(point(a))+point(a).distance_to(destination)
-		var db: float=origin.distance_to(point(b))+point(b).distance_to(destination)
+		var da: float=distances[a]
+		var db: float=distances[b]
 		return da<db or (is_equal_approx(da,db) and a.stable_key()<b.stable_key()))
 	for source_ref in candidates:
 		if reachable(origin,point(source_ref)) and reachable(point(source_ref),destination): return source_ref

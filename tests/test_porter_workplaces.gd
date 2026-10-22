@@ -184,7 +184,8 @@ func run() -> void:
 		f=fixture(allowed[iteration%allowed.size()])
 		for building in f.buildings:
 			building.position=Vector2(rng.randi_range(-300,300),rng.randi_range(-200,200))
-			for resource in R.values():
+			# Preserve the historical seeded goods distribution; physical water has dedicated integration coverage.
+			for resource in R.values().filter(func(resource):return resource!=R.WATER):
 				var amount := rng.randi_range(0,10)
 				if amount>0: building.resources.add(resource,amount)
 				if iteration%3==0: building.resources.reserve_in(resource,2)

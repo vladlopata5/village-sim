@@ -3,6 +3,7 @@ extends RefCounted
 const Coordinates = preload("res://scripts/world_3d/world_coordinates.gd")
 const CELL_SIZE: float = 0.5
 const WORLD_BOUNDS := Rect2(-64, -40, 128, 80)
+var terrain_allowed: Callable
 var bounds: Rect2
 var _owners: Dictionary = {}
 var _buildings: Dictionary = {}
@@ -38,6 +39,7 @@ func validation_reason(cells: Array) -> String:
 	for cell in cells:
 		if not region.has_point(cell): return "За пределами карты"
 		if not occupant(cell).is_empty(): return "Место занято зданием"
+		if terrain_allowed.is_valid() and not terrain_allowed.call(cell):return "Нельзя строить на воде"
 	return ""
 func occupy(id: StringName, cells: Array) -> bool:
 	if id.is_empty() or _buildings.has(id) or not validation_reason(cells).is_empty(): return false

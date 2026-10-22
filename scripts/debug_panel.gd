@@ -93,6 +93,10 @@ func setup(commands: RefCounted) -> void:
 	_button(time,"Перевести время вперёд",func(): _show_result(service.advance_to_time(int(hour.value),int(minute.value))))
 	_button(time,"Следующий день (00:00)",func(): _show_result(service.next_day()))
 	_note(time,"Только вперёд: раннее время — на следующий день. Пропуск проигрывает все игровые минуты; для физического движения используйте скорости x1–x20.")
+	var terrain:=_section(tabs,"Местность")
+	for entry in [["Вода",2],["Песок",3],["Трава",0],["Земля",1]]:
+		_button(terrain,entry[0]+" • кисть 2×2",begin_placement.bind(&"terrain",entry[1],2))
+	_note(terrain,"ЛКМ по суше меняет 2×2 клетки. Режим сохраняется для нескольких мазков. Занятые клетки и цели принятых действий защищены. Esc/ПКМ — закончить.")
 	var ai := _section(tabs,"AI")
 	ai_queue_label=Label.new()
 	ai_queue_label.name="AIQueueMetrics"
@@ -153,7 +157,7 @@ func begin_placement(kind: StringName, type: Variant, count: int) -> void:
 	placement_kind=kind
 	_type=type
 	_quantity=count
-	status.text="Размещение: %s ×%d. ЛКМ по земле — создать; Esc / ПКМ — отменить." % [{&"resident":"жители",&"resource":"ресурсы",&"building":"готовое здание"}.get(kind,"?"),count]
+	status.text="Размещение: %s ×%d. ЛКМ по земле — создать; Esc / ПКМ — отменить." % [{&"resident":"жители",&"resource":"ресурсы",&"building":"готовое здание",&"terrain":"местность"}.get(kind,"?"),count]
 	placement_started.emit()
 func cancel_placement() -> void:
 	_paused_clicks.clear()
@@ -167,8 +171,9 @@ func confirm_world(point: Vector3) -> Dictionary:
 		&"resident": result=service.spawn_residents(point,_quantity,int(_type))
 		&"resource": result=service.spawn_resources(point,_quantity,int(_type))
 		&"building": result=service.spawn_building(point,_type)
+		&"terrain": result=service.paint_terrain(point,int(_type),_quantity)
 		_: result=service.rejected("Неизвестный режим")
-	if result.ok: placement_kind=&""
+	if result.ok and placement_kind!=&"terrain": placement_kind=&""
 	_show_result(result)
 	return result
 func _show_result(result: Dictionary) -> void: status.text=result.reason

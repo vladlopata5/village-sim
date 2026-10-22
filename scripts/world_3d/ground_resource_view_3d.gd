@@ -16,6 +16,9 @@ func setup(drop: RefCounted) -> void:
 	quantity_label.no_depth_test=true
 	add_child(quantity_label)
 	_sync_position()
+	if drop.resource_type==Resources.Type.WATER:
+		add_child(preload("res://scripts/world_3d/water_bucket_visual_3d.gd").create())
+		return
 	var visual := MeshInstance3D.new()
 	var material := StandardMaterial3D.new()
 	if drop.resource_type == Resources.Type.LOG:

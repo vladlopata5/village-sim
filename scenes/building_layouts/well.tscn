@@ -1,0 +1,22 @@
+[gd_scene load_steps=3 format=3]
+[ext_resource type="Script" path="res://scripts/world_3d/building_entrance_3d.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/world_3d/building_slot_3d.gd" id="2"]
+[node name="Layout" type="Node3D"]
+[node name="Entrance" type="Marker3D" parent="."]
+position = Vector3(0, 0, 1.75)
+script = ExtResource("1")
+[node name="Courier" type="Marker3D" parent="."]
+position = Vector3(0, 0, 0.65)
+script = ExtResource("2")
+local_id = &"water_courier"
+purpose = 1
+[node name="Builder0" type="Marker3D" parent="."]
+position = Vector3(0, 0, 1.75)
+script = ExtResource("2")
+local_id = &"builder_0"
+purpose = 4
+[node name="Builder1" type="Marker3D" parent="."]
+position = Vector3(2.25, 0, 0)
+script = ExtResource("2")
+local_id = &"builder_1"
+purpose = 4

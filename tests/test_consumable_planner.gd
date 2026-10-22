@@ -3,6 +3,8 @@ const Recipe=preload("res://scripts/production_recipe.gd")
 func run() -> void:
 	var place=B.new(&"planner",D.for_type(T.FOOD))
 	var stock: RefCounted=place.consumable_stocks[&"fuel"]
+	place.consumable_receivers[&"water"].reserve_in(R.WATER,1)
+	place.consumable_receivers[&"water"].add_reserved(R.WATER,1) # Isolate existing fuel/priority tests.
 	place.resources.add(R.MUSHROOM,2);place.resources.add(R.FLOUR,2)
 	check(place.select_production_work().is_empty(),"Zero fuel blocks both otherwise-ready recipes")
 	var selected: Dictionary=place.select_production_work("",Callable(),func(_key):return {"resource":R.LOG,"source":null})

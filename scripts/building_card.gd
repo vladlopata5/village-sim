@@ -137,6 +137,7 @@ func _refresh() -> void:
 		for resource in ResourceType.Type.values():
 			var limit: int = _building.resources.get_capacity(resource)
 			if limit > 0: resource_lines.append("%s: %d / %d" % [ResourceType.display_name(resource), _building.resources.get_amount(resource), limit])
+	if _building.type==Types.Type.WELL:resource_lines.append("Источник воды • запас неограничен • набор 10 минут")
 	var workers_snapshot: Array = _control.get_workplace_workers(_building.id).map(func(worker): return worker.id) if _control != null else []
 	var porter_snapshot: Array = _control.get_porters(_building.id).map(func(worker): return worker.id) if _control != null else []
 	var snapshot: Array = [workers_snapshot,porter_snapshot,_building.definition.porter_capacity,_building.definition.worker_capacity,_building.definition.housing_capacity,_building.display_name, _building.id, _building.state, _building.work_direction, _building.work_paused, _building.type, amount, capacity, _building.production_progress, _building.construction_delivered, _building.construction_progress, _building.active_builder_ids, _building.definition.construction_requirements.duplicate(), _building.definition.construction_work_required, _building.definition.max_builders, resource_lines]

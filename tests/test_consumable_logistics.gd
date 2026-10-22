@@ -16,6 +16,8 @@ func run() -> void:
 func chain() -> void:
 	var world=F.create(self)
 	var kitchen=kitchen_fixture(world)
+	kitchen.consumable_receivers[&"water"].reserve_in(R.WATER,1)
+	kitchen.consumable_receivers[&"water"].add_reserved(R.WATER,1) # C1 isolates fuel; WAT1 separately exercises physical water.
 	var mill=F.building(world,T.WINDMILL,Vector3(-10,0,16))
 	var cook=world.resident_runtimes[0]
 	world.player_control.assign_workplace(cook.data.id,kitchen.id,P.COOK)
@@ -171,7 +173,7 @@ func receiver_lifecycle() -> void:
 	var card=world.building_card_view()
 	var water: RefCounted=kitchen.consumable_receivers[&"test_water"]
 	water.reserve_in(R.LOG,1);water.add_reserved(R.LOG,1)
-	check(card.consumable_rows.size()==2 and card.consumable_rows[&"test_water"].label.text.contains("3 / 30") and card.consumable_rows[&"fuel"].label.text.contains("0 / 20"),"Multiple local stock bars update independently")
+	check(card.consumable_rows.size()==3 and card.consumable_rows[&"test_water"].label.text.contains("3 / 30") and card.consumable_rows[&"fuel"].label.text.contains("0 / 20"),"Multiple local stock bars update independently")
 	world.resident_selection.select_building(world.warehouse_data)
 	check(not kitchen.consumable_stocks[&"test_water"].changed.is_connected(card._refresh_consumables) and card.consumable_rows.is_empty(),"Changing selection disconnects every previous stock")
 	world.free()

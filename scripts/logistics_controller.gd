@@ -63,6 +63,7 @@ func setup(source: BuildingInstance, destination: BuildingInstance, resident: Re
 func register_building(building: BuildingInstance) -> void:
 	if building == null or _buildings.has(building.id): return
 	_buildings[building.id] = building
+	if building.type==BuildingType.Type.WELL and sources.water!=null:sources.water.register_well(building)
 	building.resources.availability_changed.connect(_on_amount_changed)
 	building.resources.reservations_changed.connect(_on_reservations_changed)
 	building.resources.quotas_changed.connect(_on_source_quotas_changed.bind(building.id))
@@ -85,6 +86,7 @@ func remove_building(id: StringName, unregister_assignment: bool = true) -> void
 	for endpoint in building.consumable_receivers.values(): endpoint.reservations_changed.disconnect(_on_reservations_changed)
 	building.construction_changed.disconnect(_on_state_changed)
 	building.logistics_policy_changed.disconnect(_on_state_changed)
+	if building.type==BuildingType.Type.WELL and sources.water!=null:sources.water.remove_well(id)
 	_buildings.erase(id)
 	if unregister_assignment and assignment_control != null: assignment_control.unregister_building(id)
 	for executor in _executors.values(): executor.validate_job()
@@ -297,6 +299,21 @@ func _candidate_scan(resident_id: String, first_reachable_only: bool) -> Array:
 				if first_reachable_only:
 					if _routes_available(candidate,position): return [candidate]
 				else: candidates.append(candidate)
+	if sources.water!=null and base!=null and base.definition.allows_external_import(ResourceType.Type.WATER):
+		for endpoint in base.import_receivers(ResourceType.Type.WATER):
+			for water_ref in sources.water.candidates():
+				var candidate:=Candidate.new()
+				candidate.source_ref=water_ref;candidate.destination=base;candidate.receiver=endpoint
+				candidate.resource_type=ResourceType.Type.WATER
+				candidate.world_urgency=Priority.import_priority(endpoint,candidate.resource_type,base.logistics_weight)
+				var point: Vector2=sources.point(water_ref)
+				candidate.route_distance=position.distance_to(point)+point.distance_to(base_position)
+				candidate.distance_penalty=distance_penalty(candidate.route_distance)
+				candidate.personal_modifier=_get_personal_delivery_modifier(resident,candidate)
+				candidate.porter_score=candidate.world_urgency-candidate.distance_penalty+candidate.personal_modifier
+				if first_reachable_only:
+					if _routes_available(candidate,position):return [candidate]
+				else:candidates.append(candidate)
 	var surplus := _surplus_candidates(resident,position)
 	if surplus.is_empty(): return candidates
 	var indices: Dictionary = {}
@@ -424,6 +441,7 @@ func _porter_claim_context(resident: ResidentData, base: BuildingInstance, revis
 	if _residents.get(resident.id) != resident or resident.work_assignment_revision != revision or resident.work_location_id != base.id or not _can_claim(resident): return false
 	if not _porter_base_valid(base.id,base) or base.definition.porter_capacity != capacity or (receiver == HaulJob.Receiver.CONTAINER and (destination == null or _buildings.get(destination.id) != destination)): return false
 	if surplus_export: return base.definition.is_storage and base.resources.is_warehouse() and source_ref.kind == Source.Kind.CONTAINER and _surplus_admission_allowed(source,destination,resource,receiver)
+	if source_ref.kind==Source.Kind.WATER:return destination==base and destination.definition.allows_external_import(resource) and sources.point(source_ref) is Vector2
 	if source_ref.kind == Source.Kind.GROUND:
 		var origin: Variant = position_provider.call(resident.id) if position_provider.is_valid() else null
 		return destination == base and destination.definition.allows_external_import(resource) and sources.ground_allowed(source_ref,origin,base,null,Balance.PORTER_GROUND_SEARCH_MULTIPLIER)
@@ -504,6 +522,7 @@ func claim_transport(resident_id: String, source_ref: Source, destination: Build
 		job.workplace_location_id = internal_workplace.id
 		_internal[id] = {"job":job,"worker":resident,"workplace":internal_workplace,"resource":resource}
 	job.source_ref = source_ref
+	if source_ref.kind==Source.Kind.WATER and not sources.water.building_id(source_ref.id).is_empty():job.source_location_id=sources.water.building_id(source_ref.id)
 	job.work_phase_only = work_phase_only
 	job.validation = validation
 	job.award_logistics_xp = award_xp

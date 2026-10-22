@@ -2,9 +2,15 @@ extends StaticBody3D
 ## Presentation only. Its parent world executor owns position; domain owns gameplay data.
 const Geometry = preload("res://scripts/world_3d/world_geometry.gd")
 var resident_data: RefCounted
+var water_cargo: Node3D
 var indicator: MeshInstance3D
 func setup(data: RefCounted) -> void:
 	resident_data = data
+	water_cargo=preload("res://scripts/world_3d/water_bucket_visual_3d.gd").create()
+	water_cargo.position=Vector3(0.52,0.7,0)
+	add_child(water_cargo)
+	data.inventory.changed.connect(_refresh_water_cargo)
+	_refresh_water_cargo()
 	collision_layer = 2
 	collision_mask = 0
 	var capsule := CapsuleMesh.new()
@@ -43,3 +49,6 @@ func setup(data: RefCounted) -> void:
 	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	add_child(label)
 func set_selected(value: bool) -> void: indicator.visible = value
+
+func _refresh_water_cargo() -> void:
+	water_cargo.visible=resident_data.inventory.amount==1 and resident_data.inventory.resource_type==preload("res://scripts/resource_type.gd").Type.WATER

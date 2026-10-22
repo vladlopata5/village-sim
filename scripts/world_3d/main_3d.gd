@@ -9,6 +9,7 @@ var navigation = preload("res://scripts/navigation_grid.gd").new()
 var navigation_debug = preload("res://scripts/world_3d/navigation_grid_debug.gd").new()
 var build_grid = preload("res://scripts/build_grid.gd").new()
 var farm_fields = preload("res://scripts/farm_fields.gd").new(build_grid)
+var water_sources = preload("res://scripts/water_sources.gd").new()
 var farm_layer = preload("res://scripts/world_3d/farm_layer_3d.gd").new()
 var runtime_placement_blockers = preload("res://scripts/runtime_placement_blockers.gd").new()
 var mycelium = preload("res://scripts/mycelium.gd").new(build_grid)
@@ -159,6 +160,10 @@ func _ready() -> void:
 	_setup_roads()
 	_setup_mycelium()
 	_setup_fields()
+	water_sources.setup(farm_fields,navigation,world_locations)
+	logistics.sources.bind_water(water_sources)
+	build_grid.terrain_allowed=func(cell):return farm_fields.in_bounds(cell) and farm_fields.terrain(cell)!=farm_fields.Terrain.WATER
+	roads.surface_allowed=build_grid.terrain_allowed
 	_setup_season_visuals()
 	navigation.prepare_connectivity() # Once after all initial world registration.
 	_setup_wild_sheep()
@@ -297,9 +302,11 @@ func _season_changed(_previous: int, current: int) -> void:
 	$World/Ground/Mesh.material_override.albedo_color = palette.grass
 	road_layer.refresh_base_colors()
 func _trampling_cell_allowed(cell: Vector2i) -> bool:
-	return roads.in_bounds(cell) and farm_fields.state(cell)==farm_fields.State.BARE and build_grid.occupant(cell).is_empty() and not runtime_placement_blockers.static_cell_occupied(cell,build_grid)
+	return roads.in_bounds(cell) and farm_fields.terrain(cell)!=farm_fields.Terrain.WATER and farm_fields.state(cell)==farm_fields.State.BARE and build_grid.occupant(cell).is_empty() and not runtime_placement_blockers.static_cell_occupied(cell,build_grid)
 func _ground_base_color(cell: Vector2i) -> Color:
 	if farm_fields.terrain(cell)==farm_fields.Terrain.DIRT:return farm_layer.DIRT_COLOR
+	if farm_fields.terrain(cell)==farm_fields.Terrain.SAND:return farm_layer.SAND_COLOR
+	if farm_fields.terrain(cell)==farm_fields.Terrain.WATER:return farm_layer.WATER_COLOR
 	return mycelium_view.LAND_COLOR if mycelium.has_mycelium(cell) else $World/Ground/Mesh.material_override.albedo_color
 func _setup_mycelium() -> void:
 	mycelium.allowed=_mushroom_cell_allowed
@@ -321,7 +328,7 @@ func authored_mycelium_cells() -> Array:
 			if Vector2i(x,y) not in [Vector2i(-1,3),Vector2i(3,6),Vector2i(-4,7)]: result.append(origin+Vector2i(x,y))
 	return result
 func _mushroom_cell_allowed(cell: Vector2i) -> bool:
-	return mycelium.in_bounds(cell) and farm_fields.state(cell)==farm_fields.State.BARE and build_grid.occupant(cell).is_empty() and not roads.contains(cell) and ground_resources.get_at(cell)==null and not runtime_placement_blockers.static_cell_occupied(cell,build_grid)
+	return mycelium.in_bounds(cell) and farm_fields.terrain(cell)!=farm_fields.Terrain.WATER and farm_fields.state(cell)==farm_fields.State.BARE and build_grid.occupant(cell).is_empty() and not roads.contains(cell) and ground_resources.get_at(cell)==null and not runtime_placement_blockers.static_cell_occupied(cell,build_grid)
 func _clear_road_mushrooms() -> void:
 	mycelium.clear_cells(roads.cells())
 func _sync_catalogue() -> void:
@@ -1305,8 +1312,32 @@ func _farm_cell_allowed(cell: Vector2i) -> bool:
 	var point: Vector3=build_grid.cell_to_world(cell)
 	return navigation.is_world_walkable(point) and not runtime_placement_blockers.static_cell_occupied(cell,build_grid)
 func _farm_cells_changed(cells: Array) -> void:
+	var water_edits: Dictionary={}
+	for cell in cells:water_edits[cell]=farm_fields.terrain(cell)==farm_fields.Terrain.WATER
+	navigation.edit_terrain_cells(water_edits)
 	for cell in cells:
+		if farm_fields.terrain(cell)==farm_fields.Terrain.WATER:roads.clear_trampling([cell])
 		if farm_fields.state(cell)!=farm_fields.State.BARE:
 			roads.clear_trampling([cell])
 			if roads.contains(cell):roads.remove_road(cell)
 			mycelium.clear_cells([cell]) # Stock/claims only; persistent mycelium survives.
+
+func paint_terrain(cells: Array, kind: int) -> bool:
+	if not ready_for_play or kind not in farm_fields.Terrain.values():return false
+	# Field model validates the complete edit before publishing any changed cells.
+	return farm_fields.set_terrain(cells,kind,_terrain_cell_editable.bind(kind))
+func _terrain_cell_editable(cell: Vector2i, kind: int) -> bool:
+	if not farm_fields.in_bounds(cell) or not build_grid.occupant(cell).is_empty() or ground_resources.get_at(cell)!=null or mycelium.has_mycelium(cell):return false
+	if kind==farm_fields.Terrain.WATER and roads.contains(cell):return false
+	var point: Vector3=build_grid.cell_to_world(cell)
+	var box:=Rect2(Coordinates.world_plane(point)-Vector2.ONE*build_grid.CELL_SIZE/2,Vector2.ONE*build_grid.CELL_SIZE)
+	if not runtime_placement_blockers.first_overlap(box).is_empty():return false
+	if not entrance_zones.validation_reason(box,box).is_empty():return false
+	if water_sources.uses_cell(cell):return false
+	for position in forestry_area.claims.values():
+		if build_grid.world_to_cell(Coordinates.to_world(position))==cell:return false
+	# Protect accepted endpoints, including movement, source/delivery and social intents.
+	for actor in resident_runtimes:
+		var intent: RefCounted=actor.intents.current_intent
+		if intent!=null and build_grid.world_to_cell(Coordinates.to_world(intent.target_position))==cell:return false
+	return true

@@ -15,7 +15,7 @@ func cancel() -> void:
 	end_stroke()
 func end_stroke() -> void: _previous=null
 func can_paint(cell: Vector2i) -> bool:
-	if not roads.in_bounds(cell) or not build_grid.occupant(cell).is_empty(): return false
+	if (roads.surface_allowed.is_valid() and not roads.surface_allowed.call(cell)) or not roads.in_bounds(cell) or not build_grid.occupant(cell).is_empty(): return false
 	var center: Vector3 = roads.geometry.cell_to_world(cell)
 	var footprint := Rect2(Coordinates.world_plane(center)-Vector2.ONE*roads.CELL_SIZE/2.0,Vector2.ONE*roads.CELL_SIZE)
 	return runtime_blockers.first_overlap(footprint,true).is_empty()

@@ -94,3 +94,12 @@ func next_day() -> Dictionary:
 	if not available(): return rejected("Debug команды недоступны")
 	world.game_time.debug_next_day()
 	return {"ok":true,"reason":"Следующий день: 00:00"}
+
+func paint_terrain(point: Vector3, kind: int, width: int = 2) -> Dictionary:
+	if not available() or not point.is_finite() or width<1 or width>8:return rejected("Некорректная кисть местности")
+	var first: Vector2i=world.build_grid.world_to_cell(point)
+	var cells: Array=[]
+	for y in width:
+		for x in width:cells.append(first+Vector2i(x,y))
+	if not world.paint_terrain(cells,kind):return rejected("Клетки заняты, используются заданием или недопустимы для изменения")
+	return {"ok":true,"created":cells.size(),"objects":[],"reason":"Изменено клеток: %d"%cells.size()}

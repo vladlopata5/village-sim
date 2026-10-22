@@ -20,6 +20,7 @@ var _connectivity = preload("res://scripts/navigation_connectivity.gd").new()
 var _topology_before: Dictionary = {}
 var _backend := AStarGrid2D.new()
 var _blockers: Dictionary = {} # Stable blocker ID -> occupied navigation cells.
+var _terrain_cells: Dictionary = {} # Cell-centre passability; no building clearance dilation.
 var _counts: Dictionary = {} # Cell -> number of independent obstacle owners.
 var _traversal_sources: Dictionary = {} # ID -> {cells, speed}; separate from solids.
 var _cell_speeds: Dictionary = {} # Cell -> {source ID: multiplier}.
@@ -106,7 +107,7 @@ func _remove_cells(id: StringName) -> void:
 		var count: int = _counts[cell] - 1
 		if count == 0: _counts.erase(cell)
 		else: _counts[cell] = count
-		_set_cell_solid(cell, count > 0 or _outside_clearance(cell))
+		_set_cell_solid(cell, count > 0 or _terrain_cells.has(cell) or _outside_clearance(cell))
 	_blockers.erase(id)
 # Modifier footprints have no resident clearance. Slow sources overlap by minimum,
 # not multiplication. Default ground applies only when no source covers the cell.
@@ -369,3 +370,13 @@ func can_reach_point(start: Vector3, target: Vector3) -> bool:
 	# Flat connectivity precheck only; positive weighted route still uses existing A*.
 	if not is_world_walkable(start) or not is_world_walkable(target): return false
 	return _connectivity.can_reach_point(self,world_to_cell(start),world_to_cell(target))
+
+func edit_terrain_cells(solids: Dictionary) -> void:
+	var modified:=false
+	for cell in solids:
+		if not _backend.is_in_boundsv(cell) or _terrain_cells.has(cell)==bool(solids[cell]):continue
+		if solids[cell]:_terrain_cells[cell]=true
+		else:_terrain_cells.erase(cell)
+		_set_cell_solid(cell,_terrain_cells.has(cell) or int(_counts.get(cell,0))>0 or _outside_clearance(cell))
+		modified=true
+	if modified:_publish_change() # Same backend, connectivity generations and movement invalidation.

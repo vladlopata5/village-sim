@@ -39,6 +39,9 @@ func validation_reason() -> String:
 	if ground_resources!=null and ground_resources.has_resources_in_cells(proposed_cells()):
 		return "Невозможно построить: на участке лежат ресурсы"
 	var zone := proposed_entrance_zone()
+	if grid.terrain_allowed.is_valid():
+		for cell in grid.footprint_cells(Coordinates.from_plane(zone.get_center()),Vector2i((zone.size/grid.CELL_SIZE).ceil())):
+			if not grid.terrain_allowed.call(cell):return "Вход находится в воде"
 	if entrance_zones!=null:
 		var entrance_reason: String = entrance_zones.validation_reason(proposed_footprint(),zone)
 		if not entrance_reason.is_empty(): return entrance_reason

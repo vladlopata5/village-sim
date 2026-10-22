@@ -92,7 +92,8 @@ func run() -> void:
 	for res in R.values():
 		f=fixture()
 		drop(f,&"resource",res,Vector2(30,0))
-		check(compare(f,"resource %d" % res).resource_type==res,"Every Ground resource")
+		var candidate = compare(f,"resource %d" % res)
+		check(candidate==null if res==R.WATER else candidate!=null and candidate.resource_type==res,"Every Ground resource respects warehouse import policy")
 		dispose(f)
 	f=fixture()
 	f.base.definition.ground_search_radius=5000 # Explicit large admission fixture isolates negative ranking score.
