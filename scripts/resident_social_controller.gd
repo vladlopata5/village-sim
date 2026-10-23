@@ -42,12 +42,20 @@ func try_social_at(target_id: StringName, priority: int) -> bool:
 func cancel_social() -> void:
 	_finish()
 func _start_social(option: Dictionary, priority: int) -> bool:
+	if world.venues!=null:
+		option=world.venues.plan(runtime.data.id,option)
+		if option.is_empty():return false
 	_option = option
 	_active = Intent.new(Intent.Type.MOVE_TO, &"social", world.option_position(option), priority, true)
 	social_started.emit(_active)
 	if not runtime.intents.submit(_active):
 		_active = null
 		_option = {}
+		if option.has("venue_group"):world.leave(runtime.data.id)
+		return false
+	if option.has("venue_group") and runtime.intents.current_intent!=_active:
+		if runtime.intents.pending_intent==_active:runtime.intents.pending_intent=Intent.new()
+		_finish()
 		return false
 	if logger != null: logger.sync_activity(runtime.data)
 	return true
@@ -77,6 +85,7 @@ func begin_talking() -> void:
 		logger.info(EventLog.SOCIAL, "%s: начал разговор (SOCIAL=%d, priority=%d)" % [runtime.data.resident_name, runtime.data.get_need(NeedType.Type.SOCIAL).value, runtime.data.get_need(NeedType.Type.SOCIAL).get_priority()])
 func _on_arrival(intent: Intent) -> void:
 	if intent != _active or intent.reason_id != &"social": return
+	if _option.has("venue_group"):intent.interruptible=false
 	if not world.arrive(runtime.data.id, _option): _finish()
 func _on_minute(minute: int) -> void:
 	if _active == null: return

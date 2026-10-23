@@ -42,6 +42,7 @@ var trees: Array = []
 var tree_views: Dictionary = {}
 var tree_locations = preload("res://scripts/world_3d/tree_locations_3d.gd").new()
 var entrance_zones = preload("res://scripts/world_3d/building_entrance_zones_3d.gd").new()
+var social_venues = preload("res://scripts/world_3d/social_venues_3d.gd").new()
 var building_uses = preload("res://scripts/world_3d/building_use_3d.gd").new()
 var settlement_panel: PanelContainer
 var work_areas_window: PanelContainer
@@ -71,6 +72,7 @@ func _ready() -> void:
 	world_locations.uses = building_uses
 	player_control.work_areas = work_areas
 	super._ready()
+	social_venues.setup(self)
 	player_control.construction_command = change_construction_direction
 	player_control.upgrade_command = start_building_upgrade
 	player_control.upgrade_cancel_command = cancel_building_upgrade
@@ -253,7 +255,9 @@ func _create_building_presentation(building: BuildingInstance) -> Node:
 	var registered: bool = build_grid.occupy(building.id, cells)
 	assert(registered, "Building registration must own a free footprint")
 	mycelium.clear_cells(cells) # Only after successful footprint ownership.
-	navigation.add_blocker(building.id, Geometry.footprint(building))
+	# The gazebo is an open walkable pavilion; its footprint still prevents placement.
+	if building.type!=BuildingType.Type.GAZEBO:navigation.add_blocker(building.id, Geometry.footprint(building))
+	social_venues.register(building)
 	roads.edit(cells,true) # Actual footprint only; cancellation never restores roads.
 	roads.clear_trampling(cells)
 	return view

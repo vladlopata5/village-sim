@@ -43,15 +43,15 @@ func choices(id: StringName, purpose: int, origin: Vector3) -> Array:
 		var db: float = origin.distance_squared_to(b.global_position)
 		return String(a.local_id)<String(b.local_id) if is_equal_approx(da,db) else da<db)
 	return result
-func acquire(id: StringName, purpose: int, resident_id: String, origin: Vector3) -> Marker3D:
+func acquire(id: StringName, purpose: int, resident_id: String, origin: Vector3, preferred: Marker3D = null) -> Marker3D:
 	if purpose in [Slot.Purpose.ANIMAL_SLEEP,Slot.Purpose.ANIMAL_SERVICE] or resident_id.begins_with("animal:"): return null
-	return _acquire(id,purpose,resident_id,origin)
+	return _acquire(id,purpose,resident_id,origin,preferred)
 func acquire_animal(id: StringName, animal_id: StringName, origin: Vector3, purpose: int = Slot.Purpose.ANIMAL_SLEEP) -> Marker3D:
 	if purpose not in [Slot.Purpose.ANIMAL_SLEEP,Slot.Purpose.ANIMAL_SERVICE]: return null
 	var target := view(id)
 	if target==null or target.building_data.animal_housing==null or not target.building_data.animal_housing.has_member(animal_id): return null
 	return _acquire(id,purpose,"animal:"+String(animal_id),origin)
-func _acquire(id: StringName, purpose: int, resident_id: String, origin: Vector3) -> Marker3D:
+func _acquire(id: StringName, purpose: int, resident_id: String, origin: Vector3, preferred: Marker3D = null) -> Marker3D:
 	var target := view(id)
 	if target==null or resident_id.is_empty(): return null
 	for other in _views.values():
@@ -59,7 +59,8 @@ func _acquire(id: StringName, purpose: int, resident_id: String, origin: Vector3
 	if purpose==Slot.Purpose.CONSTRUCTION and resident_id not in target.building_data.active_builder_ids: return null
 	var free := choices(id,purpose,origin)
 	if free.is_empty(): return null
-	var marker: Marker3D = free[0]
+	if preferred!=null and preferred not in free:return null
+	var marker: Marker3D = preferred if preferred!=null else free[0]
 	marker.occupant=resident_id
 	target.set_inside_count(inside_count(id))
 	slots_changed.emit(id,purpose)

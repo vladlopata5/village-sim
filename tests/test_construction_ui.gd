@@ -54,9 +54,9 @@ func run() -> void:
 	check(panel.sections[0].kind==panel.Kind.TAB and panel.sections[1].kind==panel.Kind.QUICK_WINDOW and panel.sections[2].kind==panel.Kind.QUICK_WINDOW and panel.sections[3].kind==panel.Kind.QUICK_WINDOW,"Distinct registered action kinds")
 	var names:=[]
 	for category in catalog.categories: names.append(category.title)
-	check(names==["Производство","Логистика","Поселение"],"Three ordered building categories; no free road brush")
-	var expected:=[[T.LUMBERJACK_HUT,T.QUARRY,T.GATHERER_HUT,T.SAWMILL,T.SHEPHERD_HUT,T.WEAVER_WORKSHOP,T.TAILOR_WORKSHOP,T.WINDMILL,T.FARM,T.CLAY_HUT,T.POTTERY_WORKSHOP,T.STONEMASON_WORKSHOP],[T.STORAGE,T.WELL],[T.HOME,T.FOOD]]
-	for index in range(3):
+	check(names==["Производство","Логистика","Поселение","Социальные","Декор"],"Five ordered building categories; no free road brush")
+	var expected:=[[T.LUMBERJACK_HUT,T.QUARRY,T.GATHERER_HUT,T.SAWMILL,T.SHEPHERD_HUT,T.WEAVER_WORKSHOP,T.TAILOR_WORKSHOP,T.WINDMILL,T.FARM,T.CLAY_HUT,T.POTTERY_WORKSHOP,T.STONEMASON_WORKSHOP],[T.STORAGE,T.WELL],[T.HOME,T.FOOD],[T.GAZEBO],[T.FLOWERBED]]
+	for index in range(5):
 		var category: Dictionary=catalog.categories[index]
 		var types:=[]
 		for entry in category.entries:
@@ -64,7 +64,7 @@ func run() -> void:
 			var tile: Button=catalog.tiles[entry.id]
 			check(not tile.get_node("Content/Title").text.is_empty() and tile.get_node("Content/Icon").texture!=null,"Permanent title and real icon: "+entry.name)
 		check(types==expected[index],"Correct category contents "+category.title)
-	check(catalog.tiles.size()==16 and catalog.tile_for_type(T.TOWN_CENTER)==null,"Sixteen buildings including stone brick workshop and unified kitchen; no manual road or Town Center")
+	check(catalog.tiles.size()==18 and catalog.tile_for_type(T.TOWN_CENTER)==null,"Eighteen buildings including social/decorative types; no manual road or Town Center")
 	check(not catalog.entries.has(&"dirt_road"),"No free manual road in ordinary catalogue")
 	click(panel.collapse_button)
 	await process_frame

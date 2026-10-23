@@ -19,6 +19,8 @@ static func categories() -> Array:
 			building(Types.STONEMASON_WORKSHOP,"rock","1 камень → 1 каменный кирпич за 30 рабочих минут. Каменотёс: 1; носильщик: 1.")]},
 		{"id":&"logistics", "title":"Логистика", "entries":[building(Types.STORAGE,"storage","Хранение ресурсов и работа носильщиков."),building(Types.WELL,"well","Общедоступный бесконечный источник воды. Набор — 10 минут.")]},
 		{"id":&"settlement", "title":"Поселение", "entries":[building(Types.HOME,"home","Жильё и отдых жителей."),building(Types.FOOD,"kitchen","Грибы + топливо или мука + топливо + вода → 2 порции за 30 минут. Повар: 1; носильщик: 1.")]},
+		{"id":&"social", "title":"Социальные", "entries":[building(Types.GAZEBO,"home","Место для одного обычного разговора, до четырёх посетителей. Без работников и бонусов.")]},
+		{"id":&"decoration", "title":"Декор", "entries":[building(Types.FLOWERBED,"clay","Декоративная клумба. Без работников, производства и бонусов.")]},
 	]
 static func building(type: int, icon: String, description: String) -> Dictionary:
 	var definition = Definition.for_type(type)

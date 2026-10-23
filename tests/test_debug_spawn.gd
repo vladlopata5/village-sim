@@ -59,7 +59,7 @@ func run() -> void:
 		var building = result.objects[0]
 		check(building.is_built() and building in world.buildings and world.world_locations.get_view(building.id)!=null,"Real BUILT lifecycle")
 		check(world.build_grid.occupied_cells(building.id).size()==definition.footprint_cells.x*definition.footprint_cells.y,"BuildGrid footprint")
-		check(world.navigation._blockers.has(building.id),"Navigation blocker")
+		check(world.navigation._blockers.has(building.id)==(definition.type!=BT.GAZEBO),"Solid buildings block navigation; open gazebo preserves walkable visitor positions")
 		check(world.player_control.get_building(building.id)==building,"PlayerControl registration")
 		check(world.building_uses.view(building.id)!=null,"Ordinary authored layout / uses")
 		check(preload("res://scripts/world_3d/building_layouts_3d.gd").validate(world.world_locations.get_view(building.id).layout,definition),"Real WORKER/COURIER/entrance layout capacities")

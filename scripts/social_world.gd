@@ -10,6 +10,7 @@ signal conversation_joined(resident_id: String)
 signal membership_changing
 signal membership_changed
 signal availability_changed
+var venues: RefCounted # Optional canonical 3D meeting adapter; no change to street groups.
 var position_provider: Callable
 var residents: Dictionary = {}
 var groups: Dictionary = {}
@@ -41,6 +42,7 @@ func options_for(id: String) -> Array:
 		if other.social == null or not is_instance_valid(other.social): continue
 		var group = group_of(other_id)
 		if other.data.activity == Activity.Type.TALKING and group != null:
+			if venues!=null and not venues.can_join(group,id):continue
 			if group.id in seen_groups: continue
 			seen_groups.append(group.id)
 		elif not _idle_available(other): continue
@@ -54,6 +56,7 @@ func target_option(id: String, target_id: String) -> Dictionary:
 	if target == null or not position_of(target_id).is_finite(): return {}
 	var group = group_of(target_id)
 	if not _idle_available(target) and not (target.data.activity == Activity.Type.TALKING and group != null): return {}
+	if group!=null and venues!=null and not venues.can_join(group,id):return {}
 	return {"target_id": target_id, "group_id": group.id if group != null else 0, "exact_target": true}
 func _on_action_changed(_intent: RefCounted) -> void:
 	# Notify after synchronous action cleanup/arrival, not while state is half changed.
@@ -66,6 +69,7 @@ func _idle_available(runtime: Node) -> bool:
 	# A stationary fallback can yield to an invitation, even with SOCIAL=0.
 	return runtime.data.activity == Activity.Type.IDLE and (not runtime.intents.has_current_action() or runtime.intents.current_intent.reason_id == &"wander")
 func valid_option(option: Dictionary) -> bool:
+	if option.has("venue_group"):return venues!=null and venues.valid_option(option)
 	if option.get("exact_target", false):
 		var exact = get_runtime(option.target_id)
 		if exact == null: return false
@@ -75,10 +79,12 @@ func valid_option(option: Dictionary) -> bool:
 	var target = get_runtime(option.target_id)
 	return target != null and _idle_available(target)
 func option_position(option: Dictionary) -> Vector2:
+	if option.has("venue_point"):return option.venue_point
 	if option.group_id != 0 and groups.has(option.group_id):
 		return groups[option.group_id].center
 	return position_of(option.target_id)
 func arrive(id: String, option: Dictionary) -> bool:
+	if option.has("venue_group"):return venues!=null and venues.arrive(id,option)
 	if not valid_option(option): return false
 	membership_changing.emit()
 	var group
@@ -102,6 +108,7 @@ func arrive(id: String, option: Dictionary) -> bool:
 	conversation_joined.emit(id)
 	return true
 func leave(id: String) -> void:
+	if venues!=null and venues.leave(id):return
 	var group = group_of(id)
 	if group == null: return
 	membership_changing.emit()
@@ -118,3 +125,9 @@ func leave(id: String) -> void:
 		group.participants.clear()
 
 	membership_changed.emit()
+
+func create_group(center: Vector2):
+	var group=Group.new(_next_group_id,center)
+	_next_group_id+=1
+	groups[group.id]=group
+	return group

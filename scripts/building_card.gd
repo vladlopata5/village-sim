@@ -267,6 +267,10 @@ func _refresh_details(resource_lines: PackedStringArray) -> void:
 	get_node("%StaffSummary").visible = not _presentation_expanded and not counts.is_empty()
 	get_node("%Summary").text = _building.work_status() if not _building.is_built() else ""
 	get_node("%Summary").visible=not _building.is_built()
+	if _building.type in [Types.Type.GAZEBO,Types.Type.FLOWERBED]:
+		var visitors: Array=visitors_provider.call(_building.id) if visitors_provider.is_valid() else []
+		get_node("%Summary").text=("Беседка • места заняты или зарезервированы: %d / 4\nПостоянных работников нет"%visitors.size() if _building.type==Types.Type.GAZEBO else "Декоративная постройка\nРаботников и производства нет") if _building.is_built() else _building.work_status()
+		get_node("%Summary").visible=true
 	if _image_type!=_building.type:
 		_image_type=_building.type
 		get_node("%Image").texture=null
@@ -301,7 +305,7 @@ func _refresh_details(resource_lines: PackedStringArray) -> void:
 	else:
 		for resource in def.internal_resources: recipe_lines.append("Добывает " + ResourceType.display_name(resource))
 	get_node("%Recipe").text = "\n".join(recipe_lines)
-	get_node("%Recipe").visible = def.production_recipes.is_empty()
+	get_node("%Recipe").visible = not recipe_lines.is_empty()
 	production_section.visible = _building.is_built() and _building.type == Types.Type.GATHERER_HUT
 	var natural: PackedStringArray = natural_progress_provider.call(_building.id) if def.worker_profession in [profession.Type.LUMBERJACK,profession.Type.MINER,profession.Type.CLAY_DIGGER] and natural_progress_provider.is_valid() else PackedStringArray()
 	get_node("%NaturalProgress").text = "\n".join(natural)

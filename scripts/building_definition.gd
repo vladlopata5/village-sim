@@ -6,6 +6,8 @@ const ResourceType = preload("res://scripts/resource_type.gd")
 const BuildingType = preload("res://scripts/building_type.gd")
 const Recipe = preload("res://scripts/production_recipe.gd")
 const CONSTRUCTION_BALANCE = {
+	BuildingType.Type.GAZEBO: {"requirements":{ResourceType.Type.LOG:4,ResourceType.Type.PLANK:6,ResourceType.Type.STONE:2},"minutes":120,"builders":2},
+	BuildingType.Type.FLOWERBED: {"requirements":{ResourceType.Type.PLANK:1,ResourceType.Type.STONE:1},"minutes":30,"builders":2},
 	BuildingType.Type.CLAY_HUT: {"requirements":{ResourceType.Type.LOG:8,ResourceType.Type.STONE:4},"minutes":180,"builders":2},
 	BuildingType.Type.STONEMASON_WORKSHOP: {"requirements":{ResourceType.Type.LOG:4,ResourceType.Type.PLANK:6,ResourceType.Type.STONE:4},"minutes":180,"builders":2},
 	BuildingType.Type.POTTERY_WORKSHOP: {"requirements":{ResourceType.Type.LOG:4,ResourceType.Type.PLANK:6,ResourceType.Type.STONE:4},"minutes":180,"builders":2},
@@ -26,6 +28,8 @@ const CONSTRUCTION_BALANCE = {
 }
 # Explicit 3D physical area in build cells; size remains the shared logical footprint in simulation coordinates.
 const FOOTPRINT_CELLS = {
+	BuildingType.Type.GAZEBO: Vector2i(6,6),
+	BuildingType.Type.FLOWERBED: Vector2i(2,2),
 	BuildingType.Type.CLAY_HUT: Vector2i(12,8),
 	BuildingType.Type.STONEMASON_WORKSHOP: Vector2i(12,8),
 	BuildingType.Type.POTTERY_WORKSHOP: Vector2i(12,8),
@@ -103,6 +107,15 @@ const LOGISTICS_FLOW = {
 }
 const Stage = preload("res://scripts/construction_stage.gd")
 const CONSTRUCTION_STAGES = {
+	BuildingType.Type.GAZEBO: [
+		[&"step_1","Основание",{ResourceType.Type.STONE:2},30,&"base"],
+		[&"step_2","Каркас",{ResourceType.Type.LOG:4},40,&"frame"],
+		[&"step_3","Завершение",{ResourceType.Type.PLANK:6},50,&"complete"],
+	],
+	BuildingType.Type.FLOWERBED: [
+		[&"step_1","Основание",{ResourceType.Type.STONE:1},10,&"base"],
+		[&"step_2","Завершение",{ResourceType.Type.PLANK:1},20,&"complete"],
+	],
 	BuildingType.Type.FOOD: [
 		[&"step_1","Основание",{ResourceType.Type.LOG:2},60,&"base"],
 		[&"step_2","Каркас",{ResourceType.Type.LOG:2},100,&"frame"],
@@ -223,7 +236,7 @@ var player_buildable := true
 func _init(type_id: StringName, category: BuildingType.Type, label: String, footprint_size: Vector2, requirements: Dictionary = {}, work_minutes: int = 0, builder_limit: int = 0, resident_capacity: int = 0) -> void:
 	id = type_id
 	type = category
-	porter_capacity = 0 if category in [BuildingType.Type.HOME,BuildingType.Type.WELL] else (2 if category in [BuildingType.Type.STORAGE,BuildingType.Type.TOWN_CENTER] else 1)
+	porter_capacity = 0 if category in [BuildingType.Type.HOME,BuildingType.Type.WELL,BuildingType.Type.GAZEBO,BuildingType.Type.FLOWERBED] else (2 if category in [BuildingType.Type.STORAGE,BuildingType.Type.TOWN_CENTER] else 1)
 	logistics_flow = LOGISTICS_FLOW.get(category,{}).duplicate(true)
 	footprint_cells = FOOTPRINT_CELLS[category]
 	display_name = label
@@ -234,8 +247,8 @@ func _init(type_id: StringName, category: BuildingType.Type, label: String, foot
 	max_builders = maxi(builder_limit, 0)
 	housing_capacity = maxi(resident_capacity, 0)
 static func for_type(category: BuildingType.Type, label: String = ""):
-	var ids := [&"kitchen", &"warehouse", &"gatherer_hut", &"home", &"lumberjack_hut", &"sawmill", &"town_center", &"quarry", &"shepherd_hut", &"weaver_workshop", &"tailor_workshop", &"farm", &"windmill", &"well", &"clay_hut", &"pottery_workshop", &"stonemason_workshop"]
-	var labels := ["Кухня", "Склад", "Хижина собирателя", "Дом", "Хижина лесоруба", "Лесопилка", "Городской центр", "Каменоломня", "Хижина пастуха", "Мастерская ткача", "Швейная мастерская", "Ферма", "Мельница", "Колодец", "Хижина глинокопа", "Гончарная мастерская", "Каменотёсная мастерская"]
+	var ids := [&"kitchen", &"warehouse", &"gatherer_hut", &"home", &"lumberjack_hut", &"sawmill", &"town_center", &"quarry", &"shepherd_hut", &"weaver_workshop", &"tailor_workshop", &"farm", &"windmill", &"well", &"clay_hut", &"pottery_workshop", &"stonemason_workshop", &"gazebo", &"flowerbed"]
+	var labels := ["Кухня", "Склад", "Хижина собирателя", "Дом", "Хижина лесоруба", "Лесопилка", "Городской центр", "Каменоломня", "Хижина пастуха", "Мастерская ткача", "Швейная мастерская", "Ферма", "Мельница", "Колодец", "Хижина глинокопа", "Гончарная мастерская", "Каменотёсная мастерская", "Беседка", "Клумба"]
 	var footprint_size := Vector2(64, 48) if category == BuildingType.Type.HOME else Vector2(144, 96)
 	var construction: Dictionary = CONSTRUCTION_BALANCE.get(category,{"requirements":{},"minutes":0,"builders":0})
 	var result = load("res://scripts/building_definition.gd").new(ids[category], category, labels[category] if label.is_empty() else label, footprint_size, construction.requirements, construction.minutes, construction.builders, Balance.HOUSE_RESIDENT_CAPACITY if category == BuildingType.Type.HOME else 0)
@@ -250,6 +263,7 @@ static func for_type(category: BuildingType.Type, label: String = ""):
 		result.resource_capacities = {ResourceType.Type.MUSHROOM:Balance.GATHERER_OUTPUT_CAPACITY}
 		result.internal_resources = [ResourceType.Type.MUSHROOM]
 		result.work_radius = Balance.LUMBERJACK_WORK_RADIUS
+	if category == BuildingType.Type.GAZEBO:result.visitor_capacity=4
 	if category == BuildingType.Type.FOOD:
 		result.visitor_capacity = 4
 		result.worker_capacity = Balance.KITCHEN_WORKER_CAPACITY

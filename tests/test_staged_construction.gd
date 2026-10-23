@@ -2,7 +2,7 @@ extends "res://tests/test_textile_production.gd"
 const Stage=preload("res://scripts/construction_stage.gd")
 const View=preload("res://scripts/world_3d/building_view_3d.gd")
 const Expected=preload("res://tests/construction_recipe_expectations.gd")
-const TIMES=[240,240,180,180,180,240,240,180,180,180,240,240,180,120,180,180,180]
+const TIMES=[240,240,180,180,180,240,240,180,180,180,240,240,180,120,180,180,180,120,30]
 func run() -> void:
 	definitions_and_execution()
 	validation()
@@ -10,11 +10,11 @@ func run() -> void:
 	print("Staged construction: %d checks, %d failures"%[checks,failures]);quit(1 if failures else 0)
 func definitions_and_execution() -> void:
 	var costs: Dictionary=Expected.COSTS.duplicate(true)
-	costs.merge({T.STONEMASON_WORKSHOP:{R.LOG:4,R.PLANK:6,R.STONE:4},T.CLAY_HUT:{R.LOG:8,R.STONE:4},T.POTTERY_WORKSHOP:{R.LOG:4,R.PLANK:6,R.STONE:4},T.TOWN_CENTER:{},T.WELL:{R.LOG:4,R.STONE:4},T.WEAVER_WORKSHOP:{R.LOG:4,R.PLANK:6,R.STONE:4},T.TAILOR_WORKSHOP:{R.LOG:6,R.PLANK:8,R.STONE:4},T.FARM:{R.LOG:6,R.PLANK:8,R.STONE:4},T.WINDMILL:{R.LOG:4,R.PLANK:6,R.STONE:4}})
+	costs.merge({T.GAZEBO:{R.LOG:4,R.PLANK:6,R.STONE:2},T.FLOWERBED:{R.PLANK:1,R.STONE:1},T.STONEMASON_WORKSHOP:{R.LOG:4,R.PLANK:6,R.STONE:4},T.CLAY_HUT:{R.LOG:8,R.STONE:4},T.POTTERY_WORKSHOP:{R.LOG:4,R.PLANK:6,R.STONE:4},T.TOWN_CENTER:{},T.WELL:{R.LOG:4,R.STONE:4},T.WEAVER_WORKSHOP:{R.LOG:4,R.PLANK:6,R.STONE:4},T.TAILOR_WORKSHOP:{R.LOG:6,R.PLANK:8,R.STONE:4},T.FARM:{R.LOG:6,R.PLANK:8,R.STONE:4},T.WINDMILL:{R.LOG:4,R.PLANK:6,R.STONE:4}})
 	for type in T.values():
 		var definition=D.for_type(type)
 		check(definition.validate_construction_stages() and definition.construction_requirements==costs[type] and definition.construction_work_required==TIMES[type],"Every current type retains independently expected cost/time")
-		check(definition.construction_stages.size()==(1 if type==T.TOWN_CENTER else 2 if type==T.WELL else 3),"Individual finite stage counts, including one-step special definition")
+		check(definition.construction_stages.size()==(1 if type==T.TOWN_CENTER else 2 if type in [T.WELL,T.FLOWERBED] else 3),"Individual finite stage counts, including one-step special definition")
 		var site=B.new(&"staged",definition,Vector2.ZERO,B.State.UNDER_CONSTRUCTION)
 		var view=View.new();root.add_child(view);view.setup(site)
 		check(view.construction_visual!=null and view.construction_visual.visual_id==&"site" and view.construction_visual.multimesh.instance_count==1,"Initial site is a single temporary batch, not the finished building")

@@ -17,7 +17,7 @@ func resident(id: String) -> RefCounted: return Data.new(id,id,30,P.NONE)
 func run() -> void:
 	for category in BT.values():
 		var building := Building.new(&"work",Definition.for_type(category))
-		var expected := 0 if category in [BT.HOME,BT.WELL] else (2 if category in [BT.STORAGE,BT.TOWN_CENTER] else 1)
+		var expected := 0 if category in [BT.HOME,BT.WELL,BT.GAZEBO,BT.FLOWERBED] else (2 if category in [BT.STORAGE,BT.TOWN_CENTER] else 1)
 		check(building.definition.porter_capacity == expected,"Separate type capacity")
 		check(Definition.new(&"custom",category,"Custom",Vector2.ONE).porter_capacity==expected,"Constructor shares type capacity defaults")
 		var type_population: Array = [resident("a"),resident("b"),resident("c")]
