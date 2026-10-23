@@ -309,7 +309,7 @@ func _refresh_details(resource_lines: PackedStringArray) -> void:
 	_refresh_people(producers, porters)
 
 func _setup_storage_rows() -> void:
-	for category in [Categories.Type.LOG,Categories.Type.STONE,Categories.Type.PLANK,Categories.Type.SIMPLE_FOOD,Categories.Type.MUSHROOM,Categories.Type.WOOL,Categories.Type.WOOL_CLOTH,Categories.Type.SIMPLE_CLOTHING,Categories.Type.WHEAT,Categories.Type.SHEAF,Categories.Type.STRAW,Categories.Type.FLOUR,Categories.Type.CLAY,Categories.Type.BRICK]:
+	for category in [Categories.Type.LOG,Categories.Type.STONE,Categories.Type.PLANK,Categories.Type.SIMPLE_FOOD,Categories.Type.MUSHROOM,Categories.Type.WOOL,Categories.Type.WOOL_CLOTH,Categories.Type.SIMPLE_CLOTHING,Categories.Type.WHEAT,Categories.Type.SHEAF,Categories.Type.STRAW,Categories.Type.FLOUR,Categories.Type.CLAY,Categories.Type.BRICK,Categories.Type.STONE_BRICK]:
 		var section := VBoxContainer.new()
 		get_node("%StorageAmounts").add_child(section)
 		var row := HBoxContainer.new()

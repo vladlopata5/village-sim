@@ -45,6 +45,11 @@ func setup(drop: RefCounted) -> void:
 		good.size=Vector3(.32,.16,.20) if drop.resource_type==Resources.Type.BRICK else Vector3(.24,.18,.23)
 		visual.mesh=good;visual.position.y=good.size.y/2.0
 		material.albedo_color=Color("bd6846") if drop.resource_type==Resources.Type.BRICK else Color("9f603b")
+	elif drop.resource_type == Resources.Type.STONE_BRICK:
+		var block:=BoxMesh.new()
+		block.size=Vector3(.36,.18,.22)
+		visual.mesh=block;visual.position.y=block.size.y/2.0
+		material.albedo_color=Color("929ca5")
 	elif drop.resource_type == Resources.Type.STONE:
 		var stone := SphereMesh.new()
 		stone.radius = 0.18

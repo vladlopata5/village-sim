@@ -15,7 +15,8 @@ static func categories() -> Array:
 			building(Types.WINDMILL,"windmill","2 пшеницы → 1 мука за 60 рабочих минут. Мельник: 1; носильщик необязателен."),
 			building(Types.FARM,"wheat","Полевые работы и обмолот: сноп → пшеница и солома. Фермер: 1; носильщик необязателен."),
 			building(Types.CLAY_HUT,"clay","Добыча и сбор глины в рабочей области хижины."),
-			building(Types.POTTERY_WORKSHOP,"pottery","1 глина + 1 топливо → 1 кирпич за 30 рабочих минут.")]},
+			building(Types.POTTERY_WORKSHOP,"pottery","1 глина + 1 топливо → 1 кирпич за 30 рабочих минут."),
+			building(Types.STONEMASON_WORKSHOP,"rock","1 камень → 1 каменный кирпич за 30 рабочих минут. Каменотёс: 1; носильщик: 1.")]},
 		{"id":&"logistics", "title":"Логистика", "entries":[building(Types.STORAGE,"storage","Хранение ресурсов и работа носильщиков."),building(Types.WELL,"well","Общедоступный бесконечный источник воды. Набор — 10 минут.")]},
 		{"id":&"settlement", "title":"Поселение", "entries":[building(Types.HOME,"home","Жильё и отдых жителей."),building(Types.FOOD,"kitchen","Грибы + топливо или мука + топливо + вода → 2 порции за 30 минут. Повар: 1; носильщик: 1.")]},
 	]

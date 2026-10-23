@@ -92,7 +92,7 @@ func setup(data: RefCounted) -> void:
 	data.construction_changed.connect(_refresh)
 	_refresh()
 func _refresh() -> void:
-	var colors := [Color("bd976b"), Color("829ba7"), Color("9aaa70"), Color("c2aa91"),Color("88735d"),Color("a28559"),Color("547ea8"),Color("89918b"),Color("b5a677"),Color("9186b0"),Color("bb8393"),Color("b69e69"),Color("d4c6a3"),Color("c59a79"),Color("b58259"),Color("c16e4c")]
+	var colors := [Color("bd976b"), Color("829ba7"), Color("9aaa70"), Color("c2aa91"),Color("88735d"),Color("a28559"),Color("547ea8"),Color("89918b"),Color("b5a677"),Color("9186b0"),Color("bb8393"),Color("b69e69"),Color("d4c6a3"),Color("c59a79"),Color("b58259"),Color("c16e4c"),Color("8d969e")]
 	material.albedo_color = colors[building_data.type] if building_data.is_built() else Color("8b7357")
 	if well_visual!=null:
 		well_visual.visible=building_data.is_built();well_placeholder.visible=not building_data.is_built()

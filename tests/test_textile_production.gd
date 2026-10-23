@@ -20,7 +20,7 @@ func definitions() -> void:
 	check(R.WOOL==6 and R.WOOL_CLOTH==7 and R.WOOL_CLOTHING==8 and C.WOOL==5 and C.WOOL_CLOTH==6 and C.SIMPLE_CLOTHING==7,"New concrete goods/categories append IDs")
 	check(Catalog.types_in_category(C.WOOL_CLOTH)==[R.WOOL_CLOTH] and Catalog.types_in_category(C.SIMPLE_CLOTHING)==[R.WOOL_CLOTHING] and not Catalog.is_ready_food(R.WOOL_CLOTHING),"Concrete cloth and substitutable finished clothing remain separate categories, not food")
 	var catalog=preload("res://scripts/ui/construction_catalog_data.gd").categories()[0].entries
-	check(catalog.map(func(row):return row.definition.type)==[T.LUMBERJACK_HUT,T.QUARRY,T.GATHERER_HUT,T.SAWMILL,T.SHEPHERD_HUT,T.WEAVER_WORKSHOP,T.TAILOR_WORKSHOP,T.WINDMILL,T.FARM,T.CLAY_HUT,T.POTTERY_WORKSHOP],"Both independent workshops append to production catalogue; original order preserved")
+	check(catalog.map(func(row):return row.definition.type)==[T.LUMBERJACK_HUT,T.QUARRY,T.GATHERER_HUT,T.SAWMILL,T.SHEPHERD_HUT,T.WEAVER_WORKSHOP,T.TAILOR_WORKSHOP,T.WINDMILL,T.FARM,T.CLAY_HUT,T.POTTERY_WORKSHOP,T.STONEMASON_WORKSHOP],"Both independent workshops append to production catalogue; original order preserved")
 	for type in [T.WEAVER_WORKSHOP,T.TAILOR_WORKSHOP]:
 		var definition=D.for_type(type);var weaving: bool=type==T.WEAVER_WORKSHOP
 		check(definition.construction_requirements==({R.LOG:4,R.PLANK:6,R.STONE:4} if weaving else {R.LOG:6,R.PLANK:8,R.STONE:4}) and definition.construction_work_required==(180 if weaving else 240),"Exact construction materials including stone and work")
