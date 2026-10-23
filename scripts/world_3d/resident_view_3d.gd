@@ -4,6 +4,8 @@ const Geometry = preload("res://scripts/world_3d/world_geometry.gd")
 var resident_data: RefCounted
 var water_cargo: Node3D
 var indicator: MeshInstance3D
+var model: Node3D
+var name_label: Label3D
 func setup(data: RefCounted) -> void:
 	resident_data = data
 	water_cargo=preload("res://scripts/world_3d/water_bucket_visual_3d.gd").create()
@@ -13,16 +15,10 @@ func setup(data: RefCounted) -> void:
 	_refresh_water_cargo()
 	collision_layer = 2
 	collision_mask = 0
-	var capsule := CapsuleMesh.new()
-	capsule.radius = Geometry.RESIDENT_RADIUS
-	capsule.height = Geometry.RESIDENT_HEIGHT
-	var material := StandardMaterial3D.new()
-	material.albedo_color = Color("f2c66d")
-	capsule.material = material
-	var visual := MeshInstance3D.new()
-	visual.mesh = capsule
-	visual.position.y = Geometry.RESIDENT_HEIGHT / 2.0
-	add_child(visual)
+	model=preload("res://scripts/world_3d/resident_model_3d.gd").new()
+	model.name="ResidentModel"
+	add_child(model)
+	model.setup()
 	var shape := CapsuleShape3D.new()
 	shape.radius = Geometry.RESIDENT_RADIUS
 	shape.height = Geometry.RESIDENT_HEIGHT
@@ -42,13 +38,18 @@ func setup(data: RefCounted) -> void:
 	indicator.position.y = 0.04
 	indicator.visible = false
 	add_child(indicator)
-	var label := Label3D.new()
-	label.text = data.resident_name
-	label.pixel_size = 0.018
-	label.position.y = 1.96
-	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	add_child(label)
+	name_label=Label3D.new()
+	name_label.text = data.resident_name
+	name_label.pixel_size = 0.018
+	name_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	add_child(name_label)
+	model.dimensions_changed.connect(_position_name)
+	_position_name()
 func set_selected(value: bool) -> void: indicator.visible = value
 
 func _refresh_water_cargo() -> void:
 	water_cargo.visible=resident_data.inventory.amount==1 and resident_data.inventory.resource_type==preload("res://scripts/resource_type.gd").Type.WATER
+
+func _position_name() -> void:
+	name_label.position.y=maxf(1.96,model.height()+0.52)
+func face_movement(direction: Vector3) -> void: model.face_movement(direction)

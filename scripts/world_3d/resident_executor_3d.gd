@@ -62,7 +62,9 @@ func _physics_process(delta: float) -> void:
 		if Engine.get_physics_frames()==_resume_after_frame: return
 		_resume_after_frame=-1
 	movement.speed = get_base_movement_speed() * _time_speed
+	var previous := global_position
 	movement.advance(delta)
+	if is_instance_valid(view): view.face_movement(global_position-previous)
 func get_base_movement_speed() -> float:
 	return Coordinates.length_to_world(Modifiers.movement_speed(resident_data,120.0))
 func claim_movement(requester: Node) -> bool:
@@ -72,7 +74,9 @@ func claim_movement(requester: Node) -> bool:
 func advance_owned(requester: Node, delta: float, cap: float, distance_limit: float) -> void:
 	if movement_owner != requester: return
 	movement.speed = minf(get_base_movement_speed(),cap)*_time_speed
+	var previous := global_position
 	movement.advance(delta,distance_limit)
+	if is_instance_valid(view): view.face_movement(global_position-previous)
 func release_movement(requester: Node, successful: bool) -> void:
 	if movement_owner != requester: return
 	movement.stop()

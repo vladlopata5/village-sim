@@ -1,6 +1,6 @@
 extends "res://scripts/prototypes/prototype_camera_3d.gd"
 ## Canonical perspective adapter. The orthographic prototype retains its defaults.
-@export var min_distance: float = 19.02956881
+@export var min_distance: float = 9.514784405
 @export var max_distance: float = 253.72758419
 @export var distance_step: float = 5.07455168
 

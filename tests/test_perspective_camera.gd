@@ -68,7 +68,7 @@ func run() -> void:
 			if not baseline:
 				check(is_equal_approx(camera.get_zoom_distance(),camera.min_distance if zoom==1 else camera.max_distance),"Zoom clamps real distance")
 				check(focus().distance_to(initial_focus)<0.001 and camera.fov==35,"Zoom preserves focus and FOV")
-				check(camera.global_position.y>12,"Camera stays above ground")
+				check(camera.global_position.y>=camera.min_distance*sin(deg_to_rad(50.0))-0.001,"Camera stays above ground at the configured minimum distance")
 			await capture(label+("near" if zoom==1 else "far"))
 			camera.global_transform=original;camera.size=original_size
 		if not baseline:
