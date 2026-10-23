@@ -966,7 +966,9 @@ func _offer_resident_area(resident: RefCounted, area: RefCounted) -> void:
 	if not resident.work_location_id.is_empty() and building==null: return
 	_resident_area_offer={"resident":resident,"area":area,"area_revision":area.revision,"revision":resident.work_assignment_revision,"building":building}
 	var text := "Назначить область «%s» жителю «%s»?" % [area.display_name,resident.resident_name]
-	if building!=null: text+="\nЭто снимет рабочее назначение здания «%s». Профессия и принятая работа сохраняются." % building.display_name
+	if building!=null:
+		text+="\nЭто снимет рабочее назначение здания «%s». " % building.display_name
+		text+=("Профессия сохраняется. Несовместимая добыча глины будет отменена." if resident.profession==Profession.Type.CLAY_DIGGER else "Профессия и принятая работа сохраняются.")
 	area_departure_dialog.open(text)
 	area_departure_dialog.confirm_button.text="Назначить область жителю"
 	var target: RefCounted = resident if _area_assignment_kind==AreaAssignment.AREA_RESIDENT else area
@@ -1083,7 +1085,7 @@ func _focus_work_area(center: Vector2) -> void:
 func _start_work_area(resident_id: String = "") -> void:
 	_cancel_debug_placement()
 	var resident = player_control.get_resident(resident_id)
-	if not resident_id.is_empty() and (resident == null or resident.profession not in [Profession.Type.LUMBERJACK,Profession.Type.MINER]): return
+	if not resident_id.is_empty() and (resident == null or resident.profession not in [Profession.Type.LUMBERJACK,Profession.Type.MINER,Profession.Type.CLAY_DIGGER]): return
 	_cancel_building_placement()
 	_cancel_road_tool()
 	game_ui.close_window()
@@ -1157,7 +1159,7 @@ func _confirm_work_area() -> void:
 		return
 	var independent: bool = work_area_tool.resident_id.is_empty()
 	var resident = player_control.get_resident(work_area_tool.resident_id)
-	if not independent and (resident == null or resident.profession not in [Profession.Type.LUMBERJACK,Profession.Type.MINER]):
+	if not independent and (resident == null or resident.profession not in [Profession.Type.LUMBERJACK,Profession.Type.MINER,Profession.Type.CLAY_DIGGER]):
 		_cancel_work_area()
 		return
 	var area = work_areas.create(work_area_tool.preview.center,work_area_tool.preview.radius)

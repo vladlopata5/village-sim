@@ -1,5 +1,5 @@
 extends Node
-## Ordinary WORK: stone (FREE/Quarry) or building-owned clay; COLLECT -> MINE -> EXPORT.
+## Ordinary WORK: stone/clay in a personal area or hut; hut COLLECT -> MINE -> EXPORT.
 const Profession = preload("res://scripts/resident_profession.gd")
 const Intent = preload("res://scripts/resident_intent.gd")
 const Activity = preload("res://scripts/resident_activity.gd")
@@ -36,7 +36,6 @@ func _context() -> RefCounted:
 		var place = world.player_control.get_building(runtime.data.work_location_id)
 		if place==null or not place.is_built() or place.type!=(Types.CLAY_HUT if _resource()==Resources.CLAY else Types.QUARRY) or not world.world_locations.get_position(place.id) is Vector2: return null
 		return Context.for_building(place,world.work_areas)
-	if _resource()==Resources.CLAY: return null # Clay mining is owned by its hut.
 	var area = world.work_areas.get_area(runtime.data.work_area_id)
 	return Context.new(area) if area!=null else null
 func _room(context: RefCounted) -> bool:

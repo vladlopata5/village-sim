@@ -132,7 +132,7 @@ func current_intent(resident_id: String):
 func assign_profession(resident_id: String, profession: Profession.Type) -> bool:
 	var resident: RefCounted = _residents.get(resident_id)
 	if not profession_eligibility_error(resident_id,profession).is_empty(): return false
-	if profession in [Profession.Type.LUMBERJACK,Profession.Type.MINER] and resident.profession == profession and not resident.work_area_id.is_empty(): return true
+	if profession in [Profession.Type.LUMBERJACK,Profession.Type.MINER,Profession.Type.CLAY_DIGGER] and resident.profession == profession and not resident.work_area_id.is_empty(): return true
 	# Preserve only the explicit current workplace if its new role remains valid.
 	var current: StringName = resident.work_location_id
 	if not current.is_empty() and can_assign_workplace(resident_id,current,profession):
@@ -314,7 +314,7 @@ func unregister_resident(resident_id: String) -> void:
 
 func can_assign_work_area(resident_id: String) -> bool:
 	var resident: RefCounted = get_resident(resident_id)
-	return resident != null and resident.profession in [Profession.Type.LUMBERJACK,Profession.Type.MINER] and work_areas != null
+	return resident != null and resident.profession in [Profession.Type.LUMBERJACK,Profession.Type.MINER,Profession.Type.CLAY_DIGGER] and work_areas != null
 func assign_work_area(resident_id: String, area_id: StringName) -> bool:
 	var resident: RefCounted = get_resident(resident_id)
 	if not can_assign_work_area(resident_id) or work_areas.get_area(area_id) == null: return false

@@ -76,7 +76,7 @@ func refresh() -> void:
 					center = area.center
 					radius = Coordinates.length_to_world(area.radius)
 					area_identity = [area.id,area.revision]
-	elif resident.profession in [Profession.LUMBERJACK,Profession.MINER]:
+	elif resident.profession in [Profession.LUMBERJACK,Profession.MINER,Profession.CLAY_DIGGER]:
 		var area: RefCounted = _areas.get_area(resident.work_area_id)
 		if area != null:
 			center = area.center
