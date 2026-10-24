@@ -81,7 +81,7 @@ func world_contract() -> void:
 	var view=actor.view.view
 	var first: Array=meshes(view.model.instance)
 	check(first.size()==5,"Imported frog replaces capsule artwork with all five authored meshes")
-	check(Model.MODEL.resource_path=="res://assets/models/creatures/zhabka.glb","One preloaded replaceable PackedScene")
+	check(Model.MODEL.resource_path=="res://assets/models/creatures/zhabka_animated.glb","One preloaded replaceable PackedScene")
 	for runtime in world.resident_runtimes:
 		var visual=runtime.view.view.model
 		var other: Array=meshes(visual.instance)
@@ -96,7 +96,7 @@ func world_contract() -> void:
 	var collider=colliders(view)[0]
 	check(collider.shape is CapsuleShape3D and is_equal_approx(collider.shape.radius,.4) and is_equal_approx(collider.shape.height,1.44) and is_equal_approx(collider.position.y,.72),"Original explicit picking capsule dimensions retained")
 	check(G.RESIDENT_RADIUS==.4 and G.RESIDENT_HEIGHT==1.44,"Gameplay dimensions unchanged")
-	check(is_equal_approx(view.model.height(),G.RESIDENT_HEIGHT) and is_equal_approx(view.model.fitted_scale,1.44/.941482186317444),"Uniform scale derives from measured imported height")
+	check(is_equal_approx(view.model.height(),G.RESIDENT_HEIGHT) and is_equal_approx(view.model.fitted_scale,1.44/.916923105716705),"Uniform scale derives from measured imported height")
 	var boxes: Array[AABB]=[];Model._collect_bounds(view.model,Transform3D.IDENTITY,boxes)
 	var box: AABB=boxes[0]
 	for item in boxes.slice(1):box=box.merge(item)

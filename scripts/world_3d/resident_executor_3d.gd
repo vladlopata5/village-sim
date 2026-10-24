@@ -14,6 +14,7 @@ var _time_speed := 1
 var movement_owner: Node
 var _replacing_movement := false
 var _resume_after_frame := -1
+var _visual_position := Vector3.ZERO
 func setup(data: RefCounted) -> void:
 	resident_data = data
 	view.setup(data)
@@ -57,30 +58,42 @@ func apply_intent(intent: Intent) -> void:
 	intent.prepared_path = {}
 	_active = intent
 func _physics_process(delta: float) -> void:
-	if movement_owner != null: return
+	if movement_owner != null:
+		# Escort may hold a leader without calling advance_owned. Observe actual motion.
+		_update_visual(_visual_position)
+		_visual_position=global_position
+		return
 	if _resume_after_frame >= 0:
 		if Engine.get_physics_frames()==_resume_after_frame: return
 		_resume_after_frame=-1
 	movement.speed = get_base_movement_speed() * _time_speed
 	var previous := global_position
 	movement.advance(delta)
-	if is_instance_valid(view): view.face_movement(global_position-previous)
+	_update_visual(previous)
+	_visual_position=global_position
+func _update_visual(previous: Vector3) -> void:
+	if is_instance_valid(view):
+		var displacement := global_position-previous
+		view.face_movement(displacement)
+		view.model.set_walking(movement.is_moving() and not movement.paused and Vector2(displacement.x,displacement.z).length_squared()>0.0000001)
 func get_base_movement_speed() -> float:
 	return Coordinates.length_to_world(Modifiers.movement_speed(resident_data,120.0))
 func claim_movement(requester: Node) -> bool:
 	if movement_owner != null or _waiting or not _building.is_empty() or (_active != null and not _active.building_id.is_empty()): return false
 	movement_owner = requester
+	_visual_position=global_position
 	return true
 func advance_owned(requester: Node, delta: float, cap: float, distance_limit: float) -> void:
 	if movement_owner != requester: return
 	movement.speed = minf(get_base_movement_speed(),cap)*_time_speed
 	var previous := global_position
 	movement.advance(delta,distance_limit)
-	if is_instance_valid(view): view.face_movement(global_position-previous)
+	_update_visual(previous)
 func release_movement(requester: Node, successful: bool) -> void:
 	if movement_owner != requester: return
 	movement.stop()
 	movement_owner = null
+	_update_visual(global_position)
 	if Engine.is_in_physics_frame(): _resume_after_frame=Engine.get_physics_frames()
 	if successful: _arrived()
 	elif _replacing_movement: _active = null
