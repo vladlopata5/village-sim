@@ -23,7 +23,7 @@ func _run():
 	a.remove_trait(traits[0])
 	a.hunger = 90
 	check(b.inventory.amount == 0 and b.hunger == 10 and b.traits.size() == 1 and traits.size() == 1, "Mutable data and trait_type lists never leak between residents")
-	check(a.home_location_id == b.home_location_id, "Several residents may share a place ID")
+	check(a.household_id == b.household_id, "Several residents may share a place ID")
 	var first = Generator.new(123)
 	var second = Generator.new(123)
 	var other = Generator.new(456)
@@ -35,7 +35,7 @@ func _run():
 		seen.append(generated.id)
 		check(generated.traits.size() == 2 and generated.age >= 18 and generated.age <= 65, "Simple age and trait_type generation")
 		check(generated.hunger >= 10 and generated.hunger <= 30 and generated.fatigue >= 5 and generated.fatigue <= 35 and generated.mood >= 45 and generated.mood <= 80, "Reasonable initial needs")
-		check(generated.profession == Profession.Type.NONE and generated.home_location_id.is_empty() and generated.work_location_id.is_empty(), "Settlement assigns profession and places")
+		check(generated.profession == Profession.Type.NONE and generated.household_id.is_empty() and generated.work_location_id.is_empty(), "Settlement assigns profession and places")
 	check(signature(Generator.new(123).generate()) != signature(other.generate()), "Different seed changes generated data")
 	print("Factory/generator checks: ", "PASS" if failures == 0 else "FAIL")
 	quit(0 if failures == 0 else 1)

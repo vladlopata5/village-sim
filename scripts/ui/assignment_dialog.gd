@@ -136,7 +136,7 @@ func _error(key: Variant) -> String:
 	if not _valid_context(): return "Контекст назначения устарел"
 	var resident = control.get_resident(resident_id)
 	if key is StringName and key==&"home": return control.home_assignment_error(resident_id,building_id)
-	if key is StringName and key==&"clear_home": return "Житель не живёт в выбранном доме" if resident.home_location_id!=building_id else ""
+	if key is StringName and key==&"clear_home": return "Житель не живёт в выбранном доме" if control.get_household_home(resident.household_id)!=control.get_building(building_id) else ""
 	if key not in control.get_workplace_roles(building_id): return "Роль недоступна"
 	var error: String=control.workplace_assignment_error(resident_id,building_id,key,true)
 	if error.is_empty() and resident.work_location_id==building_id and resident.profession==key: return "Житель уже работает здесь в этой роли"

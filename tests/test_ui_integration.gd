@@ -1,4 +1,5 @@
 extends SceneTree
+const HH=preload("res://scripts/household_data.gd")
 const F=preload("res://tests/residents_ui_fixture.gd")
 const T=preload("res://scripts/building_type.gd").Type
 const P=preload("res://scripts/resident_profession.gd").Type
@@ -103,9 +104,9 @@ func run() -> void:
 		await capture("e6_%d_storage"%resolution.x)
 		var home=F.building(world,T.HOME,Vector3(-5,0,-12))
 		await assign(producer,home,&"home")
-		check(producer.data.home_location_id==home.id and world.building_card_view().housing_count.text.contains("1 / 4"),"Real housing updates same blue card")
+		check(producer.data.household_id==HH.id_for(home.id) and world.building_card_view().housing_count.text.contains("1 / 4"),"Real housing updates same blue card")
 		await assign(producer,home,&"clear_home")
-		check(producer.data.home_location_id.is_empty(),"Existing clear-home action works")
+		check(producer.data.household_id.is_empty(),"Existing clear-home action works")
 		world.game_ui.close_window();world.resident_selection.clear();await settle()
 		# Warm the same final presentation context before comparing allocations.
 		world.resident_selection.select(producer.data)

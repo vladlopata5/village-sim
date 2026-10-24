@@ -494,7 +494,7 @@ func _clear_person(id: String, building_id: StringName, housing: bool, role: int
 	if resident_identity!=null and resident_identity.get_ref()!=current: return
 	if building_identity!=null and building_identity.get_ref()!=building: return
 	if housing:
-		if current.home_location_id == building_id: _control.clear_home(id)
+		if _control.get_household_home(current.household_id) == building: _control.clear_home(id)
 	elif current.work_location_id == building_id and current.profession==role: _control.clear_work_assignment(id)
 	_refresh()
 func _refresh_consumables() -> void:

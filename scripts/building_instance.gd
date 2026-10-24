@@ -12,6 +12,20 @@ var work_paused := false # Owned cleanup/inside occupants must finish before wor
 var removal_started := false
 var direction_revision := 0
 var id: StringName
+const Household = preload("res://scripts/household_data.gd")
+var _households: Array[Household] = []
+var households: Array[Household]:
+	get: return _households.duplicate()
+func get_household(household_id: StringName) -> Household:
+	for household in _households:
+		if household.id==household_id: return household
+	return null
+func ensure_households() -> void:
+	if not is_built() or type!=preload("res://scripts/building_type.gd").Type.HOME: return
+	# One configured unit in HOME I. Never recreate existing identities on activation.
+	var count: int=floori(float(definition.housing_capacity)/Balance.HOUSEHOLD_RESIDENT_CAPACITY)
+	for index in range(1,count+1):
+		if get_household(Household.id_for(id,index))==null: _households.append(Household.new(id,index))
 var definition: Definition
 var position: Vector2
 var work_area_override_id: StringName = &"" # Per-instance reference; empty uses definition radius.
@@ -121,7 +135,9 @@ func _init(instance_id: StringName, building_definition: Definition, world_posit
 	for resource in construction_definition().construction_requirements:
 		_construction_delivered[resource] = 0
 	resources = ResourceContainer.new(id)
-	if is_built(): _configure_resource_buffers()
+	if is_built():
+		_configure_resource_buffers()
+		ensure_households()
 	for recipe in definition.production_recipes:
 		_recipe_settings[recipe.id] = {"mode":ProductionMode.UNLIMITED,"target":0,"produced":0,"revision":0,"order":false}
 func _configure_resource_buffers() -> void:
@@ -231,6 +247,7 @@ func complete_construction() -> bool:
 	previously_built = true
 	production_removed = false
 	_state = State.BUILT
+	ensure_households()
 	_active_builder_ids.clear()
 	_notify_construction_changed()
 	return true

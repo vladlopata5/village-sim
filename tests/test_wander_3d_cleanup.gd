@@ -1,4 +1,5 @@
 extends SceneTree
+const HH=preload("res://scripts/household_data.gd")
 const Target = preload("res://scripts/wander_target.gd")
 const Coordinates = preload("res://scripts/world_3d/world_coordinates.gd")
 const Geometry = preload("res://scripts/world_3d/world_geometry.gd")
@@ -58,7 +59,7 @@ func _run() -> void:
 		expected_navigation.add_blocker(rock.id,Rect2(center-Vector2.ONE*rock.physical_radius,Vector2.ONE*rock.physical_radius*2.0))
 	check(scene.navigation.blocked_cells() == expected_navigation.blocked_cells(), "Navigation blockers match exact snapped physical footprints plus unchanged clearance")
 	for resident in scene.residents:
-		check(scene.player_control.get_home(resident.id).id == resident.home_location_id and resident.home_location_id in expected, "Original home relationship remains valid")
+		check(HH.id_for(scene.player_control.get_home(resident.id).id) == resident.household_id and scene.player_control.get_home(resident.id).id in expected, "Original home relationship remains valid")
 	check(scene.warehouse_data.resources.get_amount(0) == 10 and scene.warehouse_data.resources.get_amount(preload("res://scripts/resource_type.gd").Type.PLANK) == 35 and scene.kitchen_data.resources.get_amount(0) == 0, "Initial resources preserved")
 	var actor = scene.resident_runtimes[1]
 	actor.view.global_position = Vector3(8.25,0,9.75)

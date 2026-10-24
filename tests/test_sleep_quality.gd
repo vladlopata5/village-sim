@@ -1,4 +1,5 @@
 extends SceneTree
+const HH=preload("res://scripts/household_data.gd")
 const Setup = preload("res://tests/behavior_test_setup.gd")
 const Balance = preload("res://scripts/balance_config.gd")
 const Dynamics = preload("res://scripts/need_dynamics.gd")
@@ -67,7 +68,7 @@ func _run() -> void:
 		scene = Setup.make_scene(self)
 		actor = scene.resident_runtimes[0]
 		house = scene.player_control.get_home(actor.data.id)
-		if not missing_during_trip: actor.data.home_location_id = &"missing"
+		if not missing_during_trip: actor.data.household_id = &"missing"
 		night(scene)
 		if missing_during_trip:
 			scene.buildings.erase(house)
@@ -144,7 +145,7 @@ func _run() -> void:
 	scene = Setup.make_scene(self)
 	house = scene.player_control.get_home(scene.residents[0].id)
 	for resident in scene.residents:
-		if resident.home_location_id != house.id: scene.player_control.assign_home(resident.id, house.id)
+		if resident.household_id != HH.id_for(house.id): scene.player_control.assign_home(resident.id, house.id)
 	night(scene)
 	for runtime in scene.resident_runtimes:
 		runtime.view._process(20)

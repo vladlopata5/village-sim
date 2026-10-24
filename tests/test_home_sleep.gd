@@ -1,4 +1,5 @@
 extends SceneTree
+const HH=preload("res://scripts/household_data.gd")
 const Setup = preload("res://tests/behavior_test_setup.gd")
 const Activity = preload("res://scripts/resident_activity.gd").Type
 const Intent = preload("res://scripts/resident_intent.gd")
@@ -17,12 +18,12 @@ func night(scene: Node) -> void:
 	scene.game_time.total_minutes = 1379
 	scene.game_time.advance(1.0)
 func house(scene: Node, id: StringName):
-	return scene.player_control.get_building(id)
+	return scene.player_control.get_household_home(id)
 func _run() -> void:
 	var scene = Setup.make_scene(self)
 	var actor = scene.resident_runtimes[0]
-	var a = house(scene, actor.data.home_location_id)
-	var b = house(scene, scene.residents[1].home_location_id)
+	var a = house(scene, actor.data.household_id)
+	var b = house(scene, scene.residents[1].household_id)
 	var b_point: Vector2 = scene.world_locations.get_position(b.id)
 	check(scene.player_control.assign_home(actor.data.id, b.id), "Day reassign succeeds")
 	var before: Vector2 = actor.view.global_position
@@ -51,15 +52,15 @@ func _run() -> void:
 		scene = Setup.make_scene(self)
 		actor = scene.resident_runtimes[0]
 		match kind:
-			"empty": actor.data.home_location_id = &""
-			"missing": actor.data.home_location_id = &"missing_house"
-			"nonhouse": actor.data.home_location_id = scene.warehouse_data.id
+			"empty": actor.data.household_id = &""
+			"missing": actor.data.household_id = &"missing_house"
+			"nonhouse": actor.data.household_id = HH.id_for(scene.warehouse_data.id)
 			"unfinished", "zero_capacity":
 				var definition = Definition.for_type(Types.HOME)
 				if kind == "zero_capacity": definition.housing_capacity = 0
 				var target = Building.new(&"invalid_sleep_house", definition, Vector2(700, 700), Building.State.UNDER_CONSTRUCTION if kind == "unfinished" else Building.State.BUILT)
 				scene.buildings.append(target)
-				actor.data.home_location_id = target.id
+				actor.data.household_id = HH.id_for(target.id)
 		before = actor.view.global_position
 		night(scene)
 		check(actor.data.activity == Activity.SLEEPING and actor.intents.current_intent.reason_id == &"night_outdoor", "%s home starts outdoor sleep" % kind)
@@ -87,9 +88,9 @@ func _run() -> void:
 
 	# Capacity is assignment validation, not a bed/ongoing sleep reservation.
 	scene = Setup.make_scene(self)
-	a = house(scene, scene.residents[0].home_location_id)
+	a = house(scene, scene.residents[0].household_id)
 	for resident in scene.residents:
-		if resident.home_location_id != a.id: check(scene.player_control.assign_home(resident.id, a.id), "Residents share house")
+		if resident.household_id != HH.id_for(a.id): check(scene.player_control.assign_home(resident.id, a.id), "Residents share house")
 	night(scene)
 	for runtime in scene.resident_runtimes:
 		check(runtime.intents.current_intent.target_position == scene.world_locations.get_position(a.id), "Shared full house remains valid sleep target")
@@ -105,7 +106,7 @@ func _run() -> void:
 	for initially_homeless in [false, true]:
 		scene = Setup.make_scene(self)
 		actor = scene.resident_runtimes[0]
-		b = house(scene, scene.residents[1].home_location_id)
+		b = house(scene, scene.residents[1].household_id)
 		if initially_homeless: scene.player_control.clear_home(actor.data.id)
 		var personal = Intent.new(Intent.Type.MOVE_TO, &"committed_personal", Vector2(100, 100), 100, false)
 		actor.intents.submit(personal)
@@ -120,7 +121,7 @@ func _run() -> void:
 	# Real meal completion also promotes a pending night goal with the latest home.
 	scene = Setup.make_scene(self)
 	actor = scene.resident_runtimes[0]
-	b = house(scene, scene.residents[1].home_location_id)
+	b = house(scene, scene.residents[1].household_id)
 	scene.kitchen_data.resources.add(preload("res://scripts/resource_type.gd").Type.FOOD, 1)
 	actor.data.hunger = 60
 	check(actor.needs.try_eat(5000), "Ordinary meal starts before night")
@@ -172,7 +173,7 @@ func _run() -> void:
 	for mode in ["home_trip", "home_sleep", "outdoor_sleep"]:
 		scene = Setup.make_scene(self)
 		actor = scene.resident_runtimes[0]
-		b = house(scene, scene.residents[1].home_location_id)
+		b = house(scene, scene.residents[1].household_id)
 		if mode == "outdoor_sleep": scene.player_control.clear_home(actor.data.id)
 		night(scene)
 		if mode == "home_sleep": actor.view._process(20)
@@ -186,7 +187,7 @@ func _run() -> void:
 	# An execution whose destination disappears still arrives safely and sleeps locally.
 	scene = Setup.make_scene(self)
 	actor = scene.resident_runtimes[0]
-	a = house(scene, actor.data.home_location_id)
+	a = house(scene, actor.data.household_id)
 	night(scene)
 	scene.buildings.erase(a)
 	actor.view._process(20)

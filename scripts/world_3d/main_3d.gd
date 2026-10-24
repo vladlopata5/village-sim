@@ -463,7 +463,7 @@ func change_construction_direction(id: StringName, demolish: bool) -> bool:
 		for runtime in resident_runtimes:
 			var assigned: bool = runtime.data.work_location_id == id
 			if assigned: player_control.clear_work_assignment(runtime.data.id)
-			if runtime.data.home_location_id == id: player_control.clear_home(runtime.data.id)
+			if player_control.get_household_home(runtime.data.household_id) == building: player_control.clear_home(runtime.data.id)
 			if assigned or runtime.recipe_work.building == building: runtime.intents.abort_current(runtime.intents.current_intent)
 			if runtime.intents.pending_intent.building_id == id: runtime.intents.pending_intent = preload("res://scripts/resident_intent.gd").new()
 			# This uses today's immediate portal exit. The removal barrier below also supports a future delayed exit.

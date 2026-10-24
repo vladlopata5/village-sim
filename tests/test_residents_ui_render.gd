@@ -1,4 +1,5 @@
 extends SceneTree
+const HH=preload("res://scripts/household_data.gd")
 ## Real GUI rendered QA; all rows and assignments read actual PlayerControl data.
 const F=preload("res://tests/residents_ui_fixture.gd")
 const P=preload("res://scripts/resident_profession.gd").Type
@@ -146,14 +147,14 @@ func run() -> void:
 		await capture(prefix+"housing_dialog")
 		F.click(self,dialog.buttons[&"home"])
 		await settle()
-		check(worker.home_location_id==house.id and worker.work_location_id==saw.id and window.visible and world.resident_selection.selected_building==house,"Actual housing preserves work assignment/list/home selection")
+		check(worker.household_id==HH.id_for(house.id) and worker.work_location_id==saw.id and window.visible and world.resident_selection.selected_building==house,"Actual housing preserves work assignment/list/home selection")
 		check(world.building_card_view().housing_count.text=="Жильцы: 1 / 4","Rendered home counter follows real assignment")
 		await capture(prefix+"housing_assigned")
 		for actor in world.resident_runtimes.slice(4,7): pc.assign_home(actor.data.id,house.id)
 		pc.assign_home(refused.id,house2.id)
 		await F.row_click(self,window,refused.id)
 		await settle()
-		check(dialog.buttons[&"home"].disabled and dialog.reasons[&"home"].visible and refused.home_location_id==house2.id,"Full house exposes reason and keeps previous home")
+		check(dialog.buttons[&"home"].disabled and dialog.reasons[&"home"].visible and refused.household_id==HH.id_for(house2.id),"Full house exposes reason and keeps previous home")
 		await capture(prefix+"full_house")
 		# Modeless dismissal consumes press and release; no click reuse in the world.
 		world.placement.select(D.for_type(T.HOME))

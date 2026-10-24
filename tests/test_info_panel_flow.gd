@@ -1,4 +1,5 @@
 extends SceneTree
+const HH=preload("res://scripts/household_data.gd")
 const Stacks=preload("res://tests/ground_stack_fixture.gd")
 const Def=preload("res://scripts/building_definition.gd")
 const Types=preload("res://scripts/building_type.gd").Type
@@ -72,7 +73,7 @@ func run() -> void:
 	var stale_clear: Button=home_row.get_child(1)
 	world.player_control.assign_home(b.id,homes[1].id)
 	stale_clear.pressed.emit()
-	check(b.home_location_id==homes[1].id,"Stale housing action revalidates owner and preserves new assignment")
+	check(b.household_id==HH.id_for(homes[1].id),"Stale housing action revalidates owner and preserves new assignment")
 	world.resident_selection.select(a)
 	a.set_opinion(StringName(b.id),8)
 	a.set_opinion(StringName(b.id),0)

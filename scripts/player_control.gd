@@ -15,12 +15,15 @@ signal profession_changed(resident_id: String)
 signal work_assignment_changed(resident_id: String)
 signal building_work_area_changed(building_id: StringName)
 var work_areas: RefCounted
-signal home_changed(resident_id: String, previous: StringName, current: StringName)
+signal home_changed(resident_id: String, previous: StringName, current: StringName) # Compatibility: building IDs.
+signal household_changed(resident_id: String, previous: StringName, current: StringName)
 var _buildings: Array = [] # Shared world collection, not a separate housing registry.
 var _residents: Dictionary = {}
 var _intents: Dictionary = {}
 var _commands: Dictionary = {}
 var _assignments: Dictionary = {}
+var _unregistering_buildings: Dictionary = {}
+var _unregistering_residents: Dictionary = {}
 var _workplace_professions: Dictionary = {}
 const Assignment = preload("res://scripts/resident_assignment.gd")
 
@@ -76,8 +79,8 @@ func setup(population: Array, buildings: Array) -> void:
 	for resident in population:
 		population_changed = population_changed or _residents.get(resident.id) != resident
 		_residents[resident.id] = resident
-		var callback := _on_resident_home_changed.bind(resident.id)
-		if not resident.home_changed.is_connected(callback): resident.home_changed.connect(callback)
+		var callback := _on_resident_household_changed.bind(resident.id)
+		if not resident.household_changed.is_connected(callback): resident.household_changed.connect(callback)
 	for building in buildings: register_building(building)
 	normalize_porter_assignments()
 	if population_changed: residents_changed.emit()
@@ -96,15 +99,19 @@ func _default_profession(building: RefCounted) -> int:
 	return Profession.Type.PORTER if building.definition.porter_capacity > 0 else Profession.Type.NONE
 
 func unregister_building(building_id: StringName) -> void:
+	if _unregistering_buildings.has(building_id): return
 	var building := get_building(building_id)
 	if building == null and not _workplace_professions.has(building_id): return
+	_unregistering_buildings[building_id]=true
 	if building != null:
+		for tenant in get_home_occupants(building_id): clear_household(tenant.id)
 		building.dispose_production()
 		_buildings.erase(building)
 	_workplace_professions.erase(building_id)
 	# Assignment invalidation is management, not a second haul cancellation path.
 	for resident in _residents.values():
 		if resident.work_location_id == building_id: clear_work_assignment(resident.id)
+	_unregistering_buildings.erase(building_id)
 	building_unregistered.emit(building_id)
 
 func register_commands(resident_id: String, controller: Node) -> void:
@@ -180,43 +187,80 @@ func home_assignment_error(resident_id: String, building_id: StringName) -> Stri
 	var resident = get_resident(resident_id)
 	var building := get_building(building_id)
 	if resident == null: return "Житель не найден"
-	if building == null: return "Здание недоступно"
+	if _unregistering_residents.has(resident_id): return "Житель удаляется"
+	if building == null or _unregistering_buildings.has(building_id): return "Здание недоступно"
 	if not building.is_built(): return "Здание ещё строится"
 	if not is_housing_target(building): return "Здание не предназначено для заселения"
-	if resident.home_location_id == building_id: return "Житель уже живёт здесь"
+	if get_household_home(resident.household_id)==building: return "Житель уже живёт здесь"
+	if building.households.size()!=1: return "Выберите конкретное хозяйство"
 	if get_home_occupants(building_id).size() >= building.definition.housing_capacity: return "В доме нет свободных мест"
 	return ""
 
+func get_household_home(household_id: StringName) -> RefCounted:
+	if household_id.is_empty(): return null
+	for building in _buildings:
+		if building.get_household(household_id)!=null: return building
+	return null
+func get_household(household_id: StringName) -> RefCounted:
+	var home := get_household_home(household_id)
+	return home.get_household(household_id) if home!=null else null
+func get_household_occupants(household_id: StringName) -> Array:
+	if get_household(household_id)==null: return []
+	return _residents.values().filter(func(resident): return resident.household_id==household_id)
+func household_assignment_error(resident_id: String, household_id: StringName) -> String:
+	var resident = get_resident(resident_id)
+	var household := get_household(household_id)
+	var home := get_household_home(household_id)
+	if resident==null: return "Житель не найден"
+	if _unregistering_residents.has(resident_id): return "Житель удаляется"
+	if household==null or home==null: return "Хозяйство недоступно"
+	if _unregistering_buildings.has(home.id): return "Дом удаляется"
+	if not is_housing_target(home) or home.removal_started: return "Дом недоступен для заселения"
+	if resident.household_id==household_id: return ""
+	if get_household_occupants(household_id).size()>=household.capacity: return "В хозяйстве нет свободных мест"
+	return ""
+func assign_household(resident_id: String, household_id: StringName) -> bool:
+	if not household_assignment_error(resident_id,household_id).is_empty(): return false
+	var resident = get_resident(resident_id)
+	if resident.household_id==household_id: return true # Idempotent; no extra place or notification.
+	var old_home := get_household_home(resident.household_id)
+	var home := get_household_home(household_id)
+	var previous: StringName=old_home.id if old_home!=null else &""
+	resident.household_id=household_id
+	if logger!=null:
+		var message := "%s: назначен дом — %s" % [resident.resident_name,home.id] if previous.is_empty() else "%s: сменил дом %s → %s" % [resident.resident_name,previous,home.id]
+		logger.info(EventLog.PLAYER,message)
+	return true
+func clear_household(resident_id: String) -> bool:
+	var resident = get_resident(resident_id)
+	if resident==null or resident.household_id.is_empty(): return false
+	resident.household_id=&""
+	if logger!=null: logger.info(EventLog.PLAYER,"%s: больше не имеет назначенного дома" % resident.resident_name)
+	return true
 func get_home(resident_id: String) -> RefCounted:
-	var resident: RefCounted = _residents.get(resident_id)
-	if resident == null or resident.home_location_id.is_empty(): return null
-	var building := get_building(resident.home_location_id)
-	return building if is_housing_target(building) else null
-
+	var resident = get_resident(resident_id)
+	var home := get_household_home(resident.household_id) if resident!=null else null
+	return home if is_housing_target(home) else null
 func get_home_occupants(building_id: StringName) -> Array:
-	# Query only: there is no mutable occupant list in a house.
-	return _residents.values().filter(func(resident): return resident.home_location_id == building_id)
-
+	var home := get_building(building_id)
+	if home==null: return []
+	var ids: Array=home.households.map(func(household):return household.id)
+	return _residents.values().filter(func(resident):return resident.household_id in ids)
 func assign_home(resident_id: String, building_id: StringName) -> bool:
 	if not home_assignment_error(resident_id,building_id).is_empty(): return false
-	var resident: RefCounted = _residents.get(resident_id)
-	# Validate the new home before replacing the old relationship.
-	var previous: StringName = resident.home_location_id
-	resident.home_location_id = building_id
-	if logger != null:
-		var message := "%s: назначен дом — %s" % [resident.resident_name, building_id] if previous.is_empty() else "%s: сменил дом %s → %s" % [resident.resident_name, previous, building_id]
-		logger.info(EventLog.PLAYER, message)
-	return true
-
-func clear_home(resident_id: String) -> bool:
-	var resident: RefCounted = _residents.get(resident_id)
-	if resident == null or resident.home_location_id.is_empty(): return false
-	resident.home_location_id = &""
-	if logger != null: logger.info(EventLog.PLAYER, "%s: больше не имеет назначенного дома" % resident.resident_name)
-	return true
-
-func _on_resident_home_changed(previous: StringName, current: StringName, resident_id: String) -> void:
-	home_changed.emit(resident_id, previous, current)
+	return assign_household(resident_id,get_building(building_id).households[0].id)
+func clear_home(resident_id: String) -> bool: return clear_household(resident_id)
+func _on_resident_household_changed(previous: StringName, current: StringName, resident_id: String) -> void:
+	var resident = get_resident(resident_id)
+	if resident==null or resident.household_id!=current: return
+	var old_home := get_household_home(previous)
+	var new_home := get_household_home(current)
+	var old_id: StringName=old_home.id if old_home!=null else &""
+	var new_id: StringName=new_home.id if new_home!=null else &""
+	household_changed.emit(resident_id,previous,current)
+	# A listener may already have moved/unregistered this resident again.
+	if get_resident(resident_id)==resident and resident.household_id==current:
+		home_changed.emit(resident_id,old_id,new_id)
 
 func get_production_workers(location_id: StringName) -> Array:
 	var building := get_building(location_id)
@@ -300,15 +344,19 @@ func register_resident(resident: RefCounted) -> void:
 	if _residents.has(resident.id): return
 	_residents[resident.id] = resident
 	normalize_porter_assignments()
-	resident.home_changed.connect(_on_resident_home_changed.bind(resident.id))
+	resident.household_changed.connect(_on_resident_household_changed.bind(resident.id))
 	residents_changed.emit()
 func unregister_resident(resident_id: String) -> void:
+	if _unregistering_residents.has(resident_id): return
 	var resident: RefCounted = _residents.get(resident_id)
 	if resident == null: return
+	_unregistering_residents[resident_id]=true
+	clear_household(resident_id)
 	clear_work_assignment(resident_id)
-	resident.home_changed.disconnect(_on_resident_home_changed.bind(resident_id))
+	resident.household_changed.disconnect(_on_resident_household_changed.bind(resident_id))
 	_residents.erase(resident_id)
 	for registry in [_intents,_commands,_assignments]: registry.erase(resident_id)
+	_unregistering_residents.erase(resident_id)
 	resident_unregistered.emit(resident_id)
 	residents_changed.emit()
 

@@ -23,14 +23,14 @@ var work_location_id: StringName = &"":
 		if work_location_id == value: return
 		work_location_id = value
 		work_assignment_revision += 1
-signal home_changed(previous: StringName, current: StringName)
-# Sole housing relationship. Empty/invalid references are valid homeless data.
-var home_location_id: StringName = &"":
+signal household_changed(previous: StringName, current: StringName)
+# Sole permanent housing relationship. Invalid/empty references are homeless data.
+var household_id: StringName = &"":
 	set(value):
-		if home_location_id == value: return
-		var previous := home_location_id
-		home_location_id = value
-		home_changed.emit(previous, value)
+		if household_id==value: return
+		var previous := household_id
+		household_id=value
+		household_changed.emit(previous,value)
 var id: String
 var resident_name: String
 var age: int

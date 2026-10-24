@@ -1,4 +1,5 @@
 extends SceneTree
+const HH=preload("res://scripts/household_data.gd")
 const Data = preload("res://scripts/resident_data.gd")
 const Definition = preload("res://scripts/building_definition.gd")
 const Instance = preload("res://scripts/building_instance.gd")
@@ -45,7 +46,7 @@ func click(point: Vector2, button: MouseButton) -> void:
 func _run() -> void:
 	var population: Array = []
 	for i in range(6): population.append(Data.new("r%d" % i, "Resident %d" % i, 30))
-	check(population.all(func(resident): return resident.home_location_id.is_empty()), "Residents default to optional empty home")
+	check(population.all(func(resident): return resident.household_id.is_empty()), "Residents default to optional empty home")
 	check(Balance.HOUSE_RESIDENT_CAPACITY == 4 and Definition.for_type(Types.HOME).housing_capacity == 4, "Prototype house capacity centralized")
 	for type in [Types.STORAGE, Types.FOOD, Types.GATHERER_HUT]:
 		check(Definition.for_type(type).housing_capacity == 0, "Non-house capacity zero")
@@ -63,12 +64,12 @@ func _run() -> void:
 	var transitions: Array = []
 	control.home_changed.connect(func(id, old_id, new_id): transitions.append([id, old_id, new_id]))
 	for i in range(4): check(control.assign_home(population[i].id, a.id), "Four residents accepted")
-	check(control.get_home_occupants(a.id).size() == 4 and population[0].home_location_id == a.id, "Occupants derived from sole resident relation")
+	check(control.get_home_occupants(a.id).size() == 4 and population[0].household_id == HH.id_for(a.id), "Occupants derived from sole resident relation")
 	check(not control.assign_home(population[0].id, a.id) and transitions.size() == 4, "Same home is a no-op without duplicate/event")
-	check(not control.assign_home(population[4].id, a.id) and population[4].home_location_id.is_empty(), "Fifth resident rejected without losing default state")
+	check(not control.assign_home(population[4].id, a.id) and population[4].household_id.is_empty(), "Fifth resident rejected without losing default state")
 	check(control.assign_home(population[4].id, b.id), "Other house accepted")
-	check(not control.assign_home(population[4].id, a.id) and population[4].home_location_id == b.id, "Failed reassign preserves old home")
-	check(control.clear_home(population[0].id) and control.get_home_occupants(a.id).size() == 3 and population[0].home_location_id.is_empty(), "Clear releases capacity")
+	check(not control.assign_home(population[4].id, a.id) and population[4].household_id == HH.id_for(b.id), "Failed reassign preserves old home")
+	check(control.clear_home(population[0].id) and control.get_home_occupants(a.id).size() == 3 and population[0].household_id.is_empty(), "Clear releases capacity")
 	check(not control.clear_home(population[0].id) and not control.clear_home("missing"), "Already homeless/unknown clear safe")
 	check(control.assign_home(population[4].id, a.id) and control.get_home_occupants(b.id).is_empty(), "Reassign replaces link and frees old house immediately")
 	check(control.assign_home(population[0].id, b.id), "Freed house slot can be reused")
@@ -76,9 +77,9 @@ func _run() -> void:
 	queried.clear()
 	check(control.get_home_occupants(a.id).size() == 4, "Query result cannot mutate housing ownership")
 	# Direct source data imported by existing factory/generator is still the source of truth.
-	population[5].home_location_id = b.id
+	population[5].household_id = HH.id_for(b.id)
 	check(control.get_home_occupants(b.id).size() == 2 and control.get_home(population[5].id) == b, "Query reflects source data without synchronized house list")
-	population[5].home_location_id = &"deleted"
+	population[5].household_id = &"deleted"
 	check(control.get_home(population[5].id) == null and control.clear_home(population[5].id), "Invalid home references safe and clearable")
 	var service = Service.new()
 	service.control = control
@@ -92,10 +93,10 @@ func _run() -> void:
 	control.clear_home(population[1].id)
 	options = housing_options(service, population[0].id, a.id)
 	check(options[0].enabled and service.execute([population[0].id], options[0]), "Context service assigns available house")
-	check(population[0].home_location_id == a.id and control.get_home_occupants(b.id).is_empty(), "Context reassignment uses API")
+	check(population[0].household_id == HH.id_for(a.id) and control.get_home_occupants(b.id).is_empty(), "Context reassignment uses API")
 	var stale = housing_options(service, population[5].id, b.id)[0]
 	for i in range(4): control.clear_home(population[i].id); control.assign_home(population[i].id, b.id)
-	check(not service.execute([population[5].id], stale) and population[5].home_location_id.is_empty(), "Context revalidates capacity at execution")
+	check(not service.execute([population[5].id], stale) and population[5].household_id.is_empty(), "Context revalidates capacity at execution")
 	# House completion enables assignment only; it never auto-fills.
 	preload("res://tests/construction_recipe_expectations.gd").complete(unfinished,false)
 	check(unfinished.complete_construction() and control.get_home_occupants(unfinished.id).is_empty(), "Completed house has no automatic occupants")
@@ -119,10 +120,10 @@ func _run() -> void:
 	check(scene.interaction_menu.visible and scene.interaction_menu.options.any(func(option): return option.id == &"assign_home" and option.enabled), "Actual RMB on house opens housing interaction")
 	var assign_option = housing_options(scene.interactions, actor.data.id, old_house.id)[0]
 	scene.interaction_menu._choose(assign_option)
-	check(actor.data.home_location_id == old_house.id and resident_card.home_label.text == "Дом: %s (%s)" % [old_house.display_name, old_house.id], "Assign updates resident card synchronously without frame")
+	check(actor.data.household_id == HH.id_for(old_house.id) and resident_card.home_label.text == "Дом: %s (%s)" % [old_house.display_name, old_house.id], "Assign updates resident card synchronously without frame")
 	check(actor.commands.active_command == null and actor.data.assignments.is_empty(), "Housing creates no command or assignment")
 	scene.resident_selection.select_building(old_house)
-	check(building_card.housing_section.visible and building_card.housing_count.text == "Жильцы: 1 / 4" and scene.player_control.get_home_occupants(scene.residents[0].home_location_id).has(scene.residents[0]), "House card shows count and names")
+	check(building_card.housing_section.visible and building_card.housing_count.text == "Жильцы: 1 / 4" and scene.player_control.get_home_occupants(scene.player_control.get_home(scene.residents[0].id).id).has(scene.residents[0]), "House card shows count and names")
 	# A second card demonstrates that both old and new views receive the same change.
 	var second_selection = preload("res://scripts/resident_selection.gd").new()
 	root.add_child(second_selection)
@@ -139,7 +140,7 @@ func _run() -> void:
 	scene.resident_selection.select(actor.data)
 	check(resident_card.home_label.text.contains(new_house.id), "Selection refresh shows current home")
 	check(scene.player_control.clear_home(actor.data.id) and resident_card.home_label.text == "Дом: Нет дома" and second_card.housing_count.text == "Жильцы: 0 / 4", "Clear immediately updates both presentations")
-	actor.data.home_location_id = &"absent"
+	actor.data.household_id = &"absent"
 	check(resident_card.home_label.text == "Дом: Нет дома", "Invalid housing reference safely renders homeless")
 	for building in [scene.warehouse_data, scene.kitchen_data, scene.gatherer_hut_data]:
 		scene.resident_selection.select_building(building)
@@ -176,7 +177,7 @@ func _run() -> void:
 	while scene.game_time.get_phase() != "Ночь": scene.game_time.debug_next_phase()
 	check(actor.intents.current_intent.reason_id == &"night_outdoor" and not actor.view.has_movement_target, "Cleared housing starts outdoor sleep")
 	actor.view._process(20)
-	check(actor.data.activity == Activity.SLEEPING and actor.data.home_location_id.is_empty(), "Outdoor sleep works with no assigned housing")
+	check(actor.data.activity == Activity.SLEEPING and actor.data.household_id.is_empty(), "Outdoor sleep works with no assigned housing")
 	var sleeping = actor.intents.current_intent
 	scene.player_control.assign_home(actor.data.id, placed.id)
 	check(actor.data.activity == Activity.SLEEPING and actor.intents.current_intent == sleeping, "Assigning home never wakes/moves sleeping resident")

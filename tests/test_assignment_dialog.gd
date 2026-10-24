@@ -1,4 +1,5 @@
 extends SceneTree
+const HH=preload("res://scripts/household_data.gd")
 const F=preload("res://tests/residents_ui_fixture.gd")
 const P=preload("res://scripts/resident_profession.gd").Type
 const T=preload("res://scripts/building_type.gd").Type
@@ -24,7 +25,7 @@ func check(ok: bool, message: String) -> void:
 	if not ok: failures+=1;push_error(message)
 func state(world: Node) -> Array:
 	var result:=[]
-	for resident in world.player_control.get_residents(): result.append([resident.id,resident.profession,resident.work_location_id,resident.work_area_id,resident.home_location_id,resident.work_assignment_revision,resident.inventory.amount])
+	for resident in world.player_control.get_residents(): result.append([resident.id,resident.profession,resident.work_location_id,resident.work_area_id,resident.household_id,resident.work_assignment_revision,resident.inventory.amount])
 	for building in world.buildings:
 		for resource in R.values():
 			if building.resources!=null: result.append([building.id,resource,building.resources.get_amount(resource),building.resources.get_reserved_in(resource),building.resources.get_reserved_out(resource)])
@@ -99,11 +100,11 @@ func run() -> void:
 	world.resident_selection.select_building(house)
 	dialog.open_for(b.id)
 	check(dialog.buttons.has(&"home") and dialog.buttons.has(&"clear_home") and not dialog.buttons.has(P.PORTER),"House housing actions, no fictional Porter")
-	check(dialog.execute(&"home") and b.home_location_id==house.id,"Housing through existing assign_home")
+	check(dialog.execute(&"home") and b.household_id==HH.id_for(house.id),"Housing through existing assign_home")
 	check(world.building_card_view().housing_count.text=="Жильцы: 1 / 4","Home signal updates Blue housing counter without a different general snapshot")
 	dialog.open_for(b.id)
 	check(dialog.buttons[&"home"].disabled and not dialog.buttons[&"clear_home"].disabled,"Already housed state and existing clear_home action")
-	check(dialog.execute(&"clear_home") and b.home_location_id==&"","Existing clear_home executes")
+	check(dialog.execute(&"clear_home") and b.household_id==&"","Existing clear_home executes")
 	check(world.building_card_view().housing_count.text=="Жильцы: 0 / 4","Clear home updates Blue count immediately")
 	pc.assign_home(b.id,house2.id)
 	# Normal registered residents fill all four beds, without changing house capacity.
@@ -113,12 +114,12 @@ func run() -> void:
 		pc.register_resident(resident);pc.assign_home(resident.id,house.id);extras.append(resident)
 	dialog.open_for(b.id)
 	check(dialog.buttons[&"home"].disabled and dialog.reasons[&"home"].text.contains("свободных"),"Full house visible reason")
-	check(not dialog.execute(&"home") and b.home_location_id==house2.id,"Failed housing preserves old home")
+	check(not dialog.execute(&"home") and b.household_id==HH.id_for(house2.id),"Failed housing preserves old home")
 	dialog.close()
 	pc.clear_home(extras[0].id)
 	dialog.open_for(b.id)
 	pc.assign_home(extras[0].id,house.id)
-	check(not dialog.execute(&"home") and b.home_location_id==house2.id,"Housing capacity rechecked at execute")
+	check(not dialog.execute(&"home") and b.household_id==HH.id_for(house2.id),"Housing capacity rechecked at execute")
 	dialog.close()
 	world.placement.select(D.for_type(T.SAWMILL))
 	world.placement.update_world_position(Vector3(-42,0,20))

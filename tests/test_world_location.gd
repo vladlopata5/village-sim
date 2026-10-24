@@ -1,4 +1,5 @@
 extends SceneTree
+const HH=preload("res://scripts/household_data.gd")
 const Location = preload("res://scripts/world_location.gd")
 const Locations = preload("res://tests/domain_locations.gd")
 const Activity = preload("res://scripts/resident_activity.gd")
@@ -45,7 +46,7 @@ func _run() -> void:
 	var view = scene.resident_runtimes[0].view
 	clock.set_process(false)
 	view.set_process(false)
-	check(data.home_location_id == &"home_stepan" and home.building_data == scene.player_control.get_home(data.id), "Resident and view refer to same HOME BuildingInstance")
+	check(data.household_id == HH.id_for(&"home_stepan") and home.building_data == scene.player_control.get_home(data.id), "Resident and view refer to same HOME BuildingInstance")
 	check(home.building_data.display_name == "Дом" and scene.world_locations.get_location(home.building_data.id).display_name == home.building_data.display_name, "House caption comes from ordinary BuildingInstance")
 	home.position = Vector2(-450, 160)
 	while clock.get_phase() != "Ночь":
@@ -57,7 +58,7 @@ func _run() -> void:
 	check(data.activity == Activity.Type.IDLE and scene.resident_runtimes[0].schedule.request_manual_move(Vector2(100, 100)), "Morning wakes and allows manual move")
 	view._process(20.0)
 	check(data.activity == Activity.Type.IDLE, "Manual arrival remains IDLE")
-	data.home_location_id = &"missing"
+	data.household_id = &"missing"
 	home.free() # Missing assigned home falls back safely to local outdoor sleep.
 	while clock.get_phase() != "Ночь":
 		clock.debug_next_phase()

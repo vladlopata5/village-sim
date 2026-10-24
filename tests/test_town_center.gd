@@ -57,7 +57,7 @@ func run() -> void:
 	center.resources.try_take(Resources.PLANK,1)
 	check(center in world.logistics.sources.storage_destinations(Source.new(Source.Kind.CONTAINER,producer.id),Resources.PLANK,producer.position),"Producer storage destination selection includes Town Center with quota room")
 	center.resources.add(Resources.PLANK,1)
-	check(world.residents.all(func(data): return data.home_location_id.is_empty()),"Town Center never assigned as permanent home")
+	check(world.residents.all(func(data): return data.household_id.is_empty()),"Town Center never assigned as permanent home")
 	for index in range(10):
 		check(world.fallback_housing.claim("capacity_%d"%index)==center.id,"Ten deterministic fallback claims succeed")
 	check(world.fallback_housing.claim("eleventh").is_empty(),"Eleventh fallback claim rejected")
@@ -76,7 +76,7 @@ func run() -> void:
 		if actor.data.activity==Activity.SLEEPING: break
 		actor.view._physics_process(0.05)
 	check(actor.data.activity==Activity.SLEEPING and actor.data.current_sleep_quality==1.0,"Physical arrival starts home-quality fallback sleep")
-	check(world.fallback_housing.count(center.id)==1 and actor.data.home_location_id.is_empty(),"Sleep keeps runtime capacity without home ownership")
+	check(world.fallback_housing.count(center.id)==1 and actor.data.household_id.is_empty(),"Sleep keeps runtime capacity without home ownership")
 	actor.data.activity=Activity.IDLE
 	check(world.fallback_housing.count(center.id)==0,"Wake releases fallback capacity")
 	actor.schedule._on_phase_changed("Утро")

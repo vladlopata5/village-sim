@@ -88,3 +88,8 @@ func _on_building_use_unavailable(intent: RefCounted) -> void:
 		return
 	intents.abort_current(intent)
 	decision.call_deferred("request_decision","building_slot_unavailable")
+
+func _exit_tree() -> void:
+	# Physical removal must not leave a permanent housing member or occupied sleep slot.
+	if data!=null: data.household_id=&""
+	if is_instance_valid(view) and is_instance_valid(intents): intents.abort_current(intents.current_intent)

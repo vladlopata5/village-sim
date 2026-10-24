@@ -1,4 +1,5 @@
 extends SceneTree
+const HH=preload("res://scripts/household_data.gd")
 const Setup = preload("res://tests/behavior_test_setup.gd")
 const Instance = preload("res://scripts/building_instance.gd")
 const Definition = preload("res://scripts/building_definition.gd")
@@ -48,7 +49,7 @@ func _run() -> void:
 		check(home.id == ids[index] and home.id not in seen, "Unique stable home ID")
 		seen.append(home.id)
 		check(home.position == positions[index] and home.display_name == "Дом", "Grid-aligned source position and normal house label")
-		check(resident.home_location_id == home.id and scene.player_control.get_home(resident.id) == home, "Initial resident relationship references concrete house")
+		check(resident.household_id == HH.id_for(home.id) and scene.player_control.get_home(resident.id) == home, "Initial resident relationship references concrete house")
 		check(scene.player_control.get_home_occupants(home.id) == [resident], "Initial occupancy is one, derived from residents")
 		check(view is View and view.building_data == home, "Same BuildingView as player-built houses; no home marker")
 		check(view.get_script()==View, "No prototype home visual nodes")

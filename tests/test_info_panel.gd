@@ -109,7 +109,7 @@ func run() -> void:
 	home_row.get_child(0).pressed.emit()
 	check(selection.selected_resident==b,"Home occupant name link")
 	resident.get_node("%ClearHome").pressed.emit()
-	check(b.home_location_id.is_empty() and resident.home_label.text.contains("Нет дома"),"Housing clear uses existing PlayerControl API")
+	check(b.household_id.is_empty() and resident.home_label.text.contains("Нет дома"),"Housing clear uses existing PlayerControl API")
 	var saw_result: Dictionary=world.debug_spawn.spawn_building(Vector3(-15,0,-14),Def.for_type(Types.SAWMILL))
 	check(saw_result.ok,"Real Sawmill registration")
 	var saw=saw_result.objects[0]

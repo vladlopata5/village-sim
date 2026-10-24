@@ -74,7 +74,7 @@ func _for_resident(resident_id: String, target_id: StringName) -> Array:
 				options.append(Option.new(&"eat", "Поесть здесь", Option.Kind.RESIDENT_ASSIGNMENT, target_id))
 			&"housing":
 				if not control.is_housing_target(target.data): continue
-				if data.home_location_id == target_id:
+				if control.get_household_home(data.household_id) == target.data:
 					options.append(Option.new(&"clear_home", "Выселиться", Option.Kind.MANAGEMENT_ACTION, target_id))
 				else:
 					var full: bool = control.get_home_occupants(target_id).size() >= target.data.definition.housing_capacity

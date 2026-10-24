@@ -1,4 +1,5 @@
 extends SceneTree
+const HH=preload("res://scripts/household_data.gd")
 const Stacks=preload("res://tests/ground_stack_fixture.gd")
 const ResidentView = preload("res://scripts/world_3d/resident_view_3d.gd")
 const Def = preload("res://scripts/building_definition.gd")
@@ -33,7 +34,7 @@ func reset(actor: Node) -> void:
 	actor.schedule.work_decision = Callable()
 	actor.intents.abort_current(actor.intents.current_intent)
 	actor.data.activity=Activity.IDLE
-	actor.data.home_location_id=&""
+	actor.data.household_id=&""
 	actor.schedule._phase="День"
 	for need in actor.data.needs.values(): need.value=0
 func building(type: int, point: Vector3, turns: int = 0, built: bool = true):
@@ -220,7 +221,7 @@ func run() -> void:
 	check(world.player_control.assign_home(population[4].data.id,home.id),"Freed assignment capacity allows next resident")
 	population[4].schedule._on_phase_changed("Ночь")
 	walk(population[4])
-	check(world.building_uses.occupied_by(center.id,population[4].data.id,3) and population[4].data.home_location_id==home.id,"Full physical HOME falls back to Town Center without rewriting home")
+	check(world.building_uses.occupied_by(center.id,population[4].data.id,3) and population[4].data.household_id==HH.id_for(home.id),"Full physical HOME falls back to Town Center without rewriting home")
 	for actor in population:
 		reset(actor)
 		actor.schedule._on_phase_changed("Ночь")
@@ -232,7 +233,7 @@ func run() -> void:
 		check(guest.data.activity==Activity.SLEEPING,"Every sleep arrival completes without hanging")
 		check(guest.data.current_sleep_quality==1.0 if index<10 else guest.data.current_sleep_quality==0.6,"Ten interior sleepers; eleventh outdoor")
 		if index<10: sleep_points.append(guest.view.global_position)
-		check(guest.data.home_location_id.is_empty(),"Fallback never rewrites HOME relationship")
+		check(guest.data.household_id.is_empty(),"Fallback never rewrites HOME relationship")
 	check(sleep_points.all(func(p): return sleep_points.count(p)==1),"Town Center ten authored positions are distinct")
 	check(world.fallback_housing.count(center.id)==10,"Fallback count reflects actual occupied Sleep slots")
 	for actor in population: reset(actor)

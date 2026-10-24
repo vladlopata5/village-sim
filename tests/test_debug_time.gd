@@ -124,7 +124,7 @@ func _run() -> void:
 	night.resume_current_phase() # Decision is removed in this isolated clock fixture.
 	before = view.global_position
 	view._process(0.5)
-	check(view.global_position.distance_to(scene.world_locations.get_position(scene.residents[0].home_location_id)) < before.distance_to(scene.world_locations.get_position(scene.residents[0].home_location_id)), "Resident moves toward home after resume")
+	check(view.global_position.distance_to(scene.world_locations.get_position(scene.player_control.get_home(scene.residents[0].id).id)) < before.distance_to(scene.world_locations.get_position(scene.player_control.get_home(scene.residents[0].id).id)), "Resident moves toward home after resume")
 	self.paused = true
 	before = view.global_position
 	key(KEY_3)

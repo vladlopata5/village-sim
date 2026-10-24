@@ -30,10 +30,10 @@ static func buildings(world: Node) -> void:
 	world._register_building_location(world.gatherer_hut_data, view)
 static func home_id(index: int) -> StringName:
 	return [&"home_stepan", &"home_anna", &"home_fedor", &"home_marina"][index]
-static func home(world: Node, data: RefCounted, index: int) -> void:
+static func home(world: Node, _data: RefCounted, index: int) -> void:
 	var positions = [Vector2(-300,-125),Vector2(-100,-200),Vector2(100,-200),Vector2(300,-125)]
 	var instance = preload("res://scripts/building_instance.gd")
 	var definition = preload("res://scripts/building_definition.gd")
-	var house = instance.new(data.home_location_id,definition.for_type(preload("res://scripts/building_type.gd").Type.HOME),positions[index],instance.State.BUILT)
+	var house = instance.new(home_id(index),definition.for_type(preload("res://scripts/building_type.gd").Type.HOME),positions[index],instance.State.BUILT)
 	world.buildings.append(house)
 	world._show_building(house)

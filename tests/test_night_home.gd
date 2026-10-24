@@ -1,4 +1,5 @@
 extends SceneTree
+const HH=preload("res://scripts/household_data.gd")
 const Controller = preload("res://scripts/resident_schedule_controller.gd")
 const ResidentIntent = preload("res://scripts/resident_intent.gd")
 const IntentController = preload("res://scripts/resident_intent_controller.gd")
@@ -33,7 +34,7 @@ func _run() -> void:
 	root.add_child(intents_without_ui)
 	intents_without_ui.intent_changed.connect(func(intent): commands.append(intent.target_position))
 	var data_without_ui = load("res://scripts/resident_data.gd").new("test", "Test", 30)
-	data_without_ui.home_location_id = &"home_stepan"
+	data_without_ui.household_id = HH.id_for(&"home_stepan")
 	intents_without_ui.setup(data_without_ui)
 	var locations = preload("res://tests/domain_locations.gd").new()
 	var marker := Node2D.new()
@@ -70,7 +71,7 @@ func _run() -> void:
 	clock.set_process(false)
 	view.set_process(false)
 	var start: Vector2 = view.global_position
-	check(scene.world_locations.get_position(scene.residents[0].home_location_id) == home.global_position, "Controller uses ordinary house view coordinates")
+	check(scene.world_locations.get_position(scene.player_control.get_home(scene.residents[0].id).id) == home.global_position, "Controller uses ordinary house view coordinates")
 	for multiplier in [1, 2, 4]:
 		# Re-enter a non-night phase through real clock transitions.
 		if controller.is_night:

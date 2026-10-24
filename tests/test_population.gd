@@ -97,7 +97,7 @@ func _run():
 	clock.debug_next_phase()
 	clock.debug_next_phase()
 	for runtime in scene.resident_runtimes:
-		check(runtime.intents.current_intent.reason_id == &"night_home" and runtime.view.target_position == scene.world_locations.get_position(runtime.data.home_location_id), "Every resident targets their own home at 23:00")
+		check(runtime.intents.current_intent.reason_id == &"night_home" and runtime.view.target_position == scene.world_locations.get_position(scene.player_control.get_home(runtime.data.id).id), "Every resident targets their own home at 23:00")
 		preload("res://tests/handling_test_step.gd").move_domain(runtime,20.0)
 		check(runtime.data.activity == Activity.Type.SLEEPING, "Each resident sleeps at own home")
 	clock.debug_next_phase()
