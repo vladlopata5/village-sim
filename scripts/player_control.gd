@@ -169,7 +169,7 @@ func get_buildings() -> Array: return _buildings.duplicate() # Same instances, c
 func _is_housing_definition(building: RefCounted) -> bool:
 	return building is BuildingInstance and building.type == BuildingType.Type.HOME and building.definition.housing_capacity > 0
 func is_housing_target(building: RefCounted) -> bool:
-	return _is_housing_definition(building) and building.is_built()
+	return _is_housing_definition(building) and building.is_housing_usable()
 func has_housing_role(building_id: StringName) -> bool:
 	return _is_housing_definition(get_building(building_id))
 func get_workplace_roles(building_id: StringName) -> Array[int]:
@@ -189,11 +189,12 @@ func home_assignment_error(resident_id: String, building_id: StringName) -> Stri
 	if resident == null: return "Житель не найден"
 	if _unregistering_residents.has(resident_id): return "Житель удаляется"
 	if building == null or _unregistering_buildings.has(building_id): return "Здание недоступно"
+	if building.is_upgrading(): return "В доме идёт улучшение; новые назначения недоступны"
 	if not building.is_built(): return "Здание ещё строится"
 	if not is_housing_target(building): return "Здание не предназначено для заселения"
 	if get_household_home(resident.household_id)==building: return "Житель уже живёт здесь"
 	if building.households.size()!=1: return "Выберите конкретное хозяйство"
-	if get_home_occupants(building_id).size() >= building.definition.housing_capacity: return "В доме нет свободных мест"
+	if get_home_occupants(building_id).size() >= building.housing_capacity(): return "В доме нет свободных мест"
 	return ""
 
 func get_household_home(household_id: StringName) -> RefCounted:
@@ -217,6 +218,7 @@ func household_assignment_error(resident_id: String, household_id: StringName) -
 	if _unregistering_buildings.has(home.id): return "Дом удаляется"
 	if not is_housing_target(home) or home.removal_started: return "Дом недоступен для заселения"
 	if resident.household_id==household_id: return ""
+	if home.is_upgrading(): return "В доме идёт улучшение; новые назначения недоступны"
 	if get_household_occupants(household_id).size()>=household.capacity: return "В хозяйстве нет свободных мест"
 	return ""
 func assign_household(resident_id: String, household_id: StringName) -> bool:

@@ -106,7 +106,7 @@ func _refresh() -> void:
 		var rotor: Node = bread_visual.get_node_or_null("Rotor")
 		if rotor!=null:rotor.set_process(building_data.is_built())
 	var staged: bool=building_data.is_upgrading() or (not building_data.is_built() and not building_data.previously_built)
-	for visual in _finished_visuals:visual.visible=not staged
+	for visual in _finished_visuals:visual.visible=not staged or building_data.is_housing_usable()
 	if not staged:
 		if well_visual!=null:well_visual.visible=building_data.is_built();well_placeholder.visible=not building_data.is_built()
 		if bread_visual!=null:bread_visual.visible=building_data.is_built()
@@ -121,6 +121,10 @@ func _refresh() -> void:
 		var band:=BoxMesh.new();var size:=Geometry.building_size(building_data)
 		band.size=Vector3(size.x*.85,.22,size.y*.85);level_visual.mesh=band
 		level_visual.position.y=Geometry.building_height(building_data)+.12
+		if building_data.type==preload("res://scripts/building_type.gd").Type.HOME:
+			band.size=Vector3(size.x,1.8,size.y)
+			level_visual.position.y=Geometry.building_height(building_data)+.9
+			caption.position.y=Geometry.building_height(building_data)+2.16
 		var tint:=StandardMaterial3D.new();tint.albedo_color=Color("557b86");level_visual.material_override=tint
 		add_child(level_visual)
 	if level_visual!=null:level_visual.visible=not staged
@@ -206,6 +210,7 @@ func set_inside_count(count: int) -> void:
 	var color := material.albedo_color
 	color.a = 0.22 if count>0 else 1.0
 	material.albedo_color = color
+	if level_visual!=null and building_data.is_housing_usable():level_visual.material_override=material
 func _create_layout_visuals() -> void:
 	var colors := [Color("7fe889"),Color("ffe178"),Color("ec89e1"),Color("82b7ff"),Color("ff9f5c"),Color("afdbed"),Color("c6a9e6")]
 	for marker in get_markers(preload("res://scripts/world_3d/building_slot_3d.gd")):

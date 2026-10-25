@@ -27,15 +27,25 @@ func entrance(id: StringName) -> Variant:
 	var marker: Marker3D = entries[0]
 	if navigation.is_world_walkable(marker.global_position): return marker.global_position
 	return null
-func choices(id: StringName, purpose: int, origin: Vector3) -> Array:
+func choices(id: StringName, purpose: int, origin: Vector3, sleep_household_id: StringName = &"") -> Array:
 	var target := view(id)
 	if target==null: return []
 	if purpose==Slot.Purpose.CONSTRUCTION:
 		if not target.building_data.is_structural_work(): return []
+	elif purpose==Slot.Purpose.SLEEP and target.building_data.is_housing_usable():pass
 	elif not target.building_data.is_built(): return []
+	var household_index := 0
+	if purpose==Slot.Purpose.SLEEP and target.building_data.type==preload("res://scripts/building_type.gd").Type.HOME:
+		var units: Array=target.building_data.households
+		# Compatibility for old HOME I callers only. Multi-unit sleep requires the intent snapshot.
+		if sleep_household_id.is_empty() and units.size()==1:sleep_household_id=units[0].id
+		var unit: RefCounted=target.building_data.get_household(sleep_household_id)
+		if unit==null:return []
+		household_index=unit.local_index
 	var result: Array = []
 	for marker in target.get_markers(Slot):
 		if marker.minimum_level>target.building_data.level or marker.purpose!=purpose or not marker.occupant.is_empty(): continue
+		if household_index>0 and marker.household_index!=household_index:continue
 		if purpose==Slot.Purpose.CONSTRUCTION and not navigation.is_world_walkable(marker.global_position): continue
 		result.append(marker)
 	result.sort_custom(func(a,b):
@@ -43,21 +53,21 @@ func choices(id: StringName, purpose: int, origin: Vector3) -> Array:
 		var db: float = origin.distance_squared_to(b.global_position)
 		return String(a.local_id)<String(b.local_id) if is_equal_approx(da,db) else da<db)
 	return result
-func acquire(id: StringName, purpose: int, resident_id: String, origin: Vector3, preferred: Marker3D = null) -> Marker3D:
+func acquire(id: StringName, purpose: int, resident_id: String, origin: Vector3, preferred: Marker3D = null, sleep_household_id: StringName = &"") -> Marker3D:
 	if purpose in [Slot.Purpose.ANIMAL_SLEEP,Slot.Purpose.ANIMAL_SERVICE] or resident_id.begins_with("animal:"): return null
-	return _acquire(id,purpose,resident_id,origin,preferred)
+	return _acquire(id,purpose,resident_id,origin,preferred,sleep_household_id)
 func acquire_animal(id: StringName, animal_id: StringName, origin: Vector3, purpose: int = Slot.Purpose.ANIMAL_SLEEP) -> Marker3D:
 	if purpose not in [Slot.Purpose.ANIMAL_SLEEP,Slot.Purpose.ANIMAL_SERVICE]: return null
 	var target := view(id)
 	if target==null or target.building_data.animal_housing==null or not target.building_data.animal_housing.has_member(animal_id): return null
 	return _acquire(id,purpose,"animal:"+String(animal_id),origin)
-func _acquire(id: StringName, purpose: int, resident_id: String, origin: Vector3, preferred: Marker3D = null) -> Marker3D:
+func _acquire(id: StringName, purpose: int, resident_id: String, origin: Vector3, preferred: Marker3D = null, sleep_household_id: StringName = &"") -> Marker3D:
 	var target := view(id)
 	if target==null or resident_id.is_empty(): return null
 	for other in _views.values():
 		if is_instance_valid(other) and other.get_markers(Slot).any(func(m): return m.occupant==resident_id): return null
 	if purpose==Slot.Purpose.CONSTRUCTION and resident_id not in target.building_data.active_builder_ids: return null
-	var free := choices(id,purpose,origin)
+	var free := choices(id,purpose,origin,sleep_household_id)
 	if free.is_empty(): return null
 	if preferred!=null and preferred not in free:return null
 	var marker: Marker3D = preferred if preferred!=null else free[0]
@@ -83,6 +93,10 @@ func inside_count(id: StringName) -> int:
 	var target := view(id)
 	if target==null: return 0
 	return target.get_markers(Slot).filter(func(m): return m.purpose!=Slot.Purpose.CONSTRUCTION and not m.occupant.is_empty()).size()
+func upgrade_blocking_count(id: StringName) -> int:
+	var target := view(id)
+	if target==null:return 0
+	return target.get_markers(Slot).filter(func(m):return not m.occupant.is_empty() and m.purpose!=Slot.Purpose.CONSTRUCTION and not (target.building_data.is_housing_usable() and m.purpose==Slot.Purpose.SLEEP and m.household_index==1)).size()
 func occupied_by(id: StringName, resident_id: String, purpose: int) -> bool:
 	var target := view(id)
 	return target!=null and target.get_markers(Slot).any(func(m): return m.purpose==purpose and m.occupant==resident_id)

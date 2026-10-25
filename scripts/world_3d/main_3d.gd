@@ -1399,9 +1399,11 @@ func _stop_upgrade_actions(building: BuildingInstance) -> void:
 		var lumberjack: Node=runtime.get_node_or_null("Lumberjack")
 		if lumberjack!=null and lumberjack.hut==building:lumberjack.abort(false)
 		if runtime.recipe_work.building==building:runtime.recipe_work.abort()
-		if intent!=null and intent.building_id==building.id:runtime.intents.abort_current(intent)
-		if runtime.intents.pending_intent.building_id==building.id:runtime.intents.pending_intent=preload("res://scripts/resident_intent.gd").new()
-		runtime.view.interrupt_building_use(building.id)
+		var keep_sleep: bool=building.is_housing_usable() and runtime.schedule.uses_night_building(building.id)
+		if intent!=null and intent.building_id==building.id and not keep_sleep:runtime.intents.abort_current(intent)
+		var pending: RefCounted=runtime.intents.pending_intent
+		if pending.building_id==building.id and not (building.is_housing_usable() and pending.reason_id==&"night_home"):runtime.intents.pending_intent=preload("res://scripts/resident_intent.gd").new()
+		if not keep_sleep:runtime.view.interrupt_building_use(building.id)
 	# Ownerless unpaid preparations can exist only in fixtures/reentrant callbacks.
 	for batch in building.production_batches:
 		if batch.worker_id.is_empty() and not batch.inputs_spent:batch.cancel();building.retire_production_batch(batch)
@@ -1419,9 +1421,9 @@ func cancel_building_upgrade(id: StringName) -> bool:
 	_poll_building_work()
 	return true
 func _upgrade_cleanup_pending(building: BuildingInstance) -> bool:
-	if building_uses.inside_count(building.id)>0:return true
+	if building_uses.upgrade_blocking_count(building.id)>0:return true
 	for runtime in resident_runtimes:
-		if runtime.view.is_inside_building(building.id):return true
+		if runtime.view.is_inside_building(building.id) and not (building.is_housing_usable() and building_uses.occupied_by(building.id,runtime.data.id,preload("res://scripts/world_3d/building_slot_3d.gd").Purpose.SLEEP)):return true
 		if runtime.builder._mutating or runtime.recipe_work._mutating or runtime.data.inventory._transferring:return true
 	# Paid production output promises are deliberately retained, unlike D1 demolition.
 	return false

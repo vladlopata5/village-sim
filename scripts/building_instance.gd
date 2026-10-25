@@ -20,9 +20,14 @@ func get_household(household_id: StringName) -> Household:
 	for household in _households:
 		if household.id==household_id: return household
 	return null
+func housing_capacity() -> int:
+	return _households.reduce(func(total,unit):return total+unit.capacity,0)
+func is_housing_usable() -> bool:
+	# B2 preserves the original unit even while reversing its additional project.
+	return type==preload("res://scripts/building_type.gd").Type.HOME and not removal_started and housing_capacity()>0 and (is_built() or is_upgrading())
 func ensure_households() -> void:
 	if not is_built() or type!=preload("res://scripts/building_type.gd").Type.HOME: return
-	# One configured unit in HOME I. Never recreate existing identities on activation.
+	# Append missing units only; existing identities and physical claims survive B2.
 	var count: int=floori(float(definition.housing_capacity)/Balance.HOUSEHOLD_RESIDENT_CAPACITY)
 	for index in range(1,count+1):
 		if get_household(Household.id_for(id,index))==null: _households.append(Household.new(id,index))
@@ -557,6 +562,7 @@ func structural_material_amount(resource: int) -> int: return int(_structural_co
 func begin_upgrade() -> bool:
 	var plan:=next_upgrade()
 	if _upgrade_mutating or not is_built() or removal_started or upgrade!=null or plan==null or not plan.is_valid():return false
+	if plan.household_count>0 and (type!=preload("res://scripts/building_type.gd").Type.HOME or plan.housing_capacity<=housing_capacity()):return false
 	# Enlargements only. A paid batch and all its promises must fit unchanged.
 	for resource in plan.capacities:
 		if plan.capacities[resource]<resources.get_capacity(resource):return false
@@ -602,6 +608,7 @@ func complete_upgrade() -> bool:
 	for recipe in definition.production_recipes:
 		if not _recipe_settings.has(recipe.id):_recipe_settings[recipe.id]={"mode":ProductionMode.UNLIMITED,"target":0,"produced":0,"revision":0,"order":false}
 	_restore_upgrade_structure()
+	ensure_households() # Install residential units before the first public callback.
 	production_revision+=1
 	_upgrade_mutating=false
 	_notify_construction_changed()

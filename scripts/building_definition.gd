@@ -362,6 +362,18 @@ static func for_type(category: BuildingType.Type, label: String = ""):
 			upgrade.description="Грибы, мука, жареные грибы и хлеб: 10 → 20\nТопливо и вода: 20 → 20\nПовар и носильщик: 1 → 1"
 		assert(upgrade.is_valid())
 		result.upgrades.append(upgrade)
+	if category==BuildingType.Type.HOME:
+		var upgrade=preload("res://scripts/building_upgrade.gd").new()
+		upgrade.household_count=Balance.HOME_LEVEL_2_HOUSEHOLDS
+		upgrade.worker_capacity=0
+		upgrade.construction_requirements={ResourceType.Type.LOG:4,ResourceType.Type.BRICK:4,ResourceType.Type.PLANK:6}
+		upgrade.construction_stages.assign([
+			Stage.new(&"frame","Дополнительный каркас",{ResourceType.Type.LOG:4},60,&"frame"),
+			Stage.new(&"masonry","Кирпичные работы",{ResourceType.Type.BRICK:4},60,&"shell"),
+			Stage.new(&"finish","Завершение",{ResourceType.Type.PLANK:6},60,&"complete")])
+		upgrade.description="Хозяйства: 1 → 2\nЖилые места: 4 → 8\nПрежние жильцы продолжают жить в доме. Новые назначения закрыты до окончания работ."
+		assert(upgrade.is_valid())
+		result.upgrades.append(upgrade)
 	return result
 
 func upgraded_configuration(upgrade: RefCounted):
@@ -373,6 +385,7 @@ func upgraded_configuration(upgrade: RefCounted):
 			result.set(property.name,value.duplicate() if value is Array or value is Dictionary else value)
 	result.development_level=upgrade.to_level
 	result.worker_capacity=upgrade.worker_capacity
+	if upgrade.household_count>0:result.housing_capacity=upgrade.housing_capacity
 	if upgrade.local_resource_capacity>0:result.local_resource_capacity=upgrade.local_resource_capacity
 	for resource in upgrade.capacities:result.resource_capacities[resource]=upgrade.capacities[resource]
 	result.production_recipes.assign(upgrade.recipes)

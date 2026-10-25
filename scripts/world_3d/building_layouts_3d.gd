@@ -21,6 +21,17 @@ static func validate(layout: Node, definition: RefCounted) -> bool:
 		if marker.purpose!=Slot.Purpose.COURIER: continue
 		if not physical.has_point(Coordinates.world_plane(marker.position)): return false
 		if slots.any(func(other): return other!=marker and marker.position.distance_to(other.position)<2.0*Geometry.RESIDENT_RADIUS): return false
+	if definition.type==preload("res://scripts/building_type.gd").Type.HOME:
+		var beds: Array=slots.filter(func(marker):return marker.purpose==Slot.Purpose.SLEEP)
+		var groups: Dictionary={}
+		for bed in beds:
+			if bed.household_index<1 or bed.household_index>definition.housing_capacity/preload("res://scripts/balance_config.gd").HOUSEHOLD_RESIDENT_CAPACITY:return false
+			groups[bed.household_index]=int(groups.get(bed.household_index,0))+1
+			if not physical.has_point(Coordinates.world_plane(bed.position)):return false
+			for other in beds:
+				if other==bed:continue
+				if absf(other.position.y-bed.position.y)<Geometry.RESIDENT_HEIGHT and Coordinates.world_plane(other.position).distance_to(Coordinates.world_plane(bed.position))<2*Geometry.RESIDENT_RADIUS:return false
+		if groups.values().any(func(count):return count!=preload("res://scripts/balance_config.gd").HOUSEHOLD_RESIDENT_CAPACITY):return false
 	var ids: Dictionary = {}
 	var counts: Dictionary = {}
 	for marker in slots:

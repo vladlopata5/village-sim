@@ -153,7 +153,8 @@ func _assigned_home_id() -> StringName:
 
 func _get_home_target(home_id: StringName) -> Variant:
 	for building in _buildings:
-		if building is Building and building.id == home_id and building.is_built() and building.type == BuildingType.Type.HOME and building.definition.housing_capacity > 0:
+		if building is Building and building.id == home_id and building.is_housing_usable():
+			if _locations.has_method("resolve_sleep_position"): return _locations.resolve_sleep_position(building)
 			if _locations.has_method("resolve_action_position"): return _locations.resolve_action_position(building)
 			var target: Variant = _locations.get_position(home_id)
 			return target if target is Vector2 else building.position

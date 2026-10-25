@@ -20,6 +20,8 @@ func definitions_and_identity() -> void:
 		var definition=D.for_type(type)
 		var place=B.new(&"existing",definition,Vector2(100,200));place.quarter_turns=3
 		var plan=place.next_upgrade()
+		if type==T.HOME:
+			check(plan!=null and plan.is_valid() and plan.worker_capacity==0,"Residential upgrade has a valid zero-worker target");continue
 		if type not in [T.FOOD,T.LUMBERJACK_HUT]:check(plan==null and not place.begin_upgrade(),"No fictitious upgrade for unsupported type");continue
 		check(plan.is_valid() and plan.construction_requirements=={R.LOG:4,R.PLANK:6,R.STONE:2} and plan.construction_work_required==180,"Both real upgrades have exact additional cost/time")
 		check(plan.construction_stages.map(func(stage):return stage.work_minutes)==[40,60,80],"Upgrade uses concrete B1 order and boundaries")

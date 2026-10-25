@@ -28,6 +28,12 @@ func resolve_action_position(building: RefCounted) -> Variant:
 		return null
 	return null
 
+func resolve_sleep_position(building: RefCounted) -> Variant:
+	# An inhabited B2 still uses the original entrance, never a builder's approach.
+	if uses==null or not building.is_housing_usable():return null
+	var entry: Variant=uses.entrance(building.id)
+	if entry is Vector3:return Coordinates.to_sim(entry)
+	return null
 func unregister(id: StringName) -> void:
 	_locations.erase(id)
 	_views.erase(id)

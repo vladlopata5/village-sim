@@ -9,12 +9,18 @@ var construction_work_required := 180
 var max_builders := 2
 var construction_stages: Array[Stage] = []
 var capacities: Dictionary = {}
+var household_count := 0 # Residential target; zero means a production upgrade.
+var housing_capacity: int:
+	get: return household_count*preload("res://scripts/balance_config.gd").HOUSEHOLD_RESIDENT_CAPACITY
 var worker_capacity := 1
 var local_resource_capacity := 0
 var recipes: Array = []
 var description := ""
 func is_valid() -> bool:
-	if id.is_empty() or from_level<1 or to_level!=from_level+1 or worker_capacity<1 or local_resource_capacity<0 or max_builders<1:return false
+	if id.is_empty() or from_level<1 or to_level!=from_level+1 or worker_capacity<0 or household_count<0 or local_resource_capacity<0 or max_builders<1:return false
+	if household_count>0:
+		if worker_capacity!=0 or local_resource_capacity!=0 or not capacities.is_empty() or not recipes.is_empty():return false
+	elif worker_capacity<1:return false
 	var amounts: Dictionary={};var minutes:=0;var ids: Dictionary={}
 	for stage in construction_stages:
 		if stage==null or not stage.is_valid() or ids.has(stage.id):return false

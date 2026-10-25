@@ -242,7 +242,7 @@ func _refresh_housing() -> void:
 	staffing_buttons.erase(&"home")
 	if not housing_section.visible: return
 	var occupants: Array = _control.get_home_occupants(_building.id)
-	housing_count.text = "Жильцы: %d / %d" % [occupants.size(), _building.definition.housing_capacity]
+	housing_count.text = "Жильцы: %d / %d" % [occupants.size(), _building.housing_capacity()]
 	housing_summary.text = "Уровень: %s\nХозяйств: %d\nОбщая вместимость: %d" % ["II" if _building.level==2 else "I",units.size(),units.reduce(func(total,unit):return total+unit.capacity,0)]
 	for unit in units:
 		if not household_views.has(unit.id):
@@ -257,7 +257,9 @@ func _refresh_housing() -> void:
 		view.body.visible=_active_tab==unit.id
 		var residents: Array=occupants.filter(func(person):return person.household_id==unit.id)
 		view.title.text="Хозяйство №%d — %d/%d" % [unit.local_index,residents.size(),unit.capacity]
-		view.button.disabled=_building.removal_started
+		view.button.disabled=_building.removal_started or _building.is_upgrading()
+		view.button.tooltip_text="В доме идёт улучшение; новые назначения недоступны" if _building.is_upgrading() else ""
+		view.title.text += "\nУлучшение: новые назначения закрыты" if _building.is_upgrading() else ""
 		if units.size()==1:staffing_buttons[&"home"]=view.button # Compatibility handle; actual widget is on the household tab.
 		var snapshot: Array=residents.map(func(person):return [person.id,person.resident_name])
 		if snapshot==view.snapshot and view.places.get_child_count()==unit.capacity:continue
@@ -276,7 +278,7 @@ func _refresh_housing() -> void:
 func _request_household(id: StringName, identity: WeakRef, body: WeakRef) -> void:
 	if _building==null or not household_views.has(id):return
 	if _control.get_household(id)!=identity.get_ref() or household_views[id].body!=body.get_ref():return
-	if _control.get_household_home(id)!=_building or not _control.is_housing_target(_building) or _building.removal_started:return
+	if _control.get_household_home(id)!=_building or not _control.is_housing_target(_building) or _building.removal_started or _building.is_upgrading():return
 	household_requested.emit(id)
 func _clear_household_person(id: String, household_id: StringName, identity: WeakRef, row: WeakRef) -> void:
 	var person: RefCounted=_control.get_resident(id)
@@ -301,7 +303,7 @@ func _info_body() -> VBoxContainer:
 	return get_node("%Info")
 func available_tabs() -> Array[StringName]:
 	var result: Array[StringName] = [&"info"]
-	if _building != null and _building.is_built():
+	if _building != null and (_building.is_built() or _building.is_housing_usable()):
 		if _building.type==Types.Type.HOME:
 			for unit in _building.households:result.append(unit.id)
 		elif _building.definition.is_storage: result.append(&"storage")

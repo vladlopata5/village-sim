@@ -181,7 +181,7 @@ func _enter_or_wait() -> void:
 			movement.set_target(free[0].global_position)
 			return
 	var arriving := _active
-	var marker: Marker3D = uses.acquire(arriving.building_id,arriving.slot_purpose,resident_data.id,global_position)
+	var marker: Marker3D = uses.acquire(arriving.building_id,arriving.slot_purpose,resident_data.id,global_position,null,arriving.sleep_household_id)
 	# Occupancy signals can synchronously interrupt this action.
 	if _active!=arriving:
 		if marker!=null: uses.release(arriving.building_id,marker,resident_data.id)

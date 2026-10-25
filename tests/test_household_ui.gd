@@ -27,7 +27,7 @@ func run() -> void:
 	select_unit(world,a,first);panel.select_tab(&"info")
 	check(panel._tabs==[&"info",first.id] and panel.active_tab==&"info","HOME I uses Info and exactly one real household")
 	check(card.tab_title(first.id)=="Хозяйство 1" and card.housing_summary.text.contains("Уровень: I") and card.housing_summary.text.contains("Хозяйств: 1") and card.housing_summary.text.contains("вместимость: 4"),"Info shows level, household count and capacity")
-	check(not card.get_node("%Demolish").disabled and not card.upgrade_section.visible,"Existing D1 retained; HOME II upgrade not invented")
+	check(not card.get_node("%Demolish").disabled and card.upgrade_section.visible and a.next_upgrade()!=null,"Existing D1 retained alongside the approved residential upgrade")
 	await observe(world,a,"info")
 	panel.select_tab(first.id)
 	var view: Dictionary=card.household_views[first.id]

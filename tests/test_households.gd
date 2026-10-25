@@ -49,7 +49,7 @@ func domain_contract() -> void:
 	preload("res://tests/construction_recipe_expectations.gd").complete(site,false)
 	check(site.complete_construction() and site.households.size()==1 and pc.get_home_occupants(site.id).is_empty(),"B1 completion creates an empty unit before notification")
 	var site_unit=site.households[0];site.ensure_households();site.complete_construction()
-	check(site.households==[site_unit] and not site.is_upgrading() and site.next_upgrade()==null,"Repeated completion preserves identity; HOME II is disabled")
+	check(site.households==[site_unit] and not site.is_upgrading() and site.next_upgrade()!=null and site.level==1,"Repeated B1 completion preserves identity and does not apply the available upgrade")
 	var rebuilt=B.new(&"different_house",D.for_type(T.HOME))
 	check(rebuilt.households[0].id!=second.id,"New house identity cannot reuse demolished household ID")
 	# Reentrant management cannot publish a stale outer home event or double-remove.
