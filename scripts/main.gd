@@ -205,7 +205,7 @@ func get_resident_runtime(data: ResidentData) -> ResidentRuntime:
 func _update_selection() -> void:
 	if is_instance_valid(interaction_menu): interaction_menu.hide()
 	for runtime in resident_runtimes:
-		if is_instance_valid(runtime.view): runtime.view.set_selected(runtime.data == resident_selection.selected_resident)
+		if is_instance_valid(runtime) and is_instance_valid(runtime.view): runtime.view.set_selected(runtime.data == resident_selection.selected_resident)
 	for building in buildings:
 		var view = world_locations.get_view(building.id)
 		if view != null: view.set_selected(building == resident_selection.selected_building)
@@ -368,6 +368,7 @@ func _create_resident_runtime(data: ResidentData, start: Vector2) -> ResidentRun
 	return runtime
 
 func _bind_resident_control(runtime: ResidentRuntime) -> void:
+	runtime.schedule.housing_control = player_control
 	runtime.shepherd.setup(runtime,self)
 	runtime.farmer.setup(runtime,self)
 	runtime.clothing.setup(runtime,self)

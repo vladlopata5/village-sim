@@ -467,10 +467,11 @@ func change_construction_direction(id: StringName, demolish: bool) -> bool:
 		building.dispose_production()
 		logistics.remove_building(id,false)
 		for runtime in resident_runtimes:
+			var night_use: bool=runtime.schedule.uses_night_building(id)
 			var assigned: bool = runtime.data.work_location_id == id
 			if assigned: player_control.clear_work_assignment(runtime.data.id)
 			if player_control.get_household_home(runtime.data.household_id) == building: player_control.clear_home(runtime.data.id)
-			if assigned or runtime.recipe_work.building == building: runtime.intents.abort_current(runtime.intents.current_intent)
+			if (assigned or runtime.recipe_work.building == building) and not night_use: runtime.intents.abort_current(runtime.intents.current_intent)
 			if runtime.intents.pending_intent.building_id == id: runtime.intents.pending_intent = preload("res://scripts/resident_intent.gd").new()
 			# This uses today's immediate portal exit. The removal barrier below also supports a future delayed exit.
 			runtime.view.interrupt_building_use(id)
@@ -643,6 +644,7 @@ func _on_movement_failed(intent: RefCounted, data: ResidentData) -> void:
 	var runtime = get_resident_runtime(data)
 	if runtime == null or runtime.intents.current_intent != intent: return
 	game_logger.info(GameLogger.AI, "%s: маршрут недоступен — %s" % [data.resident_name, intent.reason_id])
+	if runtime.schedule.on_sleep_slot_unavailable(intent): return
 	if runtime.commands.active_command != null: runtime.commands.cancel_current()
 	else: runtime.intents.abort_current(intent)
 func _input(event: InputEvent) -> void:

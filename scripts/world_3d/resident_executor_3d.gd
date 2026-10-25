@@ -52,7 +52,7 @@ func apply_intent(intent: Intent) -> void:
 	if intent.type == Intent.Type.NONE:
 		_active = null
 		movement.stop()
-		if not _reporting_arrival: _exit_building()
+		if not _reporting_arrival or intent.reason_id==&"night_outdoor": _exit_building()
 		return
 	move_to(intent.target_position,intent.prepared_path)
 	intent.prepared_path = {}
@@ -131,6 +131,7 @@ var _building: StringName = &""
 var _marker: Marker3D
 var _waiting := false
 var _reporting_arrival := false
+var _sleep_intent: Intent # Physical sleep use survives movement completion until exit.
 var _entry_position := Vector3.ZERO
 func bind_building_use(service: RefCounted, intents: Node) -> void:
 	uses=service
@@ -141,6 +142,7 @@ func bind_building_use(service: RefCounted, intents: Node) -> void:
 	intents.forced_interrupt.connect(_forced_exit)
 	resident_data.activity_changed.connect(_check_activity)
 func _exit_building() -> void:
+	_sleep_intent=null
 	_waiting=false
 	if not is_instance_valid(_marker):
 		if not _building.is_empty() and is_inside_tree(): global_position=_entry_position
@@ -195,6 +197,7 @@ func _enter_or_wait() -> void:
 	_waiting=false
 	_building=_active.building_id
 	_marker=marker
+	_sleep_intent=arriving if marker.purpose==Slot.Purpose.SLEEP else null
 	_entry_position=global_position
 	# This transition can later animate/internal-navigate without changing actions.
 	if marker.purpose!=Slot.Purpose.CONSTRUCTION and not _active.courier_outside: global_position=marker.global_position
@@ -202,6 +205,7 @@ func _enter_or_wait() -> void:
 func _slot_changed(id: StringName, purpose: int) -> void:
 	if _waiting and _active!=null and _active.building_id==id and _active.slot_purpose==purpose: call_deferred("_enter_or_wait")
 func _building_removed(id: StringName) -> void:
+	if _invalidate_night_use(id):return
 	if _building==id or (_active!=null and _active.building_id==id):
 		_exit_building()
 		if _intents!=null: _intents.abort_current(_intents.current_intent)
@@ -213,7 +217,15 @@ func _exit_tree() -> void:
 
 func is_inside_building(id: StringName) -> bool:
 	return _building == id and is_instance_valid(_marker) and _marker.purpose != Slot.Purpose.CONSTRUCTION
+func _invalidate_night_use(id: StringName) -> bool:
+	var unavailable: Intent=_active if _active!=null else _sleep_intent
+	if unavailable==null or unavailable.building_id!=id or unavailable.reason_id!=&"night_home" or unavailable.slot_purpose!=Slot.Purpose.SLEEP:return false
+	_exit_building()
+	if _active==unavailable:_active=null
+	building_use_unavailable.emit(unavailable)
+	return true
 func interrupt_building_use(id: StringName) -> void:
+	if _invalidate_night_use(id):return
 	if _building == id or (_active != null and _active.building_id == id) or (_intents != null and _intents.current_intent.building_id == id):
 		if _intents != null: _intents.abort_current(_intents.current_intent)
 		_exit_building() # Existing portal semantics; a future exit may retain inside membership.

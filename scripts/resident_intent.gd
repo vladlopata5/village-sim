@@ -5,6 +5,7 @@ enum Type { NONE, MOVE_TO }
 var meal_concrete_type := -1 # EAT identity survives source removal and outcome callbacks.
 var building_id: StringName = &""
 var slot_purpose := -1
+var sleep_household_id: StringName = &"" # Committed sleep target, not permanent membership.
 var courier_outside := false # Ground surplus unload: keep the acquired source slot at its exterior.
 # Optional one-use Builder route hint. Geometry only; no resource ownership.
 var prepared_path: Dictionary = {}
