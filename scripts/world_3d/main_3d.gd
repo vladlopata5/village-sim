@@ -153,6 +153,7 @@ func _ready() -> void:
 		if not settlement_panel.visible: assignment_dialog.close())
 	building_card_view().settlement_management_requested.connect(_open_residents)
 	building_card_view().staffing_requested.connect(_open_residents)
+	building_card_view().household_requested.connect(_open_household_residents)
 	game_ui.update_population(residents.size())
 	$World.add_child(navigation_debug)
 	navigation_debug.setup(navigation)
@@ -221,6 +222,11 @@ func get_animal_executor(id: StringName) -> Node3D:
 	for body in animal_executors:
 		if is_instance_valid(body) and body.data.id==id: return body
 	return null
+func _open_household_residents(household_id: StringName) -> void:
+	game_ui.info_panel.set_expanded(true)
+	game_ui.info_panel.select_tab(household_id)
+	_open_residents()
+	assignment_dialog.begin_household_selection(household_id,settlement_panel)
 func _open_residents(role: int=-1) -> void:
 	settlement_panel.preset_profession(role)
 	game_ui.open_window(&"residents")

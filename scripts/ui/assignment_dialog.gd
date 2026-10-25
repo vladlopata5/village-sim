@@ -13,6 +13,8 @@ var selection: Node
 var coordinator: Control
 var resident_id := ""
 var building_id: StringName = &""
+var household_id: StringName = &""
+var _household: WeakRef
 var _resident: WeakRef
 var _building: WeakRef
 var buttons: Dictionary = {}
@@ -75,19 +77,46 @@ func setup(player: RefCounted, selected: Node, ui: Control) -> void:
 		_connections.append([control,pair[0],pair[1]])
 	selection.selection_changed.connect(_context_changed)
 	_connections.append([selection,&"selection_changed",_context_changed])
+	coordinator.info_panel.presentation_changed.connect(_context_changed)
+	_connections.append([coordinator.info_panel,&"presentation_changed",_context_changed])
 func open_for(id: String, owner_window: Control = null) -> bool:
-	return _open(control.get_resident(id),selection.selected_building,selection.selected_building,owner_window,false)
+	if owner_window!=null and not owner_window.visible:return false
+	var household: RefCounted = null
+	if not household_id.is_empty():
+		if not _valid_context(false):close();return false
+		household=_household.get_ref()
+	elif selection.selected_building!=null:
+		var home: RefCounted=selection.selected_building
+		household=home.get_household(coordinator.info_panel.active_tab)
+		if household==null and home.households.size()==1:household=home.households[0]
+		if household!=null:
+			coordinator.info_panel.set_expanded(true)
+			coordinator.info_panel.select_tab(household.id)
+	return _open(control.get_resident(id),selection.selected_building,selection.selected_building,owner_window,false,household)
 func open_for_building(id: StringName, owner_window: Control = null) -> bool:
 	return _open(selection.selected_resident,control.get_building(id),selection.selected_resident,owner_window,true)
-func _open(resident: RefCounted, building: RefCounted, context: RefCounted, owner_window: Control, reverse: bool) -> bool:
-	if resident==null or building==null or context==null or control.get_building(building.id)!=building: return false
+func begin_household_selection(id: StringName, owner_window: Control) -> bool:
 	close()
+	var household: RefCounted=control.get_household(id)
+	var building: RefCounted=control.get_household_home(id)
+	if household==null or building==null or selection.selected_building!=building:return false
+	_capture_context(null,building,building,owner_window,false,household)
+	if not _valid_context(false):close();return false
+	return true
+func _capture_context(resident: RefCounted, building: RefCounted, context: RefCounted, owner_window: Control, reverse: bool, household: RefCounted) -> void:
 	_offer_generation += 1
-	resident_id=resident.id;building_id=building.id
-	_resident=weakref(resident);_building=weakref(building);_context=weakref(context)
+	resident_id=resident.id if resident!=null else "";building_id=building.id
+	_resident=weakref(resident) if resident!=null else null
+	_building=weakref(building);_context=weakref(context)
+	household_id=household.id if household!=null else &""
+	_household=weakref(household) if household!=null else null
 	_owner_window=owner_window;_reverse=reverse
 	if _owner_window!=null: _owner_window.visibility_changed.connect(_context_changed)
 	building.construction_changed.connect(_availability_changed)
+func _open(resident: RefCounted, building: RefCounted, context: RefCounted, owner_window: Control, reverse: bool, household: RefCounted = null) -> bool:
+	if resident==null or building==null or context==null or control.get_building(building.id)!=building: return false
+	close()
+	_capture_context(resident,building,context,owner_window,reverse,household)
 	view_button.text="Открыть карточку здания" if reverse else "Открыть карточку жителя"
 	feedback.hide()
 	for child in _actions.get_children():
@@ -97,14 +126,14 @@ func _open(resident: RefCounted, building: RefCounted, context: RefCounted, owne
 		_add_action(role,"Назначить работать здесь" if role==resident.profession else "Назначить: "+Profession.display_name(role))
 	# Housing in BuildingCard -> Residents already exists; do not add a new inverse relation.
 	if not reverse and control.has_housing_role(building_id):
-		_add_action(&"home","Поселить в выбранный дом")
+		_add_action(&"home","Поселить в хозяйство №%d" % household.local_index if household!=null else "Поселить в выбранный дом")
 		_add_action(&"clear_home","Выселить из выбранного дома")
 	if buttons.is_empty():
 		feedback.text="У этого здания нет применимых рабочих назначений.";feedback.show()
 	coordinator.open_top_dialog(self)
 	size=Vector2(440,320);position=(get_parent().size-size)/2
 	_refresh()
-	return true
+	return visible and _valid_context()
 func _view_target() -> void:
 	if not visible or not _valid_context(): return
 	var target = _building.get_ref() if _reverse else _resident.get_ref()
@@ -130,13 +159,27 @@ func _add_action(key: Variant, title: String) -> void:
 	reason.add_theme_font_size_override("font_size",13)
 	_actions.add_child(reason)
 	reasons[key]=reason
-func _valid_context() -> bool:
-	return _resident!=null and _building!=null and _context!=null and _context.get_ref()!=null and control.get_resident(resident_id)==_resident.get_ref() and control.get_building(building_id)==_building.get_ref() and selection.selected_entity==_context.get_ref() and (_owner_window==null or _owner_window.visible)
+func _valid_context(require_resident: bool = true) -> bool:
+	if _building==null or _context==null or _context.get_ref()==null:return false
+	if control.get_building(building_id)!=_building.get_ref() or selection.selected_entity!=_context.get_ref():return false
+	if not is_instance_valid(_owner_window) and _owner_window!=null:return false
+	if _owner_window!=null and not _owner_window.visible:return false
+	if not household_id.is_empty():
+		var panel: Control=coordinator.info_panel
+		if _household==null or control.get_household(household_id)!=_household.get_ref():return false
+		if control.get_household_home(household_id)!=_building.get_ref() or not control.is_housing_target(_building.get_ref()) or _building.get_ref().removal_started:return false
+		if not panel.expanded or not panel.building_details.is_visible_in_tree() or panel.active_tab!=household_id:return false
+	return not require_resident or (_resident!=null and control.get_resident(resident_id)==_resident.get_ref())
 func _error(key: Variant) -> String:
 	if not _valid_context(): return "Контекст назначения устарел"
 	var resident = control.get_resident(resident_id)
-	if key is StringName and key==&"home": return control.home_assignment_error(resident_id,building_id)
-	if key is StringName and key==&"clear_home": return "Житель не живёт в выбранном доме" if control.get_household_home(resident.household_id)!=control.get_building(building_id) else ""
+	if key is StringName and key==&"home":
+		if household_id.is_empty():return "Выберите доступное хозяйство на вкладке дома"
+		if resident.household_id==household_id:return "Житель уже живёт в этом хозяйстве"
+		return control.household_assignment_error(resident_id,household_id)
+	if key is StringName and key==&"clear_home":
+		var matches: bool=not household_id.is_empty() and resident.household_id==household_id
+		return "Житель не живёт в выбранном хозяйстве" if not matches else ""
 	if key not in control.get_workplace_roles(building_id): return "Роль недоступна"
 	var error: String=control.workplace_assignment_error(resident_id,building_id,key,true)
 	if error.is_empty() and resident.work_location_id==building_id and resident.profession==key: return "Житель уже работает здесь в этой роли"
@@ -148,6 +191,7 @@ func _refresh() -> void:
 	var resident = control.get_resident(resident_id)
 	var building = control.get_building(building_id)
 	title_label.text="Назначение жителя «%s»\nЗдание: «%s»" % [resident.resident_name,building.display_name]
+	if _household!=null:title_label.text+="\nХозяйство №%d" % _household.get_ref().local_index
 	for key in buttons:
 		var error := _error(key)
 		buttons[key].disabled=not error.is_empty()
@@ -163,8 +207,8 @@ func execute(key: Variant) -> bool:
 		feedback.text=error;feedback.show();_refresh()
 		return false
 	var accepted := false
-	if key is StringName and key==&"home": accepted=control.assign_home(resident_id,building_id)
-	elif key is StringName and key==&"clear_home": accepted=control.clear_home(resident_id)
+	if key is StringName and key==&"home": accepted=control.assign_household(resident_id,household_id)
+	elif key is StringName and key==&"clear_home": accepted=control.clear_household(resident_id)
 	else: accepted=control.assign_workplace(resident_id,building_id,key,true)
 	if accepted:
 		close()
@@ -176,6 +220,7 @@ func execute(key: Variant) -> bool:
 func close() -> void:
 	if coordinator!=null: coordinator.close_top_dialog(self)
 	else: hide()
+	_visibility_changed() # Also releases a captured household while the resident picker is still open.
 func _visibility_changed() -> void:
 	if visible: return
 	_offer_generation += 1
@@ -185,20 +230,25 @@ func _visibility_changed() -> void:
 	if is_instance_valid(_owner_window) and _owner_window.visibility_changed.is_connected(_context_changed): _owner_window.visibility_changed.disconnect(_context_changed)
 	_owner_window=null;_context=null
 	_resident=null;_building=null
-	resident_id="";building_id=&""
+	resident_id="";building_id=&"";household_id=&"";_household=null
 func _process(delta: float) -> void:
 	if not is_visible_in_tree(): return
 	_poll_elapsed += delta
 	if _poll_elapsed < 0.25: return
 	_poll_elapsed=0.0
 	_refresh()
-func _availability_changed() -> void: _refresh()
+func _availability_changed() -> void:
+	_context_changed()
+	_refresh()
 func _resident_changed(_id: String) -> void: _refresh()
 func _home_changed(_id: String, _previous: StringName, _current: StringName) -> void: _refresh()
 func _resident_removed(_id: String) -> void: _refresh()
 func _building_removed(_id: StringName) -> void: _refresh()
 func _context_changed() -> void:
-	if visible and not _valid_context(): close()
+	if (visible or _household!=null) and not _valid_context(_resident!=null):
+		var close_picker: bool=_household!=null and _owner_window!=null and _owner_window==coordinator._windows.get(coordinator._current_window)
+		close()
+		if close_picker:coordinator.close_window()
 func _input(event: InputEvent) -> void:
 	if not event is InputEventMouseButton: return
 	if not event.pressed and event.button_index==_dismiss_button:

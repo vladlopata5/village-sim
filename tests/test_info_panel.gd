@@ -104,12 +104,13 @@ func run() -> void:
 	world.player_control.assign_home(b.id,house.id)
 	selection.select_building(house)
 	panel.set_expanded(true)
-	check(panel._tabs==[&"info"] and building.housing_count.text.contains("1 / 4"),"Home uses Info/housing only")
-	var home_row=building.get_node("%People").get_children().filter(func(row): return row is HBoxContainer)[0]
+	check(panel._tabs==[&"info",house.households[0].id] and building.housing_count.text.contains("1 / 4"),"Home uses Info and its actual household")
+	panel.select_tab(house.households[0].id)
+	var home_row=building.household_views[house.households[0].id].places.get_child(0)
 	home_row.get_child(0).pressed.emit()
 	check(selection.selected_resident==b,"Home occupant name link")
 	resident.get_node("%ClearHome").pressed.emit()
-	check(b.household_id.is_empty() and resident.home_label.text.contains("Нет дома"),"Housing clear uses existing PlayerControl API")
+	check(b.household_id.is_empty() and resident.home_label.text=="Жильё: Не назначено","Housing clear uses existing PlayerControl API")
 	var saw_result: Dictionary=world.debug_spawn.spawn_building(Vector3(-15,0,-14),Def.for_type(Types.SAWMILL))
 	check(saw_result.ok,"Real Sawmill registration")
 	var saw=saw_result.objects[0]

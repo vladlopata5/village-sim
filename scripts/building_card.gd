@@ -33,6 +33,10 @@ var _building: Instance
 var _last_snapshot: Array = []
 signal settlement_management_requested
 signal staffing_requested(profession: int)
+signal household_requested(household_id: StringName)
+var household_views: Dictionary = {} # Stable household ID -> local presentation only.
+var housing_summary: Label
+var _active_tab: StringName = &"info"
 signal work_area_requested(building_id: StringName)
 const BuildingArea = preload("res://scripts/building_work_area.gd")
 var work_area_section: VBoxContainer
@@ -59,6 +63,9 @@ func _ready() -> void:
 	structural_progress = ProgressBar.new()
 	construction_section.add_child(structural_progress)
 	get_node("%Demolish").pressed.connect(_change_construction_direction)
+	housing_summary = Label.new()
+	housing_summary.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	housing_section.add_child(housing_summary)
 	_setup_storage_rows()
 	_setup_stock_target()
 	consumable_section=VBoxContainer.new()
@@ -94,6 +101,7 @@ func _on_selection_changed() -> void:
 	for row in consumable_rows.values():row.box.free()
 	consumable_rows.clear()
 	_building = _selection.selected_building
+	_clear_household_views()
 	_presented_tabs.clear()
 	_last_snapshot = []
 	if _building != null:
@@ -134,8 +142,12 @@ func _refresh() -> void:
 	if _building.type==Types.Type.WELL:resource_lines.append("Источник воды • запас неограничен • набор 10 минут")
 	var workers_snapshot: Array = _control.get_workplace_workers(_building.id).map(func(worker): return worker.id) if _control != null else []
 	var porter_snapshot: Array = _control.get_porters(_building.id).map(func(worker): return worker.id) if _control != null else []
-	var snapshot: Array = [workers_snapshot,porter_snapshot,_building.definition.porter_capacity,_building.definition.worker_capacity,_building.definition.housing_capacity,_building.display_name, _building.id, _building.state, _building.work_direction, _building.work_paused, _building.type, amount, capacity, _building.production_progress, _building.construction_delivered, _building.construction_progress, _building.active_builder_ids, _building.construction_definition().construction_requirements.duplicate(), _building.construction_definition().construction_work_required, _building.construction_definition().max_builders, resource_lines]
+	var snapshot: Array = [workers_snapshot,porter_snapshot,_building.definition.porter_capacity,_building.definition.worker_capacity,_building.definition.housing_capacity,_building.level,_building.display_name, _building.id, _building.state, _building.work_direction, _building.work_paused, _building.type, amount, capacity, _building.production_progress, _building.construction_delivered, _building.construction_progress, _building.active_builder_ids, _building.construction_definition().construction_requirements.duplicate(), _building.construction_definition().construction_work_required, _building.construction_definition().max_builders, resource_lines]
 	_refresh_details(resource_lines)
+	var tabs := available_tabs()
+	if tabs != _presented_tabs:
+		_presented_tabs = tabs
+		presentation_changed.emit()
 	if snapshot == _last_snapshot: return
 	_last_snapshot = snapshot
 	name_label.text = _building.display_name + (" II" if _building.level==2 else " I" if not _building.definition.upgrades.is_empty() else "")
@@ -147,7 +159,6 @@ func _refresh() -> void:
 	production_section.visible = _building.is_built() and _building.type == Types.Type.GATHERER_HUT
 	production_label.text = "По 1 грибу за рейс • сбор %d мин • разгрузка %d мин" % [Balance.RESOURCE_LOADING_MINUTES,Balance.RESOURCE_UNLOADING_MINUTES]
 	construction_section.visible = not _building.is_built()
-	_refresh_housing()
 	var materials := PackedStringArray()
 	var stage: RefCounted=_building.current_construction_stage()
 	var requirements: Dictionary=stage.materials if stage!=null else {}
@@ -162,15 +173,11 @@ func _refresh() -> void:
 	construction_work.text += "\nОсталось работы: %d мин" % _building.work_remaining()
 	if _building.work_paused: construction_work.text += "\nОжидание завершения действий внутри"
 	construction_builders.text = "Строители: %d / %d" % [_building.active_builder_ids.size(), _building.construction_definition().max_builders]
-	var tabs := available_tabs()
-	if tabs != _presented_tabs:
-		_presented_tabs = tabs
-		presentation_changed.emit()
 func bind_control(control: RefCounted) -> void:
-	if _control != null and _control.home_changed.is_connected(_on_home_changed): _control.home_changed.disconnect(_on_home_changed)
+	if _control != null and _control.household_changed.is_connected(_on_household_changed): _control.household_changed.disconnect(_on_household_changed)
 	_disconnect_work_area()
 	_control = control
-	_control.home_changed.connect(_on_home_changed)
+	_control.household_changed.connect(_on_household_changed)
 	_control.building_work_area_changed.connect(_building_area_changed)
 	if _control.work_areas != null:
 		_control.work_areas.changed.connect(_refresh_work_area)
@@ -214,16 +221,73 @@ func _disconnect_work_area() -> void:
 		for source in [_control.work_areas.changed,_control.work_areas.presentation_changed]:
 			if source.is_connected(_refresh_work_area): source.disconnect(_refresh_work_area)
 
-func _on_home_changed(_resident_id: String, previous: StringName, current: StringName) -> void:
-	if _building != null and _building.id in [previous, current]:
+func _on_household_changed(_resident_id: String, previous: StringName, current: StringName) -> void:
+	if _building != null and (_building.get_household(previous)!=null or _building.get_household(current)!=null):
 		_refresh_housing()
-		_refresh()
 
+func _clear_household_views() -> void:
+	for view in household_views.values():
+		view.body.get_parent().remove_child(view.body)
+		view.body.queue_free()
+	household_views.clear()
+	staffing_buttons.erase(&"home")
 func _refresh_housing() -> void:
 	housing_section.visible = _control != null and _control.is_housing_target(_building)
+	var units: Array = _building.households if housing_section.visible else []
+	var ids: Array = units.map(func(unit):return unit.id)
+	for id in household_views.keys():
+		if id in ids and household_views[id].unit==_building.get_household(id): continue
+		var body: VBoxContainer=household_views[id].body
+		body.get_parent().remove_child(body);body.queue_free();household_views.erase(id)
+	staffing_buttons.erase(&"home")
 	if not housing_section.visible: return
 	var occupants: Array = _control.get_home_occupants(_building.id)
 	housing_count.text = "Жильцы: %d / %d" % [occupants.size(), _building.definition.housing_capacity]
+	housing_summary.text = "Уровень: %s\nХозяйств: %d\nОбщая вместимость: %d" % ["II" if _building.level==2 else "I",units.size(),units.reduce(func(total,unit):return total+unit.capacity,0)]
+	for unit in units:
+		if not household_views.has(unit.id):
+			var body:=VBoxContainer.new();body.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+			get_node("%Content").add_child(body)
+			var title:=Label.new();title.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART;body.add_child(title)
+			var places:=VBoxContainer.new();body.add_child(places)
+			var button:=Button.new();button.text="Поселить жителя";button.focus_mode=Control.FOCUS_NONE;body.add_child(button)
+			button.pressed.connect(_request_household.bind(unit.id,weakref(unit),weakref(body)))
+			household_views[unit.id]={"body":body,"title":title,"places":places,"button":button,"unit":unit,"snapshot":[]}
+		var view: Dictionary=household_views[unit.id]
+		view.body.visible=_active_tab==unit.id
+		var residents: Array=occupants.filter(func(person):return person.household_id==unit.id)
+		view.title.text="Хозяйство №%d — %d/%d" % [unit.local_index,residents.size(),unit.capacity]
+		view.button.disabled=_building.removal_started
+		if units.size()==1:staffing_buttons[&"home"]=view.button # Compatibility handle; actual widget is on the household tab.
+		var snapshot: Array=residents.map(func(person):return [person.id,person.resident_name])
+		if snapshot==view.snapshot and view.places.get_child_count()==unit.capacity:continue
+		view.snapshot=snapshot
+		for child in view.places.get_children():view.places.remove_child(child);child.queue_free()
+		for index in unit.capacity:
+			var row:=HBoxContainer.new();view.places.add_child(row)
+			if index>=residents.size():
+				var empty:=Label.new();empty.text="%d. Свободно" % [index+1];row.add_child(empty);continue
+			var person: RefCounted=residents[index]
+			var name_button:=Button.new();name_button.text=person.resident_name;name_button.tooltip_text=person.resident_name
+			name_button.clip_text=true;name_button.size_flags_horizontal=Control.SIZE_EXPAND_FILL;name_button.focus_mode=Control.FOCUS_NONE
+			name_button.pressed.connect(_select_person.bind(person.id));row.add_child(name_button)
+			var clear:=Button.new();clear.text="Выселить";clear.focus_mode=Control.FOCUS_NONE;row.add_child(clear)
+			clear.pressed.connect(_clear_household_person.bind(person.id,unit.id,weakref(person),weakref(row)))
+func _request_household(id: StringName, identity: WeakRef, body: WeakRef) -> void:
+	if _building==null or not household_views.has(id):return
+	if _control.get_household(id)!=identity.get_ref() or household_views[id].body!=body.get_ref():return
+	if _control.get_household_home(id)!=_building or not _control.is_housing_target(_building) or _building.removal_started:return
+	household_requested.emit(id)
+func _clear_household_person(id: String, household_id: StringName, identity: WeakRef, row: WeakRef) -> void:
+	var person: RefCounted=_control.get_resident(id)
+	var widget: Node=row.get_ref()
+	if person==null or person!=identity.get_ref() or person.household_id!=household_id:return
+	if not household_views.has(household_id) or widget==null or widget.get_parent()!=household_views[household_id].places:return
+	if _control.get_household_home(household_id)!=_building:return
+	_control.clear_household(id)
+func tab_title(id: StringName) -> String:
+	var unit: RefCounted=_building.get_household(id) if _building!=null else null
+	return "Хозяйство %d" % unit.local_index if unit!=null else ""
 
 signal presentation_changed
 var _presented_tabs: Array[StringName] = []
@@ -238,10 +302,14 @@ func _info_body() -> VBoxContainer:
 func available_tabs() -> Array[StringName]:
 	var result: Array[StringName] = [&"info"]
 	if _building != null and _building.is_built():
-		if _building.definition.is_storage: result.append(&"storage")
+		if _building.type==Types.Type.HOME:
+			for unit in _building.households:result.append(unit.id)
+		elif _building.definition.is_storage: result.append(&"storage")
 		elif _building.definition.worker_profession != preload("res://scripts/resident_profession.gd").Type.NONE: result.append(&"production")
 	return result
 func apply_presentation(expanded: bool, tab: StringName) -> void:
+	_active_tab=tab
+	for id in household_views:household_views[id].body.visible=id==tab
 	_presentation_expanded=expanded
 	get_node("%StaffSummary").visible=not expanded and not get_node("%StaffSummary").text.is_empty()
 	get_node("%Scroll").visible = expanded
@@ -397,9 +465,9 @@ func _refresh_storage() -> void:
 			row.editor.text = str(container.get_category_quota(category))
 func _refresh_people(producers: Array, porters: Array) -> void:
 	if _control == null: return
-	var residents: Array = _control.get_home_occupants(_building.id) if _control.is_housing_target(_building) else []
+	_refresh_housing()
 	var visitors: Array = visitors_provider.call(_building.id) if visitors_provider.is_valid() else []
-	var snapshot: Array = [producers.map(func(r): return [r.id,r.resident_name]),porters.map(func(r): return [r.id,r.resident_name]),residents.map(func(r): return [r.id,r.resident_name]),visitors,_building.active_builder_ids,_building.id,_building.state,_building.definition.worker_capacity,_building.definition.porter_capacity,_building.definition.housing_capacity]
+	var snapshot: Array = [producers.map(func(r): return [r.id,r.resident_name]),porters.map(func(r): return [r.id,r.resident_name]),visitors,_building.active_builder_ids,_building.id,_building.state,_building.definition.worker_capacity,_building.definition.porter_capacity,_building.definition.housing_capacity]
 	if snapshot == _people_snapshot: return
 	people_rebuild_count += 1
 	_people_snapshot = snapshot
@@ -407,21 +475,14 @@ func _refresh_people(producers: Array, porters: Array) -> void:
 	for child in body.get_children():
 		body.remove_child(child)
 		child.queue_free()
+	var home_button: Button=staffing_buttons.get(&"home")
 	staffing_buttons.clear()
+	if home_button!=null:staffing_buttons[&"home"]=home_button
 	var profession=preload("res://scripts/resident_profession.gd")
 	for role in _control.get_workplace_roles(_building.id):
 		var people: Array=porters if role==profession.Type.PORTER else producers
 		var capacity: int=_building.definition.porter_capacity if role==profession.Type.PORTER else _building.definition.worker_capacity
 		_add_staff_group(body,role,people,capacity)
-	if _control.has_housing_role(_building.id):
-		var button := Button.new()
-		button.text="Поселить жителя"
-		button.disabled=not _building.is_built()
-		button.focus_mode=Control.FOCUS_NONE
-		button.pressed.connect(staffing_requested.emit.bind(-1))
-		body.add_child(button)
-		staffing_buttons[&"home"]=button
-		for person in residents: _add_person(body,person,true,true)
 	if not _building.is_built() and not _building.active_builder_ids.is_empty():
 		var title := Label.new()
 		title.text = "Работающие строители (временное назначение)"
@@ -552,7 +613,7 @@ func _exit_tree() -> void:
 	_disconnect_work_area()
 	_disconnect_building()
 	for view in recipe_views.values(): view.deactivate()
-	if _control != null and _control.home_changed.is_connected(_on_home_changed): _control.home_changed.disconnect(_on_home_changed)
+	if _control != null and _control.household_changed.is_connected(_on_household_changed): _control.household_changed.disconnect(_on_household_changed)
 	if _selection != null and _selection.selection_changed.is_connected(_on_selection_changed): _selection.selection_changed.disconnect(_on_selection_changed)
 
 func _refresh_construction_command() -> void:

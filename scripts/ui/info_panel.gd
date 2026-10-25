@@ -61,7 +61,7 @@ func _sync_tabs() -> void:
 			child.queue_free()
 		for id in _tabs:
 			var button := Button.new()
-			button.text = TITLES[id]
+			button.text = TITLES.get(id,building_details.tab_title(id))
 			button.add_theme_font_size_override("font_size",14)
 			button.toggle_mode = true
 			button.focus_mode = Control.FOCUS_NONE

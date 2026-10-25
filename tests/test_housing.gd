@@ -113,14 +113,14 @@ func _run() -> void:
 	var new_house = scene.player_control.get_home(scene.residents[1].id)
 	for resident in scene.residents: scene.player_control.clear_home(resident.id)
 	scene.resident_selection.select(actor.data)
-	check(resident_card.home_label.text == "Дом: Нет дома", "Resident card shows homeless")
+	check(resident_card.home_label.text == "Жильё: Не назначено", "Resident card shows homeless")
 	await process_frame
 	await process_frame
 	scene.interaction_menu.open_for([actor.data.id],old_house.id,Vector2(200,200))
 	check(scene.interaction_menu.visible and scene.interaction_menu.options.any(func(option): return option.id == &"assign_home" and option.enabled), "Actual RMB on house opens housing interaction")
 	var assign_option = housing_options(scene.interactions, actor.data.id, old_house.id)[0]
 	scene.interaction_menu._choose(assign_option)
-	check(actor.data.household_id == HH.id_for(old_house.id) and resident_card.home_label.text == "Дом: %s (%s)" % [old_house.display_name, old_house.id], "Assign updates resident card synchronously without frame")
+	check(actor.data.household_id == HH.id_for(old_house.id) and resident_card.home_label.text == "Дом: %s (%s)\nХозяйство: №1" % [old_house.display_name, old_house.id], "Assign updates resident card synchronously without frame")
 	check(actor.commands.active_command == null and actor.data.assignments.is_empty(), "Housing creates no command or assignment")
 	scene.resident_selection.select_building(old_house)
 	check(building_card.housing_section.visible and building_card.housing_count.text == "Жильцы: 1 / 4" and scene.player_control.get_home_occupants(scene.player_control.get_home(scene.residents[0].id).id).has(scene.residents[0]), "House card shows count and names")
@@ -139,9 +139,9 @@ func _run() -> void:
 	check(building_card.housing_count.text == "Жильцы: 0 / 4" and second_card.housing_count.text == "Жильцы: 1 / 4", "Old/new cards update synchronously on reassign event")
 	scene.resident_selection.select(actor.data)
 	check(resident_card.home_label.text.contains(new_house.id), "Selection refresh shows current home")
-	check(scene.player_control.clear_home(actor.data.id) and resident_card.home_label.text == "Дом: Нет дома" and second_card.housing_count.text == "Жильцы: 0 / 4", "Clear immediately updates both presentations")
+	check(scene.player_control.clear_home(actor.data.id) and resident_card.home_label.text == "Жильё: Не назначено" and second_card.housing_count.text == "Жильцы: 0 / 4", "Clear immediately updates both presentations")
 	actor.data.household_id = &"absent"
-	check(resident_card.home_label.text == "Дом: Нет дома", "Invalid housing reference safely renders homeless")
+	check(resident_card.home_label.text == "Жильё: Не назначено", "Invalid housing reference safely renders homeless")
 	for building in [scene.warehouse_data, scene.kitchen_data, scene.gatherer_hut_data]:
 		scene.resident_selection.select_building(building)
 		check(not building_card.housing_section.visible, "Non-house card has no housing block")

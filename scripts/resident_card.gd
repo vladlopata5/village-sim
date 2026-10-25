@@ -266,7 +266,8 @@ func _on_home_changed(resident_id: String, _previous: StringName, _current: Stri
 
 func _refresh_home() -> void:
 	var home: RefCounted = _control.get_home(_selection.selected_resident.id) if _control != null and _selection != null and _selection.selected_resident != null else null
-	home_label.text = "Дом: %s (%s)" % [home.display_name, home.id] if home != null else "Дом: Нет дома"
+	var household: RefCounted = _control.get_household(_selection.selected_resident.household_id) if home!=null else null
+	home_label.text = "Дом: %s (%s)\nХозяйство: №%d" % [home.display_name, home.id,household.local_index] if household!=null else "Жильё: Не назначено"
 	get_node("%ClearHome").visible = home != null
 
 func _on_skill_changed(_skill: int, _amount: int, _previous_level: int) -> void:
@@ -369,7 +370,7 @@ func apply_presentation(expanded: bool, tab: StringName) -> void:
 	_bind_equipment()
 func _clear_home() -> void:
 	if _control != null and _selection.selected_resident != null:
-		_control.clear_home(_selection.selected_resident.id)
+		_control.clear_household(_selection.selected_resident.id)
 func _connect_need_signals() -> void:
 	_assignment_resident.activity_changed.connect(_refresh)
 	for need in _assignment_resident.needs.values():

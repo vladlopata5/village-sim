@@ -69,7 +69,8 @@ func run() -> void:
 		homes.append(result.objects[0])
 	world.player_control.assign_home(b.id,homes[0].id)
 	world.resident_selection.select_building(homes[0])
-	var home_row=body.get_children().filter(func(node): return node is HBoxContainer)[0]
+	panel.select_tab(homes[0].households[0].id)
+	var home_row=building.household_views[homes[0].households[0].id].places.get_child(0)
 	var stale_clear: Button=home_row.get_child(1)
 	world.player_control.assign_home(b.id,homes[1].id)
 	stale_clear.pressed.emit()
