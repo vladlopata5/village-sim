@@ -1,6 +1,7 @@
 extends RefCounted
 ## Optional filters and presentation strings, never mechanical effects.
 const Event = preload("res://scripts/social_event.gd")
+const TextRenderer = preload("res://scripts/event_text_renderer.gd")
 var id: String
 var conditions: Dictionary = {}
 var feed_text_a := ""
@@ -27,4 +28,4 @@ func _includes(actual: Array, required: Array) -> bool:
 		if value not in actual: return false
 	return true
 func render(template: String, a: RefCounted, b: RefCounted) -> String:
-	return template.replace("%A%", a.resident_name).replace("%B%", b.resident_name)
+	return TextRenderer.render(template, {"a": {"name": a.resident_name}, "b": {"name": b.resident_name}}, true).text

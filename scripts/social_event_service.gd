@@ -6,6 +6,7 @@ const Diary = preload("res://scripts/diary_entry.gd")
 const Balance = preload("res://scripts/balance_config.gd")
 const Activity = preload("res://scripts/resident_activity.gd")
 const EventLog = preload("res://scripts/game_logger.gd")
+const TextRenderer = preload("res://scripts/event_text_renderer.gd")
 signal event_resolved(result: Event)
 signal feed_message(text: String)
 var enabled := true
@@ -155,10 +156,12 @@ func _fallback_feed(result: Event, a: RefCounted, b: RefCounted) -> int:
 	feed_message.emit(_fallback_text(b, a, result.reaction_2))
 	return 2
 func _fallback_text(resident: RefCounted, other: RefCounted, response: Event.Reaction) -> String:
+	var template: String
 	match response:
-		Event.Reaction.POSITIVE: return "%s: «Приятно провёл время с %s»." % [resident.resident_name, other.resident_name]
-		Event.Reaction.NEGATIVE: return "%s: «Общение с %s меня раздражает»." % [resident.resident_name, other.resident_name]
-		_: return "%s: «Провёл время с %s — ничего особенного»." % [resident.resident_name, other.resident_name]
+		Event.Reaction.POSITIVE: template = "{resident.name}: «Приятно провёл время с {other.name}»."
+		Event.Reaction.NEGATIVE: template = "{resident.name}: «Общение с {other.name} меня раздражает»."
+		_: template = "{resident.name}: «Провёл время с {other.name} — ничего особенного»."
+	return TextRenderer.render(template, {"resident": {"name": resident.resident_name}, "other": {"name": other.resident_name}}).text
 func _on_conversation_joined(id: String) -> void:
 	var runtime = world.get_runtime(id)
 	if runtime != null: trigger(runtime, Event.Context.CONVERSATION)
