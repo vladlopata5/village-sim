@@ -34,6 +34,7 @@ const WanderTarget = preload("res://scripts/wander_target.gd")
 const SocialWorld = preload("res://scripts/social_world.gd")
 var social_world = SocialWorld.new()
 var social_events = preload("res://scripts/social_event_service.gd").new()
+var game_events = preload("res://scripts/game_event_service.gd").new()
 var social_feed: PanelContainer
 const PlayerControl = preload("res://scripts/player_control.gd")
 var player_control = PlayerControl.new()
@@ -76,6 +77,8 @@ func _ready() -> void:
 	add_child(social_events)
 	social_events.logger = game_logger
 	social_events.setup(social_world, game_time, buildings)
+	add_child(game_events)
+	game_events.setup(player_control, game_time, _event_resident_active)
 	social_feed = preload("res://scripts/social_feed.gd").new()
 	social_feed.name = "SocialFeed"
 	$HUD.add_child(social_feed)
@@ -201,6 +204,11 @@ func get_resident_runtime(data: ResidentData) -> ResidentRuntime:
 		if is_instance_valid(runtime) and runtime.data == data:
 			return runtime
 	return null
+
+func _event_resident_active(data: RefCounted) -> bool:
+	if player_control.get_resident(data.id) != data: return false
+	var runtime := get_resident_runtime(data)
+	return runtime != null and runtime.is_inside_tree() and not runtime.is_queued_for_deletion()
 
 func _update_selection() -> void:
 	if is_instance_valid(interaction_menu): interaction_menu.hide()

@@ -146,6 +146,7 @@ func _validate_definition(raw: Dictionary, base_names: Dictionary, facts: RefCou
 	var condition_type := evaluator.validate(raw.get("when", true), names, facts, errors, label + "/when")
 	if condition_type not in ["bool", "any", "invalid"]: errors.append(label + ": when must be boolean")
 	var main: Variant = raw.get("main_role")
+	if raw.has("diary_importance") and (not _integer(raw.diary_importance, 1) or raw.diary_importance > 2): errors.append(label + ": diary_importance must be TEMPORARY:1 or KEY:2")
 	if not main is String or (not names.role.has(main) and not names.binding.has(main)):
 		errors.append(label + ": main_role requires a declared role/binding")
 	elif names.binding.has(main) or (raw.roles[main] is Dictionary and raw.roles[main].get("type") == "resident"):

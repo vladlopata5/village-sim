@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "definitions": [
+    {
+      "schema_version": 1,
+      "id": "personal.skill_progress",
+      "revision": 1,
+      "enabled": true,
+      "trigger": "skill.raised",
+      "main_role": "actor",
+      "roles": {
+        "actor": {"type": "resident", "from": "ctx.actor", "active_required": true}
+      },
+      "when": {"gt": [{"ctx": "payload.new_level"}, {"ctx": "payload.previous_level"}]},
+      "weight": 1,
+      "diary_importance": 2,
+      "effects": [],
+      "text": {
+        "diary_main": "{actor.name} замечает прогресс в навыке «{payload.skill_name}»: уровень {payload.previous_level} → {payload.new_level}."
+      }
+    }
+  ]
+}

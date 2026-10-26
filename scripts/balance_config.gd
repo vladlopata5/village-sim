@@ -129,6 +129,8 @@ const OUTDOOR_SLEEP_QUALITY = 0.6
 
 # Temporary progression; accumulated XP is retained if the curve changes later.
 const SKILL_XP_PER_LEVEL = 10
+# First universal trigger: separate from the existing social chance/RNG.
+const SKILL_RAISED_EVENT_CHANCE := 1.0
 const MAX_SKILL_LEVEL = 10
 
 # First behavior modifier source: permanent traits. Base constants stay unchanged.

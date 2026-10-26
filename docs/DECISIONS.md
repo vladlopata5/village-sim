@@ -5943,3 +5943,28 @@ SocialNarrativeEntry стал адаптером старого %A%/%B% к то�
 
 См. docs/EVENT_SYSTEM.md. Мудлеты, воспоминания, исполнение новых effects, AI и save/load
 не подключены и не переработаны.
+
+## R2-B3 — первый живой skill.raised и обязательный дневник (2026-10-26)
+
+GameEventService подключён к Main/Main3D и только к новому постфактум skill_raised.
+ResidentData сохраняет прежние XP/level formulas и skill_changed; snapshots старого/
+нового уровней публикуются после existing callbacks в owner-local commit order.
+Тип + resident ID + слабый runtime source token + transition sequence образуют ID,
+устойчивый к повторной доставке и регистрации того же ResidentData в текущем мире.
+
+Для выбора используются существующие EventCatalog/EventDryRun; renderer также общий.
+Один включённый JSON personal.skill_progress создаёт обязательную KEY-запись Diary,
+без effects, mood/opinion/XP feedback. Названия навыков — прежний Skill.display_name;
+SKILL_RAISED_EVENT_CHANCE в BalanceConfig пока 1.0. main определяется selection.main,
+не всегда ctx.actor. Diary importance — необязательный metadata field 1/2, без NONE.
+
+Existing add_diary_entry теперь даёт bool acknowledgement; append и diary_changed
+сохраняют порядок. Только после успешного append событие становится completed и
+учитывается cooldown. Pending/delivered IDs и маленькая синхронная FIFO закрывают
+reentrant duplicates/cooldown bypass без новой AI-очереди или переноса между кадрами.
+Активность получателя проверяется по PlayerControl identity и действующему runtime
+перед append. Глобальный lifecycle не менялся. Леджеры пока только runtime, без save.
+
+Старые SocialEventService и 12 историй, их реакции, RNG и опциональные 20% Diary не
+изменены. Другие triggers, mechanical effects, вторичный Diary, Memory/Moodlet stores,
+UI, AI и save/load не реализованы. Подробности и ручная проверка: docs/EVENT_SYSTEM.md.

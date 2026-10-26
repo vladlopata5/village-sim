@@ -105,8 +105,13 @@ func start_sleep(quality: float) -> void:
 
 const Skill = preload("res://scripts/skill_type.gd")
 signal skill_changed(skill: Skill.Type, amount: int, previous_level: int)
+signal skill_raised(transition_id: int, skill: Skill.Type, previous_level: int, new_level: int)
 # XP is the only persistent skill state. Levels are never stored separately.
 var _skill_xp: Dictionary = {Skill.Type.GATHERING: 0, Skill.Type.CONSTRUCTION: 0, Skill.Type.LOGISTICS: 0}
+var _skill_raise_sequence := 0
+var _skill_change_depth := 0
+var _publishing_skill_raises := false
+var _pending_skill_raises: Array = []
 func get_skill_xp(skill: Skill.Type) -> int:
 	return _skill_xp.get(skill, 0)
 func get_skill_level(skill: Skill.Type) -> int:
@@ -115,7 +120,21 @@ func add_skill_xp(skill: Skill.Type, amount: int) -> bool:
 	if amount <= 0 or not _skill_xp.has(skill): return false
 	var previous_level := get_skill_level(skill)
 	_skill_xp[skill] += amount
+	var new_level := get_skill_level(skill)
+	if new_level > previous_level:
+		_skill_raise_sequence += 1
+		_pending_skill_raises.append([_skill_raise_sequence, skill, previous_level, new_level])
+	# Existing notifications keep their timing/arguments. New facts follow the
+	# outer notification, in commit order even when a subscriber adds more XP.
+	_skill_change_depth += 1
 	skill_changed.emit(skill, amount, previous_level)
+	_skill_change_depth -= 1
+	if _skill_change_depth == 0 and not _publishing_skill_raises:
+		_publishing_skill_raises = true
+		while not _pending_skill_raises.is_empty():
+			var transition: Array = _pending_skill_raises.pop_front()
+			skill_raised.emit(transition[0], transition[1] as Skill.Type, transition[2], transition[3])
+		_publishing_skill_raises = false
 	return true
 
 const Relationship = preload("res://scripts/resident_relationship.gd")
@@ -177,10 +196,11 @@ func get_trait_preference_score(other: RefCounted) -> int:
 const DiaryEntry = preload("res://scripts/diary_entry.gd")
 signal diary_changed
 var diary_entries: Array[DiaryEntry] = []
-func add_diary_entry(entry: DiaryEntry) -> void:
-	if entry.importance == DiaryEntry.Importance.NONE or entry.text.is_empty(): return
+func add_diary_entry(entry: DiaryEntry) -> bool:
+	if entry == null or entry.importance == DiaryEntry.Importance.NONE or entry.text.is_empty(): return false
 	diary_entries.append(entry)
 	diary_changed.emit()
+	return true
 func expire_temporary_diary(morning_minute: int) -> void:
 	var kept: Array[DiaryEntry] = []
 	for entry in diary_entries:
