@@ -1,0 +1,934 @@
+{
+  "schema_version": 1,
+  "catalogs": {
+    "comparison_facets": [
+      {
+        "id": "clothing",
+        "value_fact": "equipment.clothing.appearance_rank",
+        "good_min": 2,
+        "since_fact": "equipment.clothing.acquired_minute",
+        "recent_minutes": null,
+        "label": "красивой одежде"
+      },
+      {
+        "id": "housing",
+        "value_fact": "housing.status_rank",
+        "good_min": 1,
+        "since_fact": "housing.assigned_minute",
+        "recent_minutes": 60,
+        "label": "новому жилью"
+      }
+    ],
+    "skill_ids": [
+      "gathering",
+      "construction",
+      "logistics"
+    ],
+    "moodlets": {
+      "envy": {
+        "tags": [
+          "envy"
+        ],
+        "stacking": "refresh_by_owner_definition_target_context",
+        "modifiers": [
+          {
+            "channel": "mood.offset",
+            "op": "add",
+            "value": -3
+          }
+        ]
+      },
+      "proud": {
+        "tags": [
+          "achievement"
+        ],
+        "stacking": "refresh_by_owner_definition",
+        "modifiers": [
+          {
+            "channel": "mood.offset",
+            "op": "add",
+            "value": 3
+          }
+        ]
+      }
+    },
+    "profession_skills": {
+      "builder": [
+        "construction"
+      ],
+      "porter": [
+        "logistics"
+      ],
+      "gatherer": [
+        "gathering"
+      ]
+    }
+  },
+  "definitions": [
+    {
+      "schema_version": 1,
+      "id": "social.envy_advantage",
+      "revision": 1,
+      "enabled": false,
+      "trigger": "interaction.started",
+      "roles": {
+        "actor": {
+          "type": "resident",
+          "from": "ctx.actor",
+          "active_required": true,
+          "participant": true
+        },
+        "other": {
+          "type": "resident",
+          "from": "ctx.other",
+          "active_required": true,
+          "participant": true,
+          "different_from": [
+            "actor"
+          ]
+        }
+      },
+      "params": {
+        "duration": 60
+      },
+      "bind": [
+        {
+          "as": "facet",
+          "select": {
+            "from": {
+              "catalog": "comparison_facets"
+            },
+            "as": "candidate",
+            "where": {
+              "all": [
+                {
+                  "lt": [
+                    {
+                      "fact": [
+                        {
+                          "role": "actor"
+                        },
+                        {
+                          "field": [
+                            {
+                              "local": "candidate"
+                            },
+                            "value_fact"
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "field": [
+                        {
+                          "local": "candidate"
+                        },
+                        "good_min"
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "gte": [
+                    {
+                      "fact": [
+                        {
+                          "role": "other"
+                        },
+                        {
+                          "field": [
+                            {
+                              "local": "candidate"
+                            },
+                            "value_fact"
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "field": [
+                        {
+                          "local": "candidate"
+                        },
+                        "good_min"
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "any": [
+                    {
+                      "eq": [
+                        {
+                          "field": [
+                            {
+                              "local": "candidate"
+                            },
+                            "recent_minutes"
+                          ]
+                        },
+                        null
+                      ]
+                    },
+                    {
+                      "all": [
+                        {
+                          "gte": [
+                            {
+                              "fact": [
+                                {
+                                  "role": "other"
+                                },
+                                {
+                                  "field": [
+                                    {
+                                      "local": "candidate"
+                                    },
+                                    "since_fact"
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "sub": [
+                                {
+                                  "ctx": "minute"
+                                },
+                                {
+                                  "field": [
+                                    {
+                                      "local": "candidate"
+                                    },
+                                    "recent_minutes"
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "lte": [
+                            {
+                              "fact": [
+                                {
+                                  "role": "other"
+                                },
+                                {
+                                  "field": [
+                                    {
+                                      "local": "candidate"
+                                    },
+                                    "since_fact"
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "ctx": "minute"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            "order_by": "id",
+            "take": 1
+          }
+        }
+      ],
+      "when": {
+        "all": []
+      },
+      "weight": 1,
+      "effects": [
+        {
+          "op": "moodlet.add",
+          "owner": {
+            "role": "actor"
+          },
+          "definition": "envy",
+          "target": {
+            "role": "other"
+          },
+          "duration_minutes": {
+            "param": "duration"
+          },
+          "context": {
+            "facet": {
+              "field": [
+                {
+                  "binding": "facet"
+                },
+                "id"
+              ]
+            }
+          },
+          "chance": 1
+        }
+      ],
+      "text": {
+        "feed": "{actor.name} завидует {facet.label} {other.name}.",
+        "diary_main": "{actor.name} завидует {facet.label} {other.name}."
+      },
+      "cooldown": {
+        "minutes": 240,
+        "scope": [
+          {
+            "role": "actor"
+          },
+          {
+            "role": "other"
+          },
+          {
+            "field": [
+              {
+                "binding": "facet"
+              },
+              "id"
+            ]
+          }
+        ]
+      },
+      "main_role": "actor",
+      "exclusive_groups": []
+    },
+    {
+      "schema_version": 1,
+      "id": "social.mentoring",
+      "revision": 1,
+      "enabled": false,
+      "trigger": "interaction.ended",
+      "roles": {
+        "actor": {
+          "type": "resident",
+          "from": "ctx.actor",
+          "active_required": true,
+          "participant": true
+        },
+        "other": {
+          "type": "resident",
+          "from": "ctx.other",
+          "active_required": true,
+          "participant": true,
+          "different_from": [
+            "actor"
+          ]
+        }
+      },
+      "params": {
+        "minimum_shared_minutes": 15,
+        "xp": 1
+      },
+      "bind": [
+        {
+          "as": "skill",
+          "select": {
+            "from": {
+              "fact": [
+                {
+                  "role": "actor"
+                },
+                "profession.skill_ids"
+              ]
+            },
+            "as": "candidate",
+            "where": {
+              "gt": [
+                {
+                  "fact": [
+                    {
+                      "role": "other"
+                    },
+                    "skill.level",
+                    {
+                      "local": "candidate"
+                    }
+                  ]
+                },
+                {
+                  "fact": [
+                    {
+                      "role": "actor"
+                    },
+                    "skill.level",
+                    {
+                      "local": "candidate"
+                    }
+                  ]
+                }
+              ]
+            },
+            "order_by": "value",
+            "take": 1
+          }
+        }
+      ],
+      "when": {
+        "all": [
+          {
+            "eq": [
+              {
+                "fact": [
+                  {
+                    "role": "actor"
+                  },
+                  "profession"
+                ]
+              },
+              {
+                "fact": [
+                  {
+                    "role": "other"
+                  },
+                  "profession"
+                ]
+              }
+            ]
+          },
+          {
+            "ne": [
+              {
+                "fact": [
+                  {
+                    "role": "actor"
+                  },
+                  "profession"
+                ]
+              },
+              "none"
+            ]
+          },
+          {
+            "eq": [
+              {
+                "ctx": "payload.reason"
+              },
+              "completed"
+            ]
+          },
+          {
+            "gte": [
+              {
+                "ctx": "payload.shared_minutes"
+              },
+              {
+                "param": "minimum_shared_minutes"
+              }
+            ]
+          }
+        ]
+      },
+      "weight": 1,
+      "effects": [
+        {
+          "op": "skill.add_xp",
+          "owner": {
+            "role": "actor"
+          },
+          "skill": {
+            "binding": "skill"
+          },
+          "amount": {
+            "param": "xp"
+          },
+          "chance": 1
+        }
+      ],
+      "text": {
+        "feed": "{other.name} помог освоить {skill} жителю {actor.name}.",
+        "diary_main": "{other.name} помог освоить {skill} жителю {actor.name}."
+      },
+      "cooldown": {
+        "minutes": 240,
+        "scope": [
+          {
+            "role": "actor"
+          },
+          {
+            "role": "other"
+          },
+          {
+            "binding": "skill"
+          }
+        ]
+      },
+      "main_role": "actor",
+      "exclusive_groups": []
+    },
+    {
+      "schema_version": 1,
+      "id": "social.complaint",
+      "revision": 1,
+      "enabled": false,
+      "trigger": "interaction.started",
+      "roles": {
+        "actor": {
+          "type": "resident",
+          "from": "ctx.actor",
+          "active_required": true,
+          "participant": true
+        },
+        "other": {
+          "type": "resident",
+          "from": "ctx.other",
+          "active_required": true,
+          "participant": true,
+          "different_from": [
+            "actor"
+          ]
+        }
+      },
+      "params": {},
+      "bind": [
+        {
+          "as": "grievance",
+          "select": {
+            "from": {
+              "fact": [
+                {
+                  "role": "actor"
+                },
+                "memories.active"
+              ]
+            },
+            "as": "candidate",
+            "where": {
+              "all": [
+                {
+                  "has_tag": [
+                    {
+                      "local": "candidate"
+                    },
+                    "negative"
+                  ]
+                },
+                {
+                  "ne": [
+                    {
+                      "field": [
+                        {
+                          "local": "candidate"
+                        },
+                        "target"
+                      ]
+                    },
+                    {
+                      "role": "actor"
+                    }
+                  ]
+                },
+                {
+                  "ne": [
+                    {
+                      "field": [
+                        {
+                          "local": "candidate"
+                        },
+                        "target"
+                      ]
+                    },
+                    {
+                      "role": "other"
+                    }
+                  ]
+                },
+                {
+                  "not": {
+                    "has_tag": [
+                      {
+                        "local": "candidate"
+                      },
+                      "hearsay"
+                    ]
+                  }
+                }
+              ]
+            },
+            "order_by": "id",
+            "take": 1
+          }
+        },
+        {
+          "as": "subject",
+          "type": "resident_ref",
+          "participant": false,
+          "active_required": false,
+          "value": {
+            "field": [
+              {
+                "binding": "grievance"
+              },
+              "target"
+            ]
+          }
+        }
+      ],
+      "when": {
+        "all": []
+      },
+      "weight": 1,
+      "effects": [
+        {
+          "op": "memory.add",
+          "owner": {
+            "role": "other"
+          },
+          "kind": "heard_complaint",
+          "target": {
+            "binding": "subject"
+          },
+          "tags": [
+            "hearsay",
+            "negative"
+          ],
+          "source_event": {
+            "ctx": "occurrence_id"
+          },
+          "evidence_memory": {
+            "field": [
+              {
+                "binding": "grievance"
+              },
+              "id"
+            ]
+          },
+          "reported_by": {
+            "role": "actor"
+          },
+          "salience": 10,
+          "chance": 1
+        }
+      ],
+      "text": {
+        "feed": "{actor.name} пожаловался {other.name} на {subject.name}.",
+        "diary_main": "{actor.name} пожаловался {other.name} на {subject.name}."
+      },
+      "cooldown": {
+        "minutes": 240,
+        "scope": [
+          {
+            "role": "actor"
+          },
+          {
+            "role": "other"
+          },
+          {
+            "binding": "subject"
+          }
+        ]
+      },
+      "main_role": "actor",
+      "exclusive_groups": []
+    },
+    {
+      "schema_version": 1,
+      "id": "personal.skill_milestone",
+      "revision": 1,
+      "enabled": false,
+      "trigger": "skill.raised",
+      "roles": {
+        "actor": {
+          "type": "resident",
+          "from": "ctx.actor",
+          "active_required": true,
+          "participant": true
+        }
+      },
+      "params": {
+        "duration": 120
+      },
+      "bind": [],
+      "when": {
+        "gt": [
+          {
+            "ctx": "payload.new_level"
+          },
+          {
+            "ctx": "payload.previous_level"
+          }
+        ]
+      },
+      "weight": 1,
+      "effects": [
+        {
+          "op": "memory.add",
+          "owner": {
+            "role": "actor"
+          },
+          "kind": "skill_milestone",
+          "target": {
+            "role": "actor"
+          },
+          "tags": [
+            "achievement"
+          ],
+          "source_event": {
+            "ctx": "occurrence_id"
+          },
+          "salience": 20,
+          "context": {
+            "skill": {
+              "ctx": "payload.skill"
+            },
+            "level": {
+              "ctx": "payload.new_level"
+            }
+          },
+          "chance": 1
+        },
+        {
+          "op": "moodlet.add",
+          "owner": {
+            "role": "actor"
+          },
+          "definition": "proud",
+          "duration_minutes": {
+            "param": "duration"
+          },
+          "chance": 1
+        }
+      ],
+      "text": {
+        "feed": "{actor.name} достиг нового уровня навыка {payload.skill}.",
+        "diary_main": "{actor.name} достиг нового уровня навыка {payload.skill}."
+      },
+      "cooldown": {
+        "minutes": 0,
+        "scope": [
+          {
+            "role": "actor"
+          },
+          {
+            "ctx": "payload.skill"
+          },
+          {
+            "ctx": "payload.new_level"
+          }
+        ]
+      },
+      "main_role": "actor",
+      "exclusive_groups": []
+    },
+    {
+      "schema_version": 1,
+      "id": "social.kitchen_encounter",
+      "revision": 1,
+      "enabled": false,
+      "trigger": "action.started",
+      "roles": {
+        "actor": {
+          "type": "resident",
+          "from": "ctx.actor",
+          "active_required": true,
+          "participant": true
+        },
+        "other": {
+          "type": "resident",
+          "from": "ctx.other",
+          "active_required": true,
+          "participant": true,
+          "different_from": [
+            "actor"
+          ]
+        }
+      },
+      "params": {},
+      "bind": [
+        {
+          "as": "worker",
+          "select": {
+            "from": {
+              "list": [
+                {
+                  "role": "actor"
+                },
+                {
+                  "role": "other"
+                }
+              ]
+            },
+            "as": "candidate",
+            "where": {
+              "eq": [
+                {
+                  "fact": [
+                    {
+                      "local": "candidate"
+                    },
+                    "action.activity"
+                  ]
+                },
+                "WORKING"
+              ]
+            },
+            "order_by": "id",
+            "take": 1
+          }
+        },
+        {
+          "as": "diner",
+          "select": {
+            "from": {
+              "list": [
+                {
+                  "role": "actor"
+                },
+                {
+                  "role": "other"
+                }
+              ]
+            },
+            "as": "candidate",
+            "where": {
+              "eq": [
+                {
+                  "fact": [
+                    {
+                      "local": "candidate"
+                    },
+                    "action.activity"
+                  ]
+                },
+                "EATING"
+              ]
+            },
+            "order_by": "id",
+            "take": 1
+          }
+        }
+      ],
+      "when": {
+        "all": [
+          {
+            "eq": [
+              {
+                "fact": [
+                  {
+                    "ctx": "location"
+                  },
+                  "building.type"
+                ]
+              },
+              "food"
+            ]
+          },
+          {
+            "eq": [
+              {
+                "fact": [
+                  {
+                    "ctx": "location"
+                  },
+                  "building.built"
+                ]
+              },
+              true
+            ]
+          },
+          {
+            "eq": [
+              {
+                "fact": [
+                  {
+                    "binding": "worker"
+                  },
+                  "presence.location"
+                ]
+              },
+              {
+                "ctx": "location"
+              }
+            ]
+          },
+          {
+            "eq": [
+              {
+                "fact": [
+                  {
+                    "binding": "diner"
+                  },
+                  "presence.location"
+                ]
+              },
+              {
+                "ctx": "location"
+              }
+            ]
+          }
+        ]
+      },
+      "weight": 1,
+      "effects": [
+        {
+          "op": "opinion.add",
+          "owner": {
+            "binding": "worker"
+          },
+          "target": {
+            "binding": "diner"
+          },
+          "amount": 1,
+          "chance": 1
+        }
+      ],
+      "text": {
+        "feed": "{worker.name} работает на кухне, пока {diner.name} ест.",
+        "diary_main": "{worker.name} работает на кухне, пока {diner.name} ест."
+      },
+      "cooldown": {
+        "minutes": 240,
+        "scope": [
+          {
+            "binding": "worker"
+          },
+          {
+            "binding": "diner"
+          },
+          {
+            "ctx": "location"
+          }
+        ]
+      },
+      "main_role": "worker",
+      "exclusive_groups": []
+    },
+    {
+      "schema_version": 1,
+      "id": "building.completion",
+      "revision": 1,
+      "enabled": false,
+      "trigger": "construction.completed",
+      "main_role": "site",
+      "roles": {
+        "site": {
+          "type": "building",
+          "from": "ctx.location"
+        }
+      },
+      "params": {},
+      "bind": [],
+      "when": {
+        "eq": [
+          {
+            "fact": [
+              {
+                "role": "site"
+              },
+              "building.state"
+            ]
+          },
+          "BUILT"
+        ]
+      },
+      "weight": 1,
+      "effects": [],
+      "text": {
+        "feed": "Завершено строительство {site.name}."
+      },
+      "exclusive_groups": []
+    }
+  ]
+}
