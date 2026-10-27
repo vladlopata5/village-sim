@@ -30,7 +30,14 @@ func find_similar(type: String, topic: String, target: Variant, provenance: Dict
 	return find({"type": type, "topic": topic, "target": target, "provenance": provenance})
 
 func add(record: Dictionary) -> bool:
-	if not _valid(record) or _entries.has(record.id): return false
+	var entry := prepare_add(record)
+	if entry.is_empty(): return false
+	_apply_event_add(entry)
+	changed.emit(entry.id)
+	return true
+
+func prepare_add(record: Dictionary) -> Dictionary:
+	if not _valid(record) or _entries.has(record.id): return {}
 	var entry := record.duplicate(true)
 	entry.owner = owner()
 	entry.target = entry.get("target")
@@ -40,9 +47,12 @@ func add(record: Dictionary) -> bool:
 	entry.last_reinforced_minute = entry.created_minute
 	entry.last_changed_minute = entry.created_minute
 	entry.last_source_occurrence_id = entry.source_occurrence_id
-	_entries[entry.id] = entry
-	changed.emit(entry.id)
-	return true
+	return entry
+
+func _apply_event_add(prepared: Dictionary) -> void:
+	# Internal commit primitive: only after the whole event has been validated.
+	# No validation, signals, callbacks or fallible gameplay operations here.
+	_entries[prepared.id] = prepared.duplicate(true)
 
 func reinforce(entry_id: String, amount: float, minute: int, source_occurrence_id: String) -> bool:
 	if not _entries.has(entry_id) or not Data.number(amount) or amount <= 0 or not Data.text(source_occurrence_id): return false

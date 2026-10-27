@@ -20,8 +20,8 @@ class CountingRng extends RefCounted:
 		return value
 class RejectingDiary extends Data:
 	var accept := false
-	func add_diary_entry(entry: Diary) -> bool:
-		return super.add_diary_entry(entry) if accept else false
+	func can_add_diary_entry(entry: Diary) -> bool:
+		return accept and super.can_add_diary_entry(entry)
 var checks := 0
 var failures := 0
 
@@ -126,7 +126,7 @@ func _run() -> void:
 	f.service.replay(occurrence.occurrence_id)
 	check(f.rng.draws == draws, "Failed formatting is also deduplicated")
 	cleanup(f)
-	# Positive acknowledgement from the existing Diary API is required.
+	# Diary validation is shared by legacy append and the new atomic prepare path.
 	f = fixture([RejectingDiary.new("a", "Анна", 25)])
 	f.a.add_skill_xp(Skill.Type.GATHERING, 10)
 	check(f.service.replay(f.service.last_occurrence().occurrence_id).status == "diary_failed" and f.service.completed_events().is_empty(), "Rejected append cannot create a committed event")
@@ -134,7 +134,7 @@ func _run() -> void:
 	f.a.add_skill_xp(Skill.Type.GATHERING, 10)
 	check(f.service.completed_events().size() == 1 and f.a.diary_entries.size() == 1, "Later distinct transition may succeed")
 	cleanup(f)
-	# Reentrant other-resident facts wait until the current append is acknowledged.
+	# Reentrant facts wait; all event data/metadata are committed before notifications.
 	f = fixture()
 	data = content(f.service)
 	data.definitions[0].cooldown = {"minutes": 60, "scope": []}
@@ -145,7 +145,7 @@ func _run() -> void:
 		f.a.skill_raised.emit(1, Skill.Type.GATHERING, 0, 1)
 		f.b.add_skill_xp(Skill.Type.GATHERING, 10))
 	f.a.add_skill_xp(Skill.Type.GATHERING, 10)
-	check(pending == ["pending"] and f.a.diary_entries.size() == 1 and f.b.diary_entries.is_empty(), "Nested duplicate + other actor do not bypass completion/cooldown")
+	check(pending == ["completed"] and f.a.diary_entries.size() == 1 and f.b.diary_entries.is_empty(), "Publication sees committed metadata; nested duplicate + other actor do not bypass cooldown")
 	check(f.service.completed_events().size() == 1 and f.service.cooldown_history().size() == 1, "Only acknowledged event updates cooldown")
 	f.clock.total_minutes += 60
 	f.b.add_skill_xp(Skill.Type.GATHERING, 10)

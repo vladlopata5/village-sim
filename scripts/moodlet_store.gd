@@ -25,7 +25,14 @@ func find(query: Dictionary = {}) -> Array:
 	return result
 
 func add(record: Dictionary) -> bool:
-	if not _valid(record) or _entries.has(record.id): return false
+	var entry := prepare_add(record)
+	if entry.is_empty(): return false
+	_apply_event_add(entry)
+	changed.emit(entry.id)
+	return true
+
+func prepare_add(record: Dictionary) -> Dictionary:
+	if not _valid(record) or _entries.has(record.id): return {}
 	var entry := record.duplicate(true)
 	entry.owner = owner()
 	entry.target = entry.get("target")
@@ -33,9 +40,11 @@ func add(record: Dictionary) -> bool:
 	entry.context = entry.get("context", {})
 	entry.expires_at_minute = entry.get("expires_at_minute")
 	entry.modifiers = entry.get("modifiers", [])
-	_entries[entry.id] = entry
-	changed.emit(entry.id)
-	return true
+	return entry
+
+func _apply_event_add(prepared: Dictionary) -> void:
+	# Internal commit primitive; publish only after all event writes + metadata.
+	_entries[prepared.id] = prepared.duplicate(true)
 
 func is_active(entry_id: String, minute: int) -> bool:
 	if minute < 0 or not _entries.has(entry_id): return false

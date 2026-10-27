@@ -8,7 +8,8 @@ const EFFECT_FIELDS := {
 	"opinion.add": ["owner", "target", "amount"],
 	"skill.add_xp": ["owner", "skill", "amount"],
 	"moodlet.add": ["owner", "definition"],
-	"memory.add": ["owner", "kind", "target"]
+	"memory.add": ["owner", "kind"],
+	"none": []
 }
 var errors: Array = []
 var _by_trigger: Dictionary = {}
@@ -173,7 +174,7 @@ func _validate_definition(raw: Dictionary, base_names: Dictionary, facts: RefCou
 			if group_ids.has(group.id): errors.append(label + ": duplicate exclusive group")
 			group_ids[group.id] = true
 			if not _probability(group.get("chance", 1.0)): errors.append(label + ": invalid exclusive group chance")
-			_validate_descriptions(group.options, names, facts, label + "/" + group.id)
+			_validate_descriptions(group.options, names, facts, label + "/" + group.id, true)
 			for option in group.options:
 				if option is Dictionary and not _nonnegative(option.get("weight")): errors.append(label + ": exclusive option requires nonnegative weight")
 	if raw.has("secondary_diary"):
@@ -183,7 +184,7 @@ func _validate_definition(raw: Dictionary, base_names: Dictionary, facts: RefCou
 		elif not raw.get("text", {}) is Dictionary or not raw.text.get("diary_secondary") is String: errors.append(label + ": missing secondary diary template")
 	_validate_text(raw.get("text", {}), names, label)
 
-func _validate_descriptions(effects: Variant, names: Dictionary, facts: RefCounted, label: String) -> void:
+func _validate_descriptions(effects: Variant, names: Dictionary, facts: RefCounted, label: String, allow_none: bool = false) -> void:
 	if not effects is Array:
 		errors.append(label + ": effects must be array")
 		return
@@ -191,14 +192,18 @@ func _validate_descriptions(effects: Variant, names: Dictionary, facts: RefCount
 		if not effect is Dictionary or not EFFECT_FIELDS.has(effect.get("op", "")):
 			errors.append(label + ": unsupported effect description")
 			continue
+		if effect.op == "none" and not allow_none: errors.append(label + ": none is an exclusive option only")
+		if effect.op == "none":
+			for key in effect:
+				if key not in ["op", "chance", "weight"]: errors.append(label + ": none option cannot contain effect arguments")
 		for key in EFFECT_FIELDS[effect.op]:
 			if not effect.has(key): errors.append(label + ": missing effect field " + key)
-		for key in ["owner", "target", "amount", "duration_minutes", "salience", "skill"]:
+		for key in ["owner", "target", "amount", "duration_minutes", "expires_at_minute", "salience", "strength", "skill", "kind", "topic", "definition", "permanent"]:
 			if not effect.has(key): continue
 			var evaluator := Evaluator.new()
 			var type := evaluator.validate(effect[key], names, facts, errors, label + "/effects/" + key)
-			var expected := "entity" if key in ["owner", "target"] else "string" if key == "skill" else "number"
-			if type not in [expected, "any", "invalid"]: errors.append(label + ": incompatible effect field " + key)
+			var expected := "entity" if key in ["owner", "target"] else "string" if key in ["skill", "kind", "topic", "definition"] else "bool" if key == "permanent" else "number"
+			if type not in [expected, "any", "invalid"] and not (key in ["target", "expires_at_minute"] and type == "null"): errors.append(label + ": incompatible effect field " + key)
 		if not _probability(effect.get("chance", 1.0)): errors.append(label + ": invalid effect chance")
 		_validate_payload(effect, names, facts, label + "/effects")
 

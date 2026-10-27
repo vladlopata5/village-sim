@@ -76,6 +76,7 @@ func run(context: Dictionary, history: Dictionary = {}, diagnostic: bool = false
 	result.selected = chosen.definition
 	result.roles = chosen.match.env.role
 	result.bindings = chosen.match.env.binding
+	result.tables = chosen.match.env.catalog # Frozen tables for consequence expressions.
 	result.main = chosen.match.main
 	result.cooldown_key = chosen.match.cooldown_key
 	return _remember(token, result)

@@ -4,17 +4,81 @@
     {
       "schema_version": 1,
       "id": "personal.skill_progress",
-      "revision": 1,
+      "revision": 2,
       "enabled": true,
       "trigger": "skill.raised",
       "main_role": "actor",
       "roles": {
-        "actor": {"type": "resident", "from": "ctx.actor", "active_required": true}
+        "actor": {
+          "type": "resident",
+          "from": "ctx.actor",
+          "active_required": true
+        }
       },
-      "when": {"gt": [{"ctx": "payload.new_level"}, {"ctx": "payload.previous_level"}]},
+      "when": {
+        "gt": [
+          {
+            "ctx": "payload.new_level"
+          },
+          {
+            "ctx": "payload.previous_level"
+          }
+        ]
+      },
       "weight": 1,
       "diary_importance": 2,
-      "effects": [],
+      "effects": [
+        {
+          "op": "memory.add",
+          "owner": {
+            "role": "actor"
+          },
+          "kind": "skill_progress",
+          "topic": {
+            "ctx": "payload.skill"
+          },
+          "tags": [
+            "achievement",
+            "skill"
+          ],
+          "strength": 30,
+          "permanent": false,
+          "provenance": {
+            "kind": "experienced"
+          },
+          "context": {
+            "skill": {
+              "ctx": "payload.skill"
+            },
+            "previous_level": {
+              "ctx": "payload.previous_level"
+            },
+            "new_level": {
+              "ctx": "payload.new_level"
+            }
+          },
+          "chance": 0.6
+        },
+        {
+          "op": "moodlet.add",
+          "owner": {
+            "role": "actor"
+          },
+          "definition": "pride",
+          "tags": [
+            "achievement",
+            "skill"
+          ],
+          "duration_minutes": 120,
+          "context": {
+            "skill": {
+              "ctx": "payload.skill"
+            }
+          },
+          "modifiers": [],
+          "chance": 0.3
+        }
+      ],
       "text": {
         "diary_main": "{actor.name} замечает прогресс в навыке «{payload.skill_name}»: уровень {payload.previous_level} → {payload.new_level}."
       }

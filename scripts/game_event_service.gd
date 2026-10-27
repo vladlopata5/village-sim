@@ -1,10 +1,9 @@
 extends Node
-## First live adapter + diary-only completion. Selection remains in EventDryRun.
+## Live trigger adapter. Selection and atomic consequence execution stay separate.
 const Facts = preload("res://scripts/event_facts.gd")
 const Catalog = preload("res://scripts/event_catalog.gd")
 const DryRunner = preload("res://scripts/event_dry_run.gd")
-const TextRenderer = preload("res://scripts/event_text_renderer.gd")
-const Diary = preload("res://scripts/diary_entry.gd")
+const EffectExecutor = preload("res://scripts/event_effect_executor.gd")
 const Skill = preload("res://scripts/skill_type.gd")
 const Balance = preload("res://scripts/balance_config.gd")
 signal event_completed(result: Dictionary)
@@ -12,6 +11,7 @@ var enabled := true
 var facts := Facts.new()
 var catalog := Catalog.new()
 var selector := DryRunner.new(catalog, facts)
+var executor := EffectExecutor.new()
 var _control: RefCounted
 var _clock: Node
 var _active_guard: Callable
@@ -36,6 +36,7 @@ func setup(control: RefCounted, clock: Node, active_guard: Callable) -> void:
 	_control = control
 	_clock = clock
 	_active_guard = active_guard
+	executor.setup(_control, facts, _active)
 	if not _control.residents_changed.is_connected(_sync_residents): _control.residents_changed.connect(_sync_residents)
 	_sync_residents()
 
@@ -82,7 +83,9 @@ func _on_skill_raised(transition_id: int, skill: Skill.Type, previous_level: int
 		var token: String = item.context.occurrence_id
 		_outcomes[token] = result.duplicate(true)
 		_pending_ids.erase(token)
-		if result.status == "completed": event_completed.emit(result.duplicate(true))
+		if result.status == "completed":
+			executor.publish(token)
+			event_completed.emit(result.duplicate(true))
 	_draining = false
 
 func _process_occurrence(context: Dictionary, source: RefCounted) -> Dictionary:
@@ -91,29 +94,9 @@ func _process_occurrence(context: Dictionary, source: RefCounted) -> Dictionary:
 	facts.register_entity(context.actor, true)
 	var selection: Dictionary = selector.run(context, _history, true)
 	if selection.status != "selected": return {"status": selection.status}
-	var definition: Dictionary = selection.selected
-	if not definition.get("effects", []).is_empty() or not definition.get("exclusive_groups", []).is_empty() or definition.has("secondary_diary"):
-		return {"status": "unsupported_execution"}
-	var main: Variant = selection.main
-	if not Facts.is_ref(main) or main.kind != "resident": return {"status": "unsupported_main"}
-	var resident: RefCounted = _control.get_resident(main.id)
-	if resident == null or not _active(resident): return {"status": "inactive_main"}
-	var labels: Dictionary = {}
-	for value in selection.roles.values() + selection.bindings.values():
-		if not Facts.is_ref(value) or value.kind != "resident": continue
-		var person: RefCounted = _control.get_resident(value.id)
-		if person != null and _active(person): labels[Facts.ref_key(value)] = {"name": person.resident_name}
-	var rendered := TextRenderer.render_event(selection, context, labels)
-	if not rendered.ok: return {"status": "text_failed", "errors": rendered.errors}
-	var text: Variant = rendered.texts.get("diary_main")
-	if not text is String or text.strip_edges().is_empty(): return {"status": "text_failed"}
-	# Revalidate after selection and immediately before the sole world mutation.
-	if not _active(source) or not _active(resident): return {"status": "inactive_main"}
 	var minute: int = _clock.total_minutes
-	var importance: int = int(definition.get("diary_importance", Diary.Importance.KEY))
-	var entry := Diary.new(text, importance as Diary.Importance, minute)
-	if not resident.add_diary_entry(entry): return {"status": "diary_failed"}
-	var result := {"status": "completed", "occurrence_id": context.occurrence_id, "event_id": "event:" + context.occurrence_id, "definition_id": definition.id, "main": main, "minute": minute}
+	var result := executor.execute(selection, context, minute, source)
+	if result.status != "completed": return result
 	_completed[context.occurrence_id] = result.duplicate(true)
 	if not selection.cooldown_key.is_empty(): _history[selection.cooldown_key] = minute
 	return result
