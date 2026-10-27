@@ -79,6 +79,7 @@ func _ready() -> void:
 	social_events.setup(social_world, game_time, buildings)
 	add_child(game_events)
 	game_events.setup(player_control, game_time, _event_resident_active)
+	game_events.attach_social(social_events)
 	social_feed = preload("res://scripts/social_feed.gd").new()
 	social_feed.name = "SocialFeed"
 	$HUD.add_child(social_feed)
@@ -207,8 +208,8 @@ func get_resident_runtime(data: ResidentData) -> ResidentRuntime:
 
 func _event_resident_active(data: RefCounted) -> bool:
 	if player_control.get_resident(data.id) != data: return false
-	var runtime := get_resident_runtime(data)
-	return runtime != null and runtime.is_inside_tree() and not runtime.is_queued_for_deletion()
+	var runtime: Node = social_world.get_runtime(data.id)
+	return runtime != null and runtime.data == data and runtime.is_inside_tree() and not runtime.is_queued_for_deletion()
 
 func _update_selection() -> void:
 	if is_instance_valid(interaction_menu): interaction_menu.hide()

@@ -8,6 +8,7 @@ const Activity = preload("res://scripts/resident_activity.gd")
 const EventLog = preload("res://scripts/game_logger.gd")
 const TextRenderer = preload("res://scripts/event_text_renderer.gd")
 signal event_resolved(result: Event)
+signal interaction_committed(result: Event)
 signal feed_message(text: String)
 var enabled := true
 var rng: RefCounted = RandomNumberGenerator.new()
@@ -18,6 +19,10 @@ var logger: EventLog
 var world: Node
 var clock: Node
 var buildings: Array = []
+var _attempt_sequence := 0
+var _resolve_depth := 0
+var _publishing_commits := false
+var _committed: Array = []
 func _init() -> void:
 	rng.randomize()
 	narrative_rng.randomize()
@@ -92,9 +97,15 @@ func trigger(runtime: Node, context: Event.Context, location_id: StringName = &"
 	var pool := participant_pool(runtime, context, location_id)
 	if pool.is_empty(): return null
 	var other: Node = pool[rng.randi_range(0, pool.size() - 1)]
-	return resolve(runtime.data, other.data, context, presence(runtime).get("tags", []), presence(other).get("tags", []))
-func resolve(a: RefCounted, b: RefCounted, context: Event.Context, tags_a: Array = [], tags_b: Array = []) -> Event:
+	var first := presence(runtime)
+	var second := presence(other)
+	return resolve(runtime.data, other.data, context, first.get("tags", []), second.get("tags", []), location_id if not location_id.is_empty() else first.get("building_id", &""))
+func resolve(a: RefCounted, b: RefCounted, context: Event.Context, tags_a: Array = [], tags_b: Array = [], location_id: StringName = &"") -> Event:
 	if a == null or b == null or a.id == b.id: return null
+	_attempt_sequence += 1
+	var attempt := _attempt_sequence
+	var minute: int = clock.total_minutes if is_instance_valid(clock) else 0
+	_resolve_depth += 1
 	var result := Event.new()
 	result.context = context
 	result.resident_1_id = a.id
@@ -108,14 +119,47 @@ func resolve(a: RefCounted, b: RefCounted, context: Event.Context, tags_a: Array
 	result.reaction_2 = reaction(result.roll_2 + result.attitude_2_to_1)
 	result.opinion_delta_1 = delta(result.reaction_1)
 	result.opinion_delta_2 = delta(result.reaction_2)
+	var before_1: int = a.get_opinion(b.id)
+	var after_1 := clampi(before_1 + result.opinion_delta_1, Balance.OPINION_MIN, Balance.OPINION_MAX)
 	a.change_opinion(b.id, result.opinion_delta_1)
+	var before_2: int = b.get_opinion(a.id)
+	var after_2 := clampi(before_2 + result.opinion_delta_2, Balance.OPINION_MIN, Balance.OPINION_MAX)
 	b.change_opinion(a.id, result.opinion_delta_2)
+	result._participant_sources = [weakref(a), weakref(b)]
+	# Owned operation values are historical facts, not later callback-edited state.
+	result._confirmed_context = {
+		"occurrence_id": JSON.stringify(["social.resolved", attempt]),
+		"trigger": "social.resolved", "minute": minute,
+		"actor": {"kind": "resident", "id": a.id},
+		"other": {"kind": "resident", "id": b.id},
+		"payload": {
+			"interaction": Event.Context.keys()[context],
+			"reaction_1": Event.Reaction.keys()[result.reaction_1],
+			"reaction_2": Event.Reaction.keys()[result.reaction_2],
+			"opinion_delta_1": result.opinion_delta_1, "opinion_delta_2": result.opinion_delta_2,
+			"applied_delta_1": after_1 - before_1, "applied_delta_2": after_2 - before_2,
+			"opinion_before_1": before_1, "opinion_after_1": after_1,
+			"opinion_before_2": before_2, "opinion_after_2": after_2,
+			"attitude_1_to_2": result.attitude_1_to_2, "attitude_2_to_1": result.attitude_2_to_1,
+			"roll_1": result.roll_1, "roll_2": result.roll_2,
+			"location_id": String(location_id), "time_known": is_instance_valid(clock),
+			"tags_1": tags_a.duplicate(), "tags_2": tags_b.duplicate()
+		}
+	}
+	_committed.append(result)
 	var output := present(result, a, b, tags_a, tags_b)
 	if logger != null:
 		logger.info(EventLog.SOCIAL_EVENT, "context=%s A=%s B=%s | %s attitude=%d roll=%d reaction=%s delta=%+d | %s attitude=%d roll=%d reaction=%s delta=%+d | entry=%s" % [Event.Context.keys()[context], a.resident_name, b.resident_name, a.resident_name, result.attitude_1_to_2, result.roll_1, Event.Reaction.keys()[result.reaction_1], result.opinion_delta_1, b.resident_name, result.attitude_2_to_1, result.roll_2, Event.Reaction.keys()[result.reaction_2], result.opinion_delta_2, result.selected_entry_id if not result.selected_entry_id.is_empty() else "none"])
 		logger.debug(EventLog.SOCIAL, "context=%s A=%s B=%s; A attitude=%d roll=%d score=%d reaction=%s delta=%d; B attitude=%d roll=%d score=%d reaction=%s delta=%d; entry=%s feed=%d diary=%d" % [Event.Context.keys()[context], a.resident_name, b.resident_name, result.attitude_1_to_2, result.roll_1, result.attitude_1_to_2 + result.roll_1, Event.Reaction.keys()[result.reaction_1], result.opinion_delta_1, result.attitude_2_to_1, result.roll_2, result.attitude_2_to_1 + result.roll_2, Event.Reaction.keys()[result.reaction_2], result.opinion_delta_2, result.selected_entry_id if not result.selected_entry_id.is_empty() else "none", output.feed, output.diary])
 	event_resolved.emit(result)
+	_resolve_depth -= 1
+	_publish_commits()
 	return result
+func _publish_commits() -> void:
+	if _resolve_depth > 0 or _publishing_commits: return
+	_publishing_commits = true
+	while not _committed.is_empty(): interaction_committed.emit(_committed.pop_front())
+	_publishing_commits = false
 func matching_entries(result: Event, a: RefCounted, b: RefCounted, tags_a: Array, tags_b: Array) -> Array:
 	var matches: Array = []
 	for entry in entries:

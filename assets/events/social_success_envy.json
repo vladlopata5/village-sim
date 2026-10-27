@@ -1,0 +1,245 @@
+{
+  "schema_version": 1,
+  "definitions": [
+    {
+      "schema_version": 1,
+      "id": "social.success_envy",
+      "revision": 1,
+      "enabled": true,
+      "trigger": "social.resolved",
+      "main_role": "actor",
+      "roles": {
+        "actor": {
+          "type": "resident",
+          "from": "ctx.actor",
+          "active_required": true
+        },
+        "other": {
+          "type": "resident",
+          "from": "ctx.other",
+          "active_required": true,
+          "different_from": [
+            "actor"
+          ]
+        }
+      },
+      "bind": [
+        {
+          "as": "success",
+          "select": {
+            "from": {
+              "fact": [
+                {
+                  "role": "other"
+                },
+                "moodlets.active"
+              ]
+            },
+            "as": "candidate",
+            "where": {
+              "all": [
+                {
+                  "eq": [
+                    {
+                      "field": [
+                        {
+                          "local": "candidate"
+                        },
+                        "type"
+                      ]
+                    },
+                    "pride"
+                  ]
+                },
+                {
+                  "eq": [
+                    {
+                      "field": [
+                        {
+                          "field": [
+                            {
+                              "field": [
+                                {
+                                  "local": "candidate"
+                                },
+                                "context"
+                              ]
+                            },
+                            "_event"
+                          ]
+                        },
+                        "definition_id"
+                      ]
+                    },
+                    "personal.skill_progress"
+                  ]
+                },
+                {
+                  "lt": [
+                    {
+                      "fact": [
+                        {
+                          "role": "actor"
+                        },
+                        "skill.level",
+                        {
+                          "field": [
+                            {
+                              "field": [
+                                {
+                                  "local": "candidate"
+                                },
+                                "context"
+                              ]
+                            },
+                            "skill"
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "fact": [
+                        {
+                          "role": "other"
+                        },
+                        "skill.level",
+                        {
+                          "field": [
+                            {
+                              "field": [
+                                {
+                                  "local": "candidate"
+                                },
+                                "context"
+                              ]
+                            },
+                            "skill"
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            "take": 1,
+            "order_by": "id"
+          }
+        },
+        {
+          "as": "skill",
+          "value": {
+            "field": [
+              {
+                "field": [
+                  {
+                    "binding": "success"
+                  },
+                  "context"
+                ]
+              },
+              "skill"
+            ]
+          }
+        },
+        {
+          "as": "skill_name",
+          "value": {
+            "fact": [
+              {
+                "role": "other"
+              },
+              "skill.name",
+              {
+                "binding": "skill"
+              }
+            ]
+          }
+        }
+      ],
+      "when": {
+        "eq": [
+          {
+            "ctx": "payload.reaction_1"
+          },
+          "NEGATIVE"
+        ]
+      },
+      "weight": 1,
+      "diary_importance": 2,
+      "effects": [
+        {
+          "op": "memory.add",
+          "owner": {
+            "role": "actor"
+          },
+          "kind": "success_envy",
+          "topic": {
+            "binding": "skill"
+          },
+          "tags": [
+            "envy",
+            "negative",
+            "skill"
+          ],
+          "target": {
+            "role": "other"
+          },
+          "strength": 30,
+          "permanent": false,
+          "provenance": {
+            "kind": "experienced"
+          },
+          "context": {
+            "skill": {
+              "binding": "skill"
+            },
+            "pride_moodlet_id": {
+              "field": [
+                {
+                  "binding": "success"
+                },
+                "id"
+              ]
+            }
+          },
+          "chance": 0.6
+        },
+        {
+          "op": "moodlet.add",
+          "owner": {
+            "role": "actor"
+          },
+          "definition": "success_envy",
+          "tags": [
+            "envy",
+            "negative",
+            "skill"
+          ],
+          "target": {
+            "role": "other"
+          },
+          "context": {
+            "skill": {
+              "binding": "skill"
+            },
+            "pride_moodlet_id": {
+              "field": [
+                {
+                  "binding": "success"
+                },
+                "id"
+              ]
+            }
+          },
+          "duration_minutes": 120,
+          "modifiers": [],
+          "chance": 0.3
+        }
+      ],
+      "text": {
+        "diary_main": "{actor.name} испытывает зависть: {other.name} лучше владеет навыком «{skill_name}»."
+      }
+    }
+  ]
+}

@@ -505,3 +505,116 @@ permanent=false, topic из payload.skill и moodlet pride chance=0.3 на 120 �
 Автоматический быстрый тест — test_event_effects.gd; он включает реальное повышение
 навыка в canonical Main3D и не требует ручного ожидания. Также сохраняются тесты
 R2-B1/B2/B3/B4a и golden старых социальных историй.
+
+## R2-B5: социальный post-commit источник и факты пары
+
+Main подключает GameEventService.attach_social к одному SocialEventService на сессию
+мира. Общий источник для CONVERSATION/MEAL/WORK — новый interaction_committed после
+существующего resolve. Старые chance, participant_pool, реакции, обе записи отношений,
+present, Feed/Diary, logger и event_resolved сохраняют свои вызовы/порядок/RNG.
+Новый источник не подписан отдельно на нужды/работу/минуты разговора.
+
+При вложенном legacy resolve новые уведомления ждут окончания внешнего legacy вызова.
+Маленькая синхронная очередь SocialEventService публикует результаты в порядке
+завершённой механики, после прежних callbacks. Она не переносит решения на другой
+кадр и не заменяет FIFO GameEventService либо AI queue. Это не новая атомарность
+старых изменений отношений: их прежние сигналы и возможность reentry сохранены.
+
+### Подтверждённый контекст
+
+Каждая успешная resolve-попытка получает монотонный номер внутри SocialEventService.
+occurrence_id — JSON ["social.resolved", number]. Счётчик не зависит от RNG, пары или
+минуты и не сбрасывается set_seed; два первоначальных разговорных resolve имеют разные
+ID. GameEventService допускает один социальный producer в своей runtime-сессии.
+Между запусками/сохранениями ID пока не сохраняются.
+
+SocialEvent.confirmed_context() возвращает копию зафиксированных данных. Они отделены
+от прежних изменяемых полей представления/ориентации результата:
+
+- trigger="social.resolved", actor/other — две resident-ссылки; actor — инициатор
+  исходной legacy попытки, даже если текст старой истории использовал reverse.
+- minute — время попытки; payload.time_known отмечает наличие clock. Без clock
+  отдельный тестовый сервис использует 0 с time_known=false.
+- payload.interaction — CONVERSATION/MEAL/WORK; reaction_1/reaction_2 — NEGATIVE,
+  NEUTRAL или POSITIVE; attitude и оба roll — зафиксированные исходы legacy.
+- opinion_delta_1/2 — прежние запрошенные -1/0/+1; applied_delta_1/2 учитывают clamp.
+  opinion_before/after — значения собственного изменения, а не последующие правки
+  callbacks. Например, +1 при opinion=100 даёт applied_delta=0.
+- location_id — существующий ID места либо пустая строка; tags_1/2 — прежние теги
+  presence. Для разговора здание определяется теми же presence, без нового поиска.
+
+Event содержит только слабые ссылки на исходные ResidentData для проверки identity,
+не сохраняет runtime Node. При постановке/обработке проверяются обе исходные личности;
+удаление/повторная регистрация другого объекта с тем же ID не переадресуют старый факт.
+Синтетический present без подтверждённого resolve не является новым триггером.
+
+### Текущие read-only факты
+
+ResidentEventFacts создаёт временный EventFacts-снимок только этой пары непосредственно
+перед оценкой социального определения. Читает существующие ResidentData/stores; после
+попытки selector/executor возвращаются к прежнему базовому registry. Это не постоянный
+зеркальный кэш Memory/Moodlet/skills и не альтернативное хранилище жителей.
+
+| Fact | Тип / аргумент | Источник |
+|---|---|---|
+| traits | array строк enum, без аргумента | ResidentData.traits |
+| opinion | number, аргумент resident ref | get_opinion(target.id), направленно |
+| skill.level | number, аргумент string skill ID | get_skill_level |
+| skill.name | string, аргумент string skill ID | Skill.display_name |
+| moodlets.active | array records | MoodletStore.active(текущая игровая минута) |
+| memories | array records | MemoryStore.find() |
+
+Идентификаторы traits/skills — нижний регистр ключей enum (lazy, gathering,
+construction, logistics). Полученные значения — копии. Нет обхода поселения: две
+регистрации entity, их три навыка, состояния и направленные отношения. Activity guard
+Main теперь пользуется существующим SocialWorld.get_runtime по ID вместо перебора
+resident_runtimes. Старый participant_pool по-прежнему выбирает собеседников прежним
+способом; его поведение не оптимизировалось.
+
+Подтверждённый payload никогда не перезаписывается текущими фактами. Если после
+opinion=-1 callback изменил его на 20, payload.opinion_after_1 остаётся -1, а fact
+opinion возвращает 20. Facts ограничены прежними техническими бюджетами R2-B1:
+превышение MAX_COLLECTION даёт Unknown/отказ условия, а не усечение до части записей
+или новый игровой лимит памяти. Автоматического забывания/лимитов stores нет.
+
+### social.success_envy
+
+assets/events/social_success_envy.json содержит одно включённое определение с
+main_role=actor и weight=1. JSON требует отрицательную reaction_1, выбирает из
+moodlets.active второго жителя один pride со source definition personal.skill_progress
+и сравнивает уровни ровно context.skill этого мудлета. Первый подходящий binding
+выбирается детерминированно по ID, без дополнительных tickets на каждую память,
+гордость или ориентацию. Имена навыков также читаются через общий fact.
+
+Результат: обязательный Diary; независимо 60% memory success_envy (strength=30,
+permanent=false, topic=этот skill, target=собеседник) и 30% moodlet success_envy на
+120 игровых минут, modifiers=[]. context сохраняет skill и ID причинного pride;
+source_occurrence_id/context._event добавляет прежний исполнитель R2-B4b.
+Успешная/нейтральная реакция, отсутствие подходящей активной pride или не меньший
+уровень этого навыка не создают историю. Чужой высокий навык без соответствующей
+гордости не подставляется случайно.
+
+SOCIAL_FOLLOWUP_EVENT_CHANCE=0.30 в BalanceConfig — отдельный тестовый шанс после
+подтверждённого legacy результата, не замена старых 30%/100%/50%. Тесты могут поставить
+selector.set_chance("social.resolved",1). Используются существующие собственные
+selector/executor RNG универсальной системы, не legacy rng/narrative_rng. В production
+JSON не навязан новый cooldown; его прежний необязательный формат работает и проверен.
+
+Первое определение описывает зависть инициатора. Возможность сделать вторую сторону
+главной проверена отдельной JSON-конфигурацией с main_role=other/reaction_2, без
+автоматического удвоения определений/весов в игре.
+
+Исполнитель, prepare/commit/publish, независимые эффекты и дедупликация R2-B4b не
+менялись. Legacy отношения уже применены и не откатываются при отсутствии/отказе
+дополнительной истории. Вложенные результаты/повторы не обходят completed/cooldown.
+Навыки, AI, выбор собеседников, старая социальная формула и Diary 20% не менялись.
+
+Живой bootstrap объединяет два JSON-файла в существующий EventCatalog; именованные
+catalogs можно задавать явно, одинаковые имена таблиц отклоняются. Повреждённый JSON,
+неверный корень и конфликты таблиц диагностируются, а не пропускаются молча. Старые
+dry-run fixture и их загрузка через EventCatalog остаются прежними.
+
+Автопроверка: test_social_game_events.gd. Есть реальные ResidentSocialController,
+meal_begun и Builder.work_cycle_started, плюс 30 seeded взаимодействий при включённом
+и выключенном новом канале: совпадают реакции, отношения, Feed, старые Diary и оба
+legacy RNG state. Golden R2-B2 двенадцати историй не пересоздаётся.

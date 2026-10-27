@@ -6013,3 +6013,24 @@ personal.skill_progress revision 2 сохраняет обязательный �
 60% Memory (strength 30, не permanent) и независимые 30% pride Moodlet на 120 минут.
 Это первоначальные тестовые значения. Старые 12 социальных историй, реакции и RNG
 сохранены. Полные контракты, RNG-порядок и границы: docs/EVENT_SYSTEM.md.
+
+## R2-B5 — единый post-commit адаптер социальных результатов (2026-10-27)
+
+SocialEventService добавляет interaction_committed после прежнего resolve/present/
+logger/event_resolved. Вложенные legacy вызовы завершаются до новой публикации;
+старые сигналы отношений, chance и RNG не переставлены. Попытка имеет собственный
+монотонный runtime ID, а SocialEvent хранит копируемый подтверждённый контекст и слабые
+identity refs двух исходных жителей. Две первоначальные попытки пары не сливаются.
+
+GameEventService использует прежние selector/executor/FIFO, получая текущие факты
+только двух участников через временный ResidentEventFacts. Постоянного зеркала
+traits/opinions/skills/stores нет; подтверждённые реакции отличаются от текущего
+состояния. Проверка runtime использует существующий индекс SocialWorld. Ни EventEngine,
+ни исполнитель не получили специальных обработчиков зависти.
+
+Включена одна JSON social.success_envy: negative главного, active pride собеседника
+от skill_progress и меньший уровень того же навыка. Diary обязателен; 60% Memory
+(strength 30, не permanent) и независимые 30% envy Moodlet на 120 минут. Все параметры
+в JSON; новых модификаторов/изменений отношений нет. SOCIAL_FOLLOWUP_EVENT_CHANCE=0.30
+задаёт отдельный тестовый шанс после legacy результата. Старые 30%/100%/50%, двенадцать
+историй и их Diary 20% сохранены. Подробные контракты: docs/EVENT_SYSTEM.md.

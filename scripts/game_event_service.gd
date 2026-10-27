@@ -6,6 +6,7 @@ const DryRunner = preload("res://scripts/event_dry_run.gd")
 const EffectExecutor = preload("res://scripts/event_effect_executor.gd")
 const Skill = preload("res://scripts/skill_type.gd")
 const Balance = preload("res://scripts/balance_config.gd")
+const ResidentFacts = preload("res://scripts/resident_event_facts.gd")
 signal event_completed(result: Dictionary)
 var enabled := true
 var facts := Facts.new()
@@ -25,11 +26,35 @@ var _outcomes: Dictionary = {}
 var _completed: Dictionary = {}
 var _history: Dictionary = {}
 var _last_occurrence: Dictionary = {}
+var _social_source: Node
 
 func _init() -> void:
 	selector.rng.randomize() # Own stream; never consumes social or resident RNG.
 	selector.set_chance("skill.raised", Balance.SKILL_RAISED_EVENT_CHANCE)
-	if not catalog.load_file("res://assets/events/skill_progress.json", facts): push_error(str(catalog.errors))
+	selector.set_chance("social.resolved", Balance.SOCIAL_FOLLOWUP_EVENT_CHANCE)
+	# Schemas for validation only. Live values are short-lived pair snapshots.
+	var schema := ResidentFacts.snapshot_schema()
+	for key in schema: facts.register_fact(key, "resident", schema[key][0], schema[key][1])
+	_load_catalogs()
+
+func _load_catalogs() -> void:
+	var combined := {"schema_version": 1, "definitions": [], "catalogs": {}}
+	for path in ["res://assets/events/skill_progress.json", "res://assets/events/social_success_envy.json"]:
+		var parser := JSON.new()
+		if parser.parse(FileAccess.get_file_as_string(path)) != OK:
+			push_error(path + ": " + parser.get_error_message())
+			return
+		var root: Variant = parser.data
+		if not root is Dictionary or root.get("schema_version", 1) != 1 or not root.get("definitions") is Array or not root.get("catalogs", {}) is Dictionary:
+			push_error(path + ": invalid event catalog root")
+			return
+		combined.definitions.append_array(root.definitions)
+		for key in root.get("catalogs", {}):
+			if combined.catalogs.has(key):
+				push_error(path + ": duplicate catalog table " + str(key))
+				return
+			combined.catalogs[key] = root.catalogs[key]
+	if not catalog.load_data(combined, facts): push_error(str(catalog.errors))
 
 func setup(control: RefCounted, clock: Node, active_guard: Callable) -> void:
 	assert(_control == null or _control == control, "Event service belongs to one world")
@@ -41,7 +66,19 @@ func setup(control: RefCounted, clock: Node, active_guard: Callable) -> void:
 	_sync_residents()
 
 func _active(data: RefCounted) -> bool:
-	return is_inside_tree() and not is_queued_for_deletion() and _control != null and _control.get_resident(data.id) == data and _active_guard.is_valid() and _active_guard.call(data)
+	return data != null and is_inside_tree() and not is_queued_for_deletion() and _control != null and _control.get_resident(data.id) == data and _active_guard.is_valid() and _active_guard.call(data)
+
+func attach_social(source: Node) -> void:
+	assert(_social_source == null or _social_source == source, "One social producer per event-service session")
+	_social_source = source
+	if not source.interaction_committed.is_connected(_on_social_committed): source.interaction_committed.connect(_on_social_committed)
+
+func _on_social_committed(result: RefCounted) -> void:
+	var context: Dictionary = result.confirmed_context()
+	if context.is_empty(): return # Presenting a synthetic/legacy result is not a trigger.
+	var first: RefCounted = _control.get_resident(context.actor.id)
+	var second: RefCounted = _control.get_resident(context.other.id)
+	_enqueue(context, first if result.has_participants(first, second) else null, second)
 
 func _sync_residents() -> void:
 	for id in _tracked.keys():
@@ -72,14 +109,19 @@ func _on_skill_raised(transition_id: int, skill: Skill.Type, previous_level: int
 	var id := JSON.stringify(["skill.raised", data.id, row.generation, transition_id])
 	if _outcomes.has(id) or _pending_ids.has(id): return
 	var context := {"occurrence_id": id, "trigger": "skill.raised", "minute": _clock.total_minutes, "actor": {"kind": "resident", "id": data.id}, "payload": {"skill": Skill.Type.keys()[skill].to_lower(), "skill_name": Skill.display_name(skill), "previous_level": previous_level, "new_level": new_level}}
+	_enqueue(context, data)
+
+func _enqueue(context: Dictionary, source: RefCounted, other: RefCounted = null) -> void:
+	var id: String = context.occurrence_id
+	if _outcomes.has(id) or _pending_ids.has(id): return
 	_last_occurrence = context.duplicate(true)
 	_pending_ids[id] = true
-	_queue.append({"context": context, "source": data})
+	_queue.append({"context": context, "source": source, "other": other})
 	if _draining: return
 	_draining = true
 	while not _queue.is_empty():
 		var item: Dictionary = _queue.pop_front()
-		var result := _process_occurrence(item.context, item.source)
+		var result := _process_occurrence(item.context, item.source, item.other)
 		var token: String = item.context.occurrence_id
 		_outcomes[token] = result.duplicate(true)
 		_pending_ids.erase(token)
@@ -88,10 +130,23 @@ func _on_skill_raised(transition_id: int, skill: Skill.Type, previous_level: int
 			event_completed.emit(result.duplicate(true))
 	_draining = false
 
-func _process_occurrence(context: Dictionary, source: RefCounted) -> Dictionary:
+func _process_occurrence(context: Dictionary, source: RefCounted, expected_other: RefCounted = null) -> Dictionary:
 	if not enabled: return {"status": "disabled"}
 	if not _active(source): return {"status": "inactive_source"}
 	facts.register_entity(context.actor, true)
+	var evaluation_facts: RefCounted = facts
+	if context.trigger == "social.resolved":
+		var second: RefCounted = _control.get_resident(context.other.id)
+		if second != expected_other or not _active(second): return {"status": "inactive_social_pair"}
+		evaluation_facts = ResidentFacts.snapshot(source, second, _clock.total_minutes)
+	selector.facts = evaluation_facts
+	executor.setup(_control, evaluation_facts, _active)
+	var result := _select_and_commit(context, source)
+	selector.facts = facts
+	executor.setup(_control, facts, _active)
+	return result
+
+func _select_and_commit(context: Dictionary, source: RefCounted) -> Dictionary:
 	var selection: Dictionary = selector.run(context, _history, true)
 	if selection.status != "selected": return {"status": selection.status}
 	var minute: int = _clock.total_minutes
@@ -113,6 +168,7 @@ func completed_events() -> Dictionary: return _completed.duplicate(true)
 func cooldown_history() -> Dictionary: return _history.duplicate(true)
 
 func _exit_tree() -> void:
+	if is_instance_valid(_social_source) and _social_source.interaction_committed.is_connected(_on_social_committed): _social_source.interaction_committed.disconnect(_on_social_committed)
 	for row in _tracked.values():
 		if row.data.skill_raised.is_connected(row.callback): row.data.skill_raised.disconnect(row.callback)
 	_tracked.clear()
