@@ -618,3 +618,73 @@ dry-run fixture и их загрузка через EventCatalog остаютс�
 meal_begun и Builder.work_cycle_started, плюс 30 seeded взаимодействий при включённом
 и выключенном новом канале: совпадают реакции, отношения, Feed, старые Diary и оба
 legacy RNG state. Golden R2-B2 двенадцати историй не пересоздаётся.
+
+## R2-B6: шесть историй как контент
+
+assets/events/catalog_expansion.json добавляет шесть enabled definitions. После
+объединения файлов — восемь определений: шесть social.resolved и два skill.raised.
+interaction_committed остаётся прежним сигналом-источником social.resolved; нового
+триггера/алиаса не вводилось. Единственное runtime GDScript-изменение — подключение
+файла к прежнему загрузчику. EventEngine/Expression/FactProvider/executor не расширялись.
+
+| ID | Условия | Результат | Локальный cooldown |
+|---|---|---|---:|
+| social.success_admiration | Positive инициатора, active pride собеседника от реального повышения | Diary; 40% admiration Moodlet на 120 минут | 240 минут |
+| social.warm_sympathy | Positive обоих участников | Главный Diary у other; 20% отдельный Diary инициатора, без механики | 240 минут |
+| social.rough_conversation | CONVERSATION и negative обоих | Diary; 60% negative Memory о собеседнике, strength 30 | 120 минут |
+| social.old_grudge | Negative инициатора; прежняя firsthand negative Memory о собеседнике, strength>0 и created_minute<ctx.minute | Только Diary, без усиления и нового отношения | 480 минут |
+| social.character_contrast | CONVERSATION; neutral инициатора; actor sociable, other introverted | Только Diary | 240 минут |
+| personal.skill_progress_advanced | Подтверждённое повышение и new_level>=params.minimum_level (3) | Diary; pride на 120 минут (chance=1), без дополнительной Memory | Не нужен: новое подтверждённое повышение — отдельная возможность |
+
+Все веса =1, численные параметры — первоначальный тестовый баланс JSON. Социальные
+cooldown направлены: scope=[actor,other]. Это не общий запрет событий для неупорядоченной
+пары; обратная legacy попытка остаётся самостоятельной. Глобальные шансы BalanceConfig,
+старые 30%/100%/50% и дополнительный SOCIAL_FOLLOWUP_EVENT_CHANCE не изменены.
+
+Симпатия намеренно имеет main_role=other и отдельный текст secondary_diary для actor.
+Различия характеров опираются на существующие SOCIABLE/INTROVERTED, не создают черт
+и не меняют их. Обе narrative-only истории и старая обида не имеют механических
+последствий; необходимость существующей памяти сама меняет набор подходящих историй.
+Старая обида не использует слух как подтверждение личной обиды и не считает память
+текущей минуты «старой». Разные подходящие воспоминания дают один ticket определения.
+
+Уровневая история конкурирует с personal.skill_progress при достижении уровня 3+
+в прежнем weighted choice. Один факт повышения не запускает обе истории. Pride от
+новой истории содержит тот же фактический payload.skill, поэтому существующая
+social.success_envy revision 2 и новое восхищение принимают оба известных источника
+pride: personal.skill_progress и personal.skill_progress_advanced. Это изменение
+JSON-условия происхождения; специальный обработчик/новый факт не понадобился.
+Восхищение не требует, чтобы уровень самого наблюдателя был ниже — оно не является
+замаскированной завистью. Навык во всех success bindings берётся из выбранного pride.
+
+### Проверка универсальности и ограничения
+
+Все шесть сценариев целиком выражены прежними JSON when/bind/fact/exists/has_tag,
+params, ролями, весами, cooldown, текстами и двумя разрешёнными effects. Добавлений
+к AST, исполнения новых операций, вычислителей отношений или модификаторов нет.
+Старая обида — пример влияния памяти на выбор истории, не на AI/поведение/отношение.
+Автоматического забывания и неявного reinforcement по-прежнему нет.
+
+Для unary skill.raised достаточно payload.new_level/previous_level/skill_name/skill;
+общие текущие resident facts к нему не подключались. Для будущих unary условий по
+traits/memories потребуется отдельная интеграция фактов, но этим шести историям она
+не нужна. Существующие Unknown/бюджеты коллекций/детерминированный первый binding
+сохраняются. Текущие истории не требуют операций над несуществующими данными.
+
+### Регрессии
+
+TestEventCatalogContent использует production-каталог и проверяет каждый definition
+на положительных/отрицательных состояниях, конкуренцию между новыми и со старыми
+историями, точный уровень/причину pride, secondary Diary, optional effects, local
+cooldown, dedup и 27 сочетаний context/reactions/skills/traits/memory. Реальная цепочка
+SocialEventService → negative Memory → old_grudge и ResidentSocialController с двумя
+исходными попытками проверяются без синтетического trigger-контекста.
+
+Старые fixtures R2-B3/B4b/B5 теперь явно выбирают их исторические один/два определения:
+их исходные проверки механики не должны зависеть от добавленной конкуренции контента.
+Golden R2-B2 не пересоздаётся; его runtime-часть отключает только новый follow-up шанс,
+чтобы сравнивать чистое legacy представление с прежним эталоном. Отдельный тест полного
+включённого/выключенного каталога снимает legacy Diary именно в event_resolved до
+универсальной публикации, без фильтрации по текстам. Тридцать seeded взаимодействий
+дают те же реакции, отношения, Feed, старые Diary и оба legacy RNG state, даже когда
+новые истории действительно выполняются. Никакая старая проверка не удалена.

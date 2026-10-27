@@ -44,6 +44,9 @@ func fixture(people: Array = []) -> Dictionary:
 	var service := Service.new()
 	root.add_child(service)
 	service.setup(control, clock, func(person): return not person.id.begins_with("inactive"))
+	# This fixture tests the original single-definition R2-B3/B4b contract.
+	# Full-catalog competition is exercised separately by test_event_catalog_content.
+	service.catalog.load_data({"definitions": service.catalog.definitions_for("skill.raised").filter(func(definition): return definition.id == "personal.skill_progress")}, service.facts)
 	var rng := CountingRng.new()
 	service.selector.rng = rng
 	return {"control": control, "clock": clock, "service": service, "rng": rng, "a": people[0], "b": people.back()}

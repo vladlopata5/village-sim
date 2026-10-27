@@ -1,0 +1,673 @@
+{
+  "schema_version": 1,
+  "definitions": [
+    {
+      "schema_version": 1,
+      "id": "social.success_admiration",
+      "revision": 1,
+      "enabled": true,
+      "trigger": "social.resolved",
+      "main_role": "actor",
+      "roles": {
+        "actor": {
+          "type": "resident",
+          "from": "ctx.actor",
+          "active_required": true
+        },
+        "other": {
+          "type": "resident",
+          "from": "ctx.other",
+          "active_required": true,
+          "different_from": [
+            "actor"
+          ]
+        }
+      },
+      "when": {
+        "eq": [
+          {
+            "ctx": "payload.reaction_1"
+          },
+          "POSITIVE"
+        ]
+      },
+      "weight": 1,
+      "diary_importance": 2,
+      "cooldown": {
+        "minutes": 240,
+        "scope": [
+          {
+            "role": "actor"
+          },
+          {
+            "role": "other"
+          }
+        ]
+      },
+      "effects": [
+        {
+          "op": "moodlet.add",
+          "owner": {
+            "role": "actor"
+          },
+          "definition": "admiration",
+          "tags": [
+            "positive",
+            "social",
+            "skill"
+          ],
+          "target": {
+            "role": "other"
+          },
+          "duration_minutes": 120,
+          "context": {
+            "skill": {
+              "binding": "skill"
+            },
+            "pride_moodlet_id": {
+              "field": [
+                {
+                  "binding": "success"
+                },
+                "id"
+              ]
+            }
+          },
+          "modifiers": [],
+          "chance": 0.4
+        }
+      ],
+      "text": {
+        "diary_main": "{actor.name}: «{other.name} — вот пример успеха в навыке „{skill_name}“!»"
+      },
+      "bind": [
+        {
+          "as": "success",
+          "select": {
+            "from": {
+              "fact": [
+                {
+                  "role": "other"
+                },
+                "moodlets.active"
+              ]
+            },
+            "as": "candidate",
+            "where": {
+              "all": [
+                {
+                  "eq": [
+                    {
+                      "field": [
+                        {
+                          "local": "candidate"
+                        },
+                        "type"
+                      ]
+                    },
+                    "pride"
+                  ]
+                },
+                {
+                  "any": [
+                    {
+                      "eq": [
+                        {
+                          "field": [
+                            {
+                              "field": [
+                                {
+                                  "field": [
+                                    {
+                                      "local": "candidate"
+                                    },
+                                    "context"
+                                  ]
+                                },
+                                "_event"
+                              ]
+                            },
+                            "definition_id"
+                          ]
+                        },
+                        "personal.skill_progress"
+                      ]
+                    },
+                    {
+                      "eq": [
+                        {
+                          "field": [
+                            {
+                              "field": [
+                                {
+                                  "field": [
+                                    {
+                                      "local": "candidate"
+                                    },
+                                    "context"
+                                  ]
+                                },
+                                "_event"
+                              ]
+                            },
+                            "definition_id"
+                          ]
+                        },
+                        "personal.skill_progress_advanced"
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            "take": 1,
+            "order_by": "id"
+          }
+        },
+        {
+          "as": "skill",
+          "value": {
+            "field": [
+              {
+                "field": [
+                  {
+                    "binding": "success"
+                  },
+                  "context"
+                ]
+              },
+              "skill"
+            ]
+          }
+        },
+        {
+          "as": "skill_name",
+          "value": {
+            "fact": [
+              {
+                "role": "other"
+              },
+              "skill.name",
+              {
+                "binding": "skill"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "id": "social.warm_sympathy",
+      "revision": 1,
+      "enabled": true,
+      "trigger": "social.resolved",
+      "main_role": "other",
+      "roles": {
+        "actor": {
+          "type": "resident",
+          "from": "ctx.actor",
+          "active_required": true
+        },
+        "other": {
+          "type": "resident",
+          "from": "ctx.other",
+          "active_required": true,
+          "different_from": [
+            "actor"
+          ]
+        }
+      },
+      "when": {
+        "all": [
+          {
+            "eq": [
+              {
+                "ctx": "payload.reaction_1"
+              },
+              "POSITIVE"
+            ]
+          },
+          {
+            "eq": [
+              {
+                "ctx": "payload.reaction_2"
+              },
+              "POSITIVE"
+            ]
+          }
+        ]
+      },
+      "weight": 1,
+      "diary_importance": 2,
+      "cooldown": {
+        "minutes": 240,
+        "scope": [
+          {
+            "role": "actor"
+          },
+          {
+            "role": "other"
+          }
+        ]
+      },
+      "effects": [],
+      "text": {
+        "diary_main": "{other.name}: «{actor.name} — с этим человеком общаться приятно. Кажется, чувство взаимно».",
+        "diary_secondary": "{actor.name}: «{other.name} — приятная компания. Мы хорошо поладили»."
+      },
+      "secondary_diary": {
+        "role": "actor",
+        "chance": 0.2
+      }
+    },
+    {
+      "schema_version": 1,
+      "id": "social.rough_conversation",
+      "revision": 1,
+      "enabled": true,
+      "trigger": "social.resolved",
+      "main_role": "actor",
+      "roles": {
+        "actor": {
+          "type": "resident",
+          "from": "ctx.actor",
+          "active_required": true
+        },
+        "other": {
+          "type": "resident",
+          "from": "ctx.other",
+          "active_required": true,
+          "different_from": [
+            "actor"
+          ]
+        }
+      },
+      "when": {
+        "all": [
+          {
+            "eq": [
+              {
+                "ctx": "payload.interaction"
+              },
+              "CONVERSATION"
+            ]
+          },
+          {
+            "eq": [
+              {
+                "ctx": "payload.reaction_1"
+              },
+              "NEGATIVE"
+            ]
+          },
+          {
+            "eq": [
+              {
+                "ctx": "payload.reaction_2"
+              },
+              "NEGATIVE"
+            ]
+          }
+        ]
+      },
+      "weight": 1,
+      "diary_importance": 2,
+      "cooldown": {
+        "minutes": 120,
+        "scope": [
+          {
+            "role": "actor"
+          },
+          {
+            "role": "other"
+          }
+        ]
+      },
+      "effects": [
+        {
+          "op": "memory.add",
+          "owner": {
+            "role": "actor"
+          },
+          "kind": "unpleasant_interaction",
+          "topic": "conversation",
+          "tags": [
+            "negative",
+            "social",
+            "grudge"
+          ],
+          "target": {
+            "role": "other"
+          },
+          "strength": 30,
+          "permanent": false,
+          "provenance": {
+            "kind": "experienced"
+          },
+          "context": {
+            "interaction": {
+              "ctx": "payload.interaction"
+            }
+          },
+          "chance": 0.6
+        }
+      ],
+      "text": {
+        "diary_main": "{actor.name}: «{other.name} — этот разговор явно не задался. Кажется, раздражение было взаимным»."
+      }
+    },
+    {
+      "schema_version": 1,
+      "id": "social.old_grudge",
+      "revision": 1,
+      "enabled": true,
+      "trigger": "social.resolved",
+      "main_role": "actor",
+      "roles": {
+        "actor": {
+          "type": "resident",
+          "from": "ctx.actor",
+          "active_required": true
+        },
+        "other": {
+          "type": "resident",
+          "from": "ctx.other",
+          "active_required": true,
+          "different_from": [
+            "actor"
+          ]
+        }
+      },
+      "when": {
+        "eq": [
+          {
+            "ctx": "payload.reaction_1"
+          },
+          "NEGATIVE"
+        ]
+      },
+      "weight": 1,
+      "diary_importance": 2,
+      "cooldown": {
+        "minutes": 480,
+        "scope": [
+          {
+            "role": "actor"
+          },
+          {
+            "role": "other"
+          }
+        ]
+      },
+      "effects": [],
+      "text": {
+        "diary_main": "{actor.name}: «{other.name} — прежняя неприятная история снова вспомнилась после этого общения»."
+      },
+      "bind": [
+        {
+          "as": "grievance",
+          "select": {
+            "from": {
+              "fact": [
+                {
+                  "role": "actor"
+                },
+                "memories"
+              ]
+            },
+            "as": "candidate",
+            "where": {
+              "all": [
+                {
+                  "has_tag": [
+                    {
+                      "local": "candidate"
+                    },
+                    "negative"
+                  ]
+                },
+                {
+                  "eq": [
+                    {
+                      "field": [
+                        {
+                          "local": "candidate"
+                        },
+                        "target"
+                      ]
+                    },
+                    {
+                      "role": "other"
+                    }
+                  ]
+                },
+                {
+                  "gt": [
+                    {
+                      "field": [
+                        {
+                          "local": "candidate"
+                        },
+                        "strength"
+                      ]
+                    },
+                    0
+                  ]
+                },
+                {
+                  "eq": [
+                    {
+                      "field": [
+                        {
+                          "field": [
+                            {
+                              "local": "candidate"
+                            },
+                            "provenance"
+                          ]
+                        },
+                        "kind"
+                      ]
+                    },
+                    "experienced"
+                  ]
+                },
+                {
+                  "lt": [
+                    {
+                      "field": [
+                        {
+                          "local": "candidate"
+                        },
+                        "created_minute"
+                      ]
+                    },
+                    {
+                      "ctx": "minute"
+                    }
+                  ]
+                }
+              ]
+            },
+            "take": 1,
+            "order_by": "id"
+          }
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "id": "social.character_contrast",
+      "revision": 1,
+      "enabled": true,
+      "trigger": "social.resolved",
+      "main_role": "actor",
+      "roles": {
+        "actor": {
+          "type": "resident",
+          "from": "ctx.actor",
+          "active_required": true
+        },
+        "other": {
+          "type": "resident",
+          "from": "ctx.other",
+          "active_required": true,
+          "different_from": [
+            "actor"
+          ]
+        }
+      },
+      "when": {
+        "all": [
+          {
+            "eq": [
+              {
+                "ctx": "payload.interaction"
+              },
+              "CONVERSATION"
+            ]
+          },
+          {
+            "eq": [
+              {
+                "ctx": "payload.reaction_1"
+              },
+              "NEUTRAL"
+            ]
+          },
+          {
+            "exists": {
+              "from": {
+                "fact": [
+                  {
+                    "role": "actor"
+                  },
+                  "traits"
+                ]
+              },
+              "as": "candidate",
+              "where": {
+                "eq": [
+                  {
+                    "local": "candidate"
+                  },
+                  "sociable"
+                ]
+              }
+            }
+          },
+          {
+            "exists": {
+              "from": {
+                "fact": [
+                  {
+                    "role": "other"
+                  },
+                  "traits"
+                ]
+              },
+              "as": "candidate",
+              "where": {
+                "eq": [
+                  {
+                    "local": "candidate"
+                  },
+                  "introverted"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "weight": 1,
+      "diary_importance": 2,
+      "cooldown": {
+        "minutes": 240,
+        "scope": [
+          {
+            "role": "actor"
+          },
+          {
+            "role": "other"
+          }
+        ]
+      },
+      "effects": [],
+      "text": {
+        "diary_main": "{actor.name}: «Мне приятно искать компанию. {other.name} — человек более замкнутый; похоже, у нас разные привычки в общении»."
+      }
+    },
+    {
+      "schema_version": 1,
+      "id": "personal.skill_progress_advanced",
+      "revision": 1,
+      "enabled": true,
+      "trigger": "skill.raised",
+      "main_role": "actor",
+      "roles": {
+        "actor": {
+          "type": "resident",
+          "from": "ctx.actor",
+          "active_required": true
+        }
+      },
+      "params": {
+        "minimum_level": 3
+      },
+      "when": {
+        "all": [
+          {
+            "gt": [
+              {
+                "ctx": "payload.new_level"
+              },
+              {
+                "ctx": "payload.previous_level"
+              }
+            ]
+          },
+          {
+            "gte": [
+              {
+                "ctx": "payload.new_level"
+              },
+              {
+                "param": "minimum_level"
+              }
+            ]
+          }
+        ]
+      },
+      "weight": 1,
+      "diary_importance": 2,
+      "effects": [
+        {
+          "op": "moodlet.add",
+          "owner": {
+            "role": "actor"
+          },
+          "definition": "pride",
+          "tags": [
+            "achievement",
+            "skill"
+          ],
+          "duration_minutes": 120,
+          "context": {
+            "skill": {
+              "ctx": "payload.skill"
+            },
+            "new_level": {
+              "ctx": "payload.new_level"
+            }
+          },
+          "modifiers": [],
+          "chance": 1
+        }
+      ],
+      "text": {
+        "diary_main": "{actor.name} гордится достижением: навык «{payload.skill_name}» вырос до уровня {payload.new_level}."
+      }
+    }
+  ]
+}

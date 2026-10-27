@@ -31,6 +31,12 @@ func fixture(people: Array = []) -> Dictionary:
 	var clock := Clock.new(); root.add_child(clock); clock.set_process(false); clock.total_minutes = 635
 	var service := Service.new(); root.add_child(service)
 	service.setup(control, clock, func(person): return not person.id.begins_with("inactive"))
+	# Keep the R2-B5 regression's controlled two-definition catalog. New content
+	# competes in production and in test_event_catalog_content, not in this fixture.
+	var historical: Array = []
+	for trigger in ["skill.raised", "social.resolved"]:
+		historical.append_array(service.catalog.definitions_for(trigger).filter(func(definition): return definition.id in ["personal.skill_progress", "social.success_envy"]))
+	service.catalog.load_data({"definitions": historical}, service.facts)
 	service.selector.set_chance("social.resolved", 1)
 	service.selector.rng = CountingRng.new(); service.executor.rng = SequenceRng.new()
 	var social := SocialService.new(); root.add_child(social); social.clock = clock; social.entries = []; social.rng = LegacyRng.new()

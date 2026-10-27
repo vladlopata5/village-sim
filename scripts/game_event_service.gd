@@ -39,7 +39,7 @@ func _init() -> void:
 
 func _load_catalogs() -> void:
 	var combined := {"schema_version": 1, "definitions": [], "catalogs": {}}
-	for path in ["res://assets/events/skill_progress.json", "res://assets/events/social_success_envy.json"]:
+	for path in ["res://assets/events/skill_progress.json", "res://assets/events/social_success_envy.json", "res://assets/events/catalog_expansion.json"]:
 		var parser := JSON.new()
 		if parser.parse(FileAccess.get_file_as_string(path)) != OK:
 			push_error(path + ": " + parser.get_error_message())

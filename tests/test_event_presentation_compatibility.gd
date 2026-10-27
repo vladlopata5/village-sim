@@ -165,6 +165,9 @@ func seeded_trace(seed_value: int) -> Dictionary:
 
 func runtime_trace() -> Dictionary:
 	var scene := Setup.make_scene(self)
+	# Golden R2-B2 captures only legacy presentation. Full-catalog on/off parity
+	# is checked separately without hiding any legacy diary or RNG difference.
+	scene.game_events.selector.set_chance("social.resolved", 0)
 	var service: Node = scene.social_events
 	service.enabled = true
 	scene.game_time.total_minutes = 635

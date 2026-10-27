@@ -4,7 +4,7 @@
     {
       "schema_version": 1,
       "id": "social.success_envy",
-      "revision": 1,
+      "revision": 2,
       "enabled": true,
       "trigger": "social.resolved",
       "main_role": "actor",
@@ -52,26 +52,53 @@
                   ]
                 },
                 {
-                  "eq": [
+                  "any": [
                     {
-                      "field": [
+                      "eq": [
                         {
                           "field": [
                             {
                               "field": [
                                 {
-                                  "local": "candidate"
+                                  "field": [
+                                    {
+                                      "local": "candidate"
+                                    },
+                                    "context"
+                                  ]
                                 },
-                                "context"
+                                "_event"
                               ]
                             },
-                            "_event"
+                            "definition_id"
                           ]
                         },
-                        "definition_id"
+                        "personal.skill_progress"
                       ]
                     },
-                    "personal.skill_progress"
+                    {
+                      "eq": [
+                        {
+                          "field": [
+                            {
+                              "field": [
+                                {
+                                  "field": [
+                                    {
+                                      "local": "candidate"
+                                    },
+                                    "context"
+                                  ]
+                                },
+                                "_event"
+                              ]
+                            },
+                            "definition_id"
+                          ]
+                        },
+                        "personal.skill_progress_advanced"
+                      ]
+                    }
                   ]
                 },
                 {
