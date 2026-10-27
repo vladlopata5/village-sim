@@ -131,6 +131,7 @@ const OUTDOOR_SLEEP_QUALITY = 0.6
 const SKILL_XP_PER_LEVEL = 10
 # First universal trigger: separate from the existing social chance/RNG.
 const SKILL_RAISED_EVENT_CHANCE := 1.0
+const CONSTRUCTION_COMPLETED_EVENT_CHANCE := 1.0 # Technical test balance.
 const SOCIAL_FOLLOWUP_EVENT_CHANCE := 0.30 # Independent test balance, not legacy reaction chances.
 const MAX_SKILL_LEVEL = 10
 

@@ -688,3 +688,62 @@ Golden R2-B2 не пересоздаётся; его runtime-часть откл
 универсальной публикации, без фильтрации по текстам. Тридцать seeded взаимодействий
 дают те же реакции, отношения, Feed, старые Diary и оба legacy RNG state, даже когда
 новые истории действительно выполняются. Никакая старая проверка не удалена.
+
+## R2-B7: мировой факт construction.completed и один главный участник
+
+Цепочка: Main._show_building → GameEventService.observe_construction →
+BuildingInstance.complete_construction → construction_completed(snapshot) →
+EventCandidatePicker → прежние selector/renderer/executor. Подписка идемпотентна,
+не удерживает BuildingInstance сильной ссылкой и отключается при выходе сервиса.
+Уже построенные начальные здания не получают ретроспективных событий.
+
+Снимок содержит building_id, building_type (ключ enum), building_name, minute,
+assigned_builder_ids и initial_construction. Он создаётся до resource/state callbacks
+и очистки active_builder_ids, а отправляется после старого construction_changed.
+Состав участников — только действующие claims площадки; вклад не учитывается.
+Builder._accrue_work и Main3D._poll_building_work передают completion_minute до
+уведомлений. Необязательный аргумент -1 сохраняет старый API: в таком изолированном
+вызове адаптер читает clock при сигнале. payload.timestamp_source различает caller
+и completion_signal. Реконструкция/восстановление и upgrade исключены самой моделью,
+в том числе если подписка осталась после первой постройки.
+
+Контекст использует trigger=construction.completed, minute из снимка,
+building={kind:"building",id:...} и payload с остальными полями. Список assigned IDs
+сохраняется до фильтрации. После фильтрации добавляется eligible_candidate_count,
+а actor становится устойчивой resident-ссылкой выбранного живого зарегистрированного
+жителя. Кандидаты с неверной ссылкой, без регистрации, неактивные и дубликаты
+исключаются. EventCandidatePicker не знает строительных условий или определений:
+его choose принимает список resident refs, registry и activity guard для других
+мировых фактов. Порядок списка сохраняется; один равномерный randf выбирает одного
+участника (даже если он один), пустой список не расходует RNG. Поток принадлежит
+picker и допускает seed/тестовую подмену; AI и legacy random streams не используются.
+
+Дальше выполняются отдельный trigger chance и единственный weighted выбор подходящего
+JSON для выбранного actor. Если истории нет, шанс не прошёл, cooldown действует или
+получатель исчез — попытка заканчивается; второй кандидат не выбирается. main другого
+жителя даёт invalid_candidate_main до последствий. Текущие расширенные pair-факты
+по-прежнему подключены только для social.resolved; для этой истории достаточно
+существующих refs/payload/active_required. Новые факты о вкладе/зданиях не вводились.
+
+ID = JSON ["construction.completed", building.id, runtime source generation].
+Повторное уведомление того же экземпляра, в том числе вложенное, останавливается
+существующими pending/outcomes до candidate RNG. Удалённый объект не удерживается;
+новая площадка с тем же текстовым ID имеет другую generation. Ledger runtime-only,
+полноценного save/load нет. Прежний prepare/commit/publish, повторная проверка
+активности, согласованная запись Diary/Moodlet и cooldown остаются общими. Время
+исполнения/истории cooldown читается сервисом при обработке, как у других триггеров;
+подтверждённая minute факта в контексте при этом не перезаписывается.
+
+assets/events/construction_completed.json добавляет девятое живое определение:
+personal.construction_finished, main_role=actor, weight=1, обязательный diary_main.
+Текст радуется завершённой стройке, не приписывая всю работу выбранному жителю.
+Независимый moodlet work_satisfaction: chance=0.5, duration_minutes=120,
+target=ctx.building, modifiers=[]. Отношения/память/XP не меняются. Production JSON
+не задаёт cooldown; прежний формат поддерживается и проверяется отдельным тестом.
+BalanceConfig.CONSTRUCTION_COMPLETED_EVENT_CHANCE=1.0 — технический тестовый баланс,
+не изменение вероятностей других триггеров. Старые social/skill определения неизменны.
+
+Автопроверка test_construction_game_events.gd включает настоящую многоэтапную стройку
+двумя Builder-контроллерами в canonical Main3D, snapshot до очистки, собственные RNG,
+no-match без retry, отсутствие частичных последствий, cooldown и повторные уведомления.
+Не подключены новые общественные события, улучшения, восстановление или учёт участия.

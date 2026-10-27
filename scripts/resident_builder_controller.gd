@@ -420,7 +420,7 @@ func _accrue_work(now: int) -> void:
 		_last_work_minute=previous
 		_mutating=false
 		return
-	var completed := worked_site.can_complete_construction() and worked_site.complete_construction()
+	var completed := worked_site.can_complete_construction() and worked_site.complete_construction(_clock.total_minutes)
 	_mutating = false
 	if completed:
 		if logger!=null: logger.info(EventLog.BUILDING,"%s: строительство завершено" % worked_site.display_name)

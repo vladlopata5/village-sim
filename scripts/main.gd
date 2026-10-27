@@ -307,6 +307,7 @@ func _remove_ground_resource(drop) -> void:
 	_ground_views.erase(drop)
 
 func _show_building(building: BuildingInstance) -> void:
+	game_events.observe_construction(building)
 	var view = _create_building_presentation(building)
 	world_locations.register(WorldLocation.new(building.id, building.display_name), view)
 	# The same registry/view is reactivated after construction or restoration.

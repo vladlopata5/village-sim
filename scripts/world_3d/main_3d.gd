@@ -509,7 +509,7 @@ func _poll_building_work() -> void:
 		if building.work_paused:
 			building.work_paused = false
 			building._notify_construction_changed()
-		if building.can_complete_construction(): building.complete_construction()
+		if building.can_complete_construction(): building.complete_construction(game_time.total_minutes)
 		elif building.ready_for_removal(): _finish_building_removal(building)
 func _demolition_cells(footprint: Array, seed_value: int) -> Array:
 	var inside := footprint.duplicate()

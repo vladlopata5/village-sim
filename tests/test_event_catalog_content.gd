@@ -51,7 +51,7 @@ func _run() -> void:
 func positive_definitions() -> void:
 	for id in NEW_IDS:
 		var f := fixture()
-		check(f.service.catalog.definition_count == 8, "Eight live definitions, including exactly six additions")
+		check(f.service.catalog.definitions_for("social.resolved").size() + f.service.catalog.definitions_for("skill.raised").size() == 8, "The R2-B6 trigger buckets retain eight definitions, including exactly six additions")
 		prepare_story(f, id)
 		only(f, id)
 		var before: int = f.service.completed_events().size()

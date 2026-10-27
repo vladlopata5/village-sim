@@ -38,6 +38,7 @@ var work_area_override_id: StringName = &"" # Per-instance reference; empty uses
 var quarter_turns: int = 0:
 	set(value): quarter_turns = posmod(value, 4)
 signal construction_changed
+signal construction_completed(snapshot: Dictionary)
 var construction_revision := 0 # Lazy Builder identity, not an assignment ledger.
 var _state: State = State.BUILT
 var state: State:
@@ -245,9 +246,13 @@ func release_builder_slot(resident_id: String) -> bool:
 	return true
 func can_complete_construction() -> bool:
 	return is_structural_work() and work_direction == WorkDirection.BUILD and ready_for_structural_work() and construction_progress >= construction_definition().construction_work_required
-func complete_construction() -> bool:
+func complete_construction(completion_minute: int = -1) -> bool:
 	if not can_complete_construction(): return false
 	if is_upgrading(): return complete_upgrade()
+	# Only the first build is a new-building fact; never restoration or upgrade.
+	# Capture current claims BEFORE resource/state callbacks can release them.
+	var first_build := not previously_built
+	var snapshot := {"building_id": String(id), "building_type": preload("res://scripts/building_type.gd").Type.keys()[type], "building_name": display_name, "minute": completion_minute, "assigned_builder_ids": _active_builder_ids.duplicate(), "initial_construction": first_build}
 	if not previously_built: _configure_resource_buffers()
 	previously_built = true
 	production_removed = false
@@ -255,6 +260,7 @@ func complete_construction() -> bool:
 	ensure_households()
 	_active_builder_ids.clear()
 	_notify_construction_changed()
+	if first_build: construction_completed.emit(snapshot.duplicate(true))
 	return true
 
 func get_construction_reserved_in(resource: int) -> int:

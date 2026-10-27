@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "definitions": [
+    {
+      "schema_version": 1,
+      "id": "personal.construction_finished",
+      "revision": 1,
+      "enabled": true,
+      "trigger": "construction.completed",
+      "main_role": "actor",
+      "roles": {
+        "actor": {
+          "type": "resident",
+          "from": "ctx.actor",
+          "active_required": true
+        }
+      },
+      "when": {
+        "eq": [
+          {
+            "ctx": "payload.initial_construction"
+          },
+          true
+        ]
+      },
+      "weight": 1,
+      "diary_importance": 2,
+      "effects": [
+        {
+          "op": "moodlet.add",
+          "owner": {
+            "role": "actor"
+          },
+          "definition": "work_satisfaction",
+          "tags": [
+            "positive",
+            "work",
+            "construction"
+          ],
+          "target": {
+            "ctx": "building"
+          },
+          "duration_minutes": 120,
+          "context": {
+            "building_id": {
+              "ctx": "payload.building_id"
+            },
+            "building_type": {
+              "ctx": "payload.building_type"
+            }
+          },
+          "modifiers": [],
+          "chance": 0.5
+        }
+      ],
+      "text": {
+        "diary_main": "{actor.name}: «Стройка „{payload.building_name}“ завершена. Приятно видеть готовое здание»."
+      }
+    }
+  ]
+}
