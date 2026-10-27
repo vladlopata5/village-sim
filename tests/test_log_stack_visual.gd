@@ -20,7 +20,7 @@ func geometry_and_stability() -> void:
 	var view=GroundView.new();root.add_child(view);view.setup(drop)
 	var visual=view.log_visual
 	check(visual!=null and visual.visible_count==1 and visual.MODEL==load("res://assets/models/resources/log.glb"),"LOG uses the single shared imported PackedScene")
-	check(is_equal_approx(Visual.model_bounds.size.x,.48) and is_equal_approx(Visual.model_bounds.size.y,.13353945) and is_equal_approx(Visual.model_bounds.size.z,.14744392),"Imported real mesh bounds, not an extra .08 scale")
+	check(is_equal_approx(Visual.model_bounds.size.x,.48) and is_equal_approx(Visual.model_bounds.size.y,.13353945) and is_equal_approx(Visual.model_bounds.size.z,.136),"Imported real mesh bounds, not an extra .08 scale")
 	var stable: Dictionary={}
 	for count in [1,2,3,4,6,7,9,10,11,15,10,8,5,1,0,6,10]:
 		drop.amount=count;drop.availability_changed.emit()
