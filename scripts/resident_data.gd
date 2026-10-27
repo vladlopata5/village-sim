@@ -46,6 +46,10 @@ signal assignments_changed
 var assignments: Array[Assignment] = []
 var inventory = Inventory.new() # Work cargo only.
 var equipment = preload("res://scripts/resident_equipment.gd").new()
+const MemoryStore = preload("res://scripts/memory_store.gd")
+const MoodletStore = preload("res://scripts/moodlet_store.gd")
+var memories: MemoryStore
+var moodlets: MoodletStore
 signal traits_changed
 var traits: Array[Trait.Type] = []
 func has_trait(trait_type: Trait.Type) -> bool: return traits.has(trait_type)
@@ -88,6 +92,8 @@ func _init(unique_id: String, initial_name: String, initial_age: int, initial_pr
 	needs[NeedType.Type.HUNGER].changed.connect(hunger_changed.emit)
 	needs[NeedType.Type.FATIGUE].changed.connect(fatigue_changed.emit)
 	id = unique_id
+	memories = MemoryStore.new(unique_id)
+	moodlets = MoodletStore.new(unique_id)
 	resident_name = initial_name
 	age = initial_age
 	profession = initial_profession
