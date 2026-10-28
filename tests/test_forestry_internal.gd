@@ -82,7 +82,7 @@ func run() -> void:
 	check(hut.resources.get_amount(R.LOG)==0,"Unloading needs ten minutes")
 	world.game_time.debug_skip_minutes(1)
 	check(job.state==Job.State.COMPLETED and hut.resources.get_amount(R.LOG)==1 and actor.view._marker==null and hut.resources.get_reserved_in(R.LOG)==0,"Deposit, exit, cleanup")
-	check(actor.data.get_skill_xp(Skill.GATHERING)==0 and actor.data.get_skill_xp(Skill.LOGISTICS)==0,"COLLECT does not award XP")
+	check(actor.data.get_skill_xp(Skill.GATHERING)==0 and actor.data.get_skill_xp(Skill.LOGISTICS)==3,"COLLECT trains Logistics only after completed delivery")
 	check(outside.reservation_owner_id.is_empty() and far.amount==1,"Other Ground untouched")
 	world.free()
 	# Assignment/profession changes before and after pickup preserve captured destination.

@@ -82,7 +82,7 @@ func run() -> void:
 	walk(worker,&"haul_source")
 	walk(worker)
 	check(world.warehouse_data.resources.get_amount(R.PLANK)==1 and saw.resources.get_amount(R.PLANK)==0,"Sawyer export reaches Storage physically")
-	check(worker.data.get_skill_xp(preload("res://scripts/skill_type.gd").Type.LOGISTICS)==0,"Sawyer self hauling has no extra Logistics XP")
+	check(worker.data.get_skill_xp(preload("res://scripts/skill_type.gd").Type.LOGISTICS)==6,"Sawyer supply and export each earn one delivery reward")
 	# Ground despawn before pickup releases inbound, source claim, and job.
 	drop = Stacks.create(world.ground_resources,R.LOG,1,C.to_sim(Vector3(-4,0,10)))
 	check(world._request_work(worker),"Second supply starts")

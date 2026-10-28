@@ -173,7 +173,7 @@ func run() -> void:
 	check(controller.best_task().kind==&"MINE","Mining resumes after freeing room")
 	world.resident_selection.select_building(quarry)
 	await capture("quarry_built_buffer")
-	check(miner.data.get_skill_xp(Skill.GATHERING)==5,"Only completed mining cycles award extraction XP")
+	check(miner.data.get_skill_xp(Skill.MINING)==40,"Only completed mining cycles award extraction XP")
 	world.free()
 	print("Quarry: %d checks, %d failures" % [checks,failures])
 	quit(1 if failures else 0)

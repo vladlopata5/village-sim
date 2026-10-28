@@ -124,6 +124,7 @@ func _on_minute(_minute: int) -> void:
 	if phase != Phase.WORKING or batch.progress < batch.work_required: return
 	_mutating = true
 	var done := batch.finish(_runtime.data.id)
+	if done: _runtime.data.award_skill_xp(preload("res://scripts/work_operation_skills.gd").for_operation(batch.recipe_id))
 	_mutating = false
 	var interrupted := _interrupted
 	if done and logger != null: logger.info(EventLog.PRODUCTION,"%s: партия %s завершена — %s" % [_runtime.data.resident_name,batch.id,building.display_name])

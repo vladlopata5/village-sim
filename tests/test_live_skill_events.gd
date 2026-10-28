@@ -200,7 +200,7 @@ func live_builder_cycle() -> void:
 	scene.game_time.debug_next_phase()
 	var actor: Node = scene.resident_runtimes[1]
 	scene.player_control.assign_profession(actor.data.id, Profession.Type.BUILDER)
-	actor.data.add_skill_xp(Skill.Type.CONSTRUCTION, 399)
+	actor.data.add_skill_xp(Skill.Type.CONSTRUCTION, 392)
 	var definition: RefCounted = Definition.for_type(BuildingType.Type.HOME)
 	definition.construction_requirements = {Resources.Type.PLANK: 1}
 	preload("res://tests/construction_recipe_expectations.gd").single_stage(definition)
@@ -210,7 +210,7 @@ func live_builder_cycle() -> void:
 	site.add_delivered_material(Resources.Type.PLANK, 1)
 	check(actor.builder.request_work(), "Actual Builder controller accepts a real site")
 	preload("res://tests/handling_test_step.gd").move_domain(actor, 100)
-	check(actor.data.get_skill_xp(Skill.Type.CONSTRUCTION) == 399 and actor.data.diary_entries.is_empty(), "Starting work grants neither XP nor achievement")
+	check(actor.data.get_skill_xp(Skill.Type.CONSTRUCTION) == 392 and actor.data.diary_entries.is_empty(), "Starting work grants neither XP nor achievement")
 	scene.game_time.debug_skip_minutes(60)
 	check(actor.data.get_skill_xp(Skill.Type.CONSTRUCTION) == 400 and actor.data.get_skill_rank(Skill.Type.CONSTRUCTION) == 1, "Unchanged completed Builder cycle awards actual XP")
 	check(actor.data.diary_entries.size() == 1 and scene.game_events.completed_events().size() == 1 and actor.data.diary_entries[0].text.contains("Строительство"), "Work completion reaches JSON engine and Diary in live scene assembly")

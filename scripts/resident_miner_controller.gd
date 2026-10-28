@@ -3,7 +3,6 @@ extends Node
 const Profession = preload("res://scripts/resident_profession.gd")
 const Intent = preload("res://scripts/resident_intent.gd")
 const Activity = preload("res://scripts/resident_activity.gd")
-const Skill = preload("res://scripts/skill_type.gd")
 const Balance = preload("res://scripts/balance_config.gd")
 const EventLog = preload("res://scripts/game_logger.gd")
 var runtime: Node
@@ -169,7 +168,7 @@ func _accrue(now: int) -> bool:
 	if receipt > 0:
 		mining = false
 		complete_cycle.call(source,receipt,runtime.view.get_sim_position())
-		runtime.data.add_skill_xp(Skill.Type.GATHERING,1)
+		runtime.data.award_skill_xp(preload("res://scripts/work_operation_skills.gd").for_operation(&"mine_clay" if source.resource_type==Resources.CLAY else &"mine_stone"))
 	_mutating = false
 	return receipt > 0
 func _minute(now: int) -> void:

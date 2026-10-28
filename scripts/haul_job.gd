@@ -18,7 +18,6 @@ var priority: float = 0.0 # Claim-time porter score snapshot; never refreshed or
 var id: StringName
 var source_ref: RefCounted
 var validation: Callable # Workflow-owned committed eligibility, outside physical executor.
-var award_logistics_xp := true
 var source_location_id: StringName
 var destination_location_id: StringName
 var resource_type: ResourceType.Type

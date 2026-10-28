@@ -128,7 +128,7 @@ func run() -> void:
 		check(hut.resources.get_amount(R.MUSHROOM)==0 and actor.data.inventory.amount==1,"First nine unloading minutes retain cargo")
 		world.game_time.advance(1.0/speed)
 		check(hut.resources.get_amount(R.MUSHROOM)==1 and actor.data.inventory.amount==0 and world.logistics.get_job(actor.data.id)==null,"Ten-minute unload completes once and releases job")
-		check(actor.data.get_skill_xp(0)==xp_before+1,"Completed natural gathering trip awards exactly one gathering XP")
+		check(actor.data.get_skill_xp(0)==xp_before+3,"Completed natural gathering trip awards exactly three gathering XP")
 		await observe("unloaded")
 		hut.resources.try_take(R.MUSHROOM,1);clear_nature()
 	# Four independent trips require 80 handling minutes, without old 30-minute work.

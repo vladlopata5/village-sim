@@ -118,7 +118,7 @@ func efficiency() -> void:
 	for index in 3:
 		var worker=world.resident_runtimes[index]
 		var source=Source.new(Source.Kind.CONTAINER,world.warehouse_data.id)
-		owners.append(world.logistics.claim_transport(worker.data.id,source,kitchen,R.LOG,func():return true,false,Callable(),false,0.0,null,&"",false,0,kitchen.consumable_receivers[&"fuel"]))
+		owners.append(world.logistics.claim_transport(worker.data.id,source,kitchen,R.LOG,func():return true,false,Callable(),0.0,null,&"",false,0,kitchen.consumable_receivers[&"fuel"]))
 	check(owners[0]!=null and owners[1]!=null and owners[2]==null and stock.incoming_units()==10,"Competing physical jobs reserve shared converted capacity")
 	world.logistics.cancel_transport(owners[0],"first")
 	check(stock.incoming_units()==5 and world.logistics.inbound_valid(owners[1]),"One cancellation preserves foreign receiver claim")

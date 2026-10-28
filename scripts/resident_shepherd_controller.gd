@@ -207,6 +207,10 @@ func _finish(successful: bool, reason: String = "") -> void:
 	if _mutating:_cancel_pending=true;return
 	_accrue();_ending=true;_mutating=true
 	var old_intent:=_intent;var old_identity:=identity;var old_assignment:=assignment
+	var completed_operation: StringName = &""
+	if successful:
+		if assignment!=null: completed_operation = &"capture_sheep"
+		elif phase==Phase.SHEARING and batch!=null and batch.progress==batch.work_required: completed_operation = &"shearing"
 	var body:=animal;var place:=building;var old_pair:=pair
 	last_result={}
 	if batch!=null:last_result=batch.settle(runtime.data.id,body.data,_accept_output)
@@ -223,6 +227,7 @@ func _finish(successful: bool, reason: String = "") -> void:
 	if place!=null and old_assignment!=null:place.animal_housing.release_reservation(old_identity)
 	animal=null;building=null;batch=null
 	if old_assignment!=null:runtime.assignments.finish_capture(old_assignment,successful)
+	if not completed_operation.is_empty(): runtime.data.award_skill_xp(preload("res://scripts/work_operation_skills.gd").for_operation(completed_operation))
 	_mutating=false;_ending=false
 	if not reason.is_empty():say(reason)
 	var result_snapshot:=last_result.duplicate()

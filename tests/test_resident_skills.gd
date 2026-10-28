@@ -74,7 +74,7 @@ func _run() -> void:
 		scene.game_time.debug_skip_minutes(27 if interrupted else 60)
 		if interrupted: actor.commands.move_to(Vector2(200, 0))
 		check(cycle_site.construction_progress == (27 if interrupted else 60), "Existing partial/full work progress retained")
-		check(actor.data.get_skill_xp(Skill.Type.CONSTRUCTION) == (0 if interrupted else 1), "Only a full builder cycle awards XP")
+		check(actor.data.get_skill_xp(Skill.Type.CONSTRUCTION) == (0 if interrupted else 8), "Only a full builder cycle awards XP")
 		scene.free()
 	# Multiple workers contribute their own cycles, including the cycle completing the building.
 	scene = scenario()
@@ -87,11 +87,11 @@ func _run() -> void:
 		arrive(worker)
 	scene.game_time.debug_skip_minutes(60)
 	check(site.construction_progress == 120, "Two unchanged builder cycles contribute 120 work-minutes")
-	for worker in actors: check(worker.data.get_skill_xp(Skill.Type.CONSTRUCTION) == 1, "Each worker receives XP for own completed cycle")
+	for worker in actors: check(worker.data.get_skill_xp(Skill.Type.CONSTRUCTION) == 8, "Each worker receives XP for own completed cycle")
 	actors[0].builder.request_work()
 	arrive(actors[0])
 	scene.game_time.debug_skip_minutes(60)
-	check(site.is_built() and actors[0].data.get_skill_xp(Skill.Type.CONSTRUCTION) == 2, "Building completion grants no bonus beyond full cycle")
+	check(site.is_built() and actors[0].data.get_skill_xp(Skill.Type.CONSTRUCTION) == 16, "Building completion grants no bonus beyond full cycle")
 	scene.free()
 	# Builder-owned material transport must never award either professional skill.
 	scene = scenario()
@@ -103,18 +103,18 @@ func _run() -> void:
 	check(actor.data.inventory.amount == 1 and actor.data.get_skill_xp(Skill.Type.CONSTRUCTION) == 0 and actor.data.get_skill_xp(Skill.Type.LOGISTICS) == 0, "PLANK pickup grants no XP")
 	become(scene, actor, Profession.Type.NONE)
 	arrive(actor)
-	check(site.get_delivered_amount(PLANK) == 1 and actor.data.get_skill_xp(Skill.Type.CONSTRUCTION) == 0 and actor.data.get_skill_xp(Skill.Type.LOGISTICS) == 0, "PLANK delivery grants no XP")
+	check(site.get_delivered_amount(PLANK) == 1 and actor.data.get_skill_xp(Skill.Type.CONSTRUCTION) == 0 and actor.data.get_skill_xp(Skill.Type.LOGISTICS) == 3, "PLANK delivery trains Logistics, not Construction")
 	scene.free()
 
 	scene = scenario()
 	actor = scene.resident_runtimes[0]
 	for index in range(10):
 		check(scene._request_haul_work(actor), "Porter claims available committed delivery")
-		check(actor.data.get_skill_xp(Skill.Type.LOGISTICS) == index, "Claim grants no XP")
+		check(actor.data.get_skill_xp(Skill.Type.LOGISTICS) == index * 3, "Claim grants no XP")
 		arrive(actor)
-		check(actor.data.get_skill_xp(Skill.Type.LOGISTICS) == index, "Pickup grants no XP")
+		check(actor.data.get_skill_xp(Skill.Type.LOGISTICS) == index * 3, "Pickup grants no XP")
 		arrive(actor)
-		check(actor.data.get_skill_xp(Skill.Type.LOGISTICS) == index + 1, "Successful delivery grants one XP")
+		check(actor.data.get_skill_xp(Skill.Type.LOGISTICS) == (index + 1) * 3, "Successful delivery grants three XP")
 	check(actor.data.get_skill_rank(Skill.Type.LOGISTICS) == Skill.Rank.PROFANE and scene.kitchen_data.resources.get_amount(FOOD) == 10, "Ten deliveries preserve one-XP rewards and physical resources without a premature rank")
 	scene.free()
 	for after_pickup in [false, true]:

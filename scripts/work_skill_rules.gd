@@ -1,6 +1,6 @@
 extends RefCounted
 ## Independent requirements, efficiency inputs and training rewards for an operation.
-## No live operation uses these rules yet. XP remains owned by ResidentData.
+## XP remains owned by ResidentData; operation owners decide successful completion.
 const Skill = preload("res://scripts/skill_type.gd")
 const Balance = preload("res://scripts/balance_config.gd")
 var requirements: Array

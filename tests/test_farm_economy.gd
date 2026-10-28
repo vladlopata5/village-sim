@@ -102,12 +102,14 @@ func harvest_and_priorities() -> void:
 		actor.view._physics_process(.05)
 		if actor.farmer.phase==actor.farmer.Phase.WORKING:break
 	var stale=actor.farmer._intent
+	var xp_before_mow: int=actor.data.get_skill_xp(preload("res://scripts/skill_type.gd").Type.FARMING)
 	world.game_time.advance(10)
 	var drop=world.ground_resources.get_at(cells[1])
 	check(world.farm_fields.state(cells[1])==Fields.State.BARE and drop!=null and drop.resource_type==R.SHEAF and drop.amount in [1,2],"Actual ten-minute mow publishes one or two physical sheaves and bare dirt")
 	var harvested: int=drop.amount
 	actor.farmer._arrived(stale);actor.farmer._minute(world.game_time.total_minutes)
 	check(drop.amount==harvested and actor.farmer.task().kind==&"COLLECT","Stale completion cannot reroll harvest; collect outranks remaining mature crop")
+	check(actor.data.get_skill_xp(preload("res://scripts/skill_type.gd").Type.FARMING)==xp_before_mow+1,"One successful MOW cell awards once, independently of one or two sheaves")
 	world.free()
 func C_to_sim(point: Vector3) -> Vector2:return preload("res://scripts/world_3d/world_coordinates.gd").to_sim(point)
 func stock_transport() -> void:

@@ -148,7 +148,7 @@ func request_work() -> bool:
 	if candidate.kind==&"COLLECT":
 		var context:=_identity(place);var valid:=_haul_valid.bind(place,context,candidate.source)
 		var eligible: Callable=func():return _eligible() and valid.call()
-		var job=world.logistics.claim_transport(runtime.data.id,candidate.source,place,R.SHEAF,eligible,true,valid,false,0.0,place)
+		var job=world.logistics.claim_transport(runtime.data.id,candidate.source,place,R.SHEAF,eligible,true,valid,0.0,place)
 		if job==null:return false
 		if world.logistics.start_claimed_job(job,runtime.data.id):return true
 		world.logistics.cancel_transport(job,"сбор снопа не начался");return false
@@ -217,7 +217,10 @@ func _minute(now: int) -> void:
 		&"MOW":
 			result=world.farm_fields.mow(cell,_owner);done=result>=0
 			if result>0:world.place_ground_resources(R.SHEAF,result,_point(cell))
-	if done:_cells.erase(cell);completed.emit(_kind,cell,result)
+	if done:
+		_cells.erase(cell)
+		runtime.data.award_skill_xp(preload("res://scripts/work_operation_skills.gd").for_operation(StringName(String(_kind).to_lower())))
+		completed.emit(_kind,cell,result)
 	_mutating=false
 	if not done or _cancel_pending or not _valid():cancel();return
 	_next_cell()

@@ -82,7 +82,7 @@ func run() -> void:
 	scene.game_time.debug_skip_minutes(60-int(completing.work_done))
 	check(completing.state==T.State.DEPLETED and Stacks.total(scene.ground_resources)==3,"Exactly three LOG on completion")
 	check(actor.data.inventory.amount==0 and worker.kind.is_empty(),"FREE leaves Ground, no collect/export/plant")
-	check(actor.data.get_skill_xp(preload("res://scripts/skill_type.gd").Type.GATHERING)==1,"Existing extraction XP awarded once")
+	check(actor.data.get_skill_xp(preload("res://scripts/skill_type.gd").Type.FORESTRY)==8,"Forestry completion XP awarded once")
 	var drops_before: int = Stacks.total(scene.ground_resources)
 	scene._deplete_tree(completing)
 	check(Stacks.total(scene.ground_resources)==drops_before,"No duplicate yield")

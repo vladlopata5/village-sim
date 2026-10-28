@@ -460,8 +460,8 @@ func _claim_delivery(resident: ResidentData, candidate: Candidate) -> HaulJob:
 	var resource := candidate.resource_type
 	var eligible := _porter_claim_context.bind(resident,base,revision,base.definition.porter_capacity,source_ref,source,destination,resource,candidate.surplus_export,candidate.receiver_kind)
 	if not eligible.call(): return null
-	return claim_transport(resident.id,source_ref,destination,resource,eligible,false,_porter_base_valid.bind(base.id,base),true,candidate.porter_score,null,base.id,candidate.surplus_export,candidate.receiver_kind,candidate.receiver)
-func claim_transport(resident_id: String, source_ref: Source, destination: BuildingInstance, resource: int, eligibility: Callable, work_phase_only: bool = true, validation: Callable = Callable(), award_xp: bool = false, score: float = 0.0, internal_workplace: BuildingInstance = null, committed_workplace_id: StringName = &"", surplus_export: bool = false, receiver: int = HaulJob.Receiver.CONTAINER, endpoint: RefCounted = null) -> HaulJob:
+	return claim_transport(resident.id,source_ref,destination,resource,eligible,false,_porter_base_valid.bind(base.id,base),candidate.porter_score,null,base.id,candidate.surplus_export,candidate.receiver_kind,candidate.receiver)
+func claim_transport(resident_id: String, source_ref: Source, destination: BuildingInstance, resource: int, eligibility: Callable, work_phase_only: bool = true, validation: Callable = Callable(), score: float = 0.0, internal_workplace: BuildingInstance = null, committed_workplace_id: StringName = &"", surplus_export: bool = false, receiver: int = HaulJob.Receiver.CONTAINER, endpoint: RefCounted = null) -> HaulJob:
 	# Controllers supply gameplay eligibility. This transaction only owns reservations.
 	var resident: ResidentData = _residents.get(resident_id)
 	var executor = _executors.get(resident_id)
@@ -525,7 +525,6 @@ func claim_transport(resident_id: String, source_ref: Source, destination: Build
 	if source_ref.kind==Source.Kind.WATER and not sources.water.building_id(source_ref.id).is_empty():job.source_location_id=sources.water.building_id(source_ref.id)
 	job.work_phase_only = work_phase_only
 	job.validation = validation
-	job.award_logistics_xp = award_xp
 	jobs.append(job)
 	current_job = job
 	if executor!=null: executor.job = job
@@ -622,16 +621,16 @@ func delivery_allowed(job: HaulJob) -> bool:
 	var captured: Dictionary = _internal.get(job.id,{})
 	return not captured.is_empty() and captured.job==job and captured.worker.id==job.assigned_resident_id and captured.workplace==destination and captured.resource==job.resource_type and job.workplace_location_id==destination.id and destination.definition.allows_internal_import(job.resource_type)
 func claim_internal(resident_id: String, source_ref: Source, workplace: BuildingInstance, resource: int, eligibility: Callable) -> HaulJob:
-	return claim_transport(resident_id,source_ref,workplace,resource,eligibility,true,Callable(),false,0.0,workplace)
-func claim_worker_export(resident_id: String, workplace: BuildingInstance, destination: BuildingInstance, resource: int, eligibility: Callable = Callable(), award_xp: bool = false) -> HaulJob:
+	return claim_transport(resident_id,source_ref,workplace,resource,eligibility,true,Callable(),0.0,workplace)
+func claim_worker_export(resident_id: String, workplace: BuildingInstance, destination: BuildingInstance, resource: int, eligibility: Callable = Callable()) -> HaulJob:
 	var resident: ResidentData = _residents.get(resident_id)
 	if not _worker_at(resident,workplace) or destination==null or not allows_external_delivery(workplace,destination,resource): return null
 	var allowed := func(): return _worker_at(resident,workplace) and resident.inventory.amount==0 and (not eligibility.is_valid() or eligibility.call())
-	return claim_transport(resident_id,Source.new(Source.Kind.CONTAINER,workplace.id),destination,resource,allowed,true,Callable(),award_xp)
+	return claim_transport(resident_id,Source.new(Source.Kind.CONTAINER,workplace.id),destination,resource,allowed,true,Callable())
 func claim_own_export(resident_id: String, destination: BuildingInstance) -> HaulJob:
 	var resident: ResidentData = _residents.get(resident_id)
 	if resident==null: return null
-	return claim_worker_export(resident_id,_buildings.get(resident.work_location_id),destination,ResourceType.Type.LOG,Callable(),true)
+	return claim_worker_export(resident_id,_buildings.get(resident.work_location_id),destination,ResourceType.Type.LOG,Callable())
 
 func dispose_surplus(resource: ResourceType.Type, amount: int, job: HaulJob) -> int:
 	if amount != 1 or resource != job.resource_type or job.receiver_kind != HaulJob.Receiver.GROUND or not surplus_job_valid(job) or not surplus_ground_handler.is_valid(): return DropResult.Status.FAILED

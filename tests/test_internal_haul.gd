@@ -67,7 +67,7 @@ func run() -> void:
 	world.game_time.debug_skip_minutes(10)
 	walk(actor)
 	world.game_time.debug_skip_minutes(10)
-	check(export_job.state==Job.State.COMPLETED and actor.data.get_skill_xp(preload("res://scripts/skill_type.gd").Type.LOGISTICS)==1,"Legacy completed export XP preserved")
+	check(export_job.state==Job.State.COMPLETED and actor.data.get_skill_xp(preload("res://scripts/skill_type.gd").Type.LOGISTICS)==6,"Internal collect and completed export each earn the common delivery award")
 	# An occupied interior courier waits without starting unload, then forced command cleans cargo.
 	drop = Stacks.create(world.ground_resources,R.LOG,1,C.to_sim(Vector3(8,0,-12)))
 	ref = Source.new(Source.Kind.GROUND,drop.id)

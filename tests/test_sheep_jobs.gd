@@ -61,8 +61,11 @@ func selection_and_capture() -> void:
 	check(f.job.phase==Phase.CAPTURING and f.job._progress==59,"Capture requires all60 work minutes")
 	f.world.game_time.debug_skip_minutes(1)
 	check(f.job.phase==Phase.ESCORT and f.world.game_time.total_minutes==start+60 and f.sheep.data.status==Animal.Status.WILD,"Finished capture starts real H2, no early domestication")
+	check(runtime.data.get_skill_xp(preload("res://scripts/skill_type.gd").Type.ANIMAL_HUSBANDRY)==0,"Capture timer without accepted animal earns no XP")
 	check((await reach(f,Phase.NONE)) and assignment.state==A.State.COMPLETED and f.sheep.data.status==Animal.Status.DOMESTIC and f.hut.animal_housing.count()==1,"Both physically arrive, original sheep becomes domestic")
 	check(f.hut.animal_housing.reserved_count()==0 and f.sheep.data.operation_id.is_empty() and runtime.view.position.distance_to(f.sheep.position)<=.801,"Completed acceptance clears only temporary ownership")
+	f.job.cancel()
+	check(runtime.data.get_skill_xp(preload("res://scripts/skill_type.gd").Type.ANIMAL_HUSBANDRY)==8,"Accepted capture awards once; repeated cleanup is inert")
 	check(not f.world.interactions.get_interactions([runtime.data.id],f.sheep.data.id).any(func(o):return o.id==&"capture_sheep" and o.enabled),"Domestic sheep has no enabled wild capture")
 	dispose(f)
 	f=fixture();f.world.player_control.clear_work_assignment(f.runtime.data.id)
@@ -120,6 +123,8 @@ func shearing_and_export() -> void:
 	f.world.game_time.debug_skip_minutes(1)
 	check(f.job.phase==Phase.NONE and f.sheep.data.wool_growth==0 and f.hut.resources.get_amount(R.WOOL)==20 and f.job.last_result.saved==1 and f.job.last_result.discarded>=2,"Full shearing resets wool and discards overflow instead of Ground drops")
 	check(f.hut.resources.get_reserved_in(R.WOOL)==0 and f.world.building_uses.inside_count(f.hut.id)==0 and f.sheep.data.operation_id.is_empty(),"Service completion releases physical slots/output reserve")
+	f.job.cancel()
+	check(f.runtime.data.get_skill_xp(preload("res://scripts/skill_type.gd").Type.ANIMAL_HUSBANDRY)==16,"Full shearing awards sixteen once, irrespective of saved/discarded wool")
 	check(not f.job.has_work(),"No repeated shear before regrowth")
 	check(not f.runtime.self_logistics.has_work(),"No invented destination when warehouse wool quota is zero")
 	await physics_frame;await process_frame
@@ -173,6 +178,7 @@ func partial_interrupts() -> void:
 		check(case_fixture.hut.resources.get_amount(R.WOOL)==expected and case_fixture.hut.resources.get_reserved_in(R.WOOL)==0 and data.operation_id.is_empty(),"Partial output and reservations agree after "+cause)
 		case_fixture.job.cancel()
 		check(data.wool_growth==7 and case_fixture.hut.resources.get_amount(R.WOOL)==expected and case_fixture.world.building_uses.inside_count(case_fixture.hut.id)==0,"Second cleanup does not repeat settlement or retain slots: "+cause)
+		check(case_fixture.runtime.data.get_skill_xp(preload("res://scripts/skill_type.gd").Type.ANIMAL_HUSBANDRY)==0,"Interrupted shearing yields no XP despite partial output: "+cause)
 		dispose(case_fixture)
 	var f=fixture();f.world.game_time.total_minutes=480
 	f.sheep.assign_home(f.hut,f.world.building_uses,f.world.work_areas);f.sheep.behavior.cancel_behavior();f.sheep.data.wool_growth=15;f.job.request_work()
@@ -224,5 +230,18 @@ func reentrant_and_capacity() -> void:
 	f.world.building_uses.slots_changed.disconnect(service_interrupt)
 	dispose(f)
 func run() -> void:
-	geometry_endpoint();await selection_and_capture();await cancellations();conflicts();await shearing_and_export();await partial_interrupts();await simulation_speeds();await reentrant_and_capacity()
+	geometry_endpoint();await selection_and_capture();await cancellations();conflicts();await shearing_and_export();await partial_interrupts();await cancelled_completion_boundary();await simulation_speeds();await reentrant_and_capacity()
 	print("Sheep jobs: %d checks, %d failures" % [checks,failures]);quit(1 if failures else 0)
+
+func cancelled_completion_boundary() -> void:
+	var f=fixture();f.world.game_time.total_minutes=480
+	f.sheep.assign_home(f.hut,f.world.building_uses,f.world.work_areas)
+	f.sheep.behavior.cancel_behavior();f.sheep.data.wool_growth=15
+	check(f.job.request_work() and (await reach(f,Phase.SHEARING)),"Reach service for cancellation at the final minute")
+	f.world.game_time.debug_skip_minutes(119)
+	f.world.game_time.total_minutes+=1 # Cancel accrues the final interval before its minute callback.
+	f.job.cancel("cancel at boundary")
+	check(f.job.last_result.minutes==120 and f.job.last_result.produced>=3,"Cancellation may settle even full wool without declaring success")
+	f.job.cancel()
+	check(f.runtime.data.get_skill_xp(preload("res://scripts/skill_type.gd").Type.ANIMAL_HUSBANDRY)==0,"Cancelled shearing never awards XP, even with full settle/duplicate cleanup")
+	dispose(f)

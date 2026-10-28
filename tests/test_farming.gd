@@ -43,8 +43,10 @@ func soil_and_sowing() -> void:
 	cell=actor.farmer._target
 	world.game_time.advance(9)
 	check(world.farm_fields.state(cell)==Fields.State.BARE,"Nine work minutes cannot finish plowing")
+	check(actor.data.get_skill_xp(preload("res://scripts/skill_type.gd").Type.FARMING)==0,"No field XP before a completed cell")
 	world.game_time.advance(1)
 	check(world.farm_fields.state(cell)==Fields.State.PLOWED and actor.farmer.phase==actor.farmer.Phase.NONE,"Exactly10 work minutes, independent dirt base")
+	check(actor.data.get_skill_xp(preload("res://scripts/skill_type.gd").Type.FARMING)==1,"One completed plow cell, one Farming XP")
 	for index in 4:check(actor.farmer.task().kind==&"PLOW" and one_field(world,actor),"Continue preparation to five cells")
 	check(world.farm_fields.plot_cells().size()==5 and actor.farmer.task().kind==&"SOW","Five cells prioritize sowing over further plowing")
 	check(actor.farmer.request_work() and world.farm_fields.owned_cells(actor.farmer._owner).size()==5 and farm.resources.get_reserved_out(R.WHEAT)==1,"Sow claims five plus one concrete wheat before motion")
@@ -62,6 +64,7 @@ func soil_and_sowing() -> void:
 	actor.farmer.cancel();actor.farmer._arrived(old_intent)
 	check(actor.farmer.phase==actor.farmer.Phase.NONE and fields.filter(func(point):return world.farm_fields.state(point)==Fields.State.PLOWED).size()==2 and world.farm_fields._claims.is_empty(),"Forced partial cancellation frees remaining two cells without undoing three crops")
 	check(farm.resources.get_amount(R.WHEAT)==0 and farm.resources.get_reserved_out(R.WHEAT)==0,"Unused seed allowance is lost, never refunded or charged twice")
+	check(actor.data.get_skill_xp(preload("res://scripts/skill_type.gd").Type.FARMING)==8,"Five plows and three sows earn eight XP despite cancellation of the remaining cells")
 	world.free()
 func three_cells() -> void:
 	var env:=fixture();var world=env.world;var farm=env.farm;var actor=env.actor
@@ -121,6 +124,7 @@ func reentrant_seed() -> void:
 	farm.resources.changed.disconnect(callback)
 	check(farm.resources.get_amount(R.WHEAT)==0 and farm.resources.get_reserved_out(R.WHEAT)==0 and world.farm_fields._claims.is_empty(),"Nested seed-take cancellation consumes once and frees remaining claims")
 	check(world.farm_fields.plot_cells().filter(func(cell):return world.farm_fields.state(cell)==Fields.State.SOWN).size()==1 and actor.intents.current_intent.reason_id==&"player","Completed first crop and new forced intent survive deferred cleanup")
+	check(actor.data.get_skill_xp(preload("res://scripts/skill_type.gd").Type.FARMING)==6,"Committed sow earns XP once even when seed callback interrupts the remaining queue")
 	world.free()
 func terrain_effects() -> void:
 	var env:=fixture();var world=env.world

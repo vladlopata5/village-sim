@@ -10,7 +10,6 @@ const Balance = preload("res://scripts/balance_config.gd")
 const Intent = preload("res://scripts/resident_intent.gd")
 const Activity = preload("res://scripts/resident_activity.gd")
 const ResourceType = preload("res://scripts/resource_type.gd")
-const Skill = preload("res://scripts/skill_type.gd")
 const EventLog = preload("res://scripts/game_logger.gd")
 enum Phase { NONE, GOING_TO_SOURCE, CARRYING_TO_SITE, GOING_TO_SITE, BUILDING, GOING_TO_WAIT, WAITING_FOR_MATERIALS }
 signal work_cycle_started(building_id: StringName)
@@ -372,6 +371,7 @@ func _complete_arrival(intent: Intent) -> void:
 		_mutating = true
 		var delivered: bool = _data.inventory.deliver(_resource,1,site.deliver_reserved_construction_material.bind(_resource,1))
 		if delivered: _site_reserved = false
+		if delivered: _data.award_skill_xp(preload("res://scripts/work_operation_skills.gd").for_operation(&"delivery"))
 		_mutating = false
 		if _interrupt_pending:
 			_interrupt_pending = false
@@ -490,7 +490,7 @@ func _cleanup(reason: String) -> Intent:
 func _finish_task(reason: String, completed_work_cycle: bool = false) -> void:
 	if _exiting: return
 	var old := _cleanup(reason)
-	if completed_work_cycle: _data.add_skill_xp(Skill.Type.CONSTRUCTION, 1)
+	if completed_work_cycle: _data.award_skill_xp(preload("res://scripts/work_operation_skills.gd").for_operation(&"construction"))
 	if old != null and _intents.current_intent == old: _intents.clear_completed(old)
 
 func abort(reason: String, request_decision: bool = true) -> void:

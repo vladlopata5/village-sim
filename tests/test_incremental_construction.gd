@@ -99,7 +99,7 @@ func run() -> void:
 	world.game_time.debug_skip_minutes(10)
 	check(target.construction_progress==20,"Two independent Builders add20 in10minutes")
 	world.game_time.debug_skip_minutes(50)
-	check(target.construction_progress==120 and actor.data.get_skill_xp(Skill.CONSTRUCTION)==1 and second.data.get_skill_xp(Skill.CONSTRUCTION)==1,"Two full cycles give120 and one XP each")
+	check(target.construction_progress==120 and actor.data.get_skill_xp(Skill.CONSTRUCTION)==8 and second.data.get_skill_xp(Skill.CONSTRUCTION)==8,"Two full cycles give120 and eight XP each")
 	world.free()
 	world=fixture()
 	target=target_for(world)

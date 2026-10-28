@@ -7,7 +7,6 @@ const Purpose = preload("res://scripts/building_slot_purpose.gd").Type
 const Job = preload("res://scripts/haul_job.gd")
 const Intent = preload("res://scripts/resident_intent.gd")
 const Activity = preload("res://scripts/resident_activity.gd")
-const Skill = preload("res://scripts/skill_type.gd")
 const EventLog = preload("res://scripts/game_logger.gd")
 const HAUL_PRIORITY := Job.DEFAULT_EXECUTION_PRIORITY
 var _owner: WeakRef
@@ -184,6 +183,7 @@ func _deliver_ground(intent: Intent) -> void:
 	_finish_delivery(intent)
 
 func _finish_delivery(intent: Intent) -> void:
+	if job == null or not job.is_active() or intent != _haul_intent: return
 	var completed := job
 	completed.state = Job.State.COMPLETED
 	if service.logger != null: service.logger.info(EventLog.LOGISTICS, "%s: доставил 1 %s — %s" % [resident.resident_name,preload("res://scripts/resource_type.gd").Type.keys()[job.resource_type], "земля у источника" if job.receiver_kind == Job.Receiver.GROUND else destination.display_name])
@@ -191,7 +191,7 @@ func _finish_delivery(intent: Intent) -> void:
 	_haul_intent = null
 	_interrupt_pending = false
 	service.finish_job(completed)
-	if completed.award_logistics_xp: resident.add_skill_xp(Skill.Type.LOGISTICS, 1)
+	resident.award_skill_xp(preload("res://scripts/work_operation_skills.gd").for_operation(&"gather_mushroom" if completed.source_ref.kind==preload("res://scripts/resource_source_ref.gd").Kind.NATURAL_MUSHROOM else &"delivery"))
 	intents.clear_completed(intent)
 	service.notify_delivery()
 	service.changed.emit()

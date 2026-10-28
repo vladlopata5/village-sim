@@ -86,7 +86,7 @@ func _request_supply(place: RefCounted, candidate: Dictionary) -> bool:
 		place.supply.end_claim(need,null)
 		return false
 	place.supply.begin_claim(need)
-	var job=world.logistics.claim_transport(runtime.data.id,candidate.source,place,candidate.resource,_supply_eligible.bind(place.id,need.id,runtime.data.work_assignment_revision,candidate.source,candidate.get("stock_id",&"")),true,_supply_valid.bind(place.id,need.id),false,0.0,null,&"",false,0,candidate.get("receiver",place.resources))
+	var job=world.logistics.claim_transport(runtime.data.id,candidate.source,place,candidate.resource,_supply_eligible.bind(place.id,need.id,runtime.data.work_assignment_revision,candidate.source,candidate.get("stock_id",&"")),true,_supply_valid.bind(place.id,need.id),0.0,null,&"",false,0,candidate.get("receiver",place.resources))
 	if not place.supply.end_claim(need,job):
 		if job!=null: world.logistics.cancel_transport(job,"снабжение не закреплено")
 		return false
@@ -105,9 +105,8 @@ func request_work() -> bool:
 		var identity: Array=world.production.context(runtime.data)
 		var valid: Callable=world.production.valid.bind(runtime.data,identity)
 		var eligible: Callable=func(): return _eligible(place.id) and valid.call()
-		var gathering=world.logistics.claim_transport(runtime.data.id,candidate.source,place,preload("res://scripts/resource_type.gd").Type.MUSHROOM,eligible,true,valid,false,0.0,place)
+		var gathering=world.logistics.claim_transport(runtime.data.id,candidate.source,place,preload("res://scripts/resource_type.gd").Type.MUSHROOM,eligible,true,valid,0.0,place)
 		if gathering!=null:
-			gathering.finished.connect(_gathering_finished,CONNECT_ONE_SHOT)
 			if world.logistics.start_claimed_job(gathering,runtime.data.id): return true
 		world.logistics.cancel_transport(gathering,"сбор не начался")
 		return false
@@ -121,10 +120,6 @@ func _start_export(place: RefCounted, candidate: Dictionary) -> bool:
 	if world.logistics.start_claimed_job(job,runtime.data.id): return true
 	world.logistics.cancel_job(job)
 	return false
-
-func _gathering_finished(job: RefCounted) -> void:
-	if job.state==job.State.COMPLETED:
-		runtime.data.add_skill_xp(preload("res://scripts/skill_type.gd").Type.GATHERING,1)
 
 # Generic minimum-input provisioning, shared with porter demand/admission.
 func stock_task(place: RefCounted) -> Dictionary:

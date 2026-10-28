@@ -110,7 +110,7 @@ func wells() -> void:
 	var reserve_ids: Array=[]
 	for worker in world.resident_runtimes.slice(0,2):
 		var ref=world.water_sources.candidates()[0]
-		reserve_ids.append(world.logistics.claim_transport(worker.data.id,ref,place,R.WATER,func():return true,false,Callable(),false,0.0,null,&"",false,0,receiver))
+		reserve_ids.append(world.logistics.claim_transport(worker.data.id,ref,place,R.WATER,func():return true,false,Callable(),0.0,null,&"",false,0,receiver))
 	check(reserve_ids.all(func(delivery):return delivery!=null) and receiver.get_reserved_in(R.WATER)==2,"Multiple well users own independent inbound promises")
 	for delivery in reserve_ids:world.logistics.cancel_transport(delivery,"cancel concurrent")
 	check(receiver.get_reserved_in(R.WATER)==0,"All cancelled users release own inbound")

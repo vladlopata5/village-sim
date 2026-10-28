@@ -4,7 +4,6 @@ const Profession = preload("res://scripts/resident_profession.gd")
 const BuildingType = preload("res://scripts/building_type.gd")
 const Intent = preload("res://scripts/resident_intent.gd")
 const Activity = preload("res://scripts/resident_activity.gd")
-const Skill = preload("res://scripts/skill_type.gd")
 const Balance = preload("res://scripts/balance_config.gd")
 const TreeData = preload("res://scripts/tree_data.gd")
 const Resources = preload("res://scripts/resource_type.gd")
@@ -226,19 +225,26 @@ func _accrue(now: int) -> void:
 	if chopping and tree != null and locations.in_range(tree,runtime.view.get_sim_position()): tree.add_work(StringName(runtime.data.id),elapsed)
 	elif kind==&"PLANT": work_minutes += elapsed
 func _minute(now: int) -> void:
-	if kind.is_empty(): return
+	if kind.is_empty() or _mutating or _cleaning: return
 	if not _context_valid() or (kind==&"CHOP" and not _valid()):
 		abort()
 		return
+	_mutating = true
 	_accrue(now)
+	var finished := false
+	var completed_operation: StringName = &""
 	if chopping and tree.state==TreeData.State.DEPLETED:
 		var completed = tree
 		complete_tree.call(completed)
-		runtime.data.add_skill_xp(Skill.Type.GATHERING,1)
-		_finish()
+		completed_operation = &"chop_tree"
+		finished = true
 	elif kind==&"PLANT" and runtime.data.activity==Activity.Type.WORKING and work_minutes>=Balance.TREE_PLANTING_MINUTES:
-		world.forestry_area.complete(runtime.data.id,hut)
-		_finish()
+		if world.forestry_area.complete(runtime.data.id,hut): completed_operation = &"plant_tree"
+		finished = true
+	if not completed_operation.is_empty(): runtime.data.award_skill_xp(preload("res://scripts/work_operation_skills.gd").for_operation(completed_operation))
+	_mutating = false
+	if finished: _finish()
+	elif _interrupt_pending: abort(false)
 func _cleanup() -> RefCounted:
 	_available_task = {}
 	_cleaning = true

@@ -68,6 +68,7 @@ func run() -> void:
 	check(scene._work_available(actor) and actor.decision.collect_actions(true)[0].id == "WORK" and worker.request_work(),"Normal WORK category/provider selects reachable tree; no site score vs need utility")
 	var target_tree = worker.tree
 	check(target_tree.reservation_owner_id == StringName(actor.data.id) and not worker.chopping,"Reserved before travel; no work before arrival")
+	actor.data.add_skill_xp(Skill.Type.WOODWORKING,999)
 	var second = scene.resident_runtimes[2]
 	preload("res://tests/forestry_fixture.gd").hut(scene,&"test_hut_2",Vector3(-20,0,-2))
 	scene.player_control.assign_profession(second.data.id,Profession.Type.LUMBERJACK)
@@ -88,7 +89,7 @@ func run() -> void:
 	for drop in scene.ground_resources.drops:
 		check(drop.resource_type==Resources.Type.LOG and drop.amount>0 and drop.amount<=drop.capacity and scene.navigation.is_world_walkable(Coordinates.to_world(drop.world_position)),"One physical LOG with valid deterministic position")
 	check(scene.warehouse_data.resources.get_amount(Resources.Type.PLANK)==plank_before and scene.warehouse_data.resources.get_amount(Resources.Type.LOG)==0,"No conversion/storage/logistics transfer")
-	check(actor.data.get_skill_xp(Skill.Type.GATHERING)==1 and actor.data.get_skill_xp(Skill.Type.LOGISTICS)==0,"One completed tree grants Gathering XP only")
+	check(actor.data.get_skill_xp(Skill.Type.FORESTRY)==8 and actor.data.get_skill_xp(Skill.Type.LOGISTICS)==0 and actor.data.get_skill_xp(Skill.Type.WOODWORKING)==1000 and actor.data.get_skill_xp(Skill.Type.GATHERING)==0,"Completed tree awards Forestry and partially capped Woodworking, not legacy Gathering")
 	actor.view.global_position = Vector3(0,0,20)
 	check(not scene.placement.can_place() and scene.placement.validation_reason().contains("лежат ресурсы") and Stacks.total(scene.ground_resources)==3,"G1a: felled LOG blocks construction without destroying the yield")
 	for drop in scene.ground_resources.drops.duplicate():
@@ -103,7 +104,7 @@ func run() -> void:
 	scene.game_time.debug_skip_minutes(30)
 	scene.player_control.move_to(actor.data.id,Vector2(0,500))
 	check(partial.work_done==30 and partial.reservation_owner_id.is_empty() and worker.tree==null,"PlayerCommand preserves 30 minutes/releases task")
-	check(actor.data.get_skill_xp(Skill.Type.GATHERING)==1,"Interrupted tree grants no XP")
+	check(actor.data.get_skill_xp(Skill.Type.FORESTRY)==8,"Interrupted tree grants no XP")
 	arrive(actor)
 	# Keep only partial tree available to prove resume rather than fresh work.
 	for tree in scene.trees:
@@ -112,6 +113,8 @@ func run() -> void:
 	arrive(actor)
 	scene.game_time.debug_skip_minutes(30)
 	check(partial.state==TreeData.State.DEPLETED and Stacks.total(scene.ground_resources)==3,"Resume 30 minutes completes remaining work and one additional yield")
+	worker._minute(scene.game_time.total_minutes)
+	check(actor.data.get_skill_xp(Skill.Type.FORESTRY)==16 and actor.data.get_skill_xp(Skill.Type.WOODWORKING)==1000,"Repeated callback cannot repeat reward; another tree still trains Forestry at the secondary cap")
 	preload("res://tests/forestry_fixture.gd").clear_drops(scene)
 	for tree in scene.trees: tree.release(&"fixture")
 	check(worker.request_work(),"Critical interruption fixture starts")
