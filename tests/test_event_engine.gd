@@ -102,7 +102,7 @@ func _initialize() -> void:
 	facts.set_value(b, "housing.assigned_minute", 990)
 	result = engine.run(Setup.context("interaction.ended", "mentor"))
 	check(result.selected.id == "social.mentoring" and result.bindings.skill == "construction", "Mentoring binds actual profession skill")
-	check(facts.read(a, "skill.level", "construction").value == 1, "XP effect is never executed")
+	check(facts.read(a, "skill.rank", "construction").value == 1, "XP effect is never executed")
 	var cancelled := Setup.context("interaction.ended", "cancelled")
 	cancelled.payload.reason = "cancelled"
 	check(engine.run(cancelled).status == "no_match", "Cancelled conversation cannot teach in example")
@@ -173,7 +173,7 @@ func _initialize() -> void:
 	var before_context := original_context.duplicate(true)
 	future.run(original_context, history)
 	check(original_context == before_context and history == history_before, "Input context and cooldown history remain unchanged")
-	var snapshot: Variant = facts.read(a, "skill.level", "construction").value
+	var snapshot: Variant = facts.read(a, "skill.rank", "construction").value
 	check(snapshot == 1, "No mechanical consequence after repeated selected examples")
 	var unknown := Setup.definition()
 	unknown.when = {"not": {"eq": [{"ctx": "payload.unknown"}, 0]}}

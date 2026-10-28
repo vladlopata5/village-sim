@@ -4,7 +4,7 @@
     {
       "schema_version": 1,
       "id": "personal.skill_progress",
-      "revision": 2,
+      "revision": 3,
       "enabled": true,
       "trigger": "skill.raised",
       "main_role": "actor",
@@ -18,10 +18,10 @@
       "when": {
         "gt": [
           {
-            "ctx": "payload.new_level"
+            "ctx": "payload.new_rank"
           },
           {
-            "ctx": "payload.previous_level"
+            "ctx": "payload.previous_rank"
           }
         ]
       },
@@ -50,11 +50,11 @@
             "skill": {
               "ctx": "payload.skill"
             },
-            "previous_level": {
-              "ctx": "payload.previous_level"
+            "previous_rank": {
+              "ctx": "payload.previous_rank"
             },
-            "new_level": {
-              "ctx": "payload.new_level"
+            "new_rank": {
+              "ctx": "payload.new_rank"
             }
           },
           "chance": 0.6
@@ -80,7 +80,7 @@
         }
       ],
       "text": {
-        "diary_main": "{actor.name} замечает прогресс в навыке «{payload.skill_name}»: уровень {payload.previous_level} → {payload.new_level}."
+        "diary_main": "{actor.name} замечает прогресс в навыке «{payload.skill_name}»: «{payload.previous_rank_name}» → «{payload.new_rank_name}»."
       }
     }
   ]

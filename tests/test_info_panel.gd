@@ -65,16 +65,17 @@ func run() -> void:
 	check(panel.expanded and panel.active_tab==&"bio","Building to resident falls back to Bio")
 	a.get_need(Need.HUNGER).value=73
 	check(resident.hunger_label.text.contains("73"),"Need.changed immediately updates Bio")
-	a.add_skill_xp(Skill.CONSTRUCTION,4)
-	check(resident.skills_label.text.contains("4 XP"),"Skill signal updates actual XP")
+	a.add_skill_xp(Skill.CONSTRUCTION,400)
+	check(resident.skills_label.text.contains("Строительство: Новичок") and not resident.skills_label.text.contains("XP"),"Skill signal updates rank-only presentation")
 	resident.get_node("%SkillsToggle").button_pressed=true
 	check(resident.skills_label.visible,"Skills foldout operates")
+	var prior_diary_count: int=a.diary_entries.size()
 	world.game_time.total_minutes=1500
 	world.game_time.minute_changed.emit(1500)
 	a.add_diary_entry(Diary.new("Старый ключевой факт",Diary.Importance.KEY,360))
 	a.add_diary_entry(Diary.new("Сегодняшняя запись",Diary.Importance.TEMPORARY,1490))
 	var diary: Label=resident.get_node("%Diary")
-	check(diary.text.contains("Сегодняшняя запись") and not diary.text.contains("Старый ключевой факт") and a.diary_entries.size()==2,"Diary filters current day without deleting old KEY or changing retention")
+	check(diary.text.contains("Сегодняшняя запись") and not diary.text.contains("Старый ключевой факт") and a.diary_entries.size()==prior_diary_count+2,"Diary filters current day without deleting old KEY or changing retention")
 	resident.get_node("%DiaryToggle").button_pressed=true
 	check(diary.visible,"Diary foldout operates")
 	world.game_time.total_minutes=2880

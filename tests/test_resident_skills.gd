@@ -36,12 +36,12 @@ func become(scene: Node, actor: Node, profession: int) -> void:
 	scene.player_control.assign_profession(actor.data.id, profession)
 func arrive(actor: Node) -> void: preload("res://tests/handling_test_step.gd").move_domain(actor,100)
 func _run() -> void:
-	check(Balance.SKILL_XP_PER_LEVEL == 10 and Balance.MAX_SKILL_LEVEL == 10, "Prototype progression constants")
-	for pair in [[0,0], [9,0], [10,1], [19,1], [20,2], [99,9], [100,10], [150,10]]:
+	check(Balance.MAX_SKILL_XP == 10000 and Skill.Type.size() == 15, "Fifteen skills with bounded XP")
+	for pair in [[0,0], [399,0], [400,1], [999,1], [1000,2], [1799,2], [1800,3], [2999,3], [3000,4], [10000,4], [15000,4]]:
 		var sample = Data.new("skill_test", "Тест", 30)
 		for skill in Skill.Type.values(): check(sample.get_skill_xp(skill) == 0, "Every new skill starts at zero")
 		if pair[0] > 0: sample.add_skill_xp(Skill.Type.GATHERING, pair[0])
-		check(sample.get_skill_xp(Skill.Type.GATHERING) == pair[0] and sample.get_skill_level(Skill.Type.GATHERING) == pair[1], "XP curve retains XP beyond maximum level")
+		check(sample.get_skill_xp(Skill.Type.GATHERING) == mini(pair[0], 10000) and sample.get_skill_rank(Skill.Type.GATHERING) == pair[1], "Rank boundaries and global XP cap")
 		check(sample.get_skill_xp(Skill.Type.CONSTRUCTION) == 0 and sample.get_skill_xp(Skill.Type.LOGISTICS) == 0, "Skills are independent")
 	var data = Data.new("skill_test", "Тест", 30)
 	data.skill_changed.connect(func(_skill, _amount, _previous): skill_events += 1)
@@ -115,7 +115,7 @@ func _run() -> void:
 		check(actor.data.get_skill_xp(Skill.Type.LOGISTICS) == index, "Pickup grants no XP")
 		arrive(actor)
 		check(actor.data.get_skill_xp(Skill.Type.LOGISTICS) == index + 1, "Successful delivery grants one XP")
-	check(actor.data.get_skill_level(Skill.Type.LOGISTICS) == 1 and scene.kitchen_data.resources.get_amount(FOOD) == 10, "Ten deliveries yield level one with unchanged physical resources")
+	check(actor.data.get_skill_rank(Skill.Type.LOGISTICS) == Skill.Rank.PROFANE and scene.kitchen_data.resources.get_amount(FOOD) == 10, "Ten deliveries preserve one-XP rewards and physical resources without a premature rank")
 	scene.free()
 	for after_pickup in [false, true]:
 		scene = scenario()
@@ -132,32 +132,36 @@ func _run() -> void:
 	var card = scene.resident_card_view()
 	card.set_process(false)
 	scene.resident_selection.select(actor.data)
-	for skill in Skill.Type.values(): check(card.skills_label.text.contains("%s: ур. 0 (0 XP)" % Skill.display_name(skill)), "Selected card shows every skill")
-	actor.data.add_skill_xp(Skill.Type.GATHERING, 27)
-	check(card.skills_label.text.contains("Собирательство: ур. 2 (27 XP)"), "XP signal immediately updates derived level and XP")
+	for skill in Skill.Type.values(): check(card.skills_label.text.contains("%s: Профан" % Skill.display_name(skill)), "Selected card shows every skill")
+	actor.data.add_skill_xp(Skill.Type.GATHERING, 400)
+	check(card.skills_label.text.contains("Собирательство: Новичок"), "XP signal updates the rank without showing numeric XP")
 	become(scene, actor, Profession.Type.BUILDER)
-	check(card.skills_label.text.contains("Собирательство: ур. 2 (27 XP)"), "Profession change neither hides nor resets skills")
+	check(card.skills_label.text.contains("Собирательство: Новичок"), "Profession change neither hides nor resets skills")
 	card.skills_label.text = "event-only marker"
 	card._refresh()
 	check(card.skills_label.text == "event-only marker", "Regular refresh does not poll skills")
-	actor.data.add_skill_xp(Skill.Type.CONSTRUCTION, 150)
-	check(card.skills_label.text.contains("Строительство: ур. 10 (150 XP)"), "Signal restores view; max level retains actual XP")
+	actor.data.add_skill_xp(Skill.Type.CONSTRUCTION, 10000)
+	check(card.skills_label.text.contains("Строительство: Мастер"), "Signal restores rank-only view at the XP cap")
 	var second = scene.resident_runtimes[3]
 	scene.resident_selection.select(second.data)
-	check(not card.skills_label.text.contains("27 XP") and card.skills_label.text.contains("0 XP"), "Selection updates skills for another resident")
+	check(not card.skills_label.text.contains("Новичок") and card.skills_label.text.contains("Строительство: Профан") and not card.skills_label.text.contains("XP"), "Selection updates skills for another resident")
 	var shown: String = card.skills_label.text
 	actor.data.add_skill_xp(Skill.Type.GATHERING, 1)
 	check(card.skills_label.text == shown, "Old resident signal is disconnected")
 	# Skills have no effect on existing score or production parameters.
+	scene.free()
+	scene = scenario()
+	actor = scene.resident_runtimes[1]
+	become(scene, actor, Profession.Type.BUILDER)
 	site = site_in(scene)
 	var before: float = actor.builder.site_priority(site, actor.view.global_position)
-	actor.data.add_skill_xp(Skill.Type.CONSTRUCTION, 100)
-	check(actor.builder.site_priority(site, actor.view.global_position) == before, "Skill level does not affect construction choice")
+	actor.data.add_skill_xp(Skill.Type.CONSTRUCTION, 10000)
+	check(actor.builder.site_priority(site, actor.view.global_position) == before, "Skill rank does not affect construction choice")
 	var porter = scene.resident_runtimes[0]
 	var candidates: Array = scene.logistics.collect_candidates(porter.data.id)
-	porter.data.add_skill_xp(Skill.Type.LOGISTICS, 100)
+	porter.data.add_skill_xp(Skill.Type.LOGISTICS, 10000)
 	var high: Array = scene.logistics.collect_candidates(porter.data.id)
-	check(candidates.size() == high.size() and candidates[0].porter_score == high[0].porter_score, "Skill level does not affect porter score")
+	check(candidates.size() == high.size() and candidates[0].porter_score == high[0].porter_score, "Skill rank does not affect porter score")
 	scene.free()
 	# Critical needs interrupt through the same cleanup and never award unfinished work.
 	for profession in [Profession.Type.BUILDER, Profession.Type.PORTER]:
@@ -177,14 +181,16 @@ func _run() -> void:
 		for skill in Skill.Type.values(): check(actor.data.get_skill_xp(skill) == 0, "Critical interruption awards no unfinished XP")
 		if profession == Profession.Type.BUILDER: check(site.construction_progress == 27, "Critical interrupt keeps partial progress without XP")
 		scene.free()
-	# Only a level increase is INFO; each +1 is DEBUG when debugging is enabled.
+	# Only a rank increase is INFO; each +1 is DEBUG when debugging is enabled.
 	scene = scenario()
 	scene.game_logger.debug_enabled = true
 	scene.game_logger.line_logged.connect(func(line, _level): lines.append(line))
 	actor = scene.resident_runtimes[1]
+	actor.data.add_skill_xp(Skill.Type.CONSTRUCTION, 390)
+	lines.clear()
 	for _index in range(10): actor.data.add_skill_xp(Skill.Type.CONSTRUCTION, 1)
 	check(lines.filter(func(line): return line.contains("Строительство +1 XP")).size() == 10, "XP gain logged at DEBUG")
-	check(lines.filter(func(line): return line.contains("навык «Строительство» повышен")).size() == 1, "INFO emitted only for one level increase")
+	check(lines.filter(func(line): return line.contains("навык «Строительство» повышен")).size() == 1, "INFO emitted only for one rank increase")
 	scene.free()
 	print("Resident skill checks: %d, failures: %d" % [checks, failures])
 	quit(0 if failures == 0 else 1)

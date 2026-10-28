@@ -49,7 +49,7 @@ func cleanup(f: Dictionary) -> void:
 
 func prime(f: Dictionary, person: RefCounted = null, skill: int = Skill.Type.GATHERING) -> void:
 	if person == null: person = f.b
-	person.add_skill_xp(skill as Skill.Type, 20) # Actual skill.raised produces the real pride context.
+	person.add_skill_xp(skill as Skill.Type, 400) # Actual skill.raised produces the real pride context.
 	f.service.selector.rng = CountingRng.new(); f.rng = f.service.selector.rng
 	f.service.executor.rng = SequenceRng.new()
 
@@ -98,7 +98,7 @@ func confirmed_results() -> void:
 	cleanup(bounded_fixture)
 
 func conditions() -> void:
-	for scenario in ["positive", "neutral", "no_pride", "expired", "unrelated_pride", "same_skill", "lower_other_skill", "chance_zero", "empty_catalog", "inactive_other"]:
+	for scenario in ["positive", "neutral", "no_pride", "expired", "unrelated_pride", "same_skill", "same_rank_different_xp", "lower_other_skill", "chance_zero", "empty_catalog", "inactive_other"]:
 		var f := fixture()
 		if scenario != "no_pride": prime(f)
 		if scenario == "positive": f.social.rng.rolls = [100, 100]
@@ -110,11 +110,14 @@ func conditions() -> void:
 			unrelated.context._event.definition_id = "another.event"
 			check(f.b.moodlets.add(unrelated), "Another event may legitimately have a pride type")
 		if scenario in ["same_skill", "lower_other_skill"]:
-			f.a.add_skill_xp(Skill.Type.GATHERING, 20)
-			f.b.add_skill_xp(Skill.Type.CONSTRUCTION, 50)
+			f.a.add_skill_xp(Skill.Type.GATHERING, 400)
+			f.b.add_skill_xp(Skill.Type.CONSTRUCTION, 3000)
 			for state in f.b.moodlets.find():
 				if state.context.skill == "construction": f.b.moodlets.remove(state.id)
-			if scenario == "lower_other_skill": f.a.add_skill_xp(Skill.Type.GATHERING, 10)
+			if scenario == "lower_other_skill": f.a.add_skill_xp(Skill.Type.GATHERING, 600)
+		if scenario == "same_rank_different_xp":
+			f.a.add_skill_xp(Skill.Type.GATHERING, 500)
+			f.b.add_skill_xp(Skill.Type.GATHERING, 500)
 		if scenario == "chance_zero": f.service.selector.set_chance("social.resolved", 0)
 		if scenario == "empty_catalog": load_content(f, {"definitions": []})
 		if scenario == "inactive_other": f.control.unregister_resident("b")
@@ -139,7 +142,7 @@ func facts_and_reverse_main() -> void:
 	var facts: RefCounted = PairFacts.snapshot(f.a, f.b, 635)
 	var a := {"kind": "resident", "id": "a"}; var b := {"kind": "resident", "id": "b"}
 	check(facts.read(a, "traits").value == ["lazy"] and facts.read(a, "opinion", b).value == 7 and facts.read(b, "opinion", a).value == -4, "Current traits and directed opinions are read-only facts")
-	check(facts.read(b, "skill.level", "gathering").value == 2 and facts.read(b, "skill.name", "gathering").value == "Собирательство" and facts.read(b, "moodlets.active").value.size() == 1 and facts.read(b, "memories").value.size() == 1, "Skills, active states and memories come from existing resident stores")
+	check(facts.read(b, "skill.rank", "gathering").value == Skill.Rank.NOVICE and facts.read(b, "skill.name", "gathering").value == "Собирательство" and facts.read(b, "moodlets.active").value.size() == 1 and facts.read(b, "memories").value.size() == 1, "Skills, active states and memories come from existing resident stores")
 	var read: Dictionary = facts.read(b, "memories"); read.value[0].strength = 0
 	check(f.b.memories.find()[0].strength == 30 and facts._entities.size() == 2, "Projected values are detached; only two resident identities are present")
 	# A committed delta remains a fact even if an existing callback later edits opinion.
@@ -236,7 +239,7 @@ func json_facts_and_guards() -> void:
 	var replace := func(_result):
 		f.control.unregister_resident("b")
 		f.control.register_resident(replacement)
-		replacement.add_skill_xp(Skill.Type.GATHERING, 20)
+		replacement.add_skill_xp(Skill.Type.GATHERING, 400)
 	f.social.event_resolved.connect(replace)
 	f.social.resolve(f.a, f.b, SocialResult.Context.CONVERSATION)
 	check(social_count(f) == 0 and f.a.diary_entries.is_empty() and replacement.diary_entries.size() == 1, "Old confirmed result cannot target a replacement data object with reused ID")
@@ -276,7 +279,7 @@ func json_facts_and_guards() -> void:
 func real_controllers() -> void:
 	var scene := Setup.make_scene(self); configure_world(scene)
 	var actor: Node = scene.resident_runtimes[1]; var target: Node = scene.resident_runtimes[3]
-	target.data.add_skill_xp(Skill.Type.GATHERING, 20)
+	target.data.add_skill_xp(Skill.Type.GATHERING, 400)
 	var contexts: Array = []
 	scene.social_events.interaction_committed.connect(func(result): contexts.append(result.confirmed_context()))
 	actor.data.get_need(Need.Type.SOCIAL).value = 100; target.data.get_need(Need.Type.SOCIAL).value = 100
@@ -289,7 +292,7 @@ func real_controllers() -> void:
 	scene.free(); await process_frame
 	scene = Setup.make_scene(self); configure_world(scene)
 	actor = scene.resident_runtimes[1]; target = scene.resident_runtimes[3]
-	target.data.add_skill_xp(Skill.Type.GATHERING, 20)
+	target.data.add_skill_xp(Skill.Type.GATHERING, 400)
 	target.data.activity = Activity.Type.WORKING; target.decision._work_cycle_active = true; target.decision._work_assignment = {"location_id": scene.kitchen_data.id}
 	scene.kitchen_data.resources.add(Resources.Type.FOOD, 5); actor.data.hunger = 50
 	contexts = []
@@ -302,7 +305,7 @@ func real_controllers() -> void:
 	scene = Setup.make_scene(self); configure_world(scene)
 	actor = scene.resident_runtimes[1]; target = scene.resident_runtimes[3]
 	scene.player_control.assign_profession(actor.data.id, Profession.Type.BUILDER); scene.player_control.assign_profession(target.data.id, Profession.Type.BUILDER)
-	target.data.add_skill_xp(Skill.Type.CONSTRUCTION, 20)
+	target.data.add_skill_xp(Skill.Type.CONSTRUCTION, 400)
 	var definition: RefCounted = Definition.for_type(BuildingType.Type.HOME)
 	definition.construction_requirements = {Resources.Type.PLANK: 1}
 	preload("res://tests/construction_recipe_expectations.gd").single_stage(definition)

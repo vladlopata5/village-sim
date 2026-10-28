@@ -14,7 +14,7 @@ static func registry() -> RefCounted:
 	for key in ["equipment.clothing.appearance_rank", "equipment.clothing.acquired_minute", "housing.status_rank", "housing.assigned_minute"]: facts.register_fact(key, "resident", "number")
 	for key in ["profession", "action.activity"]: facts.register_fact(key, "resident", "string")
 	for key in ["profession.skill_ids", "memories.active", "tags"]: facts.register_fact(key, "resident", "array")
-	facts.register_fact("skill.level", "resident", "number", "string")
+	facts.register_fact("skill.rank", "resident", "number", "string")
 	facts.register_fact("presence.location", "resident", "entity")
 	facts.register_fact("building.type", "building", "string")
 	facts.register_fact("building.built", "building", "bool")
@@ -24,7 +24,7 @@ static func registry() -> RefCounted:
 		for key in ["equipment.clothing.appearance_rank", "equipment.clothing.acquired_minute", "housing.status_rank", "housing.assigned_minute"]: facts.set_value(entity, key, 0)
 		facts.set_value(entity, "profession", "builder")
 		facts.set_value(entity, "profession.skill_ids", ["construction"])
-		facts.set_value(entity, "skill.level", 1 if id == "a" else 4, "construction")
+		facts.set_value(entity, "skill.rank", 1 if id == "a" else 4, "construction")
 		facts.set_value(entity, "action.activity", "EATING" if id == "a" else "WORKING")
 		facts.set_value(entity, "presence.location", {"kind": "building", "id": "kitchen"})
 		facts.set_value(entity, "memories.active", [])
@@ -43,7 +43,7 @@ static func enabled_data() -> Dictionary:
 	return result
 
 static func context(trigger: String, id: String = "op-1") -> Dictionary:
-	return {"occurrence_id": id, "trigger": trigger, "minute": 1000, "actor": person("a"), "other": person("b"), "location": {"kind": "building", "id": "kitchen"}, "payload": {"reason": "completed", "shared_minutes": 20, "skill": "construction", "previous_level": 1, "new_level": 2}}
+	return {"occurrence_id": id, "trigger": trigger, "minute": 1000, "actor": person("a"), "other": person("b"), "location": {"kind": "building", "id": "kitchen"}, "payload": {"reason": "completed", "shared_minutes": 20, "skill": "construction", "previous_rank": 1, "new_rank": 2}}
 
 static func definition(id: String = "test", trigger: String = "test") -> Dictionary:
 	return {"schema_version": 1, "id": id, "revision": 1, "enabled": true, "trigger": trigger, "main_role": "actor", "roles": {"actor": {"type": "resident", "from": "ctx.actor"}}, "params": {}, "bind": [], "when": true, "weight": 1, "effects": [], "text": {"diary_main": "{actor.name}: test"}}

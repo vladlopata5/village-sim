@@ -97,6 +97,7 @@ func _init(unique_id: String, initial_name: String, initial_age: int, initial_pr
 	resident_name = initial_name
 	age = initial_age
 	profession = initial_profession
+	for skill in Skill.Type.values(): _skill_xp[skill] = 0
 
 func get_need(type: NeedType.Type) -> Need:
 	return needs[type]
@@ -110,30 +111,41 @@ func start_sleep(quality: float) -> void:
 	activity = ResidentActivity.Type.SLEEPING
 
 const Skill = preload("res://scripts/skill_type.gd")
-signal skill_changed(skill: Skill.Type, amount: int, previous_level: int)
-signal skill_raised(transition_id: int, skill: Skill.Type, previous_level: int, new_level: int)
-# XP is the only persistent skill state. Levels are never stored separately.
-var _skill_xp: Dictionary = {Skill.Type.GATHERING: 0, Skill.Type.CONSTRUCTION: 0, Skill.Type.LOGISTICS: 0}
+const SkillRules = preload("res://scripts/work_skill_rules.gd")
+signal skill_changed(skill: Skill.Type, amount: int, previous_rank: int)
+signal skill_raised(transition_id: int, skill: Skill.Type, previous_rank: int, new_rank: int)
+# The only skill state. Ranks and efficiency are derived, without legacy levels.
+var _skill_xp: Dictionary = {}
 var _skill_raise_sequence := 0
 var _skill_change_depth := 0
 var _publishing_skill_raises := false
 var _pending_skill_raises: Array = []
 func get_skill_xp(skill: Skill.Type) -> int:
 	return _skill_xp.get(skill, 0)
-func get_skill_level(skill: Skill.Type) -> int:
-	return clampi(floori(float(get_skill_xp(skill)) / Balance.SKILL_XP_PER_LEVEL), 0, Balance.MAX_SKILL_LEVEL)
-func add_skill_xp(skill: Skill.Type, amount: int) -> bool:
-	if amount <= 0 or not _skill_xp.has(skill): return false
-	var previous_level := get_skill_level(skill)
-	_skill_xp[skill] += amount
-	var new_level := get_skill_level(skill)
-	if new_level > previous_level:
-		_skill_raise_sequence += 1
-		_pending_skill_raises.append([_skill_raise_sequence, skill, previous_level, new_level])
-	# Existing notifications keep their timing/arguments. New facts follow the
-	# outer notification, in commit order even when a subscriber adds more XP.
+func get_skill_rank(skill: Skill.Type) -> Skill.Rank:
+	return Skill.rank_for_xp(get_skill_xp(skill))
+func add_skill_xp(skill: Skill.Type, amount: int, training_cap: int = Balance.MAX_SKILL_XP) -> bool:
+	if not _skill_xp.has(skill): return false
+	var gain := Skill.xp_gain(get_skill_xp(skill), amount, training_cap)
+	return _commit_skill_gains({skill: gain}) if gain > 0 else false
+func award_skill_xp(rules: SkillRules) -> bool:
+	if rules == null or not rules.is_valid(): return false
+	return _commit_skill_gains(rules.reward_deltas(self))
+func _commit_skill_gains(gains: Dictionary) -> bool:
+	if gains.is_empty(): return false
+	var changes: Array = []
+	# Commit every skill before publishing any callback. A nested award observes
+	# the whole reward, and all rank facts retain their original commit order.
+	for skill in gains:
+		var previous_rank := get_skill_rank(skill)
+		_skill_xp[skill] += gains[skill]
+		var new_rank := get_skill_rank(skill)
+		changes.append([skill, gains[skill], previous_rank])
+		if new_rank > previous_rank:
+			_skill_raise_sequence += 1
+			_pending_skill_raises.append([_skill_raise_sequence, skill, previous_rank, new_rank])
 	_skill_change_depth += 1
-	skill_changed.emit(skill, amount, previous_level)
+	for change in changes: skill_changed.emit(change[0] as Skill.Type, change[1], change[2])
 	_skill_change_depth -= 1
 	if _skill_change_depth == 0 and not _publishing_skill_raises:
 		_publishing_skill_raises = true

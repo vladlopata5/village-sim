@@ -270,7 +270,7 @@ func _refresh_home() -> void:
 	home_label.text = "Дом: %s (%s)\nХозяйство: №%d" % [home.display_name, home.id,household.local_index] if household!=null else "Жильё: Не назначено"
 	get_node("%ClearHome").visible = home != null
 
-func _on_skill_changed(_skill: int, _amount: int, _previous_level: int) -> void:
+func _on_skill_changed(_skill: int, _amount: int, _previous_rank: int) -> void:
 	_refresh_skills()
 func _refresh_skills() -> void:
 	if _assignment_resident == null:
@@ -278,7 +278,7 @@ func _refresh_skills() -> void:
 		return
 	var lines := PackedStringArray(["Навыки"])
 	for skill in Skill.Type.values():
-		lines.append("%s: ур. %d (%d XP)" % [Skill.display_name(skill), _assignment_resident.get_skill_level(skill), _assignment_resident.get_skill_xp(skill)])
+		lines.append("%s: %s" % [Skill.display_name(skill), Skill.rank_name(_assignment_resident.get_skill_rank(skill))])
 	skills_label.text = "\n".join(lines)
 
 func _refresh_traits() -> void:

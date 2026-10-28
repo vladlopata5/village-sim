@@ -601,7 +601,7 @@
     {
       "schema_version": 1,
       "id": "personal.skill_progress_advanced",
-      "revision": 1,
+      "revision": 2,
       "enabled": true,
       "trigger": "skill.raised",
       "main_role": "actor",
@@ -613,27 +613,27 @@
         }
       },
       "params": {
-        "minimum_level": 3
+        "minimum_rank": 2
       },
       "when": {
         "all": [
           {
             "gt": [
               {
-                "ctx": "payload.new_level"
+                "ctx": "payload.new_rank"
               },
               {
-                "ctx": "payload.previous_level"
+                "ctx": "payload.previous_rank"
               }
             ]
           },
           {
             "gte": [
               {
-                "ctx": "payload.new_level"
+                "ctx": "payload.new_rank"
               },
               {
-                "param": "minimum_level"
+                "param": "minimum_rank"
               }
             ]
           }
@@ -657,8 +657,8 @@
             "skill": {
               "ctx": "payload.skill"
             },
-            "new_level": {
-              "ctx": "payload.new_level"
+            "new_rank": {
+              "ctx": "payload.new_rank"
             }
           },
           "modifiers": [],
@@ -666,7 +666,7 @@
         }
       ],
       "text": {
-        "diary_main": "{actor.name} гордится достижением: навык «{payload.skill_name}» вырос до уровня {payload.new_level}."
+        "diary_main": "{actor.name} гордится достижением: новое звание в навыке «{payload.skill_name}» — «{payload.new_rank_name}»."
       }
     }
   ]

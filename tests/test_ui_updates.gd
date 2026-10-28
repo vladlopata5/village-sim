@@ -73,8 +73,8 @@ func run() -> void:
 	for step in range(10): card._process(0.25)
 	check(card.relationship_rebuild_count==links and card.assignment_rebuild_count==assignments,"Visible scalar polling never rebuilds unchanged lists")
 	a.get_need(N.HUNGER).value=71
-	a.add_skill_xp(S.CONSTRUCTION,5)
-	check(card.hunger_label.text.contains("71") and card.skills_label.text.contains("5 XP"),"Actual need/skill signals update current resident")
+	a.add_skill_xp(S.CONSTRUCTION,400)
+	check(card.hunger_label.text.contains("71") and card.skills_label.text.contains("Строительство: Новичок") and not card.skills_label.text.contains("XP"),"Actual need/skill signals update current resident")
 	a.resident_name="Новое Имя Без Сигнала";a.age=77
 	card._process(0.25)
 	check(card.name_label.text.contains(a.resident_name) and card.age_label.text.contains("77"),"Bounded visible scalar fallback updates silent fields")

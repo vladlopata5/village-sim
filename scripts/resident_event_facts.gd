@@ -21,9 +21,9 @@ static func snapshot(first: RefCounted, second: RefCounted, minute: int) -> RefC
 			if other != person: facts.set_value(ref, "opinion", person.get_opinion(other.id), {"kind": "resident", "id": other.id})
 		for type in Skill.Type.values():
 			var key: String = Skill.Type.keys()[type].to_lower()
-			facts.set_value(ref, "skill.level", person.get_skill_level(type), key)
+			facts.set_value(ref, "skill.rank", person.get_skill_rank(type), key)
 			facts.set_value(ref, "skill.name", Skill.display_name(type), key)
 	return facts
 
 static func snapshot_schema() -> Dictionary:
-	return {"traits": ["array", "none"], "opinion": ["number", "entity"], "skill.level": ["number", "string"], "skill.name": ["string", "string"], "moodlets.active": ["array", "none"], "memories": ["array", "none"]}
+	return {"traits": ["array", "none"], "opinion": ["number", "entity"], "skill.rank": ["number", "string"], "skill.name": ["string", "string"], "moodlets.active": ["array", "none"], "memories": ["array", "none"]}

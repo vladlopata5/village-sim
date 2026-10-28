@@ -30,8 +30,10 @@ func cleanup(f: Dictionary) -> void:
 func load_content(f: Dictionary, data: Dictionary) -> void:
 	check(f.service.catalog.load_data(data, f.service.facts), "Catalog accepts test definition: " + str(f.service.catalog.errors))
 
-func raise_level(f: Dictionary) -> Dictionary:
-	f.a.add_skill_xp(Skill.Type.GATHERING, 10)
+func raise_rank(f: Dictionary) -> Dictionary:
+	var rank: int = f.a.get_skill_rank(Skill.Type.GATHERING)
+	var target: int = preload("res://scripts/balance_config.gd").SKILL_RANK_XP[rank + 1]
+	f.a.add_skill_xp(Skill.Type.GATHERING, target - f.a.get_skill_xp(Skill.Type.GATHERING))
 	return f.service.replay(f.service.last_occurrence().occurrence_id)
 
 func _run() -> void:
@@ -50,7 +52,7 @@ func probabilities() -> void:
 	for pair in [[0.1, 0.1], [0.1, 0.9], [0.9, 0.1], [0.9, 0.9], [0.6, 0.3]]:
 		var f := fixture()
 		f.service.executor.rng.values = pair
-		var result := raise_level(f)
+		var result := raise_rank(f)
 		var memory_count := 1 if pair[0] < 0.6 else 0
 		var moodlet_count := 1 if pair[1] < 0.3 else 0
 		check(result.status == "completed" and f.a.diary_entries.size() == 1, "Mandatory diary even if no mechanics pass")
@@ -68,7 +70,7 @@ func probabilities() -> void:
 		if moodlet_count:
 			var moodlet: Dictionary = f.a.moodlets.find()[0]
 			check(moodlet.type == "pride" and moodlet.expires_at_minute == 755 and moodlet.modifiers.is_empty(), "JSON pride lifetime is 120 game minutes, with no gameplay modifiers")
-		check(f.a.mood == 50 and f.a.relationships.is_empty() and f.a.get_skill_xp(Skill.Type.GATHERING) == 10, "No mood/opinion/XP feedback")
+		check(f.a.mood == 50 and f.a.relationships.is_empty() and f.a.get_skill_xp(Skill.Type.GATHERING) == 400, "No mood/opinion/XP feedback")
 		cleanup(f)
 	for probability in [0.0, 1.0]:
 		for boundary in [0.0, 1.0]:
@@ -76,11 +78,11 @@ func probabilities() -> void:
 			for effect in data.definitions[0].effects: effect.chance = probability
 			load_content(f, data)
 			f.service.executor.rng.values = [boundary, boundary]
-			check(raise_level(f).status == "completed" and f.a.memories.size() == int(probability) and f.a.moodlets.size() == int(probability), "0/100 percent at inclusive RNG boundaries")
+			check(raise_rank(f).status == "completed" and f.a.memories.size() == int(probability) and f.a.moodlets.size() == int(probability), "0/100 percent at inclusive RNG boundaries")
 			cleanup(f)
 	var empty := fixture(); var empty_data := content(empty.service); empty_data.definitions[0].effects = []
 	load_content(empty, empty_data)
-	check(raise_level(empty).status == "completed" and empty.a.diary_entries.size() == 1 and empty.service.executor.rng.draws == 0, "Diary-only event remains valid without consequence rolls")
+	check(raise_rank(empty).status == "completed" and empty.a.diary_entries.size() == 1 and empty.service.executor.rng.draws == 0, "Diary-only event remains valid without consequence rolls")
 	cleanup(empty)
 
 func groups() -> void:
@@ -91,7 +93,7 @@ func groups() -> void:
 		definition.effects = [definition.effects[1]]; definition.effects[0].chance = 1
 		definition.exclusive_groups = [{"id": "response", "chance": 1, "options": [first, second, {"op": "none", "weight": 70}]}]
 		load_content(f, data); f.service.executor.rng.values = [0.0, 0.0, choice[0]]
-		var result := raise_level(f)
+		var result := raise_rank(f)
 		check(result.status == "completed" and result.exclusive_groups == [{"id": "response", "index": choice[1]}], "Normalized weighted selection: " + str(choice))
 		check(f.a.memories.size() == (0 if choice[1] == 2 else 1) and f.a.moodlets.size() == 1 and f.service.executor.rng.draws == 3, "At most one group outcome, independent effect coexists, none creates nothing")
 		cleanup(f)
@@ -108,7 +110,7 @@ func groups() -> void:
 			f.service.executor.rng.values = [0.0, 1.0]
 		if scenario == "option_chance": definition.exclusive_groups[0].options[1].chance = 0
 		load_content(f, data)
-		var result := raise_level(f)
+		var result := raise_rank(f)
 		check(result.status == "completed" and f.a.memories.size() == (1 if scenario == "large" else 0), "Group handles " + scenario)
 		check(f.service.executor.rng.draws == (3 if scenario == "option_chance" else 2 if scenario == "large" else 1), "Exactly documented draws for " + scenario)
 		cleanup(f)
@@ -148,7 +150,7 @@ func atomic_failures() -> void:
 		f.a.diary_changed.connect(func(): notices.append("diary"))
 		f.a.memories.changed.connect(func(_id): notices.append("memory"))
 		f.a.moodlets.changed.connect(func(_id): notices.append("moodlet"))
-		var result := raise_level(f)
+		var result := raise_rank(f)
 		check(result.status != "completed" and not result.errors.is_empty(), "Diagnostic refusal for " + scenario)
 		check(f.a.diary_entries.is_empty() and f.a.moodlets.size() == 0 and f.a.memories.size() == (1 if scenario == "collision" else 0), "No partial writes on " + scenario)
 		check(notices.is_empty() and f.service.completed_events().is_empty() and f.service.cooldown_history().is_empty(), "No partial notifications/completed/cooldown on " + scenario)
@@ -163,14 +165,14 @@ func failure_then_success() -> void:
 	definition.cooldown = {"minutes": 60, "scope": [{"role": "actor"}]}
 	definition.effects[1].duration_minutes = -1
 	load_content(f, data)
-	check(raise_level(f).status == "prepare_failed", "Initial prepare fails")
+	check(raise_rank(f).status == "prepare_failed", "Initial prepare fails")
 	definition.effects[1].duration_minutes = 120
 	load_content(f, data)
-	check(raise_level(f).status == "completed" and f.service.cooldown_history().size() == 1 and f.a.memories.size() == 1 and f.a.moodlets.size() == 1, "Failed prepare does not start cooldown or block a distinct trigger")
+	check(raise_rank(f).status == "completed" and f.service.cooldown_history().size() == 1 and f.a.memories.size() == 1 and f.a.moodlets.size() == 1, "Failed prepare does not start cooldown or block a distinct trigger")
 	var draws: int = f.service.executor.rng.draws
-	check(raise_level(f).status == "no_match" and f.service.executor.rng.draws == draws and f.a.diary_entries.size() == 1, "Successful commit starts cooldown; rejected selection does not roll effects")
+	check(raise_rank(f).status == "no_match" and f.service.executor.rng.draws == draws and f.a.diary_entries.size() == 1, "Successful commit starts cooldown; rejected selection does not roll effects")
 	f.clock.total_minutes += 60
-	check(raise_level(f).status == "completed" and f.a.diary_entries.size() == 2 and f.a.memories.size() == 2 and f.a.moodlets.size() == 2, "Exact expiry permits a new complete event; no implicit memory reinforcement")
+	check(raise_rank(f).status == "completed" and f.a.diary_entries.size() == 2 and f.a.memories.size() == 2 and f.a.moodlets.size() == 2, "Exact expiry permits a new complete event; no implicit memory reinforcement")
 	cleanup(f)
 	for who in ["a", "b"]:
 		f = fixture(); data = content(f.service); definition = data.definitions[0]
@@ -180,7 +182,7 @@ func failure_then_success() -> void:
 		f.service.executor.rng.on_draw = func(n):
 			if n == 2: f.control.unregister_resident(who)
 		load_content(f, data)
-		check(raise_level(f).status != "completed" and f.a.diary_entries.is_empty() and f.b.diary_entries.is_empty() and f.a.memories.size() == 0 and f.a.moodlets.size() == 0, "Source/main disappearing during consequence rolls aborts all writes: " + who)
+		check(raise_rank(f).status != "completed" and f.a.diary_entries.is_empty() and f.b.diary_entries.is_empty() and f.a.memories.size() == 0 and f.a.moodlets.size() == 0, "Source/main disappearing during consequence rolls aborts all writes: " + who)
 		cleanup(f)
 
 func recipients_and_diaries() -> void:
@@ -198,7 +200,7 @@ func recipients_and_diaries() -> void:
 		definition.effects[0].provenance = {"kind": "hearsay", "reported_by": {"role": "actor"}}
 		definition.effects[1].owner = {"role": "actor"}
 		load_content(f, data)
-		check(raise_level(f).status == "completed" and f.b.diary_entries.size() == 1 and f.a.diary_entries.size() == probability, "Main != actor and optional secondary diary probability")
+		check(raise_rank(f).status == "completed" and f.b.diary_entries.size() == 1 and f.a.diary_entries.size() == probability, "Main != actor and optional secondary diary probability")
 		check(f.b.diary_entries[0].text == "Борис: главный участник" and (probability == 0 or f.a.diary_entries[0].text == "Анна: другой участник"), "Separate participant texts through common renderer")
 		check(f.b.memories.size() == 1 and f.a.memories.size() == 0 and f.a.moodlets.size() == 1 and f.b.moodlets.size() == 0, "Effects honor roles/bindings, not implicit main owner")
 		check(f.b.memories.find()[0].provenance.reported_by.id == "a" and f.b.memories.find()[0].target.id == "a", "Target and hearsay references resolved as data")
@@ -210,7 +212,7 @@ func recipients_and_diaries() -> void:
 		definition.secondary_diary = {"role": "other", "chance": probability}
 		definition.text.diary_secondary = "{other.missing}"
 		load_content(f, data)
-		check((raise_level(f).status == "completed") == (probability == 0), "Only selected secondary text is required; selected bad text aborts whole event")
+		check((raise_rank(f).status == "completed") == (probability == 0), "Only selected secondary text is required; selected bad text aborts whole event")
 		check(f.a.diary_entries.size() == (1 if probability == 0 else 0), "No main-only commit when selected secondary cannot render")
 		cleanup(f)
 
@@ -226,14 +228,14 @@ func notifications_and_reentrancy() -> void:
 		observe.call()
 		f.service.executor.publish(f.service.last_occurrence().occurrence_id)
 		f.a.skill_raised.emit(1, Skill.Type.GATHERING, 0, 1)
-		f.b.add_skill_xp(Skill.Type.GATHERING, 10))
+		f.b.add_skill_xp(Skill.Type.GATHERING, 400))
 	f.a.memories.changed.connect(func(_id): observe.call())
 	f.a.moodlets.changed.connect(func(_id): observe.call())
-	f.a.add_skill_xp(Skill.Type.GATHERING, 10)
+	f.a.add_skill_xp(Skill.Type.GATHERING, 400)
 	check(snapshots == [[1, 1, 1, 1, 1, "completed"], [1, 1, 1, 1, 1, "pending"], [1, 1, 1, 1, 1, "pending"]], "Every callback sees ALL event data and metadata; nested other occurrence is pending until publication completes")
 	check(f.b.diary_entries.is_empty() and f.b.memories.size() == 0 and f.service.completed_events().size() == 1 and f.service.executor.rng.draws == 2, "Nested other resident cannot bypass shared cooldown")
 	f.clock.total_minutes += 60
-	f.b.add_skill_xp(Skill.Type.GATHERING, 10)
+	f.b.add_skill_xp(Skill.Type.GATHERING, 600)
 	check(f.b.diary_entries.size() == 1 and f.b.memories.size() == 1 and f.b.moodlets.size() == 1 and f.service.completed_events().size() == 2, "Exact cooldown boundary commits a later complete bundle")
 	cleanup(f)
 
@@ -242,7 +244,7 @@ func lifetimes_and_rng() -> void:
 		var f := fixture(); var data := content(f.service); var effect: Dictionary = data.definitions[0].effects[1]
 		if lifetime == "absolute": effect.erase("duration_minutes"); effect.expires_at_minute = 640.0
 		if lifetime == "indefinite": effect.erase("duration_minutes")
-		load_content(f, data); raise_level(f)
+		load_content(f, data); raise_rank(f)
 		var entry: Dictionary = f.a.moodlets.find()[0]
 		check(f.a.moodlets.is_active(entry.id, 635) and f.a.moodlets.is_active(entry.id, 639), "Active saved moodlet: " + lifetime)
 		var expiry: int = 755 if lifetime == "duration" else 640
@@ -251,7 +253,7 @@ func lifetimes_and_rng() -> void:
 	var traces: Array = []
 	for repeat in 2:
 		var f := fixture(); f.service.executor.rng = RandomNumberGenerator.new(); f.service.executor.rng.seed = 42
-		for step in 10: f.a.add_skill_xp(Skill.Type.GATHERING, 10)
+		for xp in [400, 600, 800, 1200]: f.a.add_skill_xp(Skill.Type.GATHERING, xp)
 		traces.append([f.a.memories.find(), f.a.moodlets.find(), f.service.executor.rng.state])
 		cleanup(f)
 	check(traces[0] == traces[1], "Same effect seed and actual XP transitions reproduce records and RNG state")
@@ -261,7 +263,7 @@ func canonical_effects() -> void:
 	root.add_child(world); world.game_time.set_process(false); world.game_logger.console_enabled = false
 	var rng := SequenceRng.new(); world.game_events.executor.rng = rng
 	var resident: RefCounted = world.residents[0]
-	resident.add_skill_xp(Skill.Type.CONSTRUCTION, 10)
+	resident.add_skill_xp(Skill.Type.CONSTRUCTION, 400)
 	check(resident.diary_entries.size() == 1 and resident.memories.size() == 1 and resident.moodlets.size() == 1 and rng.draws == 2, "Canonical actual skill.raised path commits Diary + Memory + Moodlet without waiting for manual play")
 	check(resident.memories.find()[0].topic == "construction" and resident.moodlets.find()[0].expires_at_minute == world.game_time.total_minutes + 120, "Real skill payload and game clock reach stored states")
 	world.free(); await process_frame

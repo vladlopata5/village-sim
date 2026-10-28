@@ -130,13 +130,13 @@ func _source_generation(data: RefCounted) -> int:
 	_source_generations.append({"reference": weakref(data), "generation": _registration_sequence})
 	return _registration_sequence
 
-func _on_skill_raised(transition_id: int, skill: Skill.Type, previous_level: int, new_level: int, data: RefCounted) -> void:
-	if skill not in Skill.Type.values() or transition_id <= 0 or previous_level < 0 or new_level <= previous_level or new_level > Balance.MAX_SKILL_LEVEL: return
+func _on_skill_raised(transition_id: int, skill: Skill.Type, previous_rank: int, new_rank: int, data: RefCounted) -> void:
+	if skill not in Skill.Type.values() or transition_id <= 0 or previous_rank not in Skill.Rank.values() or new_rank not in Skill.Rank.values() or new_rank <= previous_rank: return
 	var row: Dictionary = _tracked.get(data.id, {})
 	if row.is_empty() or row.data != data: return
 	var id := JSON.stringify(["skill.raised", data.id, row.generation, transition_id])
 	if _outcomes.has(id) or _pending_ids.has(id): return
-	var context := {"occurrence_id": id, "trigger": "skill.raised", "minute": _clock.total_minutes, "actor": {"kind": "resident", "id": data.id}, "payload": {"skill": Skill.Type.keys()[skill].to_lower(), "skill_name": Skill.display_name(skill), "previous_level": previous_level, "new_level": new_level}}
+	var context := {"occurrence_id": id, "trigger": "skill.raised", "minute": _clock.total_minutes, "actor": {"kind": "resident", "id": data.id}, "payload": {"skill": Skill.Type.keys()[skill].to_lower(), "skill_name": Skill.display_name(skill), "previous_rank": previous_rank, "new_rank": new_rank, "previous_rank_name": Skill.rank_name(previous_rank as Skill.Rank), "new_rank_name": Skill.rank_name(new_rank as Skill.Rank)}}
 	_enqueue(context, data)
 
 func _enqueue(context: Dictionary, source: RefCounted, other: RefCounted = null, candidates: Variant = null) -> void:

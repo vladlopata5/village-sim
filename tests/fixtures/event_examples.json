@@ -342,7 +342,7 @@
                     {
                       "role": "other"
                     },
-                    "skill.level",
+                    "skill.rank",
                     {
                       "local": "candidate"
                     }
@@ -353,7 +353,7 @@
                     {
                       "role": "actor"
                     },
-                    "skill.level",
+                    "skill.rank",
                     {
                       "local": "candidate"
                     }
@@ -644,10 +644,10 @@
       "when": {
         "gt": [
           {
-            "ctx": "payload.new_level"
+            "ctx": "payload.new_rank"
           },
           {
-            "ctx": "payload.previous_level"
+            "ctx": "payload.previous_rank"
           }
         ]
       },
@@ -673,8 +673,8 @@
             "skill": {
               "ctx": "payload.skill"
             },
-            "level": {
-              "ctx": "payload.new_level"
+            "rank": {
+              "ctx": "payload.new_rank"
             }
           },
           "chance": 1
@@ -692,8 +692,8 @@
         }
       ],
       "text": {
-        "feed": "{actor.name} достиг нового уровня навыка {payload.skill}.",
-        "diary_main": "{actor.name} достиг нового уровня навыка {payload.skill}."
+        "feed": "{actor.name} получил новое звание в навыке {payload.skill}.",
+        "diary_main": "{actor.name} получил новое звание в навыке {payload.skill}."
       },
       "cooldown": {
         "minutes": 0,
@@ -705,7 +705,7 @@
             "ctx": "payload.skill"
           },
           {
-            "ctx": "payload.new_level"
+            "ctx": "payload.new_rank"
           }
         ]
       },

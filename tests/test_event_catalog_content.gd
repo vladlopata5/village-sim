@@ -57,7 +57,7 @@ func positive_definitions() -> void:
 		var before: int = f.service.completed_events().size()
 		var result: Dictionary
 		if id == "personal.skill_progress_advanced":
-			f.a.add_skill_xp(Skill.Type.GATHERING, 30)
+			f.a.add_skill_xp(Skill.Type.GATHERING, 1000)
 			result = f.service.replay(f.service.last_occurrence().occurrence_id)
 		else: result = fire(f)
 		check(result.status == "completed" and result.definition_id == id and f.service.completed_events().size() == before + 1, "One real confirmed trigger selects " + id)
@@ -102,7 +102,7 @@ func negative_definitions() -> void:
 			only(f, id)
 			var before: int = f.service.completed_events().size()
 			var diaries: int = f.a.diary_entries.size() + f.b.diary_entries.size()
-			if id == "personal.skill_progress_advanced": f.a.add_skill_xp(Skill.Type.CONSTRUCTION, 20)
+			if id == "personal.skill_progress_advanced": f.a.add_skill_xp(Skill.Type.CONSTRUCTION, 400)
 			else: fire(f, SocialResult.Context.MEAL if scenario == "meal" else SocialResult.Context.WORK if scenario == "work" else SocialResult.Context.CONVERSATION)
 			check(f.service.completed_events().size() == before and f.a.diary_entries.size() + f.b.diary_entries.size() == diaries, "Condition rejects " + id + "/" + scenario)
 			cleanup(f)
@@ -123,18 +123,24 @@ func competition() -> void:
 		check(selection.eligible == ["social.old_grudge", "social.rough_conversation", "social.success_envy"] and result.definition_id == selection.eligible[int(value * 2)], "New memory/history stories compete with existing envy without extra memory tickets")
 		cleanup(f)
 	var skill_fixture := fixture()
-	skill_fixture.a.add_skill_xp(Skill.Type.CONSTRUCTION, 20)
+	skill_fixture.a.add_skill_xp(Skill.Type.CONSTRUCTION, 400)
 	var skill_result: Dictionary = skill_fixture.service.replay(skill_fixture.service.last_occurrence().occurrence_id)
 	check(skill_result.definition_id == "personal.skill_progress", "Below threshold only the ordinary skill story is eligible")
 	skill_fixture.rng.value = 1.0
-	skill_fixture.a.add_skill_xp(Skill.Type.CONSTRUCTION, 10)
+	skill_fixture.a.add_skill_xp(Skill.Type.CONSTRUCTION, 600)
 	skill_result = skill_fixture.service.replay(skill_fixture.service.last_occurrence().occurrence_id)
 	var skill_selection: Dictionary = skill_fixture.service.selector.run(skill_fixture.service.last_occurrence())
 	check(skill_selection.eligible == ["personal.skill_progress", "personal.skill_progress_advanced"] and skill_result.definition_id == "personal.skill_progress_advanced" and skill_fixture.a.diary_entries.size() == 2, "Threshold achievement competes with ordinary story, never runs additionally")
 	cleanup(skill_fixture)
+	for xp in [1800, 3000]:
+		var titled := fixture(); titled.rng.value = 1.0
+		titled.a.add_skill_xp(Skill.Type.FORESTRY, xp)
+		var result: Dictionary = titled.service.replay(titled.service.last_occurrence().occurrence_id)
+		check(result.definition_id == "personal.skill_progress_advanced" and titled.a.diary_entries.back().text.contains(Skill.rank_name(titled.a.get_skill_rank(Skill.Type.FORESTRY))), "Experienced and Master also qualify, using title-only text")
+		cleanup(titled)
 	for followup in ["social.success_admiration", "social.success_envy"]:
 		var full := fixture(); full.rng.value = 1.0
-		full.b.add_skill_xp(Skill.Type.LOGISTICS, 30)
+		full.b.add_skill_xp(Skill.Type.LOGISTICS, 1000)
 		check(full.b.moodlets.find()[0].context._event.definition_id == "personal.skill_progress_advanced", "Real advanced story supplies a valid pride origin")
 		only(full, followup); full.social.rng.rolls = [100 if followup == "social.success_admiration" else -100, 0]
 		check(fire(full).definition_id == followup and full.a.moodlets.find()[0].context.skill == "logistics", "Both admiration and existing envy recognize pride from the new achievement")

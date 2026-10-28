@@ -74,13 +74,15 @@ func setup(resident: RefCounted, presentation: Node, clock: Node, locations: Ref
 func _process(_delta: float) -> void:
 	if logger != null and data != null: logger.sync_activity(data)
 
-func _on_skill_changed(skill: int, amount: int, previous_level: int) -> void:
+func _on_skill_changed(skill: int, amount: int, previous_rank: int) -> void:
 	if logger == null: return
-	var label: String = preload("res://scripts/skill_type.gd").display_name(skill)
-	var level: int = data.get_skill_level(skill)
-	logger.debug(EventLog.AI, "%s: %s +%d XP (%d XP, ур. %d)" % [data.resident_name, label, amount, data.get_skill_xp(skill), level])
-	if level > previous_level:
-		logger.info(EventLog.AI, "%s: навык «%s» повышен до уровня %d" % [data.resident_name, label, level])
+	var skill_type = preload("res://scripts/skill_type.gd")
+	var label: String = skill_type.display_name(skill)
+	var rank: int = data.get_skill_rank(skill)
+	var rank_label: String = skill_type.rank_name(rank)
+	logger.debug(EventLog.AI, "%s: %s +%d XP (%d XP, %s)" % [data.resident_name, label, amount, data.get_skill_xp(skill), rank_label])
+	if rank > previous_rank:
+		logger.info(EventLog.AI, "%s: навык «%s» повышен до звания «%s»" % [data.resident_name, label, rank_label])
 
 func _on_building_use_unavailable(intent: RefCounted) -> void:
 	if intent.reason_id in [&"night_home",&"night_outdoor"]:
