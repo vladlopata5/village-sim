@@ -1330,6 +1330,11 @@ provider, привязанный ResidentRuntime; новых состояний 
 собеседника и стоянка WANDER сохраняют базовые скорости. Восстановление LEISURE,
 другие активности и существующий бонус движения не изменены; новых переключений нет.
 FOOLISH normal selector ratio=0.55/exponent=1.50 вместо base 0.75/2.0.
+Дополнительно FOOLISH повышает только ordinary LEISURE utility ×1.5 и ускоряет
+отрицательные LEISURE rates ×1.5: RELAXING восстанавливает 4.5 вместо 3 пунктов/мин,
+TALKING — 0.75 вместо 0.5. Приоритет SOCIAL/WANDER и отдых от усталости REST
+не повышаются. Рост дефицита, остальные потребности и правила завершения прежние:
+RELAXING остаётся фиксированным 30-минутным действием, даже если дефицит уже равен 0.
 Unavailable actions не попадают в selector; forced/critical/night/management
 по-прежнему обходят его. Assignment bonus, availability TALK_TO и длительности
 разговоров прежние. Utility modifiers относятся к ordinary categories; явные

@@ -136,6 +136,7 @@ func collect_actions(has_available_work: bool) -> Array:
 		if not id.is_empty():
 			var effective: float = Modifiers.eat_utility(_data) if id == "EAT" else float(priority)
 			if id == "SOCIAL": effective = Modifiers.action_utility(_data, Modifiers.Action.SOCIAL, effective)
+			if id == "LEISURE": effective = Modifiers.action_utility(_data, Modifiers.Action.LEISURE, effective)
 			actions.append({"id": id, "priority": effective})
 	if is_instance_valid(wander) and wander.has_action(): actions.append({"id": "WANDER", "priority": Modifiers.action_utility(_data, Modifiers.Action.WANDER, Balance.WANDER_PRIORITY)})
 	if is_instance_valid(assignments): actions.append_array(assignments.collect_actions())
