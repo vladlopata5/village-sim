@@ -53,6 +53,7 @@ func setup(resident: RefCounted, presentation: Node, clock: Node, locations: Ref
 	view.apply_intent(intents.current_intent)
 	if view.has_method("exit_for_action"): needs.exit_building_provider = view.exit_for_action
 	need_dynamics.eating_rate_provider = needs.get_hunger_eating_rate
+	need_dynamics.ordinary_idle_provider = intents.is_ordinary_idle
 	need_dynamics.setup(clock, data)
 	needs.food_availability = food_availability
 	needs.setup(clock, data, buildings, locations, intents, schedule)

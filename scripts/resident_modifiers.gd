@@ -11,7 +11,7 @@ static func work_rate(resident: RefCounted, rules: WorkRules) -> float:
 	if not is_finite(percent) or percent < 100.0 or percent > 150.0: return -1.0
 	return percent / 100.0
 
-enum Action { WORK, EAT, SOCIAL }
+enum Action { WORK, EAT, SOCIAL, WANDER }
 static func social_partner_multiplier(resident: RefCounted, opinion: int) -> float:
 	var bounded := clampi(opinion, Balance.OPINION_MIN, Balance.OPINION_MAX)
 	if resident != null:
@@ -59,7 +59,13 @@ static func action_utility(resident: RefCounted, action: Action, base: float) ->
 				if action == Action.WORK: multiplier *= Balance.LAZY_WORK_UTILITY_MULTIPLIER
 			Trait.Type.GLUTTON:
 				if action == Action.EAT: multiplier *= Balance.GLUTTON_EAT_UTILITY_MULTIPLIER
+			Trait.Type.RESTLESS:
+				if action == Action.WANDER: multiplier *= Balance.RESTLESS_WANDER_UTILITY_MULTIPLIER
 	return maxf(base * multiplier, 0.0)
+static func leisure_need_rate(resident: RefCounted, base_rate: float, ordinary_idle: bool) -> float:
+	if ordinary_idle and base_rate > 0 and resident.has_trait(Trait.Type.RESTLESS):
+		return base_rate * Balance.RESTLESS_IDLE_LEISURE_GROWTH_MULTIPLIER
+	return base_rate
 static func eat_threshold(resident: RefCounted, base: int = Balance.EAT_MIN_HUNGER) -> int:
 	var addition := 0
 	for trait_type in resident.traits:

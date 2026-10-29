@@ -1323,6 +1323,12 @@ Meal duration, recovery, consumption и critical hunger не меняются.
 AI, потребности и рабочая эффективность не изменяются; нового UI мудлетов нет.
 RESTLESS physical movement ×1.10 для всех маршрутов, включая player MOVE_TO,
 porter и builder hauling; work/production/game time не ускоряются.
+RESTLESS также даёт ordinary WANDER utility ×1.5 (500→750) и рост LEISURE ×4
+только при обычном IDLE без текущего задания, forced priority и player control.
+Predicate ResidentIntentController.is_ordinary_idle читается NeedDynamics через
+provider, привязанный ResidentRuntime; новых состояний нет. Ожидание материалов,
+собеседника и стоянка WANDER сохраняют базовые скорости. Восстановление LEISURE,
+другие активности и существующий бонус движения не изменены; новых переключений нет.
 FOOLISH normal selector ratio=0.55/exponent=1.50 вместо base 0.75/2.0.
 Unavailable actions не попадают в selector; forced/critical/night/management
 по-прежнему обходят его. Assignment bonus, availability TALK_TO и длительности

@@ -26,6 +26,7 @@ const LEISURE_RATES = {
 	Activity.Type.RESTING: 12, Activity.Type.TALKING: -30, Activity.Type.RELAXING: -180,
 }
 var eating_rate_provider: Callable # Current paid EAT parameters, no copied need state.
+var ordinary_idle_provider: Callable # Read current intent ownership; task pauses are not empty AI idle.
 var _data: Data
 var _fractions: Dictionary = {NeedType.Type.HUNGER: 0, NeedType.Type.FATIGUE: 0, NeedType.Type.SOCIAL: 0, NeedType.Type.LEISURE: 0}
 func setup(clock: Node, data: Data) -> void:
@@ -33,6 +34,7 @@ func setup(clock: Node, data: Data) -> void:
 	clock.minute_changed.connect(_on_minute_changed)
 func _on_minute_changed(_minute: int) -> void:
 	var activity = _data.activity
+	var ordinary_idle: bool = activity == Activity.Type.IDLE and ordinary_idle_provider.is_valid() and ordinary_idle_provider.call()
 	var hunger_rate := HUNGER_AWAKE
 	if activity == Activity.Type.SLEEPING: hunger_rate = HUNGER_SLEEPING
 	elif activity == Activity.Type.EATING:
@@ -43,7 +45,8 @@ func _on_minute_changed(_minute: int) -> void:
 	_apply(NeedType.Type.FATIGUE, fatigue_rate)
 	var social_rate := Modifiers.social_need_rate(_data, SOCIAL_RATES[activity])
 	_apply_slow_growth(NeedType.Type.SOCIAL, social_rate, Balance.SOCIAL_GROWTH_DIVISOR, Balance.SLEEP_SOCIAL_GROWTH_MULTIPLIER if activity == Activity.Type.SLEEPING else 1.0)
-	_apply_slow_growth(NeedType.Type.LEISURE, LEISURE_RATES[activity], Balance.LEISURE_GROWTH_DIVISOR, Balance.SLEEP_LEISURE_GROWTH_MULTIPLIER if activity == Activity.Type.SLEEPING else 1.0)
+	var leisure_rate := Modifiers.leisure_need_rate(_data, LEISURE_RATES[activity], ordinary_idle)
+	_apply_slow_growth(NeedType.Type.LEISURE, leisure_rate, Balance.LEISURE_GROWTH_DIVISOR, Balance.SLEEP_LEISURE_GROWTH_MULTIPLIER if activity == Activity.Type.SLEEPING else 1.0)
 func _apply_slow_growth(type: NeedType.Type, rate: float, divisor: int, growth_multiplier: float = 1.0) -> void:
 	# Fixed-point fractions retain small nonzero sleep growth without float drift.
 	var scaled_rate := roundi(rate * divisor * 1000) if rate < 0 else roundi(rate * growth_multiplier * 1000)

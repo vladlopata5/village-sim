@@ -152,6 +152,9 @@ func has_current_action() -> bool:
 	# NONE with a reason is a stationary action, without adding movement types.
 	return current_intent.type != ResidentIntent.Type.NONE or not current_intent.reason_id.is_empty()
 
+func is_ordinary_idle() -> bool:
+	return resident_data != null and resident_data.activity == Activity.Type.IDLE and not has_current_action() and forced_priority == 0 and not player_controlled
+
 func cancel_current(intent: ResidentIntent) -> bool:
 	if player_controlled: return false
 	if intent != current_intent:
