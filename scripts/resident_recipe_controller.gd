@@ -63,7 +63,7 @@ func has_work() -> bool:
 	return target!=null and not target.select_production_work(_runtime.data.id).is_empty()
 
 func request_work() -> bool:
-	if _clock.get_phase() != "День" or _runtime.intents.player_controlled or _runtime.intents.forced_priority>0 or _runtime.intents.has_current_action() or not has_work(): return false
+	if not _runtime.intents.work_start_allowed(_clock) or _runtime.intents.player_controlled or _runtime.intents.forced_priority>0 or _runtime.intents.has_current_action() or not has_work(): return false
 	building = _workplace()
 	building.production_changed.connect(_on_production_changed)
 	_assignment_revision = _runtime.data.work_assignment_revision
@@ -71,12 +71,12 @@ func request_work() -> bool:
 	_mutating = true
 	batch = building.claim_production_work(_runtime.data.id)
 	_mutating = false
-	if batch == null or _interrupted or not _valid() or _clock.get_phase() != "День" or _runtime.intents.has_current_action():
+	if batch == null or _interrupted or not _valid() or not _runtime.intents.work_start_allowed(_clock) or _runtime.intents.has_current_action():
 		abort()
 		return false
 	_intent = Intent.new(Intent.Type.MOVE_TO,&"recipe_work",_locations.get_position(building.id),Balance.WORK_PRIORITY,false)
 	if _locations.has_method("configure_intent"): _locations.configure_intent(_intent,building.id,Purpose.WORKER,_runtime.data.id)
-	if not _runtime.intents.submit(_intent):
+	if not _runtime.intents.configure_work_intent(_intent,_clock) or not _runtime.intents.submit(_intent):
 		abort()
 		return false
 	if phase==Phase.NONE: return false

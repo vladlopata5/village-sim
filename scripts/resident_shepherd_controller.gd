@@ -100,7 +100,7 @@ func _candidate() -> Node3D:
 	return null
 func has_work() -> bool: return _candidate()!=null
 func request_work() -> bool:
-	if world.game_time.get_phase()!="День":return false
+	if not runtime.intents.work_start_allowed(world.game_time):return false
 	var sheep:=_candidate()
 	if sheep==null or not _begin(sheep,workplace(),null):return false
 	batch=preload("res://scripts/shearing_batch.gd").new(identity,building.resources)
@@ -119,6 +119,7 @@ func keeps_shift_action() -> bool:
 	return runtime!=null and _intent!=null and runtime.intents.current_intent==_intent and _valid()
 func _stage(next: RefCounted) -> bool:
 	var old:=_intent
+	if not runtime.intents.configure_work_intent(next,world.game_time,old):cancel();return false
 	_intent=next # Publish before intent callbacks/executor arrival.
 	var accepted: bool=runtime.intents.submit(next) if old==null else runtime.intents.continue_intent(old,next)
 	if not accepted or phase==Phase.NONE:

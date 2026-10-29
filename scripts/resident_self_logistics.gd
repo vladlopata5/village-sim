@@ -19,7 +19,7 @@ func _workplace() -> RefCounted:
 	return null
 func _eligible(workplace_id: StringName, source_ref: RefCounted = null) -> bool:
 	var place := _workplace()
-	return place!=null and place.id==workplace_id and runtime.data.inventory.amount==0 and world.game_time.get_phase()=="День" and not runtime.intents.player_controlled and runtime.intents.forced_priority==0 and not runtime.intents.has_current_action() and (source_ref == null or world.logistics.sources.ground_allowed(source_ref,runtime.view.get_sim_position(),place,preload("res://scripts/building_work_area.gd").resolve(place,world.work_areas) if place.type==Types.Type.FARM else null))
+	return place!=null and place.id==workplace_id and runtime.data.inventory.amount==0 and runtime.intents.work_start_allowed(world.game_time) and not runtime.intents.player_controlled and runtime.intents.forced_priority==0 and not runtime.intents.has_current_action() and (source_ref == null or world.logistics.sources.ground_allowed(source_ref,runtime.view.get_sim_position(),place,preload("res://scripts/building_work_area.gd").resolve(place,world.work_areas) if place.type==Types.Type.FARM else null))
 func _committed_workplace(id: StringName) -> bool:
 	var target = world.player_control.get_building(id)
 	return target!=null and target.is_built() and world.world_locations.get_position(id) is Vector2

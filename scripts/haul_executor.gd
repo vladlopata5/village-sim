@@ -55,7 +55,7 @@ func unbind() -> void:
 
 func can_start() -> bool:
 	if job != null or _exiting or _mutating or intents.player_controlled or intents.forced_priority > 0: return false
-	if clock.get_phase() != "День" or resident.inventory.amount != 0: return false
+	if not intents.work_start_allowed(clock) or resident.inventory.amount != 0: return false
 	return not intents.has_current_action() or (intents.current_intent.reason_id in [&"day_work", &"manual_move"] and intents.current_intent.interruptible and intents.current_intent.priority < HAUL_PRIORITY)
 
 func start(claimed: Job) -> bool:
@@ -67,7 +67,7 @@ func start(claimed: Job) -> bool:
 	_haul_intent = Intent.new(Intent.Type.MOVE_TO, &"haul_source", target, claimed.execution_priority, false)
 	var source_building: StringName=claimed.source_ref.id if claimed.source_ref.kind==preload("res://scripts/resource_source_ref.gd").Kind.CONTAINER else service.sources.water.building_id(claimed.source_ref.id) if claimed.source_ref.kind==preload("res://scripts/resource_source_ref.gd").Kind.WATER else &""
 	if not source_building.is_empty() and locations.has_method("configure_intent"): locations.configure_intent(_haul_intent,source_building,Purpose.COURIER,resident.id)
-	if not intents.submit(_haul_intent):
+	if not intents.configure_work_intent(_haul_intent,clock) or not intents.submit(_haul_intent):
 		_haul_intent = null
 		claimed.state = Job.State.ASSIGNED
 		return false

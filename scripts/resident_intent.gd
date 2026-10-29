@@ -10,6 +10,7 @@ var courier_outside := false # Ground surplus unload: keep the acquired source s
 # Optional one-use Builder route hint. Geometry only; no resource ownership.
 var prepared_path: Dictionary = {}
 var resource_handling: StringName = &"" # Committed stationary resource operation.
+var overtime_work := false # Permission belongs to this accepted action, never to the resident's day.
 var type: Type
 var reason_id: StringName
 var target_position: Vector2

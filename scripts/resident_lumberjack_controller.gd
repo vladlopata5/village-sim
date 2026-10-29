@@ -120,7 +120,7 @@ var _availability_sources := -1
 var _availability_room := -1
 func has_work() -> bool:
 	_available_task = {}
-	if clock.get_phase()!="День": return false
+	if not runtime.intents.work_start_allowed(clock): return false
 	var candidate := best_task()
 	if candidate.get("kind") in [&"CHOP",&"COLLECT",&"PLANT"]:
 		_available_task = candidate
@@ -161,9 +161,9 @@ func context_room(context: RefCounted) -> int:
 func _collect_eligible(workplace_id: StringName, source_ref: RefCounted) -> bool:
 	var place := _current_hut()
 	var context = _context()
-	return place!=null and place.id==workplace_id and clock.get_phase()=="День" and runtime.data.inventory.amount==0 and not runtime.intents.has_current_action() and context != null and world.logistics.sources.ground_allowed(source_ref,runtime.view.get_sim_position(),place,context.area)
+	return place!=null and place.id==workplace_id and runtime.intents.work_start_allowed(clock) and runtime.data.inventory.amount==0 and not runtime.intents.has_current_action() and context != null and world.logistics.sources.ground_allowed(source_ref,runtime.view.get_sim_position(),place,context.area)
 func request_work() -> bool:
-	if clock.get_phase() != "День" or runtime.intents.has_current_action() or runtime.data.inventory.amount != 0: return false
+	if not runtime.intents.work_start_allowed(clock) or runtime.intents.has_current_action() or runtime.data.inventory.amount != 0: return false
 	var candidate := _take_available_task()
 	if candidate.is_empty(): candidate = best_task()
 	if candidate.is_empty(): return false
@@ -198,7 +198,7 @@ func request_work() -> bool:
 		abort(false)
 		return false
 	_intent = Intent.new(Intent.Type.MOVE_TO,_reason(),target,Balance.WORK_PRIORITY,false)
-	if not runtime.intents.submit(_intent):
+	if not runtime.intents.configure_work_intent(_intent,clock) or not runtime.intents.submit(_intent):
 		abort(false)
 		return false
 	if logger != null: logger.info(EventLog.AI,"%s: forestry %s — %s" % [runtime.data.resident_name,kind,tree.id if tree != null else hut.id])
@@ -285,5 +285,5 @@ func _changed(intent: RefCounted) -> void:
 	if _intent != null and intent != _intent: abort(false)
 func _forced(_previous: RefCounted) -> void: abort(false)
 func _phase(phase: String) -> void:
-	if phase != "День": abort() # Only CHOP/PLANT are owned here; hauls finish in HaulExecutor.
+	if phase != "День" and (_intent==null or not _intent.overtime_work): abort() # Only CHOP/PLANT are owned here; hauls finish in HaulExecutor.
 func _exit_tree() -> void: abort(false)

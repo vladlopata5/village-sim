@@ -44,7 +44,7 @@ func _room(context: RefCounted) -> bool:
 	return context.workplace==null or context.workplace.resources.get_available_free_capacity(_resource())>=1
 func _transport_eligible(id: StringName, source_ref: RefCounted = null) -> bool:
 	var context := _context()
-	return context!=null and context.workplace!=null and context.workplace.id==id and clock.get_phase()=="День" and runtime.data.inventory.amount==0 and not runtime.intents.has_current_action() and (source_ref == null or world.logistics.sources.ground_allowed(source_ref,runtime.view.get_sim_position(),context.workplace,context.area))
+	return context!=null and context.workplace!=null and context.workplace.id==id and runtime.intents.work_start_allowed(clock) and runtime.data.inventory.amount==0 and not runtime.intents.has_current_action() and (source_ref == null or world.logistics.sources.ground_allowed(source_ref,runtime.view.get_sim_position(),context.workplace,context.area))
 
 func setup(owner_runtime: Node, game_clock: Node, sources: Array, resolver: RefCounted, completion: Callable) -> void:
 	runtime = owner_runtime
@@ -101,7 +101,7 @@ func best_task() -> Dictionary:
 func has_work() -> bool:
 	_available = {}
 	var area = _area()
-	if clock.get_phase() != "День" or area == null or runtime.data.inventory.amount != 0 or world.logistics.get_job(runtime.data.id)!=null: return false
+	if not runtime.intents.work_start_allowed(clock) or area == null or runtime.data.inventory.amount != 0 or world.logistics.get_job(runtime.data.id)!=null: return false
 	_available = best_task()
 	_cache_identity = _identity(area)
 	return not _available.is_empty()
@@ -113,7 +113,7 @@ func _candidate_valid(candidate: Dictionary, context: RefCounted) -> bool:
 	if candidate.kind==&"COLLECT": return _room(context) and candidate.destination==context.workplace and world.logistics.sources.ground_allowed(candidate.source,runtime.view.get_sim_position(),context.workplace,context.area)
 	return candidate.source.id==context.workplace.id and candidate.destination.is_built() and candidate.destination.resources.get_available_free_capacity(_resource())>=1
 func request_work() -> bool:
-	if clock.get_phase() != "День" or runtime.intents.has_current_action() or runtime.data.inventory.amount != 0: return false
+	if not runtime.intents.work_start_allowed(clock) or runtime.intents.has_current_action() or runtime.data.inventory.amount != 0: return false
 	var context := _context()
 	if context == null: return false
 	var area = context.area
@@ -139,7 +139,7 @@ func request_work() -> bool:
 		abort(false)
 		return false
 	_intent = Intent.new(Intent.Type.MOVE_TO,&"mine_clay" if rock.resource_type==Resources.CLAY else &"mine_rock",target,Balance.WORK_PRIORITY,false)
-	if not runtime.intents.submit(_intent):
+	if not runtime.intents.configure_work_intent(_intent,clock) or not runtime.intents.submit(_intent):
 		abort(false)
 		return false
 	if runtime.logger != null: runtime.logger.info(EventLog.AI,"%s: выбрал добычу %s — %s" % [runtime.data.resident_name,"глины" if rock.resource_type==Resources.CLAY else "камня",rock.id])
@@ -216,5 +216,5 @@ func _changed(intent: RefCounted) -> void:
 	if _intent != null and intent != _intent: abort(false)
 func _forced(_previous: RefCounted) -> void: abort(false)
 func _phase(phase: String) -> void:
-	if phase != "День": abort()
+	if phase != "День" and (_intent==null or not _intent.overtime_work): abort()
 func _exit_tree() -> void: abort(false)

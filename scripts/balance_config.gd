@@ -92,6 +92,7 @@ const EAT_MIN_HUNGER := 30
 const EAT_MAX_UTILITY := 10000
 const EAT_UTILITY_EXPONENT := 2.0
 const WANDER_PRIORITY := 500
+const OVERTIME_WORK_PRIORITY := 450 # Comparable to WANDER; no quota or retry delay.
 const WANDER_RADIUS := 100.0
 const WANDER_STAY_MINUTES := 10
 # One uniform draw per ordinary empty-action period, in game minutes.

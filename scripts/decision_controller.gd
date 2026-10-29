@@ -1,5 +1,6 @@
 extends Node
 signal work_cycle_started(building_id: StringName)
+signal overtime_started(intent: RefCounted)
 const EventLog = preload("res://scripts/game_logger.gd")
 var logger: EventLog
 ## Event-driven decision points, never a per-frame AI loop.
@@ -118,6 +119,7 @@ func collect_actions(has_available_work: bool) -> Array:
 	# Read-only availability. No resource reservations or job claims here.
 	var actions: Array = []
 	if has_available_work: actions.append({"id": "WORK", "priority": Modifiers.action_utility(_data, Modifiers.Action.WORK, WORK_PRIORITY)})
+	if _overtime_available(): actions.append({"id":"OVERTIME_WORK","priority":Balance.OVERTIME_WORK_PRIORITY})
 	for type in [NeedType.Type.HUNGER, NeedType.Type.FATIGUE, NeedType.Type.SOCIAL, NeedType.Type.LEISURE]:
 		var priority: int = _data.get_need(type).get_priority()
 		if priority < NEED_ACTION_THRESHOLD: continue
@@ -140,6 +142,30 @@ func collect_actions(has_available_work: bool) -> Array:
 	if is_instance_valid(clothing) and clothing.has_action(): actions.append({"id":"CLOTHING","priority":Balance.CLOTHING_PRIORITY})
 	return actions
 
+func _can_offer_overtime() -> bool:
+	return _clock.get_phase() in ["Утро","Вечер"] and preload("res://scripts/trait_type.gd").Type.INDUSTRIOUS in _data.traits and not _intents.player_controlled and _intents.forced_priority==0 and not _intents.has_current_action()
+
+func _overtime_available() -> bool:
+	if not _can_offer_overtime() or not work_request.is_valid(): return false
+	var previous_scope: bool=_intents.overtime_admission
+	_intents.overtime_admission=true
+	var available := _has_work()
+	_intents.overtime_admission=previous_scope
+	return available
+
+func _start_overtime(priority: int) -> bool:
+	if _intents.overtime_admission or not _can_offer_overtime() or not work_request.is_valid(): return false
+	_intents.overtime_admission=true
+	_intents.overtime_priority=priority
+	var started: bool=work_request.call()
+	_intents.overtime_admission=false
+	_intents.overtime_priority=0
+	started=started and _intents.has_current_action() and _intents.current_intent.overtime_work and _intents.forced_priority==0 and not _intents.player_controlled
+	if started:
+		if logger!=null: logger.info(EventLog.AI,"%s: поработать сверхурочно (priority=%d)" % [_data.resident_name,priority])
+		overtime_started.emit(_intents.current_intent)
+	return started
+
 func _choose_need(has_available_work: bool) -> bool:
 	if _deciding: return false
 	_deciding = true
@@ -159,6 +185,7 @@ func _choose_need(has_available_work: bool) -> bool:
 		if logger != null and logger.debug_enabled: logger.debug(EventLog.AI, _decision_debug_text(selected.id, unavailable))
 		var priority := roundi(selected.priority)
 		match selected.id:
+			"OVERTIME_WORK": started = _start_overtime(priority)
 			"WORK":
 				_work_selected = true
 				if logger != null: logger.info(EventLog.AI, "%s: выбрал работу (priority=%d)" % [_data.resident_name, priority])

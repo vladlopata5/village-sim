@@ -214,7 +214,7 @@ func has_work() -> bool:
 	return _potential_work
 
 func request_work() -> bool:
-	if _clock.get_phase() != "День" or not has_work() or _intents.has_current_action(): return false
+	if not _intents.work_start_allowed(_clock) or not has_work() or _intents.has_current_action(): return false
 	# Fresh resource/identity checks even if availability and execution share geometry.
 	site = _work_offer if material_planner.is_valid() and _work_offer != null and _work_offer in _buildings and _work_offer.has_free_builder_slot() and _work_origin == _position() and _eligible(_work_offer) else best_site()
 	if site == null: return false
@@ -241,7 +241,7 @@ func _continue_task() -> bool:
 	if not _valid_site():
 		abort("стройка недоступна")
 		return false
-	if _data.profession != Profession.Type.BUILDER or _clock.get_phase() != "День":
+	if _data.profession != Profession.Type.BUILDER or not _intents.work_continues(_clock,_intent):
 		_finish_task("смена профессии или завершение рабочего времени")
 		return false
 	if site.ready_for_structural_work():
@@ -320,6 +320,9 @@ func _move(reason: StringName, target: Vector2, prepared: Dictionary = {}) -> bo
 
 func _set_task_intent(next: Intent) -> bool:
 	var previous: Intent = _intent
+	if not _intents.configure_work_intent(next,_clock,previous):
+		abort("разрешение на работу истекло")
+		return false
 	_intent = next
 	if _locations.has_method("configure_intent"):
 		if phase==Phase.GOING_TO_SOURCE:
@@ -415,8 +418,8 @@ func _accrue_work(now: int) -> void:
 	if not point is Vector2 or not action_point is Vector2 or not (_locations.at_action(_data.id,site.id,Purpose.CONSTRUCTION,point,8.0) if _locations.has_method("at_action") else point.distance_to(action_point)<=8.0) or _data.activity!=Activity.Type.WORKING or _intents.current_intent!=_intent or not site.ready_for_structural_work(): return
 	# The interval ending at 17:00 still contains the final working minute.
 	var minute_of_day := posmod(previous,1440)
-	if minute_of_day<420 or minute_of_day>=1020: return
-	var elapsed := mini(maxi(now-previous,0),1020-minute_of_day)
+	if not _intent.overtime_work and (minute_of_day<420 or minute_of_day>=1020): return
+	var elapsed := maxi(now-previous,0) if _intent.overtime_work else mini(maxi(now-previous,0),1020-minute_of_day)
 	elapsed = mini(elapsed,Balance.BUILDER_WORK_CYCLE_MINUTES-work_minutes)
 	# Count the last accepted whole-minute tick, independently of its clipped work.
 	elapsed = mini(elapsed,ceili(site.current_work_remaining()/_work_rate))
@@ -530,7 +533,7 @@ func on_profession_changed(resident_id: String) -> void:
 		_finish_task("смена профессии во время ожидания")
 
 func _on_phase(phase_name: String) -> void:
-	if phase_name != "День" and phase in [Phase.BUILDING, Phase.GOING_TO_SITE, Phase.GOING_TO_WAIT, Phase.WAITING_FOR_MATERIALS]:
+	if phase_name != "День" and (_intent==null or not _intent.overtime_work) and phase in [Phase.BUILDING, Phase.GOING_TO_SITE, Phase.GOING_TO_WAIT, Phase.WAITING_FOR_MATERIALS]:
 		abort("конец рабочего времени")
 	# A carried unit is delivered safely before leaving work.
 

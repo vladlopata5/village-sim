@@ -13,6 +13,25 @@ signal intent_completed(intent: ResidentIntent)
 var resident_data: ResidentData
 var current_intent: ResidentIntent = ResidentIntent.new()
 var pending_intent: ResidentIntent = ResidentIntent.new()
+var overtime_admission := false # Synchronous availability/start scope owned by DecisionController.
+var overtime_priority := 0
+
+func work_start_allowed(clock: Node) -> bool:
+	if not overtime_admission: return clock.get_phase()=="День"
+	return clock.get_phase() in ["Утро","Вечер"] and resident_data!=null and preload("res://scripts/trait_type.gd").Type.INDUSTRIOUS in resident_data.traits and not player_controlled and forced_priority==0
+
+func work_continues(clock: Node, accepted: ResidentIntent) -> bool:
+	return (accepted!=null and accepted==current_intent and accepted.overtime_work) or work_start_allowed(clock)
+
+func configure_work_intent(next: ResidentIntent, clock: Node, previous: ResidentIntent = null) -> bool:
+	if previous!=null and previous.overtime_work:
+		next.overtime_work=true
+		next.priority=previous.priority
+	elif overtime_admission:
+		if not work_start_allowed(clock): return false
+		next.overtime_work=true
+		next.priority=overtime_priority
+	return true
 
 func setup(data: ResidentData) -> void:
 	resident_data = data
@@ -90,6 +109,9 @@ func continue_intent(previous: ResidentIntent, next: ResidentIntent) -> bool:
 		return false
 	if previous == _forced_intent:
 		_forced_intent = next
+	if previous.overtime_work:
+		next.overtime_work=true
+		next.priority=previous.priority
 	_activate(next)
 	return true
 

@@ -1,5 +1,20 @@
 # Ordinary AI decision queue — P3.2
 
+## Trait-gated overtime
+
+OVERTIME_WORK is an ordinary action candidate, not another queue or scheduler.
+Only INDUSTRIOUS residents can offer it in Morning/Evening, after the normal
+profession provider confirms available work. Priority450 competes through the
+unchanged UtilitySelector; no per-day counter, cooldown or extra probability.
+
+ResidentIntentController.overtime_admission is a synchronous check/start scope,
+cleared immediately after that call. Only work executors configure the accepted
+intent's overtime_work marker. Same-task stages preserve the marker and selected
+priority; completion, cancellation, critical/player replacement do not pass it
+to the next independently chosen task. Schedule phase changes retain that owned
+action, including night, while forced needs and ordinary cleanup remain active.
+All new work must obtain a fresh selection. No global shift or queue budget changes.
+
 Canonical Main3D binds every resident DecisionController to the existing
 AiDecisionDispatcher. There is one ordinary queue, including the former Porter
 queue. An isolated controller without a dispatcher retains its synchronous domain

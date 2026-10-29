@@ -12,7 +12,7 @@ const MANUAL_PRIORITY := 10
 const Balance = preload("res://scripts/balance_config.gd")
 var production_continues: Callable # Only the current accepted recipe action.
 func keeps_production_action() -> bool:
-	return production_continues.is_valid() and production_continues.call()
+	return (_intents!=null and _intents.has_current_action() and _intents.current_intent.overtime_work) or (production_continues.is_valid() and production_continues.call())
 
 var before_work: Callable
 var work_decision: Callable

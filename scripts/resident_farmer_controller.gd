@@ -67,7 +67,7 @@ func _point(cell: Vector2i) -> Vector2:return C.to_sim(world.build_grid.cell_to_
 func _origin() -> Vector2:return world._food_position_2d(runtime.data.id)
 func _reachable(cell: Vector2i) -> bool:return world.logistics.sources.reachable(_origin(),_point(cell))
 func _in_area(cell: Vector2i, place: RefCounted) -> bool:return Area.resolve(place,world.work_areas).contains(_point(cell))
-func _eligible() -> bool:return not _ending and workplace()!=null and phase==Phase.NONE and runtime.data.inventory.amount==0 and world.logistics.get_job(runtime.data.id)==null and not runtime.intents.player_controlled and runtime.intents.forced_priority==0 and not runtime.intents.has_current_action() and world.game_time.get_phase()=="День"
+func _eligible() -> bool:return not _ending and workplace()!=null and phase==Phase.NONE and runtime.data.inventory.amount==0 and world.logistics.get_job(runtime.data.id)==null and not runtime.intents.player_controlled and runtime.intents.forced_priority==0 and not runtime.intents.has_current_action() and runtime.intents.work_start_allowed(world.game_time)
 func _rank(cells: Array, mature: bool=false) -> void:
 	var priority: Callable=func(cell):return -world.farm_fields.maturity(cell) if mature else 0
 	cells.assign(TargetScore.ordered(cells,_origin(),workplace().position,_point,func(cell):return cell,priority))
@@ -186,7 +186,7 @@ func _move(preparation: bool=false) -> bool:
 	phase=Phase.TO_BUILDING if preparation else Phase.TO_FIELD
 	_intent=Intent.new(Intent.Type.MOVE_TO,StringName("farm_"+String(_kind).to_lower()),world.world_locations.get_position(_building.id) if preparation else _point(_target),Balance.WORK_PRIORITY,false)
 	if preparation:world.world_locations.configure_intent(_intent,_building.id,Purpose.WORKER,runtime.data.id)
-	if not runtime.intents.submit(_intent):cancel();return false
+	if not runtime.intents.configure_work_intent(_intent,world.game_time,previous) or not runtime.intents.submit(_intent):cancel();return false
 	return phase!=Phase.NONE
 func _next_cell() -> bool:
 	if _cells.is_empty():_finish(true);return true
