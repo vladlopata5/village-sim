@@ -1305,6 +1305,14 @@ Multiplier contributions перемножаются, additive threshold contribu
 Сейчас единственный источник — traits; skills по-прежнему не имеют эффектов.
 SOCIABLE ordinary SOCIAL ×1.25, INTROVERTED ×0.75, INDUSTRIOUS WORK ×1.10,
 LAZY WORK ×0.90. Base WORK_PRIORITY=7000 остаётся прежним (effective 7700/6300).
+
+SOCIABLE также увеличивает рост дефицита SOCIAL ×1.25 и уменьшает восстановление
+при TALKING ×0.75; INTROVERTED — рост ×0.75, восстановление ×1.25. Без этих черт
+скорости базовые. NeedDynamics применяет один множитель скорости через
+ResidentModifiers отдельно от utility; прежние делитель роста, замедление во сне,
+дробные остатки и границы 0–100 сохраняются. Выбор собеседника и правила выхода
+из разговора не меняются; коэффициенты не задают число разговоров в день.
+
 GLUTTON ordinary EAT ×1.20 и minimum hunger threshold 30→20: прежняя нелинейная
 кривая нормализуется по effective minimum, чтобы hunger=25 имел положительную utility.
 Meal duration, recovery, consumption и critical hunger не меняются.

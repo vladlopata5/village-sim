@@ -12,6 +12,17 @@ static func work_rate(resident: RefCounted, rules: WorkRules) -> float:
 	return percent / 100.0
 
 enum Action { WORK, EAT, SOCIAL }
+static func social_need_rate(resident: RefCounted, base_rate: float) -> float:
+	# Positive rates grow the deficit; negative rates restore it while talking.
+	var multiplier := 1.0
+	for trait_type in resident.traits:
+		match trait_type:
+			Trait.Type.SOCIABLE:
+				multiplier *= Balance.SOCIABLE_SOCIAL_RECOVERY_MULTIPLIER if base_rate < 0 else Balance.SOCIABLE_SOCIAL_DEPLETION_MULTIPLIER
+			Trait.Type.INTROVERTED:
+				multiplier *= Balance.INTROVERTED_SOCIAL_RECOVERY_MULTIPLIER if base_rate < 0 else Balance.INTROVERTED_SOCIAL_DEPLETION_MULTIPLIER
+	return base_rate * multiplier
+
 static func action_utility(resident: RefCounted, action: Action, base: float) -> float:
 	var multiplier := 1.0
 	for trait_type in resident.traits:

@@ -4,6 +4,7 @@ const Balance = preload("res://scripts/balance_config.gd")
 const Data = preload("res://scripts/resident_data.gd")
 const NeedType = preload("res://scripts/need_type.gd")
 const Activity = preload("res://scripts/resident_activity.gd")
+const Modifiers = preload("res://scripts/resident_modifiers.gd")
 const UNITS_PER_POINT := 60
 const HUNGER_AWAKE := 4
 const HUNGER_SLEEPING := 1
@@ -40,11 +41,12 @@ func _on_minute_changed(_minute: int) -> void:
 	var fatigue_rate: float = FATIGUE_RATES[activity]
 	if activity == Activity.Type.SLEEPING: fatigue_rate *= _data.current_sleep_quality
 	_apply(NeedType.Type.FATIGUE, fatigue_rate)
-	_apply_slow_growth(NeedType.Type.SOCIAL, SOCIAL_RATES[activity], Balance.SOCIAL_GROWTH_DIVISOR, Balance.SLEEP_SOCIAL_GROWTH_MULTIPLIER if activity == Activity.Type.SLEEPING else 1.0)
+	var social_rate := Modifiers.social_need_rate(_data, SOCIAL_RATES[activity])
+	_apply_slow_growth(NeedType.Type.SOCIAL, social_rate, Balance.SOCIAL_GROWTH_DIVISOR, Balance.SLEEP_SOCIAL_GROWTH_MULTIPLIER if activity == Activity.Type.SLEEPING else 1.0)
 	_apply_slow_growth(NeedType.Type.LEISURE, LEISURE_RATES[activity], Balance.LEISURE_GROWTH_DIVISOR, Balance.SLEEP_LEISURE_GROWTH_MULTIPLIER if activity == Activity.Type.SLEEPING else 1.0)
-func _apply_slow_growth(type: NeedType.Type, rate: int, divisor: int, growth_multiplier: float = 1.0) -> void:
+func _apply_slow_growth(type: NeedType.Type, rate: float, divisor: int, growth_multiplier: float = 1.0) -> void:
 	# Fixed-point fractions retain small nonzero sleep growth without float drift.
-	var scaled_rate := rate * divisor * 1000 if rate < 0 else roundi(rate * growth_multiplier * 1000)
+	var scaled_rate := roundi(rate * divisor * 1000) if rate < 0 else roundi(rate * growth_multiplier * 1000)
 	_apply(type, scaled_rate, UNITS_PER_POINT * divisor * 1000)
 func _apply(type: NeedType.Type, rate: float, units_per_point: int = UNITS_PER_POINT) -> void:
 	var need = _data.get_need(type)
