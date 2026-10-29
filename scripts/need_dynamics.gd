@@ -41,6 +41,7 @@ func _on_minute_changed(_minute: int) -> void:
 		hunger_rate = eating_rate_provider.call() if eating_rate_provider.is_valid() else HUNGER_EATING
 	_apply(NeedType.Type.HUNGER, hunger_rate)
 	var fatigue_rate: float = FATIGUE_RATES[activity]
+	fatigue_rate = Modifiers.fatigue_need_rate(_data, fatigue_rate, activity == Activity.Type.RESTING)
 	if activity == Activity.Type.SLEEPING: fatigue_rate *= _data.current_sleep_quality
 	_apply(NeedType.Type.FATIGUE, fatigue_rate)
 	var social_rate := Modifiers.social_need_rate(_data, SOCIAL_RATES[activity])

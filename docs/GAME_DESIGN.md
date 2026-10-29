@@ -1305,6 +1305,10 @@ Multiplier contributions перемножаются, additive threshold contribu
 Сейчас единственный источник — traits; skills по-прежнему не имеют эффектов.
 SOCIABLE ordinary SOCIAL ×1.25, INTROVERTED ×0.75, INDUSTRIOUS WORK ×1.10,
 LAZY WORK ×0.90. Base WORK_PRIORITY=7000 остаётся прежним (effective 7700/6300).
+LAZY также повышает только ordinary REST utility ×1.5 и восстановление FATIGUE
+при RESTING ×1.5: −15 вместо −10 дробных единиц/мин (0.25 вместо 1/6 пункта).
+Обычный REST остаётся десятиминутным отдыхом от усталости. Критический и ночной
+SLEEPING, LEISURE/RELAXING, рост усталости и остальные действия не получают бонус.
 
 SOCIABLE также увеличивает рост дефицита SOCIAL ×1.25 и уменьшает восстановление
 при TALKING ×0.75; INTROVERTED — рост ×0.75, восстановление ×1.25. Без этих черт

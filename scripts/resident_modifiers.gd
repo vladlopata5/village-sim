@@ -11,7 +11,7 @@ static func work_rate(resident: RefCounted, rules: WorkRules) -> float:
 	if not is_finite(percent) or percent < 100.0 or percent > 150.0: return -1.0
 	return percent / 100.0
 
-enum Action { WORK, EAT, SOCIAL, WANDER, LEISURE }
+enum Action { WORK, EAT, SOCIAL, WANDER, LEISURE, REST }
 static func social_partner_multiplier(resident: RefCounted, opinion: int) -> float:
 	var bounded := clampi(opinion, Balance.OPINION_MIN, Balance.OPINION_MAX)
 	if resident != null:
@@ -57,6 +57,7 @@ static func action_utility(resident: RefCounted, action: Action, base: float) ->
 				if action == Action.WORK: multiplier *= Balance.INDUSTRIOUS_WORK_UTILITY_MULTIPLIER
 			Trait.Type.LAZY:
 				if action == Action.WORK: multiplier *= Balance.LAZY_WORK_UTILITY_MULTIPLIER
+				if action == Action.REST: multiplier *= Balance.LAZY_REST_UTILITY_MULTIPLIER
 			Trait.Type.GLUTTON:
 				if action == Action.EAT: multiplier *= Balance.GLUTTON_EAT_UTILITY_MULTIPLIER
 			Trait.Type.RESTLESS:
@@ -64,6 +65,10 @@ static func action_utility(resident: RefCounted, action: Action, base: float) ->
 			Trait.Type.FOOLISH:
 				if action == Action.LEISURE: multiplier *= Balance.FOOLISH_LEISURE_UTILITY_MULTIPLIER
 	return maxf(base * multiplier, 0.0)
+static func fatigue_need_rate(resident: RefCounted, base_rate: float, resting: bool) -> float:
+	if resting and base_rate < 0 and resident.has_trait(Trait.Type.LAZY):
+		return base_rate * Balance.LAZY_RESTING_RECOVERY_MULTIPLIER
+	return base_rate
 static func leisure_need_rate(resident: RefCounted, base_rate: float, ordinary_idle: bool) -> float:
 	if base_rate < 0 and resident.has_trait(Trait.Type.FOOLISH):
 		return base_rate * Balance.FOOLISH_LEISURE_RECOVERY_MULTIPLIER
