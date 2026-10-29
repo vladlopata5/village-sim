@@ -1316,6 +1316,11 @@ ResidentModifiers отдельно от utility; прежние делитель
 GLUTTON ordinary EAT ×1.20 и minimum hunger threshold 30→20: прежняя нелинейная
 кривая нормализуется по effective minimum, чтобы hunger=25 имел положительную utility.
 Meal duration, recovery, consumption и critical hunger не меняются.
+После успешно завершённой еды GLUTTON с итоговым HUNGER≤20 получает инертный
+мудлет well_fed («Вкусно поел») на 120 игровых минут. Следующая подходящая еда
+обновляет одну запись до новой минуты завершения +120; повтор того же завершения
+ничего не добавляет. Прерывания не награждаются. modifiers пуст: настроение,
+AI, потребности и рабочая эффективность не изменяются; нового UI мудлетов нет.
 RESTLESS physical movement ×1.10 для всех маршрутов, включая player MOVE_TO,
 porter и builder hauling; work/production/game time не ускоряются.
 FOOLISH normal selector ratio=0.55/exponent=1.50 вместо base 0.75/2.0.

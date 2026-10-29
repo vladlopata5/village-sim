@@ -33,6 +33,21 @@ func add(record: Dictionary) -> bool:
 
 func prepare_add(record: Dictionary) -> Dictionary:
 	if not _valid(record) or _entries.has(record.id): return {}
+	return _prepare_record(record)
+
+func add_or_refresh(record: Dictionary) -> bool:
+	# Explicit singleton policy; ordinary add/event additions keep their old semantics.
+	if not _valid(record): return false
+	var previous: Dictionary = _entries.get(record.id, {})
+	if not previous.is_empty():
+		if previous.type != record.type or previous.source_occurrence_id == record.source_occurrence_id: return false
+		if record.created_minute < previous.created_minute: return false
+	var prepared := _prepare_record(record)
+	_apply_event_add(prepared)
+	changed.emit(prepared.id)
+	return true
+
+func _prepare_record(record: Dictionary) -> Dictionary:
 	var entry := record.duplicate(true)
 	entry.owner = owner()
 	entry.target = entry.get("target")

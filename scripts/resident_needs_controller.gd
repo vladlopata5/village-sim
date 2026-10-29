@@ -8,6 +8,7 @@ const Balance = preload("res://scripts/balance_config.gd")
 const Data = preload("res://scripts/resident_data.gd")
 const Intent = preload("res://scripts/resident_intent.gd")
 const Activity = preload("res://scripts/resident_activity.gd")
+const Trait = preload("res://scripts/trait_type.gd")
 const BuildingType = preload("res://scripts/building_type.gd")
 const ResourceType = preload("res://scripts/resource_type.gd")
 const Catalog = preload("res://scripts/resource_catalog.gd")
@@ -227,7 +228,11 @@ func _on_minute_changed(minute: int) -> void:
 		if _minutes_left <= 0: _finish()
 
 func _finish() -> void:
+	if _active_intent == null: return
 	var completed := _active_intent
+	var meal_completed := completed.reason_id == &"eat" and _meal_active and _food_received and _minutes_left <= 0
+	var well_fed := meal_completed and _data.has_trait(Trait.Type.GLUTTON) and _data.hunger <= Balance.GLUTTON_WELL_FED_MAX_HUNGER
+	var completed_minute: int = _clock.total_minutes
 	if _meal_active and logger != null: logger.info(EventLog.NEED, "%s: закончил есть" % _data.resident_name)
 	_active_intent = null
 	_meal_active = false
@@ -237,6 +242,15 @@ func _finish() -> void:
 		var completed_source: StringName = _food_source.id
 		_meal_selection = null
 		_food_building = null
+		if well_fed:
+			# Ownership is cleared before store callbacks. One accepted meal has one token.
+			_data.moodlets.add_or_refresh({
+				"id": "well_fed", "type": "well_fed", "tags": ["positive"],
+				"context": {"display_name": "Вкусно поел"}, "modifiers": [],
+				"created_minute": completed_minute,
+				"expires_at_minute": completed_minute + Balance.GLUTTON_WELL_FED_MINUTES,
+				"source_occurrence_id": "meal/%s/%d/%d" % [_data.id, get_instance_id(), completed.get_instance_id()],
+			})
 		eat_outcome.emit(completed, &"completed", completed_source)
 	_intents.clear_completed(completed)
 	if logger != null: logger.sync_activity(_data)
