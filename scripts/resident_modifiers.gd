@@ -12,6 +12,28 @@ static func work_rate(resident: RefCounted, rules: WorkRules) -> float:
 	return percent / 100.0
 
 enum Action { WORK, EAT, SOCIAL }
+static func social_partner_multiplier(resident: RefCounted, opinion: int) -> float:
+	var bounded := clampi(opinion, Balance.OPINION_MIN, Balance.OPINION_MAX)
+	if resident != null:
+		if resident.has_trait(Trait.Type.SOCIABLE):
+			return Balance.SOCIABLE_SOCIAL_PARTNER_BASE - Balance.SOCIAL_PARTNER_OPINION_FACTOR * abs(bounded)
+		if resident.has_trait(Trait.Type.INTROVERTED):
+			return 1.0 + Balance.INTROVERTED_SOCIAL_PARTNER_OPINION_FACTOR * bounded
+	return 1.0 + Balance.SOCIAL_PARTNER_OPINION_FACTOR * bounded
+
+static func social_company_multiplier(resident: RefCounted, count: int) -> float:
+	if resident != null and count > 1:
+		if resident.has_trait(Trait.Type.SOCIABLE): return pow(Balance.SOCIABLE_SOCIAL_COMPANY_FACTOR, count - 1)
+		if resident.has_trait(Trait.Type.INTROVERTED): return pow(Balance.INTROVERTED_SOCIAL_COMPANY_FACTOR, count - 1)
+	return 1.0
+
+static func social_partner_weight(resident: RefCounted, opinions: Array[int]) -> float:
+	if opinions.is_empty(): return 1.0
+	var total := 0.0
+	for opinion in opinions: total += social_partner_multiplier(resident, opinion)
+	# Average individual modifiers before applying company size: opposite opinions do not cancel.
+	return total / opinions.size() * social_company_multiplier(resident, opinions.size())
+
 static func social_need_rate(resident: RefCounted, base_rate: float) -> float:
 	# Positive rates grow the deficit; negative rates restore it while talking.
 	var multiplier := 1.0

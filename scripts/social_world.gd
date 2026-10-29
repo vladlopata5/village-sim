@@ -4,6 +4,7 @@ var logger: EventLog
 ## Shared membership and available actions; positions come from an injected world adapter.
 const Group = preload("res://scripts/conversation_group.gd")
 const Activity = preload("res://scripts/resident_activity.gd")
+const Modifiers = preload("res://scripts/resident_modifiers.gd")
 const BASE_OPTION_WEIGHT := 500.0
 const DISTANCE_PENALTY := 0.5
 signal conversation_joined(resident_id: String)
@@ -47,9 +48,24 @@ func options_for(id: String) -> Array:
 			seen_groups.append(group.id)
 		elif not _idle_available(other): continue
 		var distance := position_of(id).distance_to(position_of(other_id))
+		var distance_weight := BASE_OPTION_WEIGHT / (1.0 + distance * DISTANCE_PENALTY / BASE_OPTION_WEIGHT)
 		options.append({"target_id": other_id, "group_id": group.id if group != null else 0,
-			"option_weight": BASE_OPTION_WEIGHT / (1.0 + distance * DISTANCE_PENALTY / BASE_OPTION_WEIGHT)})
+			"option_weight": distance_weight * _partner_multiplier(id, other_id, group)})
 	return options
+func _partner_multiplier(id: String, other_id: String, group: RefCounted) -> float:
+	var chooser = get_runtime(id)
+	if chooser == null: return 1.0 # Read-only observers have no personal opinion or traits.
+	var opinions: Array[int] = []
+	if group == null:
+		opinions.append(chooser.data.get_opinion(StringName(other_id)))
+	else:
+		for member_id in group.participants:
+			if member_id == id: continue
+			var member = get_runtime(member_id)
+			if member == null or member.data.activity != Activity.Type.TALKING: continue
+			if not is_instance_valid(member.social): continue
+			opinions.append(chooser.data.get_opinion(StringName(member_id)))
+	return Modifiers.social_partner_weight(chooser.data, opinions)
 func target_option(id: String, target_id: String) -> Dictionary:
 	if id == target_id or not position_provider.is_valid(): return {}
 	var target = get_runtime(target_id)

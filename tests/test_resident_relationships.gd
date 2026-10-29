@@ -102,7 +102,7 @@ func _run() -> void:
 	check(not card.visible, "Clearing selection still closes card")
 	scene.free()
 
-	# Existing social options/weights and selector utility are independent of opinion.
+	# Opinion changes partner weights, but not action utility or explicit TALK_TO.
 	scene = Setup.make_scene(self)
 	actor = scene.resident_runtimes[1]
 	target = scene.resident_runtimes[3]
@@ -114,13 +114,16 @@ func _run() -> void:
 	var original_speed: float = Modifiers.movement_speed(actor.data, 120)
 	var rng = RandomNumberGenerator.new()
 	rng.seed = 123
-	var selected: Dictionary = Choice.pick(options, rng)
 	actor.data.set_opinion(StringName(target.data.id), -100)
 	target.data.set_opinion(StringName(actor.data.id), 100)
 	check(actor.decision.collect_actions(false) == actions, "Opinion does not change SOCIAL or any normal utility")
-	check(scene.social_world.options_for(actor.data.id) == options, "Social partners/weights unchanged")
+	var expected_options: Array = options.duplicate(true)
+	for option in expected_options:
+		if option.target_id == target.data.id: option.option_weight *= 0.7
+	check(scene.social_world.options_for(actor.data.id) == expected_options, "Only chooser-to-target opinion changes the partner weight")
+	var selected: Dictionary = Choice.pick(expected_options, rng)
 	rng.seed = 123
-	check(Choice.pick(scene.social_world.options_for(actor.data.id), rng) == selected, "Seeded partner choice independent of opinion")
+	check(Choice.pick(scene.social_world.options_for(actor.data.id), rng) == selected, "Updated opinion-weighted choice remains seeded and reproducible")
 	check(actor.data.traits == original_traits and Modifiers.movement_speed(actor.data, 120) == original_speed, "Traits and resolver unchanged")
 	var task = Assignment.new(&"relationship_talk", actor.data.id, Assignment.TALK_TO, StringName(target.data.id))
 	check(scene.player_control.add_assignment(actor.data.id, task) and actor.assignments.start(task.id), "TALK_TO still starts with negative opinion")
