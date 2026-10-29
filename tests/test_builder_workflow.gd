@@ -252,9 +252,10 @@ func _run() -> void:
 	check(site.construction_progress == 120 and site.active_builder_ids.is_empty(), "Two builders each credit +60, cumulative +120 with independent boundaries")
 	actor.builder.request_work()
 	arrive(actor)
+	var expected_partial: float=120+15*actor.builder._work_rate
 	scene.game_time.debug_skip_minutes(15)
 	actor.commands.move_to(Vector2(0, 0))
-	check(site.construction_progress == 135 and site.active_builder_ids.is_empty(), "Partial interrupted cycle preserves 15 actual work-minutes in building")
+	check(is_equal_approx(site.construction_progress,expected_partial) and site.active_builder_ids.is_empty(), "Partial interrupted cycle preserves 15 actual work-minutes in building")
 	arrive(actor)
 	actor.builder.request_work()
 	arrive(actor)

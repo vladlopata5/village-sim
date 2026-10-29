@@ -100,8 +100,10 @@ func run() -> void:
 	check(world.change_construction_direction(site.id,true),"Built house demolition begins")
 	check(tenant.data.household_id.is_empty() and not tenant.view.is_inside_building(site.id) and world.building_uses.inside_count(site.id)==0,"Eviction plus existing portal exit")
 	check(not world.building_uses.choices(site.id,Purpose.SLEEP,Vector3.ZERO).size(),"Offline house cannot admit ordinary use")
-	begin_work(actor);world.game_time.debug_skip_minutes(30)
-	check(site.construction_progress==150,"Built demolition starts from full work")
+	begin_work(actor)
+	var expected_demolition: float=180-30*actor.builder._work_rate
+	world.game_time.debug_skip_minutes(30)
+	check(is_equal_approx(site.construction_progress,expected_demolition),"Built demolition starts from full work")
 	await capture("built_demolition",site)
 	check(world.change_construction_direction(site.id,false),"Undo built demolition")
 	finish_work(site,actor)

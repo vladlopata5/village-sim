@@ -13,12 +13,12 @@ func settle(worker: String, animal: RefCounted, accepting: Callable) -> Dictiona
 	if not result.is_empty(): return result.duplicate()
 	if worker!=worker_id or _mutating: return {}
 	_mutating=true
-	var produced := floori(float(potential)*progress/work_required) if inputs_spent else 0
-	var removed := ceili(15.0*progress/work_required) if inputs_spent else 0
+	var produced := Work.whole_floor(float(potential)*progress/work_required) if inputs_spent else 0
+	var removed := Work.whole_ceil(15.0*progress/work_required) if inputs_spent else 0
 	var held: int=_outputs.get(WOOL,0)
 	if _resources.get_reserved_in(WOOL)<held: held=0
 	_outputs={}
-	state=State.COMPLETED if progress==work_required else State.CANCELLED
+	state=State.COMPLETED if is_complete() else State.CANCELLED
 	worker_id=""
 	result={"produced":produced,"saved":0,"discarded":produced,"levels":removed,"minutes":progress,"potential":potential}
 	# Terminal before wool/resource callbacks; a second settlement cannot publish again.

@@ -1,4 +1,7 @@
 extends Node
+const Work = preload("res://scripts/work_progress.gd")
+const Modifiers = preload("res://scripts/resident_modifiers.gd")
+const Skills = preload("res://scripts/work_operation_skills.gd")
 ## Ordinary WORK: building collect/chop/plant/export, or independent-area chop.
 const Profession = preload("res://scripts/resident_profession.gd")
 const BuildingType = preload("res://scripts/building_type.gd")
@@ -24,7 +27,8 @@ var committed_context: RefCounted
 var target: Vector2
 var chopping := false
 var kind := &""
-var work_minutes := 0
+var work_minutes := 0.0
+var _work_rate := 1.0
 var _intent: RefCounted
 var _last_minute := 0
 var _cleaning := false
@@ -211,6 +215,10 @@ func _arrived(intent: RefCounted) -> void:
 	if kind==&"CHOP" and (not _valid() or not locations.in_range(tree,runtime.view.get_sim_position())):
 		abort()
 		return
+	_work_rate = Modifiers.work_rate(runtime.data,Skills.for_operation(_reason()))
+	if _work_rate < 0.0:
+		abort()
+		return
 	chopping = kind==&"CHOP"
 	work_minutes = 0
 	_last_minute = clock.total_minutes
@@ -219,11 +227,11 @@ func _arrived(intent: RefCounted) -> void:
 func _valid() -> bool:
 	return tree != null and tree in trees and tree.state==TreeData.State.STANDING and tree.reservation_owner_id==StringName(runtime.data.id) and locations.is_available(target) and locations.in_range(tree,target)
 func _accrue(now: int) -> void:
-	if runtime.data.activity != Activity.Type.WORKING or not is_instance_valid(runtime.view) or runtime.view.get_sim_position().distance_to(target)>8: return
 	var elapsed := maxi(now-_last_minute,0)
 	_last_minute = now
-	if chopping and tree != null and locations.in_range(tree,runtime.view.get_sim_position()): tree.add_work(StringName(runtime.data.id),elapsed)
-	elif kind==&"PLANT": work_minutes += elapsed
+	if runtime.data.activity != Activity.Type.WORKING or not is_instance_valid(runtime.view) or runtime.view.get_sim_position().distance_to(target)>8: return
+	if chopping and tree != null and locations.in_range(tree,runtime.view.get_sim_position()): tree.add_work(StringName(runtime.data.id),elapsed*_work_rate)
+	elif kind==&"PLANT": work_minutes = Work.advance(work_minutes,elapsed*_work_rate,Balance.TREE_PLANTING_MINUTES)
 func _minute(now: int) -> void:
 	if kind.is_empty() or _mutating or _cleaning: return
 	if not _context_valid() or (kind==&"CHOP" and not _valid()):
@@ -238,7 +246,7 @@ func _minute(now: int) -> void:
 		complete_tree.call(completed)
 		completed_operation = &"chop_tree"
 		finished = true
-	elif kind==&"PLANT" and runtime.data.activity==Activity.Type.WORKING and work_minutes>=Balance.TREE_PLANTING_MINUTES:
+	elif kind==&"PLANT" and runtime.data.activity==Activity.Type.WORKING and Work.reached(work_minutes,Balance.TREE_PLANTING_MINUTES):
 		if world.forestry_area.complete(runtime.data.id,hut): completed_operation = &"plant_tree"
 		finished = true
 	if not completed_operation.is_empty(): runtime.data.award_skill_xp(preload("res://scripts/work_operation_skills.gd").for_operation(completed_operation))

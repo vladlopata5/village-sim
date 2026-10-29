@@ -166,11 +166,11 @@ func _refresh() -> void:
 		materials.append("%s: %d / %d" % [ResourceType.display_name(resource), _building.stage_delivered_amount(resource), requirements[resource]])
 	construction_materials.text = "Материалы:\n" + ("\n".join(materials) if not materials.is_empty() else "Не требуются")
 	if _building.previously_built and not _building.is_upgrading(): construction_materials.text = "Материалы остаются в конструкции.\nДля восстановления новые материалы не нужны."
-	construction_work.text = _building.work_status() + ": %d / %d мин\n%.0f%%" % [_building.construction_progress, _building.construction_definition().construction_work_required, _building.get_construction_progress_ratio() * 100.0]
+	construction_work.text = _building.work_status() + ": %s / %d ст. мин\n%.0f%%" % [preload("res://scripts/work_progress.gd").display_minutes(_building.construction_progress), _building.construction_definition().construction_work_required, _building.get_construction_progress_ratio() * 100.0]
 	if (_building.is_upgrading() or not _building.previously_built) and stage!=null:
-		construction_work.text="%s: этап %d/%d — %s\nРаботы этапа: %d / %d мин\nВсего: %d / %d мин (%.0f%%)" % [_building.work_status(),_building.construction_stage_index()+1,_building.construction_definition().construction_stages.size(),stage.display_name,_building.stage_work_progress(),stage.work_minutes,_building.construction_progress,_building.construction_definition().construction_work_required,_building.get_construction_progress_ratio()*100.0]
+		construction_work.text="%s: этап %d/%d — %s\nРаботы этапа: %s / %d ст. мин\nВсего: %s / %d ст. мин (%.0f%%)" % [_building.work_status(),_building.construction_stage_index()+1,_building.construction_definition().construction_stages.size(),stage.display_name,preload("res://scripts/work_progress.gd").display_minutes(_building.stage_work_progress()),stage.work_minutes,preload("res://scripts/work_progress.gd").display_minutes(_building.construction_progress),_building.construction_definition().construction_work_required,_building.get_construction_progress_ratio()*100.0]
 	structural_progress.value = _building.get_construction_progress_ratio()*100.0
-	construction_work.text += "\nОсталось работы: %d мин" % _building.work_remaining()
+	construction_work.text += "\nОсталось работы: %s ст. мин" % preload("res://scripts/work_progress.gd").display_minutes(_building.work_remaining())
 	if _building.work_paused: construction_work.text += "\nОжидание завершения действий внутри"
 	construction_builders.text = "Строители: %d / %d" % [_building.active_builder_ids.size(), _building.construction_definition().max_builders]
 func bind_control(control: RefCounted) -> void:

@@ -1,4 +1,7 @@
 extends Node
+const Work = preload("res://scripts/work_progress.gd")
+const Modifiers = preload("res://scripts/resident_modifiers.gd")
+const Skills = preload("res://scripts/work_operation_skills.gd")
 ## One committed animal job; selection, navigation and resource storage stay shared.
 const Animal=preload("res://scripts/animal_data.gd")
 const Assignment=preload("res://scripts/resident_assignment.gd")
@@ -25,7 +28,8 @@ var last_result: Dictionary={}
 var _intent: RefCounted
 var _serial := 0
 var _last_minute := 0
-var _progress := 0
+var _progress := 0.0
+var _work_rate := 1.0
 var _attempts := 0
 var _assignment_revision := 0
 var _final_after_frame := -1
@@ -134,11 +138,15 @@ func _arrived(arrived: RefCounted) -> void:
 			_approach();return
 		if not animal.claim_movement(self):cancel("Эту овцу уже забрали");return
 		if assignment!=null:
+			_work_rate=Modifiers.work_rate(runtime.data,Skills.for_operation(&"capture_sheep"))
+			if _work_rate<0.0:cancel();return
 			phase=Phase.CAPTURING;_last_minute=world.game_time.total_minutes
 			if _stage(Intent.new(Intent.Type.NONE,&"shepherd_capture",Vector2.ZERO,Balance.WORK_PRIORITY,false)):runtime.data.activity=Activity.WORKING
 		else:_escort()
 	elif phase==Phase.ENTERING:
 		if not animal.home.enter_service(identity):cancel("Место обслуживания недоступно");return
+		_work_rate=Modifiers.work_rate(runtime.data,Skills.for_operation(&"shearing"))
+		if _work_rate<0.0:cancel();return
 		_mutating=true
 		var accepted: bool=batch.begin_shearing(runtime.data.id,runtime.decision.rng)
 		_mutating=false
@@ -191,15 +199,15 @@ func _accrue() -> void:
 	var now: int=world.game_time.total_minutes
 	if phase in [Phase.CAPTURING,Phase.SHEARING] and runtime.intents.current_intent==_intent and runtime.data.activity==Activity.WORKING:
 		var minutes:=maxi(now-_last_minute,0)
-		if phase==Phase.CAPTURING:_progress=mini(_progress+minutes,60)
-		elif batch!=null:batch.advance(runtime.data.id,minutes)
+		if phase==Phase.CAPTURING:_progress=Work.advance(_progress,minutes*_work_rate,60.0)
+		elif batch!=null:batch.advance(runtime.data.id,minutes*_work_rate)
 	_last_minute=now
 func _minute(_now: int) -> void:
 	if phase==Phase.NONE or _mutating or _ending:return
 	if not _valid():cancel("Работа стала недоступна");return
 	_accrue()
-	if phase==Phase.CAPTURING and _progress==60:_escort()
-	elif phase==Phase.SHEARING and batch.progress==120:_finish(true)
+	if phase==Phase.CAPTURING and Work.reached(_progress,60.0):_escort()
+	elif phase==Phase.SHEARING and batch.is_complete():_finish(true)
 	elif phase==Phase.APPROACH and animal.global_position.distance_to(C.to_world(_intent.target_position))>2.0:_approach()
 func _accept_output() -> bool:return building!=null and building.is_built() and not building.production_removed
 func _finish(successful: bool, reason: String = "") -> void:
@@ -210,7 +218,7 @@ func _finish(successful: bool, reason: String = "") -> void:
 	var completed_operation: StringName = &""
 	if successful:
 		if assignment!=null: completed_operation = &"capture_sheep"
-		elif phase==Phase.SHEARING and batch!=null and batch.progress==batch.work_required: completed_operation = &"shearing"
+		elif phase==Phase.SHEARING and batch!=null and batch.is_complete(): completed_operation = &"shearing"
 	var body:=animal;var place:=building;var old_pair:=pair
 	last_result={}
 	if batch!=null:last_result=batch.settle(runtime.data.id,body.data,_accept_output)

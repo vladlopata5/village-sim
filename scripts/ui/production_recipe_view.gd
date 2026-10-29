@@ -139,7 +139,7 @@ func refresh() -> void:
 	var work := PackedStringArray()
 	for batch in _building.production_batches:
 		if batch.recipe_id==recipe.id and not batch.is_terminal():
-			work.append("%s — %s: %d / %d мин" % [_goods(batch.outputs),STATE_NAMES[batch.state],batch.progress,batch.work_required])
+			work.append("%s — %s: %s / %d ст. мин" % [_goods(batch.outputs),STATE_NAMES[batch.state],preload("res://scripts/work_progress.gd").display_minutes(batch.progress),batch.work_required])
 	var kits: int = _building.supply.needs.filter(func(need): return need.recipe_id==recipe.id).size()
 	lines.append("Партии: %d • Комплекты снабжения: %d" % [work.size(),kits])
 	status.text = "\n".join(lines)

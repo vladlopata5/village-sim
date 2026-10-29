@@ -107,23 +107,25 @@ func run() -> void:
 	saw.resources.try_take(Resources.PLANK,1)
 	check(actor.recipe_work.has_work(),"Capacity event exposes work again")
 	begin(world,actor)
+	var interrupted_work: float=7*actor.recipe_work._work_rate
 	minute(world,actor,7)
 	actor.decision._deciding=false
 	actor.data.fatigue=100
-	check(actor.recipe_work.phase==RecipeWork.Phase.NONE and saw.production_progress==7 and saw.resources.get_reserved_out(Resources.LOG)==0,"Critical interrupt preserves paid work; no input is reserved twice")
+	check(actor.recipe_work.phase==RecipeWork.Phase.NONE and is_equal_approx(saw.production_progress,interrupted_work) and saw.resources.get_reserved_out(Resources.LOG)==0,"Critical interrupt preserves paid work; no input is reserved twice")
 	actor.decision._deciding=true
 	actor.intents.abort_current(actor.intents.current_intent)
 	actor.data.fatigue=0
 	begin(world,actor)
+	var resumed_work: float=interrupted_work+8*actor.recipe_work._work_rate
 	minute(world,actor,8)
 	world.game_time.total_minutes=1020
 	world.game_time.phase_changed.emit("Вечер")
-	check(actor.recipe_work.phase==RecipeWork.Phase.WORKING and saw.resources.get_reserved_in(Resources.PLANK)==1 and saw.production_progress==15,"Schedule end retains accepted action, progress and promised output")
+	check(actor.recipe_work.phase==RecipeWork.Phase.WORKING and saw.resources.get_reserved_in(Resources.PLANK)==1 and is_equal_approx(saw.production_progress,resumed_work),"Schedule end retains accepted action, progress and promised output")
 	check(not actor.recipe_work.request_work(),"No production after WORK phase")
 	world.resident_selection.select_building(saw)
 	var card = world.building_card_view()
 	card._refresh()
-	check("Бревно" in card.resources_label.text and "Доски" in card.resources_label.text and card.get_node("%People").get_children().any(func(row): return row is HBoxContainer and row.get_child(0).text == "Анна") and "15 / 30" in card.recipe_views[&"sawmill_plank"].batches.text,"Existing card shows storage, Sawyer and progress")
+	check("Бревно" in card.resources_label.text and "Доски" in card.resources_label.text and card.get_node("%People").get_children().any(func(row): return row is HBoxContainer and row.get_child(0).text == "Анна") and (preload("res://scripts/work_progress.gd").display_minutes(resumed_work)+" / 30") in card.recipe_views[&"sawmill_plank"].batches.text,"Existing card shows storage, Sawyer and progress")
 	world.free()
 
 	# Real event-driven normal AI, no forced WORK and no retry polling.

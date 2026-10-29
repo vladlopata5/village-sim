@@ -1,4 +1,6 @@
 extends Node
+const Modifiers = preload("res://scripts/resident_modifiers.gd")
+const Skills = preload("res://scripts/work_operation_skills.gd")
 ## Ordinary WORK: stone/clay in a personal area or hut; hut COLLECT -> MINE -> EXPORT.
 const Profession = preload("res://scripts/resident_profession.gd")
 const Intent = preload("res://scripts/resident_intent.gd")
@@ -16,6 +18,7 @@ var target: Vector2
 var mining := false
 var _intent: RefCounted
 var _last_minute := 0
+var _work_rate := 1.0
 var _mutating := false
 var _interrupt_pending := false
 var _cleaning := false
@@ -153,18 +156,22 @@ func _arrived(intent: RefCounted) -> void:
 	if not _valid() or not locations.in_range(rock,runtime.view.get_sim_position()) or runtime.view.get_sim_position().distance_to(target)>8.0:
 		abort()
 		return
+	_work_rate = Modifiers.work_rate(runtime.data,Skills.for_operation(&"mine_clay" if rock.resource_type==Resources.CLAY else &"mine_stone"))
+	if _work_rate < 0.0:
+		abort()
+		return
 	mining = true
 	_last_minute = clock.total_minutes
 	runtime.data.activity = Activity.Type.WORKING
 	if runtime.logger != null: runtime.logger.info(EventLog.AI,"%s: начал добычу %s — %s" % [runtime.data.resident_name,"глины" if rock.resource_type==Resources.CLAY else "камня",rock.id])
 func _accrue(now: int) -> bool:
-	if not mining or not _valid() or not is_instance_valid(runtime.view) or not locations.in_range(rock,runtime.view.get_sim_position()) or runtime.view.get_sim_position().distance_to(target)>8.0: return false
 	var elapsed := maxi(now-_last_minute,0)
 	_last_minute = now
+	if not mining or not _valid() or runtime.data.activity!=Activity.Type.WORKING or not is_instance_valid(runtime.view) or not locations.in_range(rock,runtime.view.get_sim_position()) or runtime.view.get_sim_position().distance_to(target)>8.0: return false
 	# Hold interrupts until receipt publication and XP; signals may be reentrant.
 	_mutating = true
 	var source = rock
-	var receipt: int = source.add_work(StringName(runtime.data.id),elapsed)
+	var receipt: int = source.add_work(StringName(runtime.data.id),elapsed*_work_rate)
 	if receipt > 0:
 		mining = false
 		complete_cycle.call(source,receipt,runtime.view.get_sim_position())

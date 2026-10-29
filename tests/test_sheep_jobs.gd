@@ -199,7 +199,7 @@ func simulation_speeds() -> void:
 		speed_fixture.sheep.behavior.cancel_behavior();speed_fixture.sheep.data.wool_growth=15
 		check(speed_fixture.job.request_work() and (await reach(speed_fixture,Phase.SHEARING)),"Physical service setup at x%d" % speed)
 		var began: int=speed_fixture.world.game_time.total_minutes
-		check((await reach(speed_fixture,Phase.NONE)) and speed_fixture.job.last_result.minutes==120 and speed_fixture.world.game_time.total_minutes-began==120,"Work minutes, independent of real speed x%d" % speed)
+		check((await reach(speed_fixture,Phase.NONE)) and speed_fixture.job.last_result.minutes==120 and speed_fixture.world.game_time.total_minutes-began==ceili(120.0/speed_fixture.job._work_rate),"Accepted skill rate, independent of real speed x%d" % speed)
 		dispose(speed_fixture)
 func reentrant_and_capacity() -> void:
 	var f=fixture();var other=f.world.resident_runtimes[1];var second_sheep=f.world.animal_executors[1]
@@ -230,6 +230,7 @@ func reentrant_and_capacity() -> void:
 	f.world.building_uses.slots_changed.disconnect(service_interrupt)
 	dispose(f)
 func run() -> void:
+	await skill_efficiency()
 	geometry_endpoint();await selection_and_capture();await cancellations();conflicts();await shearing_and_export();await partial_interrupts();await cancelled_completion_boundary();await simulation_speeds();await reentrant_and_capacity()
 	print("Sheep jobs: %d checks, %d failures" % [checks,failures]);quit(1 if failures else 0)
 
@@ -245,3 +246,39 @@ func cancelled_completion_boundary() -> void:
 	f.job.cancel()
 	check(f.runtime.data.get_skill_xp(preload("res://scripts/skill_type.gd").Type.ANIMAL_HUSBANDRY)==0,"Cancelled shearing never awards XP, even with full settle/duplicate cleanup")
 	dispose(f)
+
+func skill_efficiency() -> void:
+	var skill=preload("res://scripts/skill_type.gd").Type.ANIMAL_HUSBANDRY
+	for xp in [0,2500,10000]:
+		var f=fixture();f.runtime.data.add_skill_xp(skill,xp)
+		var assignment=task(f)
+		check(f.runtime.assignments.start(assignment.id) and (await reach(f,Phase.CAPTURING)),"Reach real capture for skill rate")
+		var ticks:=ceili(60.0/f.job._work_rate)
+		f.world.game_time.debug_skip_minutes(ticks-1)
+		check(f.job.phase==Phase.CAPTURING and f.runtime.data.get_skill_xp(skill)==xp,"Capture has no early success or XP")
+		f.world.game_time.debug_skip_minutes(1)
+		check(f.job.phase==Phase.ESCORT and f.runtime.data.get_skill_xp(skill)==xp,"Skill accelerates contact, not escort or acceptance")
+		check(await reach(f,Phase.NONE),"Accepted sheep completes physical trip")
+		check(f.runtime.data.get_skill_xp(skill)==mini(xp+8,10000),"Capture reward remains eight")
+		dispose(f)
+		for cancelled in [false,true]:
+			f=fixture();f.runtime.data.add_skill_xp(skill,xp)
+			f.sheep.assign_home(f.hut,f.world.building_uses,f.world.work_areas)
+			f.sheep.behavior.cancel_behavior();f.sheep.data.wool_growth=15
+			check(f.job.request_work() and (await reach(f,Phase.SHEARING)),"Real service starts at accepted skill rate")
+			var potential: int=f.job.batch.potential
+			if cancelled:
+				f.world.game_time.debug_skip_minutes(7)
+				var partial: float=f.job.batch.progress
+				f.job.cancel()
+				check(is_equal_approx(f.job.last_result.minutes,partial) and f.job.last_result.produced==preload("res://scripts/work_progress.gd").whole_floor(potential*partial/120.0),"Fractional shearing settles exact completed volume")
+				check(f.runtime.data.get_skill_xp(skill)==xp,"Partial wool does not grant XP")
+			else:
+				var duration:=ceili(120.0/f.job._work_rate)
+				f.world.game_time.debug_skip_minutes(duration-1)
+				check(f.job.phase==Phase.SHEARING and f.hut.resources.get_amount(R.WOOL)==0,"Shearing stays incomplete until final tick")
+				f.world.game_time.debug_skip_minutes(1)
+				check(f.job.phase==Phase.NONE and f.job.last_result.produced==potential and f.runtime.data.get_skill_xp(skill)==mini(10000,xp+16),"One full output and unchanged skill award")
+			var result: Dictionary=f.job.last_result.duplicate();f.job.cancel()
+			check(f.job.last_result==result and f.hut.resources.get_reserved_in(R.WOOL)==0,"Repeated settlement leaves no new output or reserves")
+			dispose(f)

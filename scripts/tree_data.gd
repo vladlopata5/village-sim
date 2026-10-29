@@ -1,4 +1,5 @@
 extends RefCounted
+const Work = preload("res://scripts/work_progress.gd")
 ## Persistent domain state. Reservation is temporary; work belongs to the tree.
 const Balance = preload("res://scripts/balance_config.gd")
 enum State { STANDING, DEPLETED, SAPLING }
@@ -13,7 +14,7 @@ var yield_amount := Balance.TREE_LOG_YIELD
 var state := State.STANDING
 var growth_required := Balance.TREE_GROWTH_MINUTES
 var growth_progress := 0
-var work_done := 0
+var work_done := 0.0
 var reservation_owner_id := &""
 func _init(entity_id: StringName, simulation_position: Vector2) -> void:
 	id = entity_id
@@ -27,10 +28,10 @@ func release(worker: StringName) -> void:
 	if reservation_owner_id != worker: return
 	reservation_owner_id = &""
 	changed.emit()
-func add_work(worker: StringName, minutes: int) -> bool:
-	if worker.is_empty() or state != State.STANDING or reservation_owner_id != worker or minutes <= 0: return false
-	work_done = mini(work_done + minutes,work_required)
-	if work_done >= work_required:
+func add_work(worker: StringName, work: float) -> bool:
+	if worker.is_empty() or state != State.STANDING or reservation_owner_id != worker or not is_finite(work) or work <= 0.0: return false
+	work_done = Work.advance(work_done,work,work_required)
+	if Work.reached(work_done,work_required):
 		state = State.DEPLETED
 		reservation_owner_id = &""
 	changed.emit()

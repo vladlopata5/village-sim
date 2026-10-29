@@ -1,4 +1,5 @@
 extends RefCounted
+const Work = preload("res://scripts/work_progress.gd")
 ## One entity for the entire lifecycle; changing state never replaces its identity.
 const Definition = preload("res://scripts/building_definition.gd")
 const ResourceContainer = preload("res://scripts/resource_container.gd")
@@ -55,7 +56,7 @@ var active_builder_ids: Array[String]:
 	get: return _active_builder_ids.duplicate()
 var _restoring_structure := false
 var _updating_progress := false
-var construction_progress: int = 0:
+var construction_progress: float = 0.0:
 	set(value):
 		if _restoring_structure:
 			construction_progress=value
@@ -65,7 +66,7 @@ var construction_progress: int = 0:
 		if needs_materials() and value>construction_progress:
 			if current_construction_stage()==null or not are_stage_materials_complete():return
 			limit=mini(limit,stage_work_start()+current_construction_stage().work_minutes)
-		var clamped := clampi(value, 0, limit)
+		var clamped := Work.bounded(value, limit)
 		if clamped == construction_progress: return
 		_updating_progress=true
 		construction_progress = clamped
@@ -84,11 +85,11 @@ var production_removed := false
 var _next_batch_id := 1
 var production_worker_id: String:
 	get: return _production_batches[0].worker_id if not _production_batches.is_empty() else ""
-var _simple_production_progress := 0 # Original gatherer/non-recipe state is unchanged.
-var production_progress: int:
+var _simple_production_progress := 0.0 # Original gatherer/non-recipe state is unchanged.
+var production_progress: float:
 	get:
 		if definition.production_recipe == null: return _simple_production_progress
-		return _production_batches[0].progress if _production_batches.size()==1 and not _production_batches[0].is_terminal() else 0
+		return _production_batches[0].progress if _production_batches.size()==1 and not _production_batches[0].is_terminal() else 0.0
 	set(value):
 		if definition.production_recipe == null: _simple_production_progress = value
 
@@ -106,10 +107,10 @@ func needs_materials() -> bool:
 	return (is_upgrading() or not previously_built) and work_direction == WorkDirection.BUILD
 func ready_for_structural_work() -> bool:
 	return not needs_materials() or are_stage_materials_complete()
-func work_remaining() -> int:
+func work_remaining() -> float:
 	return construction_progress if work_direction == WorkDirection.DEMOLISH else construction_definition().construction_work_required-construction_progress
 func ready_for_removal() -> bool:
-	return _state == State.UNDER_CONSTRUCTION and work_direction == WorkDirection.DEMOLISH and construction_progress == 0
+	return _state == State.UNDER_CONSTRUCTION and work_direction == WorkDirection.DEMOLISH and Work.reached(0.0,construction_progress)
 func set_work_direction(direction: WorkDirection) -> bool:
 	if removal_started or _state == State.REMOVED or direction not in WorkDirection.values(): return false
 	if not is_built() and work_direction == direction: return false
@@ -228,9 +229,9 @@ func are_construction_materials_complete() -> bool:
 func get_construction_progress_ratio() -> float:
 	if construction_definition().construction_work_required == 0: return 1.0
 	return float(construction_progress) / construction_definition().construction_work_required
-func add_construction_work(minutes: int) -> bool:
-	if not is_structural_work() or _updating_progress or not ready_for_structural_work() or minutes <= 0 or current_work_remaining() <= 0: return false
-	construction_progress += -mini(minutes,work_remaining()) if work_direction == WorkDirection.DEMOLISH else mini(minutes,current_work_remaining())
+func add_construction_work(work: float) -> bool:
+	if not is_structural_work() or _updating_progress or not ready_for_structural_work() or not is_finite(work) or work <= 0.0 or current_work_remaining() <= 0: return false
+	construction_progress += -minf(work,work_remaining()) if work_direction == WorkDirection.DEMOLISH else minf(work,current_work_remaining())
 	return true
 func has_free_builder_slot() -> bool:
 	return is_structural_work() and _active_builder_ids.size() < construction_definition().max_builders
@@ -245,7 +246,7 @@ func release_builder_slot(resident_id: String) -> bool:
 	_notify_construction_changed()
 	return true
 func can_complete_construction() -> bool:
-	return is_structural_work() and work_direction == WorkDirection.BUILD and ready_for_structural_work() and construction_progress >= construction_definition().construction_work_required
+	return is_structural_work() and work_direction == WorkDirection.BUILD and ready_for_structural_work() and Work.reached(construction_progress,construction_definition().construction_work_required)
 func complete_construction(completion_minute: int = -1) -> bool:
 	if not can_complete_construction(): return false
 	if is_upgrading(): return complete_upgrade()
@@ -516,7 +517,7 @@ func completed_construction_stage_count() -> int:
 	var end:=0;var count:=0
 	for stage in construction_definition().construction_stages:
 		end+=stage.work_minutes
-		if construction_progress<end:break
+		if not Work.reached(construction_progress,end):break
 		count+=1
 	return count
 func construction_stage_index() -> int:
@@ -527,7 +528,7 @@ func stage_work_start() -> int:
 	var minutes:=0
 	for stage in construction_definition().construction_stages.slice(0,construction_stage_index()):minutes+=stage.work_minutes
 	return minutes
-func stage_work_progress() -> int:
+func stage_work_progress() -> float:
 	return construction_progress-stage_work_start()
 func stage_cumulative_requirement(resource: int) -> int:
 	var quantity:=0
@@ -544,10 +545,10 @@ func are_stage_materials_complete() -> bool:
 	for resource in stage.materials:
 		if stage_delivered_amount(resource)<stage.materials[resource]:return false
 	return true
-func current_work_remaining() -> int:
+func current_work_remaining() -> float:
 	if not needs_materials():return work_remaining()
 	var stage:=current_construction_stage()
-	return mini(work_remaining(),stage.work_minutes-stage_work_progress()) if stage!=null else work_remaining()
+	return minf(work_remaining(),stage.work_minutes-stage_work_progress()) if stage!=null else work_remaining()
 func construction_visual_id() -> StringName:
 	var count:=completed_construction_stage_count()
 	return construction_definition().construction_stages[count-1].visual_id if count>0 else &"site"
@@ -595,7 +596,7 @@ func _restore_upgrade_structure() -> void:
 	_construction_reserved_in=_upgrade_snapshot.inbound
 	# State guard prevents publishing a fictitious project transition during restoration.
 	_state=State.UNDER_CONSTRUCTION
-	var saved: int=_upgrade_snapshot.progress
+	var saved: float=_upgrade_snapshot.progress
 	_restoring_structure=true;construction_progress=saved;_restoring_structure=false
 	_upgrade_snapshot={};_active_builder_ids.clear()
 	work_direction=WorkDirection.BUILD;work_paused=false;previously_built=true
@@ -621,7 +622,7 @@ func complete_upgrade() -> bool:
 	logistics_policy_changed.emit();production_changed.emit()
 	return true
 func finish_upgrade_cancellation() -> bool:
-	if _upgrade_mutating or upgrade==null or work_direction!=WorkDirection.DEMOLISH or construction_progress!=0 or not _construction_reserved_in.values().all(func(amount):return amount==0):return false
+	if _upgrade_mutating or upgrade==null or work_direction!=WorkDirection.DEMOLISH or not Work.reached(0.0,construction_progress) or not _construction_reserved_in.values().all(func(amount):return amount==0):return false
 	_upgrade_mutating=true
 	_restore_upgrade_structure()
 	production_revision+=1

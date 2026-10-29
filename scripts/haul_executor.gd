@@ -1,4 +1,6 @@
 extends RefCounted
+const Modifiers = preload("res://scripts/resident_modifiers.gd")
+const Skills = preload("res://scripts/work_operation_skills.gd")
 const ResourceType = preload("res://scripts/resource_type.gd")
 const DropResult = preload("res://scripts/cargo_drop_result.gd")
 var last_drop_result: int = DropResult.Status.FAILED
@@ -107,13 +109,17 @@ func _on_arrival(intent: Intent) -> void:
 	intent.interruptible = false
 	intent.resource_handling = &"loading" if loading else &"unloading"
 	var minutes: int=Balance.WATER_COLLECTION_MINUTES if loading and job.source_ref.kind==preload("res://scripts/resource_source_ref.gd").Kind.WATER else Balance.RESOURCE_LOADING_MINUTES if loading else Balance.RESOURCE_UNLOADING_MINUTES
-	handling.start(intent.resource_handling,clock.total_minutes,minutes)
+	var operation: StringName=&"gather_loading" if loading and job.source_ref.kind==preload("res://scripts/resource_source_ref.gd").Kind.NATURAL_MUSHROOM else intent.resource_handling
+	var rate := Modifiers.work_rate(resident,Skills.for_operation(operation))
+	if not handling.start(operation,clock.total_minutes,minutes,rate):
+		cancel("некорректные правила погрузки")
+		return
 	resident.activity = Activity.Type.HAULING
 	if service.logger != null: service.logger.info(EventLog.LOGISTICS, "%s: %s (%d игровых минут)" % [resident.resident_name,"погрузка" if intent.resource_handling==&"loading" else "разгрузка",Balance.RESOURCE_LOADING_MINUTES if loading else Balance.RESOURCE_UNLOADING_MINUTES])
 
 func _on_minute(now: int) -> void:
 	if job == null or not validate_job() or not handling.is_active(): return
-	if handling.advance(now):
+	if handling.advance(now,resident.activity==Activity.Type.HAULING):
 		var arrived := _haul_intent
 		_complete_arrival(arrived)
 		arrived.resource_handling = &""

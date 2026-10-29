@@ -113,9 +113,10 @@ func run() -> void:
 	check(worker.request_work(),"Action before command interrupt")
 	walk(actor)
 	var partial = worker.rock
+	var expected_partial: float=partial.work_done+7*worker._work_rate
 	scene.game_time.debug_skip_minutes(7)
 	check(scene.player_control.move_to(actor.data.id,C.to_sim(Vector3(16,0,-4))),"PlayerCommand interrupts miner")
-	check(partial.work_done==7 and partial.reservation_owner_id.is_empty() and worker.rock==null,"Command retains partial and releases claim")
+	check(is_equal_approx(partial.work_done,expected_partial) and partial.reservation_owner_id.is_empty() and worker.rock==null,"Command retains partial and releases claim")
 	actor.commands.cancel_current()
 	actor.intents.abort_current(actor.intents.current_intent)
 	check(worker.request_work(),"Action before critical interrupt")

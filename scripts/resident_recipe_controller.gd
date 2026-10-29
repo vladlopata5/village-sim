@@ -1,4 +1,6 @@
 extends Node
+const Modifiers = preload("res://scripts/resident_modifiers.gd")
+const Skills = preload("res://scripts/work_operation_skills.gd")
 const Purpose = preload("res://scripts/building_slot_purpose.gd").Type
 ## Physical worker for building-owned batches; no resource or progress ledger here.
 const Intent = preload("res://scripts/resident_intent.gd")
@@ -23,6 +25,7 @@ var _mutating := false
 var _interrupted := false
 var _exiting := false
 var _last_minute := 0
+var _work_rate := 1.0
 var _assignment_revision := 0
 var _availability_queued := false
 
@@ -96,6 +99,10 @@ func _on_arrival(intent: Intent) -> void:
 	if not _valid() or not building.validate_production_batch(batch) or not _valid() or not _at_workplace():
 		abort()
 		return
+	_work_rate = Modifiers.work_rate(_runtime.data,Skills.for_operation(batch.recipe_id))
+	if _work_rate < 0.0:
+		abort()
+		return
 	_mutating = true
 	var started := batch.begin(_runtime.data.id)
 	_mutating = false
@@ -111,9 +118,10 @@ func _on_arrival(intent: Intent) -> void:
 
 func _accrue() -> void:
 	if phase != Phase.WORKING or not _valid(): return
-	if _at_workplace() and _runtime.data.activity == Activity.Type.WORKING:
-		batch.advance(_runtime.data.id,maxi(_clock.total_minutes-_last_minute,0))
+	var elapsed := maxi(_clock.total_minutes-_last_minute,0)
 	_last_minute = _clock.total_minutes
+	if _at_workplace() and _runtime.data.activity == Activity.Type.WORKING:
+		batch.advance(_runtime.data.id,elapsed*_work_rate)
 
 func _on_minute(_minute: int) -> void:
 	if phase == Phase.NONE or _mutating or _exiting: return
@@ -121,7 +129,7 @@ func _on_minute(_minute: int) -> void:
 		abort()
 		return
 	_accrue()
-	if phase != Phase.WORKING or batch.progress < batch.work_required: return
+	if phase != Phase.WORKING or not batch.is_complete(): return
 	_mutating = true
 	var done := batch.finish(_runtime.data.id)
 	if done: _runtime.data.award_skill_xp(preload("res://scripts/work_operation_skills.gd").for_operation(batch.recipe_id))

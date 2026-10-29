@@ -37,7 +37,7 @@ func definitions_and_identity() -> void:
 		place.construction_changed.connect(on_start)
 		check(place.begin_upgrade() and not place.begin_upgrade() and not place.is_built(),"One immediate fenced project, no duplicate starts")
 		place.construction_changed.disconnect(on_start)
-		check(published==[[true,0,true]],"Start publishes one complete fenced project, never half-reset state")
+		check(published==[[true,0.0,true]],"Start publishes one complete fenced project, never half-reset state")
 		check(place.resources==container and container.get_amount(product)==3 and container.get_capacity(product)==old_capacity and place.level==1,"Stock, identity and level-I capacity persist throughout work")
 		check(not place.reserve_construction_material(R.LOG,1) and not place.reserve_construction_material(R.PLANK,1),"No future material orders at first stone stage")
 		finish_plan(place)

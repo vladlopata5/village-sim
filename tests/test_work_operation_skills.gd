@@ -46,6 +46,9 @@ func catalog() -> void:
 	check(Ops.for_operation(&"loading").xp_rewards.is_empty() and Ops.for_operation(&"unloading").xp_rewards.is_empty(), "Handling stages have no additional XP")
 
 func recipes() -> void:
+	for xp in [0,2500,10000]: await recipe_cases(xp)
+
+func recipe_cases(xp: int) -> void:
 	var cases := [
 		[T.SAWMILL, &"sawmill_plank", S.WOODWORKING, 3, 1, 30],
 		[T.STONEMASON_WORKSHOP, &"cut_stone_brick", S.STONEWORKING, 3, 1, 30],
@@ -71,7 +74,11 @@ func recipes() -> void:
 			var material: int = stock.conversions.keys()[0]
 			check(stock.reserve_in(material, 1) and stock.deliver(material, 1), "Real consumable receipt")
 		check(world.player_control.assign_workplace(first.data.id, place.id), "First worker assigned")
-		if row[1] == &"sawmill_plank": first.data.add_skill_xp(row[2], 10000)
+		first.data.add_skill_xp(row[2],xp)
+		first.data.add_skill_xp(S.CRAFTING,xp)
+		var last_xp := 0 if xp==2500 else 2500
+		last.data.add_skill_xp(row[2],last_xp)
+		last.data.add_skill_xp(S.CRAFTING,last_xp)
 		var before: Dictionary = first.data._skill_xp.duplicate()
 		var rules := Ops.for_operation(row[1])
 		check(rules.is_valid() and rules.can_perform(last.data) and rules.efficiency_weights[0].weight_percent == (80 if row[4] > 0 else 100), "Approved recipe weights and zero-XP admission")
@@ -79,21 +86,25 @@ func recipes() -> void:
 		F.walk(world, first)
 		check(first.recipe_work.phase == Phase.WORKING, "Physical work arrival")
 		var batch: RefCounted = first.recipe_work.batch
-		world.game_time.debug_skip_minutes(row[5] - 1)
-		check(batch.progress == row[5] - 1 and batch.state == Batch.State.RUNNING and first.data._skill_xp == before, "No premature output/XP or skill-based acceleration")
+		var rate: float = rules.efficiency_percent(first.data)/100.0
+		var minutes := ceili(float(row[5])/rate)-1
+		world.game_time.debug_skip_minutes(minutes)
+		var partial: float = minutes*rate
+		check(is_equal_approx(batch.progress,partial) and batch.state == Batch.State.RUNNING and first.data._skill_xp == before, "100/125/150 percent work remains incomplete until the whole-minute boundary")
 		first.recipe_work.abort()
 		check(batch.state == Batch.State.PAUSED and first.data._skill_xp == before, "Interrupted owner receives no XP; progress persists")
 		world.player_control.assign_profession(first.data.id, preload("res://scripts/resident_profession.gd").Type.NONE)
 		check(world.player_control.assign_workplace(last.data.id, place.id) and last.recipe_work.request_work(), "Another worker resumes paid batch")
 		F.walk(world, last)
-		check(last.recipe_work.batch == batch and batch.progress == row[5] - 1, "Same batch, no new material payment")
+		check(last.recipe_work.batch == batch and is_equal_approx(batch.progress,partial), "Same batch, no new material payment")
 		var nested := func(_skill, _amount, _previous):
 			last.recipe_work._on_minute(world.game_time.total_minutes)
 			last.recipe_work.abort()
 		last.data.skill_changed.connect(nested, CONNECT_ONE_SHOT)
-		world.game_time.debug_skip_minutes(1)
+		var remaining_minutes := ceili((row[5]-partial)/(rules.efficiency_percent(last.data)/100.0))
+		world.game_time.debug_skip_minutes(remaining_minutes)
 		check(batch.state == Batch.State.COMPLETED and first.data._skill_xp == before, "Commit survives nested interruption; original owner is not awarded")
-		check(last.data.get_skill_xp(row[2]) == row[3] and last.data.get_skill_xp(S.CRAFTING) == row[4], "Exactly one multi-skill award to completing worker")
+		check(last.data.get_skill_xp(row[2]) == last_xp+row[3] and last.data.get_skill_xp(S.CRAFTING) == last_xp+row[4], "Exactly one multi-skill award to completing worker")
 		for resource in recipe.outputs: check(place.resources.get_amount(resource) == recipe.outputs[resource], "Output quantity is unchanged and does not multiply XP")
 		var after: Dictionary = last.data._skill_xp.duplicate()
 		last.recipe_work._on_minute(world.game_time.total_minutes)
@@ -103,6 +114,9 @@ func recipes() -> void:
 		await process_frame
 
 func extraction_handoff() -> void:
+	for xp in [0,2500,10000]: await extraction_cases(xp)
+
+func extraction_cases(xp: int) -> void:
 	var professions = preload("res://scripts/resident_profession.gd").Type
 	var resources = preload("res://scripts/resource_type.gd").Type
 	for kind in [&"tree", &"stone", &"clay"]:
@@ -110,6 +124,9 @@ func extraction_handoff() -> void:
 		var first: Node = world.resident_runtimes[0]
 		var last: Node = world.resident_runtimes[1]
 		var profession: int = professions.LUMBERJACK if kind == &"tree" else professions.MINER if kind == &"stone" else professions.CLAY_DIGGER
+		var primary: int = S.FORESTRY if kind == &"tree" else S.MINING
+		first.data.add_skill_xp(primary,xp)
+		last.data.add_skill_xp(primary,2500)
 		world.player_control.assign_profession(first.data.id, profession)
 		var first_work: Node = first.get_node("Lumberjack" if kind == &"tree" else "Miner")
 		if kind == &"clay":
@@ -120,11 +137,13 @@ func extraction_handoff() -> void:
 		F.walk(world, first)
 		if kind == &"tree": source = first_work.tree
 		else: source = first_work.rock
-		world.game_time.debug_skip_minutes(59)
-		check(source.work_done == 59, "No acceleration of actual extraction time")
+		var rate: float = preload("res://scripts/skill_type.gd").efficiency_percent(xp)/100.0
+		var minutes := ceili(60.0/rate)-1
+		world.game_time.debug_skip_minutes(minutes)
+		var partial := minutes*rate
+		check(is_equal_approx(source.work_done,partial), "Real extraction uses the accepted skill rate")
 		first_work.abort(false)
-		var primary: int = S.FORESTRY if kind == &"tree" else S.MINING
-		check(first.data.get_skill_xp(primary) == 0, "Interrupted extractor receives no contribution XP")
+		check(first.data.get_skill_xp(primary) == xp, "Interrupted extractor receives no contribution XP")
 		world.player_control.assign_profession(first.data.id, professions.NONE)
 		for other in world.trees if kind == &"tree" else first_work.rocks:
 			if other != source: other.claim(&"handoff_fixture")
@@ -137,10 +156,10 @@ func extraction_handoff() -> void:
 		last.data.skill_changed.connect(func(_skill, _amount, _previous):
 			last_work._minute(world.game_time.total_minutes)
 			last_work.abort(false), CONNECT_ONE_SHOT)
-		world.game_time.debug_skip_minutes(1)
-		check(first.data.get_skill_xp(primary) == 0 and last.data.get_skill_xp(primary) == 8 and last.data.get_skill_xp(S.GATHERING) == 0, "Full reward belongs to the extractor finishing the last minute")
+		world.game_time.debug_skip_minutes(ceili((60.0-partial)/1.25))
+		check(first.data.get_skill_xp(primary) == xp and last.data.get_skill_xp(primary) == 2508 and last.data.get_skill_xp(S.GATHERING) == 0, "Full reward belongs to the extractor finishing the last minute")
 		check(last.data.get_skill_xp(S.WOODWORKING) == (2 if kind == &"tree" else 0) and last.data.get_skill_xp(S.STONEWORKING) == (2 if kind == &"stone" else 0), "Only approved secondary skill is awarded")
 		last_work._minute(world.game_time.total_minutes)
-		check(last.data.get_skill_xp(primary) == 8, "Repeated/nested extraction completion cannot award twice")
+		check(last.data.get_skill_xp(primary) == 2508, "Repeated/nested extraction completion cannot award twice")
 		world.free()
 		await process_frame

@@ -101,9 +101,10 @@ func run() -> void:
 	check(worker.request_work(),"Next decision can select another tree")
 	arrive(actor)
 	var partial = worker.tree
+	var partial_expected: float=partial.work_done+30*worker._work_rate
 	scene.game_time.debug_skip_minutes(30)
 	scene.player_control.move_to(actor.data.id,Vector2(0,500))
-	check(partial.work_done==30 and partial.reservation_owner_id.is_empty() and worker.tree==null,"PlayerCommand preserves 30 minutes/releases task")
+	check(is_equal_approx(partial.work_done,partial_expected) and partial.reservation_owner_id.is_empty() and worker.tree==null,"PlayerCommand preserves 30 minutes/releases task")
 	check(actor.data.get_skill_xp(Skill.Type.FORESTRY)==8,"Interrupted tree grants no XP")
 	arrive(actor)
 	# Keep only partial tree available to prove resume rather than fresh work.
@@ -120,9 +121,10 @@ func run() -> void:
 	check(worker.request_work(),"Critical interruption fixture starts")
 	arrive(actor)
 	var critical_tree = worker.tree
+	var critical_expected: float=critical_tree.work_done+7*worker._work_rate
 	scene.game_time.debug_skip_minutes(7)
 	actor.intents.force_set_intent(preload("res://scripts/resident_intent.gd").new(preload("res://scripts/resident_intent.gd").Type.NONE,&"critical_sleep",Vector2.ZERO,0,false),100)
-	check(critical_tree.work_done==7 and critical_tree.reservation_owner_id.is_empty(),"Critical forced pipeline preserves work/releases reservation")
+	check(is_equal_approx(critical_tree.work_done,critical_expected) and critical_tree.reservation_owner_id.is_empty(),"Critical forced pipeline preserves work/releases reservation")
 	actor.intents.abort_current(actor.intents.current_intent)
 	scene.game_time.total_minutes = 1015
 	check(worker.request_work(),"Schedule interruption fixture starts")

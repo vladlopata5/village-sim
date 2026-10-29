@@ -500,7 +500,7 @@ func _poll_building_work() -> void:
 		if building.is_upgrading():
 			if _upgrade_cleanup_pending(building):continue
 			if building.work_paused:building.work_paused=false;building._notify_construction_changed()
-			if building.work_direction==BuildingInstance.WorkDirection.DEMOLISH and building.construction_progress==0:_finish_upgrade_refund(building)
+			if building.work_direction==BuildingInstance.WorkDirection.DEMOLISH and preload("res://scripts/work_progress.gd").reached(0.0,building.construction_progress):_finish_upgrade_refund(building)
 			continue
 		if building.is_built():
 			_offline_buildings.erase(id)
@@ -1329,12 +1329,12 @@ func _ui_natural_progress(building_id: StringName) -> PackedStringArray:
 		var forestry = runtime.get_node_or_null("Lumberjack")
 		if forestry != null and forestry.hut != null and forestry.hut.id == building_id:
 			if forestry.kind == &"CHOP" and forestry.tree != null:
-				lines.append("%s • рубка: %d / %d мин" % [runtime.data.resident_name,forestry.tree.work_done,forestry.tree.work_required])
+				lines.append("%s • рубка: %s / %d ст. мин" % [runtime.data.resident_name,preload("res://scripts/work_progress.gd").display_minutes(forestry.tree.work_done),forestry.tree.work_required])
 			elif forestry.kind == &"PLANT":
-				lines.append("%s • посадка: %d / %d мин" % [runtime.data.resident_name,forestry.work_minutes,Balance.TREE_PLANTING_MINUTES])
+				lines.append("%s • посадка: %s / %d ст. мин" % [runtime.data.resident_name,preload("res://scripts/work_progress.gd").display_minutes(forestry.work_minutes),Balance.TREE_PLANTING_MINUTES])
 		var miner = runtime.get_node_or_null("Miner")
 		if miner != null and miner.committed_context != null and miner.committed_context.workplace != null and miner.committed_context.workplace.id == building_id and miner.rock != null:
-			lines.append("%s • добыча: %d / %d мин" % [runtime.data.resident_name,miner.rock.work_done,miner.rock.work_required])
+			lines.append("%s • добыча: %s / %d ст. мин" % [runtime.data.resident_name,preload("res://scripts/work_progress.gd").display_minutes(miner.rock.work_done),miner.rock.work_required])
 	return lines
 
 func _setup_fields() -> void:

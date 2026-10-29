@@ -1,5 +1,5 @@
 extends RefCounted
-## Approved operation data. S2 awards XP only; weights are reserved for S3.
+## Approved operation data. Rules shared by completed-operation XP and active-work efficiency.
 const Skill = preload("res://scripts/skill_type.gd")
 const Rules = preload("res://scripts/work_skill_rules.gd")
 const Balance = preload("res://scripts/balance_config.gd")

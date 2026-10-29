@@ -141,9 +141,10 @@ func _run() -> void:
 			actor.intents.cancel_current(actor.intents.current_intent)
 			check(scene._request_work(actor), "Next completed work cycle passes through a decision point")
 			walk_phase(actor,Builder.Phase.GOING_TO_SITE)
+		var expected: float=minf(180.0,site.construction_progress+60*actor.builder._work_rate)
 		scene.game_time.total_minutes += 60
 		actor.builder._on_minute(scene.game_time.total_minutes)
-		check(site.construction_progress == (cycle+1)*60, "Real builder adds existing 60 minute contribution")
+		check(is_equal_approx(site.construction_progress,expected), "Personal sixty minutes apply skill-scaled structural contribution")
 	check(site.is_built() and site.active_builder_ids.is_empty(), "Existing material/work completion transitions same instance to BUILT")
 	check(view == scene.world_locations.get_view(site.id) and view.caption.text == "Дом", "Completion reuses 3D view, updates lifecycle visual")
 	check(not scene.build_grid.occupied_cells(site.id).is_empty() and not scene.navigation.is_world_walkable(Coordinates.to_world(site.position)), "Completion preserves footprint and obstacle")

@@ -1,4 +1,7 @@
 extends Node
+const Work = preload("res://scripts/work_progress.gd")
+const Modifiers = preload("res://scripts/resident_modifiers.gd")
+const Skills = preload("res://scripts/work_operation_skills.gd")
 ## Field operations own cells/seed; hauling and threshing use existing executors.
 const Area=preload("res://scripts/building_work_area.gd")
 const Field=preload("res://scripts/farm_fields.gd")
@@ -32,7 +35,8 @@ var _target:=Vector2i.ZERO
 var _intent: RefCounted
 var _seed_reserved:=false
 var _paid:=false
-var _progress:=0
+var _progress:=0.0
+var _work_rate:=1.0
 var _last_minute:=0
 var _offer: Dictionary={}
 var _stamp: Array=[]
@@ -195,6 +199,8 @@ func _arrived(intent: RefCounted) -> void:
 		if not world.world_locations.at_action(runtime.data.id,_building.id,Purpose.WORKER,runtime.view.get_sim_position(),8.0):cancel();return
 		_next_cell();return
 	if runtime.view.get_sim_position().distance_to(_point(_target))>8.0:cancel();return
+	_work_rate=Modifiers.work_rate(runtime.data,Skills.for_operation(StringName(String(_kind).to_lower())))
+	if _work_rate<0.0:cancel();return
 	phase=Phase.WORKING;_last_minute=world.game_time.total_minutes;runtime.data.activity=Activity.WORKING
 func _pay_seed() -> bool:
 	if _paid:return true
@@ -206,9 +212,9 @@ func _minute(now: int) -> void:
 	if phase==Phase.NONE or _mutating:return
 	if not _valid():cancel();return
 	if phase!=Phase.WORKING:return
-	if runtime.data.activity==Activity.WORKING and runtime.view.get_sim_position().distance_to(_point(_target))<=8.0:_progress+=maxi(0,now-_last_minute)
+	if runtime.data.activity==Activity.WORKING and runtime.view.get_sim_position().distance_to(_point(_target))<=8.0:_progress=Work.advance(_progress,maxi(0,now-_last_minute)*_work_rate,Balance.FARM_FIELD_WORK_MINUTES)
 	_last_minute=now
-	if _progress<Balance.FARM_FIELD_WORK_MINUTES:return
+	if not Work.reached(_progress,Balance.FARM_FIELD_WORK_MINUTES):return
 	_mutating=true
 	var cell:=_target;var result:=0;var done:=false
 	match _kind:

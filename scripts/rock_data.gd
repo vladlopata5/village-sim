@@ -1,4 +1,5 @@
 extends RefCounted
+const Work = preload("res://scripts/work_progress.gd")
 ## Domain truth. A completion receipt is unique even across reentrant signals.
 const Balance = preload("res://scripts/balance_config.gd")
 signal changed
@@ -9,7 +10,7 @@ var physical_radius := Balance.ROCK_PHYSICAL_RADIUS
 var initial_stock := Balance.ROCK_STONE_STOCK
 var stock := Balance.ROCK_STONE_STOCK
 var work_required := Balance.ROCK_WORK_MINUTES
-var work_done := 0
+var work_done := 0.0
 var completed_cycles := 0
 var reservation_owner_id := &""
 func _init(entity_id: StringName, simulation_position: Vector2) -> void:
@@ -24,11 +25,11 @@ func release(worker: StringName) -> void:
 	if worker.is_empty() or reservation_owner_id != worker: return
 	reservation_owner_id = &""
 	changed.emit()
-func add_work(worker: StringName, minutes: int) -> int:
-	if worker.is_empty() or reservation_owner_id != worker or stock <= 0 or minutes <= 0: return 0
-	work_done = mini(work_required,work_done+minutes)
+func add_work(worker: StringName, work: float) -> int:
+	if worker.is_empty() or reservation_owner_id != worker or stock <= 0 or not is_finite(work) or work <= 0.0: return 0
+	work_done = Work.advance(work_done,work,work_required)
 	var receipt := 0
-	if work_done == work_required:
+	if Work.reached(work_done,work_required):
 		stock -= 1
 		work_done = 0
 		completed_cycles += 1

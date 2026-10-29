@@ -1,4 +1,5 @@
 extends RefCounted
+const Work = preload("res://scripts/work_progress.gd")
 ## Building-owned process and its own reservation obligations, never resource stock.
 const Recipe = preload("res://scripts/production_recipe.gd")
 enum State { PREPARING, READY, RUNNING, PAUSED, COMPLETED, CANCELLED }
@@ -6,7 +7,7 @@ var id: StringName
 var recipe_id: StringName
 var recipe: RefCounted
 var state := State.PREPARING
-var progress := 0
+var progress := 0.0
 var inputs_spent := false
 var order_revision := -1 # Which current building order may receive this output.
 var selection_accepted := false
@@ -122,13 +123,17 @@ func begin(worker: String) -> bool:
 	_settle()
 	return done and state == State.RUNNING
 
-func advance(worker: String, minutes: int) -> void:
+func advance(worker: String, work: float) -> void:
 	if state == State.RUNNING and worker == worker_id and not _mutating:
-		progress = mini(progress+maxi(minutes,0),work_required)
+		progress = Work.advance(progress,work,work_required)
+
+func is_complete() -> bool:
+	return Work.reached(progress,work_required)
 
 func finish(worker: String) -> bool:
-	if _mutating or state != State.RUNNING or not inputs_spent or worker != worker_id or progress < work_required or not reserves_valid(): return false
+	if _mutating or state != State.RUNNING or not inputs_spent or worker != worker_id or not is_complete() or not reserves_valid(): return false
 	_mutating = true
+	progress = float(work_required)
 	state = State.COMPLETED # A nested callback cannot publish or cancel a committed completion.
 	worker_id = ""
 	# Only mandatory outputs have occupied capacity during work. Try optional

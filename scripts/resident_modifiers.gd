@@ -4,6 +4,13 @@ extends RefCounted
 const Trait = preload("res://scripts/trait_type.gd")
 const Balance = preload("res://scripts/balance_config.gd")
 const Utility = preload("res://scripts/action_utility.gd")
+const WorkRules = preload("res://scripts/work_skill_rules.gd")
+static func work_rate(resident: RefCounted, rules: WorkRules) -> float:
+	if rules == null: return -1.0
+	var percent := rules.efficiency_percent(resident)
+	if not is_finite(percent) or percent < 100.0 or percent > 150.0: return -1.0
+	return percent / 100.0
+
 enum Action { WORK, EAT, SOCIAL }
 static func action_utility(resident: RefCounted, action: Action, base: float) -> float:
 	var multiplier := 1.0

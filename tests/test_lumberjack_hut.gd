@@ -133,7 +133,7 @@ func run() -> void:
 	walk(actor)
 	var count: int = scene.trees.size()
 	scene.game_time.debug_skip_minutes(10)
-	check(scene.trees.size()==count and worker.work_minutes==10,"Planting requires actual work time")
+	check(scene.trees.size()==count and is_equal_approx(worker.work_minutes,10*worker._work_rate),"Planting requires actual work time")
 	scene.player_control.move_to(actor.data.id,Vector2(0,500))
 	check(scene.forestry_area.claims.is_empty() and worker.work_minutes==0 and scene.trees.size()==count,"Interrupted planting discards progress and releases spot")
 	idle(actor)

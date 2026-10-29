@@ -1,4 +1,6 @@
 extends Node
+const Modifiers = preload("res://scripts/resident_modifiers.gd")
+const Skills = preload("res://scripts/work_operation_skills.gd")
 const DropResult = preload("res://scripts/cargo_drop_result.gd")
 var cargo_drop_handler: Callable
 var last_drop_result: int = DropResult.Status.FAILED
@@ -29,6 +31,7 @@ var source_ref: Source
 var source: Instance
 var phase := Phase.NONE
 var work_minutes := 0
+var _work_rate := 1.0
 var _last_work_minute := 0
 var _direction_revision := 0
 var _resource: ResourceType.Type
@@ -334,7 +337,10 @@ func _on_arrival(intent: Intent) -> void:
 			abort("стройка недоступна")
 			return
 		intent.resource_handling = &"loading" if phase==Phase.GOING_TO_SOURCE else &"unloading"
-		handling.start(intent.resource_handling,_clock.total_minutes,Balance.RESOURCE_LOADING_MINUTES if phase==Phase.GOING_TO_SOURCE else Balance.RESOURCE_UNLOADING_MINUTES)
+		var rate := Modifiers.work_rate(_data,Skills.for_operation(intent.resource_handling))
+		if not handling.start(intent.resource_handling,_clock.total_minutes,Balance.RESOURCE_LOADING_MINUTES if phase==Phase.GOING_TO_SOURCE else Balance.RESOURCE_UNLOADING_MINUTES,rate):
+			abort("некорректные правила погрузки")
+			return
 		_data.activity = Activity.Type.HAULING
 		if logger != null: logger.info(EventLog.LOGISTICS, "%s: %s (%d игровых минут)" % [_data.resident_name,"погрузка" if intent.resource_handling==&"loading" else "разгрузка",Balance.RESOURCE_LOADING_MINUTES if phase==Phase.GOING_TO_SOURCE else Balance.RESOURCE_UNLOADING_MINUTES])
 		return
@@ -389,6 +395,10 @@ func _complete_arrival(intent: Intent) -> void:
 		if not site.ready_for_structural_work():
 			_continue_task()
 			return
+		_work_rate = Modifiers.work_rate(_data,Skills.for_operation(&"construction"))
+		if _work_rate < 0.0:
+			abort("некорректные правила строительства")
+			return
 		phase = Phase.BUILDING
 		# Preserve labour-cycle contribution across this site's material stages.
 		_last_work_minute = _clock.total_minutes
@@ -408,12 +418,13 @@ func _accrue_work(now: int) -> void:
 	if minute_of_day<420 or minute_of_day>=1020: return
 	var elapsed := mini(maxi(now-previous,0),1020-minute_of_day)
 	elapsed = mini(elapsed,Balance.BUILDER_WORK_CYCLE_MINUTES-work_minutes)
-	elapsed = mini(elapsed,site.current_work_remaining())
+	# Count the last accepted whole-minute tick, independently of its clipped work.
+	elapsed = mini(elapsed,ceili(site.current_work_remaining()/_work_rate))
 	if elapsed<=0: return
 	var worked_site := site
 	work_minutes += elapsed # Action timing only; already applied work is never buffered.
 	_mutating = true
-	if not worked_site.add_construction_work(elapsed):
+	if not worked_site.add_construction_work(elapsed*_work_rate):
 		# A nested callback may observe another worker publishing a boundary.
 		# Keep this interval uncredited so its ordinary minute callback can retry once.
 		work_minutes-=elapsed
@@ -445,7 +456,7 @@ func _on_minute(now: int) -> void:
 	if phase == Phase.GOING_TO_SOURCE and not sources.reserved(source_ref,_resource,_source_owner()):
 		abort("источник удалён")
 		return
-	if handling.is_active() and handling.advance(now):
+	if handling.is_active() and handling.advance(now,_data.activity==Activity.Type.HAULING):
 		var arrived := _intent
 		_complete_arrival(arrived)
 		arrived.resource_handling = &""

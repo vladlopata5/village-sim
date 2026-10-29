@@ -1,5 +1,5 @@
 extends RefCounted
-## Input/output quantities and actual work-minutes; no building-type execution branches.
+## Input/output quantities and standard work-minutes; no building-type execution branches.
 var id: StringName
 var inputs: Dictionary
 var outputs: Dictionary
