@@ -226,6 +226,10 @@ func _arrived(intent: RefCounted) -> void:
 	if logger != null: logger.info(EventLog.AI,"%s: начал %s" % [runtime.data.resident_name,"рубку" if chopping else "посадку"])
 func _valid() -> bool:
 	return tree != null and tree in trees and tree.state==TreeData.State.STANDING and tree.reservation_owner_id==StringName(runtime.data.id) and locations.is_available(target) and locations.in_range(tree,target)
+func is_actively_working() -> bool:
+	if kind.is_empty() or not _context_valid() or runtime.intents.current_intent!=_intent or runtime.data.activity!=Activity.Type.WORKING or not is_instance_valid(runtime.view) or runtime.view.get_sim_position().distance_to(target)>8.0: return false
+	return kind==&"PLANT" or (chopping and _valid() and locations.in_range(tree,runtime.view.get_sim_position()))
+
 func _accrue(now: int) -> void:
 	var elapsed := maxi(now-_last_minute,0)
 	_last_minute = now

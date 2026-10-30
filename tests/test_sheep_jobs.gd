@@ -17,6 +17,7 @@ func check(ok: bool,label: String) -> void:
 	if not ok:failures+=1;push_error(label)
 func fixture() -> Dictionary:
 	var world=F.create(self)
+	for actor in world.resident_runtimes:actor.data.set_traits([]) # Explicit baseline; trait work is covered separately below.
 	var hut=F.building(world,T.SHEPHERD_HUT,Vector3(-10,0,16))
 	var runtime=world.resident_runtimes[0]
 	world.player_control.assign_workplace(runtime.data.id,hut.id,P.SHEPHERD)
@@ -230,6 +231,7 @@ func reentrant_and_capacity() -> void:
 	f.world.building_uses.slots_changed.disconnect(service_interrupt)
 	dispose(f)
 func run() -> void:
+	await hasty_efficiency()
 	await skill_efficiency()
 	geometry_endpoint();await selection_and_capture();await cancellations();conflicts();await shearing_and_export();await partial_interrupts();await cancelled_completion_boundary();await simulation_speeds();await reentrant_and_capacity()
 	print("Sheep jobs: %d checks, %d failures" % [checks,failures]);quit(1 if failures else 0)
@@ -246,6 +248,37 @@ func cancelled_completion_boundary() -> void:
 	f.job.cancel()
 	check(f.runtime.data.get_skill_xp(preload("res://scripts/skill_type.gd").Type.ANIMAL_HUSBANDRY)==0,"Cancelled shearing never awards XP, even with full settle/duplicate cleanup")
 	dispose(f)
+
+func hasty_efficiency() -> void:
+	var hasty_type=preload("res://scripts/trait_type.gd").Type.HASTY
+	var skill=preload("res://scripts/skill_type.gd").Type.ANIMAL_HUSBANDRY
+	var f=fixture();f.runtime.data.add_trait(hasty_type)
+	var assignment=task(f)
+	check(f.runtime.assignments.start(assignment.id) and (await reach(f,Phase.CAPTURING)),"HASTY reaches actual capture")
+	check(f.runtime.is_actively_working() and is_equal_approx(f.job._work_rate,1.15),"Capture rate and active-work guard use HASTY")
+	f.world.game_time.debug_skip_minutes(52)
+	check(f.job.phase==Phase.CAPTURING,"Capture remains incomplete before53 ticks")
+	f.world.game_time.debug_skip_minutes(1)
+	check(f.job.phase==Phase.ESCORT and not f.runtime.is_actively_working(),"Escort receives neither progress nor fatigue bonus")
+	check(await reach(f,Phase.NONE),"HASTY still escorts physically")
+	check(f.runtime.data.get_skill_xp(skill)==8,"Capture reward unchanged")
+	dispose(f)
+	for cancelled in [false,true]:
+		f=fixture();f.runtime.data.add_trait(hasty_type)
+		f.sheep.assign_home(f.hut,f.world.building_uses,f.world.work_areas)
+		f.sheep.behavior.cancel_behavior();f.sheep.data.wool_growth=15
+		check(f.job.request_work() and (await reach(f,Phase.SHEARING)),"HASTY starts actual shearing")
+		check(f.runtime.is_actively_working(),"Shearing is active work")
+		if cancelled:
+			f.world.game_time.debug_skip_minutes(10);f.job.cancel()
+			check(is_equal_approx(f.job.last_result.minutes,11.5) and f.runtime.data.get_skill_xp(skill)==0,"Partial accelerated wool settles without cancelled XP")
+		else:
+			f.world.game_time.debug_skip_minutes(104)
+			check(f.job.phase==Phase.SHEARING,"120-unit shear requires105 whole ticks at1.15")
+			f.world.game_time.debug_skip_minutes(1)
+			check(f.runtime.data.get_skill_xp(skill)==16 and f.job.phase==Phase.NONE,"Full shear awards fixed sixteen once")
+		f.job.cancel();check(not f.runtime.is_actively_working(),"Repeated cleanup disables active work")
+		dispose(f)
 
 func skill_efficiency() -> void:
 	var skill=preload("res://scripts/skill_type.gd").Type.ANIMAL_HUSBANDRY

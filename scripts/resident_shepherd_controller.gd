@@ -196,6 +196,9 @@ func _animal_arrived(expected: StringName) -> void:
 	var next=Intent.new(Intent.Type.MOVE_TO,&"shepherd_shear",C.to_sim(world.building_uses.entrance(building.id)),Balance.WORK_PRIORITY,false)
 	next.building_id=building.id;next.slot_purpose=Purpose.WORKER
 	_stage(next)
+func is_actively_working() -> bool:
+	return phase in [Phase.CAPTURING,Phase.SHEARING] and _valid() and runtime.intents.current_intent==_intent and runtime.data.activity==Activity.WORKING
+
 func _accrue() -> void:
 	var now: int=world.game_time.total_minutes
 	if phase in [Phase.CAPTURING,Phase.SHEARING] and runtime.intents.current_intent==_intent and runtime.data.activity==Activity.WORKING:

@@ -116,6 +116,9 @@ func _on_arrival(intent: Intent) -> void:
 	work_cycle_started.emit(building.id)
 	if phase == Phase.WORKING and logger != null: logger.info(EventLog.PRODUCTION,"%s: начал партию %s — %s (%d/%d мин)" % [_runtime.data.resident_name,batch.id,building.display_name,batch.progress,batch.work_required])
 
+func is_actively_working() -> bool:
+	return phase==Phase.WORKING and _valid() and _runtime.intents.current_intent==_intent and _runtime.data.activity==Activity.Type.WORKING and _at_workplace() and batch.state==Batch.State.RUNNING and not batch.is_complete()
+
 func _accrue() -> void:
 	if phase != Phase.WORKING or not _valid(): return
 	var elapsed := maxi(_clock.total_minutes-_last_minute,0)

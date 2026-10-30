@@ -110,12 +110,19 @@ func _on_arrival(intent: Intent) -> void:
 	intent.resource_handling = &"loading" if loading else &"unloading"
 	var minutes: int=Balance.WATER_COLLECTION_MINUTES if loading and job.source_ref.kind==preload("res://scripts/resource_source_ref.gd").Kind.WATER else Balance.RESOURCE_LOADING_MINUTES if loading else Balance.RESOURCE_UNLOADING_MINUTES
 	var operation: StringName=&"gather_loading" if loading and job.source_ref.kind==preload("res://scripts/resource_source_ref.gd").Kind.NATURAL_MUSHROOM else intent.resource_handling
-	var rate := Modifiers.work_rate(resident,Skills.for_operation(operation))
+	var rate := Modifiers.work_rate(resident,Skills.for_operation(operation),operation==&"gather_loading")
 	if not handling.start(operation,clock.total_minutes,minutes,rate):
 		cancel("некорректные правила погрузки")
 		return
 	resident.activity = Activity.Type.HAULING
 	if service.logger != null: service.logger.info(EventLog.LOGISTICS, "%s: %s (%d игровых минут)" % [resident.resident_name,"погрузка" if intent.resource_handling==&"loading" else "разгрузка",Balance.RESOURCE_LOADING_MINUTES if loading else Balance.RESOURCE_UNLOADING_MINUTES])
+
+func is_actively_gathering() -> bool:
+	if job == null or handling.operation!=&"gather_loading" or job.state!=Job.State.GOING_TO_SOURCE or resident.activity!=Activity.Type.HAULING or intents.current_intent!=_haul_intent: return false
+	if not service.sources.reserved(job.source_ref,job.resource_type,job.id) or not service.inbound_valid(job) or destination==null or not destination.is_built(): return false
+	var point: Variant = service.sources.point(job.source_ref)
+	var current: Variant = service.position_provider.call(resident.id) if service.position_provider.is_valid() else null
+	return point is Vector2 and current is Vector2 and point.distance_to(current)<=8.0
 
 func _on_minute(now: int) -> void:
 	if job == null or not validate_job() or not handling.is_active(): return

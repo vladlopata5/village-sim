@@ -5,11 +5,14 @@ const Trait = preload("res://scripts/trait_type.gd")
 const Balance = preload("res://scripts/balance_config.gd")
 const Utility = preload("res://scripts/action_utility.gd")
 const WorkRules = preload("res://scripts/work_skill_rules.gd")
-static func work_rate(resident: RefCounted, rules: WorkRules) -> float:
+static func work_rate(resident: RefCounted, rules: WorkRules, active_operation: bool = true) -> float:
 	if rules == null: return -1.0
 	var percent := rules.efficiency_percent(resident)
 	if not is_finite(percent) or percent < 100.0 or percent > 150.0: return -1.0
-	return percent / 100.0
+	return percent / 100.0 * (Balance.HASTY_WORK_RATE_MULTIPLIER if active_operation and resident.has_trait(Trait.Type.HASTY) else 1.0)
+
+static func fatigue_need_rate(resident: RefCounted, base_rate: float, active_work: bool) -> float:
+	return base_rate * Balance.HASTY_WORK_FATIGUE_MULTIPLIER if base_rate > 0 and active_work and resident.has_trait(Trait.Type.HASTY) else base_rate
 
 enum Action { WORK, EAT, SOCIAL, WANDER, LEISURE, REST }
 static func opinion_delta(resident: RefCounted, base_delta: int) -> float:

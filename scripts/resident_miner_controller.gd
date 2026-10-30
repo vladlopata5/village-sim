@@ -164,6 +164,9 @@ func _arrived(intent: RefCounted) -> void:
 	_last_minute = clock.total_minutes
 	runtime.data.activity = Activity.Type.WORKING
 	if runtime.logger != null: runtime.logger.info(EventLog.AI,"%s: начал добычу %s — %s" % [runtime.data.resident_name,"глины" if rock.resource_type==Resources.CLAY else "камня",rock.id])
+func is_actively_working() -> bool:
+	return mining and _valid() and runtime.intents.current_intent==_intent and runtime.data.activity==Activity.Type.WORKING and is_instance_valid(runtime.view) and locations.in_range(rock,runtime.view.get_sim_position()) and runtime.view.get_sim_position().distance_to(target)<=8.0
+
 func _accrue(now: int) -> bool:
 	var elapsed := maxi(now-_last_minute,0)
 	_last_minute = now

@@ -340,7 +340,7 @@ func _on_arrival(intent: Intent) -> void:
 			abort("стройка недоступна")
 			return
 		intent.resource_handling = &"loading" if phase==Phase.GOING_TO_SOURCE else &"unloading"
-		var rate := Modifiers.work_rate(_data,Skills.for_operation(intent.resource_handling))
+		var rate := Modifiers.work_rate(_data,Skills.for_operation(intent.resource_handling),false)
 		if not handling.start(intent.resource_handling,_clock.total_minutes,Balance.RESOURCE_LOADING_MINUTES if phase==Phase.GOING_TO_SOURCE else Balance.RESOURCE_UNLOADING_MINUTES,rate):
 			abort("некорректные правила погрузки")
 			return
@@ -408,6 +408,14 @@ func _complete_arrival(intent: Intent) -> void:
 		_data.activity = Activity.Type.WORKING
 		work_cycle_started.emit(site.id)
 		if logger != null: logger.info(EventLog.BUILDING, "%s: начал строительный цикл (%d мин)" % [_data.resident_name, Balance.BUILDER_WORK_CYCLE_MINUTES])
+
+func is_actively_working() -> bool:
+	if phase!=Phase.BUILDING or not _valid_site() or _data.activity!=Activity.Type.WORKING or _intents.current_intent!=_intent or not site.ready_for_structural_work() or work_minutes>=Balance.BUILDER_WORK_CYCLE_MINUTES: return false
+	var minute := posmod(_last_work_minute,1440)
+	if not _intent.overtime_work and (minute<420 or minute>=1020): return false
+	var point: Variant = _position()
+	var action_point: Variant = _locations.get_position(site.id)
+	return point is Vector2 and action_point is Vector2 and (_locations.at_action(_data.id,site.id,Purpose.CONSTRUCTION,point,8.0) if _locations.has_method("at_action") else point.distance_to(action_point)<=8.0)
 
 func _accrue_work(now: int) -> void:
 	if phase != Phase.BUILDING or not _valid_site(): return

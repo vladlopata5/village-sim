@@ -29,6 +29,15 @@ var need_dynamics = Dynamics.new()
 var decision = Decision.new()
 var needs = Needs.new()
 var food_availability: RefCounted
+var gathering_work_provider: Callable # Bound to this resident's existing natural-gathering executor.
+
+func is_actively_working() -> bool:
+	if data.activity == preload("res://scripts/resident_activity.gd").Type.HAULING:
+		return gathering_work_provider.is_valid() and gathering_work_provider.call()
+	if data.activity != preload("res://scripts/resident_activity.gd").Type.WORKING: return false
+	for controller in [builder,recipe_work,farmer,shepherd,get_node_or_null("Lumberjack"),get_node_or_null("Miner")]:
+		if is_instance_valid(controller) and controller.is_actively_working(): return true
+	return false
 
 func setup(resident: RefCounted, presentation: Node, clock: Node, locations: RefCounted, buildings: Array, housing: RefCounted = null) -> void:
 	data = resident
@@ -54,6 +63,7 @@ func setup(resident: RefCounted, presentation: Node, clock: Node, locations: Ref
 	if view.has_method("exit_for_action"): needs.exit_building_provider = view.exit_for_action
 	need_dynamics.eating_rate_provider = needs.get_hunger_eating_rate
 	need_dynamics.ordinary_idle_provider = intents.is_ordinary_idle
+	need_dynamics.active_work_provider = is_actively_working
 	need_dynamics.setup(clock, data)
 	needs.food_availability = food_availability
 	needs.setup(clock, data, buildings, locations, intents, schedule)

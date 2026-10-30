@@ -413,6 +413,7 @@ func _bind_resident_social(runtime: ResidentRuntime) -> void:
 func _bind_resident_logistics(runtime: ResidentRuntime) -> void:
 	logistics.register_resident(runtime.data)
 	logistics.use_executor(runtime.data, game_time, world_locations, runtime.intents, runtime.schedule)
+	runtime.gathering_work_provider = logistics._executors[runtime.data.id].is_actively_gathering
 	runtime.builder.bind_sources(logistics.sources)
 	runtime.needs.bind_sources(logistics.sources)
 	runtime.self_logistics.setup(runtime,self)

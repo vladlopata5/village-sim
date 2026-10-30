@@ -23,6 +23,7 @@ func check(value: bool, message: String) -> void:
 func _initialize() -> void: call_deferred("run")
 func quiet(actor: Node) -> void:
 	actor.decision._deciding = true
+	actor.data.set_traits([]) # Queue/shift baseline must not admit random INDUSTRIOUS overtime.
 	actor.intents.abort_current(actor.intents.current_intent)
 	actor.view.set_physics_process(false)
 	for need in actor.data.needs.values():

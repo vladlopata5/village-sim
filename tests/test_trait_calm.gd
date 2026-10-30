@@ -93,10 +93,10 @@ func _generation() -> void:
 	var generator := Generator.new(318); var repeat := Generator.new(318); var found := 0
 	for index in 1000:
 		var a = generator.generate(); var b = repeat.generate()
-		check(a.traits.size() == 2 and Trait.compatible(a.traits) and a.traits == b.traits and a.trait_description() == b.trait_description(), "Ten-trait generation and descriptions remain compatible and reproducible")
-		for type in a.traits + a.liked_traits + a.disliked_traits: check(type not in [Trait.Type.CARING, Trait.Type.HASTY, Trait.Type.DELIBERATE], "Three unfinished traits excluded")
+		check(a.traits.size() == 2 and Trait.compatible(a.traits) and a.traits == b.traits and a.trait_description() == b.trait_description(), "Eleven-trait generation and descriptions remain compatible and reproducible")
+		for type in a.traits + a.liked_traits + a.disliked_traits: check(type not in [Trait.Type.CARING, Trait.Type.DELIBERATE], "Two unfinished traits excluded")
 		if a.has_trait(Trait.Type.CALM): found += 1; check(not a.add_trait(Trait.Type.HOTHEADED), "Generated CALM rejects HOTHEADED")
-	check(found > 0 and Trait.GENERATION_POOL.size() == 10, "CALM participates in normal generation")
+	check(found > 0 and Trait.GENERATION_POOL.size() == 11, "CALM participates in normal generation")
 	check(Trait.description([Trait.Type.CALM, Trait.Type.PRUDENT]) == "Невозмутимый прагматик" and Trait.description([Trait.Type.CARING, Trait.Type.CALM], Trait.GrammaticalGender.FEMININE) == "Заботливая флегматичка", "Both grammatical forms compose with CALM")
 func _statistics() -> void:
 	var a := Data.new("stat", "Stat", 25); a.add_trait(Trait.Type.CALM)

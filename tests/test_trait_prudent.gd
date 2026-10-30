@@ -60,11 +60,11 @@ func _generation() -> void:
 		check(person.traits.size() == 2 and Trait.compatible(person.traits) and person.traits == same.traits, "Two compatible traits with reproducible order")
 		check(person.trait_description() == same.trait_description(), "Generation preserves stable composite description")
 		for type in person.traits + person.liked_traits + person.disliked_traits:
-			check(type in Trait.GENERATION_POOL and type not in [Trait.Type.CARING, Trait.Type.HASTY, Trait.Type.DELIBERATE], "Three unfinished traits excluded from random issue")
+			check(type in Trait.GENERATION_POOL and type not in [Trait.Type.CARING, Trait.Type.DELIBERATE], "Two unfinished traits excluded from random issue")
 		if person.has_trait(Trait.Type.PRUDENT):
 			found += 1
 			check(not person.has_trait(Trait.Type.FOOLISH), "Generated PRUDENT never conflicts with FOOLISH")
-	check(found > 0 and Trait.GENERATION_POOL.size() == 10, "PRUDENT remains in normal generation alongside HOTHEADED/CALM")
+	check(found > 0 and Trait.GENERATION_POOL.size() == 11, "PRUDENT remains in normal generation alongside HOTHEADED/CALM")
 	check(Trait.description([Trait.Type.INTROVERTED, Trait.Type.PRUDENT]) == "Замкнутый прагматик" and Trait.description([Trait.Type.PRUDENT, Trait.Type.GLUTTON], Trait.GrammaticalGender.FEMININE) == "Рассудительная обжора", "Both grammatical forms compose with PRUDENT")
 func _live() -> void:
 	var world = preload("res://tests/behavior_test_setup.gd").make_scene(self)

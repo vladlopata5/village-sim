@@ -208,6 +208,9 @@ func _pay_seed() -> bool:
 	_seed_reserved=false;_paid=true
 	if _building.resources.take_reserved(R.WHEAT,1):return true
 	_seed_reserved=true;_paid=false;return false
+func is_actively_working() -> bool:
+	return phase==Phase.WORKING and _valid() and runtime.intents.current_intent==_intent and runtime.data.activity==Activity.WORKING and runtime.view.get_sim_position().distance_to(_point(_target))<=8.0
+
 func _minute(now: int) -> void:
 	if phase==Phase.NONE or _mutating:return
 	if not _valid():cancel();return
