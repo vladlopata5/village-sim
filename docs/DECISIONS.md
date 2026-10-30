@@ -6348,3 +6348,24 @@ opinion.add остаётся неподдерживаемым резервом �
 HOTHEADED добавлен в общий GENERATION_POOL для черт и tastes; stable enum IDs
 сохранены, HOTHEADED/CALM конфликтуют. CARING/CALM/HASTY/DELIBERATE исключены из
 случайной выдачи. Старые seeded результаты генерации могут измениться из-за пула.
+
+## CALM: ослабление directed opinion общим округлителем (2026-10-30)
+
+ResidentModifiers.opinion_delta дополнен веткой CALM ×0.75. Константа живёт в
+BalanceConfig; HOTHEADED ×1.5 и исходный delta обычных жителей сохранены. Общая
+ResidentData.apply_opinion_change уже поддерживает произвольную дробную часть,
+поэтому её код, SocialEventService, RNG и хранилище отношений не меняются.
+
+При ±1 величина 0.75 даёт ±1 с шансом 75%, иначе 0; ±2 даёт ±1/±2 с шансом 50/50,
+−4 даёт точно −3, +10 даёт +7/+8. Один fractional commit-attempt — один draw
+персонального opinion_rng; исходный ноль и целые результаты его не расходуют.
+Округление в 0 требует сделанного draw, но не является изменением stored opinion:
+before/after равны, applied_delta=0, bool API возвращает false. set_opinion не
+создаёт новую нейтральную связь и не публикует сигнал; прежняя связь остаётся.
+Clamp и outward no-op при ±100, self/empty checks, callbacks и исторический снимок
+прежние. Социальные JSON-условия по исходной реакции не подменяются округлённой
+дельтой; повторный trigger не делает нового броска. opinion.add JSON не включается.
+
+CALM включён в общий GENERATION_POOL десятым. HOTHEADED/CALM симметрично исключаются;
+CARING/HASTY/DELIBERATE ещё не выдаются. Идентификаторы и порядок/род описаний
+сохранены, но результаты старых seed могут измениться из-за расширенного пула.

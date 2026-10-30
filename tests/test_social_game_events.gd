@@ -62,6 +62,7 @@ func social_count(f: Dictionary) -> int:
 func _run() -> void:
 	confirmed_results()
 	hotheaded_result()
+	calm_result()
 	conditions()
 	facts_and_reverse_main()
 	compatibility_and_identity()
@@ -82,6 +83,21 @@ func hotheaded_result() -> void:
 	f.social.interaction_committed.emit(result)
 	check(social_count(f) == 1 and rounding.draws == 1 and f.rng.draws == event_draws and f.service.executor.rng.draws == effect_draws and f.a.get_opinion("b") == -2, "Duplicate event notification neither rerolls nor changes opinion")
 	cleanup(f)
+
+func calm_result() -> void:
+	for draw in [0.0, 0.9]:
+		var f := fixture(); prime(f)
+		f.a.add_trait(Traits.Type.CALM)
+		var rounding := SequenceRng.new(); rounding.values = [draw]; f.a.opinion_rng = rounding
+		var result: RefCounted = f.social.resolve(f.a, f.b, SocialResult.Context.CONVERSATION)
+		var payload: Dictionary = result.confirmed_context().payload
+		var expected := -1 if draw < 0.75 else 0
+		check(payload.opinion_delta_1 == -1 and payload.applied_delta_1 == expected and payload.opinion_before_1 == 0 and payload.opinion_after_1 == expected and f.a.get_opinion("b") == expected and f.b.get_opinion("a") == 1 and rounding.draws == 1, "CALM JSON context keeps zero outcome and independent reverse reaction")
+		check(social_count(f) == 1 and f.a.memories.size() == 1 and f.a.diary_entries.size() == 1, "Original event conditions still use social reaction when opinion rounds to zero")
+		var event_draws: int = f.rng.draws; var effect_draws: int = f.service.executor.rng.draws
+		f.social.interaction_committed.emit(result)
+		check(social_count(f) == 1 and rounding.draws == 1 and f.rng.draws == event_draws and f.service.executor.rng.draws == effect_draws and f.a.get_opinion("b") == expected, "Duplicate notification never rerolls CALM zero/nonzero outcomes")
+		cleanup(f)
 
 func confirmed_results() -> void:
 	for context in SocialResult.Context.values():
