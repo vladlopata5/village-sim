@@ -49,6 +49,7 @@ func run() -> void:
 	world.social_events.enabled=false
 	world.game_time.total_minutes=420
 	for actor in world.resident_runtimes:
+		actor.data.set_traits([]) # Historical baseline production timings, independent of trait generation.
 		actor.decision._deciding=true
 		actor.schedule._phase="День"
 		actor.intents.abort_current(actor.intents.current_intent)

@@ -62,6 +62,7 @@ func run() -> void:
 	world.game_logger.console_enabled = false
 	world.social_events.enabled = false
 	for actor in world.resident_runtimes:
+		actor.data.set_traits([]) # Baseline extraction/build durations must not depend on generated work traits.
 		actor.decision._deciding = true
 		actor.intents.abort_current(actor.intents.current_intent)
 		actor.view.set_physics_process(false)

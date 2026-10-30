@@ -74,6 +74,7 @@ func eat(world: Node,actor: Node,source: RefCounted) -> void:
 	check(actor.data.hunger==20 and not actor.needs._meal_active,"Normal SIMPLE_FOOD hunger80→20, no double consumption")
 func chain() -> void:
 	var world=F.create(self);var farm=F.building(world,T.FARM,Vector3(-10,0,16));var mill=F.building(world,T.WINDMILL,Vector3(5,0,16));var kitchen=F.building(world,T.FOOD,Vector3(19,0,16))
+	for actor in world.resident_runtimes:actor.data.set_traits([]) # This chain tests original 30/60-minute recipes.
 	fuel(kitchen)
 	var farmer=world.resident_runtimes[0];var miller=world.resident_runtimes[1];var cook=world.resident_runtimes[2];var consumer=world.resident_runtimes[3]
 	check(world.warehouse_data.resources.get_amount(R.WHEAT)==10 and world.warehouse_data.resources.get_amount(R.FOOD)==20 and world.warehouse_data.resources.get_amount(R.PLANK)==0,"New-game stocks unchanged; no flour/bread")

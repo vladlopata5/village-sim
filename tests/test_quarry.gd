@@ -45,6 +45,7 @@ func run() -> void:
 	world.game_time.set_process(false)
 	world.game_time.total_minutes=420
 	for actor in world.resident_runtimes:
+		actor.data.set_traits([]) # Baseline extraction/construction timings, independent of generated traits.
 		actor.decision._deciding=true
 		actor.view.set_physics_process(false)
 		clear(actor)

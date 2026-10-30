@@ -9,10 +9,17 @@ static func work_rate(resident: RefCounted, rules: WorkRules, active_operation: 
 	if rules == null: return -1.0
 	var percent := rules.efficiency_percent(resident)
 	if not is_finite(percent) or percent < 100.0 or percent > 150.0: return -1.0
-	return percent / 100.0 * (Balance.HASTY_WORK_RATE_MULTIPLIER if active_operation and resident.has_trait(Trait.Type.HASTY) else 1.0)
+	var multiplier := 1.0
+	if active_operation:
+		if resident.has_trait(Trait.Type.HASTY): multiplier = Balance.HASTY_WORK_RATE_MULTIPLIER
+		elif resident.has_trait(Trait.Type.DELIBERATE): multiplier = Balance.DELIBERATE_WORK_RATE_MULTIPLIER
+	return percent / 100.0 * multiplier
 
 static func fatigue_need_rate(resident: RefCounted, base_rate: float, active_work: bool) -> float:
-	return base_rate * Balance.HASTY_WORK_FATIGUE_MULTIPLIER if base_rate > 0 and active_work and resident.has_trait(Trait.Type.HASTY) else base_rate
+	if base_rate > 0 and active_work:
+		if resident.has_trait(Trait.Type.HASTY): return base_rate * Balance.HASTY_WORK_FATIGUE_MULTIPLIER
+		if resident.has_trait(Trait.Type.DELIBERATE): return base_rate * Balance.DELIBERATE_WORK_FATIGUE_MULTIPLIER
+	return base_rate
 
 enum Action { WORK, EAT, SOCIAL, WANDER, LEISURE, REST }
 static func opinion_delta(resident: RefCounted, base_delta: int) -> float:

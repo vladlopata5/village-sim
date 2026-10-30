@@ -30,7 +30,8 @@ func physical_lumberjack() -> void:
 func physical_kitchen(cancelled: bool = false) -> void:
 	var world=F.create(self);var kitchen=place(world,T.FOOD,Vector3(-12,0,16));supply(world,kitchen)
 	var builders=workers(world);await drive(world,kitchen,builders)
-	var cook=world.resident_runtimes[2];world.player_control.assign_workplace(cook.data.id,kitchen.id,P.COOK)
+	var cook=world.resident_runtimes[2];cook.data.set_traits([])
+	world.player_control.assign_workplace(cook.data.id,kitchen.id,P.COOK)
 	kitchen.set_recipe_mode(&"fried_mushroom",B.ProductionMode.OFF);kitchen.set_production_order(&"bake_bread",4)
 	kitchen.resources.add(R.FLOUR,1)
 	for key in [&"fuel",&"water"]:

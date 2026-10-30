@@ -9,7 +9,8 @@ var _last_minute := 0
 var _rate := 1.0
 func start(kind: StringName, now: int, duration: int, rate: float = 1.0) -> bool:
 	var maximum := 1.5 * (Balance.HASTY_WORK_RATE_MULTIPLIER if kind==&"gather_loading" else 1.0)
-	if is_active() or kind.is_empty() or duration <= 0 or not is_finite(rate) or rate < 1.0 or rate > maximum: return false
+	var minimum: float = Balance.DELIBERATE_WORK_RATE_MULTIPLIER if kind==&"gather_loading" else 1.0
+	if is_active() or kind.is_empty() or duration <= 0 or not is_finite(rate) or rate < minimum or rate > maximum: return false
 	operation = kind
 	progress = 0.0
 	_required = duration
