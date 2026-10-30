@@ -5,6 +5,39 @@ const Trait = preload("res://scripts/trait_type.gd")
 const Balance = preload("res://scripts/balance_config.gd")
 const Utility = preload("res://scripts/action_utility.gd")
 const WorkRules = preload("res://scripts/work_skill_rules.gd")
+const Need = preload("res://scripts/need_type.gd")
+const NEED_GROWTH_CHANNEL := "need_growth_rate"
+
+static func valid_moodlet_modifier(modifier: Dictionary) -> bool:
+	if modifier.get("channel") != NEED_GROWTH_CHANNEL: return true # Legacy opaque channels stay inert.
+	if modifier.size()!=3 or not modifier.get("need") is String or modifier.need.to_upper() not in Need.Type: return false
+	var factor: Variant = modifier.get("multiplier")
+	return (factor is int or factor is float) and is_finite(float(factor)) and factor>=0
+
+static func moodlet_need_growth_state(entries: Array, minute: int) -> Dictionary:
+	var factors: Dictionary = {}
+	var invalid: Dictionary = {}
+	var next_change := -1
+	for entry: Dictionary in entries:
+		var numeric: Array = entry.modifiers.filter(func(row):return row.get("channel")==NEED_GROWTH_CHANNEL and valid_moodlet_modifier(row))
+		if numeric.is_empty() or (entry.expires_at_minute!=null and minute>=entry.expires_at_minute): continue
+		if minute<entry.created_minute:
+			if next_change<0 or entry.created_minute<next_change: next_change=entry.created_minute
+			continue
+		if entry.expires_at_minute!=null and (next_change<0 or entry.expires_at_minute<next_change): next_change=entry.expires_at_minute
+		for modifier: Dictionary in numeric:
+			var type: int = Need.Type[modifier.need.to_upper()]
+			if invalid.has(type): continue
+			var product: float = float(factors.get(type,1.0))*modifier.multiplier
+			if not is_finite(product):
+				factors.erase(type);invalid[type]=true # An unrepresentable channel has no numeric effect.
+			else: factors[type]=product
+	return {"factors":factors,"next_change":next_change}
+
+static func need_growth_rate(type: int, base_rate: float, factors: Dictionary) -> float:
+	if base_rate<=0: return base_rate
+	var effective: float = base_rate*float(factors.get(type,1.0))
+	return effective if is_finite(effective) else base_rate
 static func work_rate(resident: RefCounted, rules: WorkRules, active_operation: bool = true) -> float:
 	if rules == null: return -1.0
 	var percent := rules.efficiency_percent(resident)

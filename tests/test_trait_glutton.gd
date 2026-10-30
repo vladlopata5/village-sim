@@ -45,7 +45,7 @@ func run() -> void:
 			check(not entry.is_empty() == expected, "Only GLUTTON with final hunger at most twenty gets the moodlet")
 			if expected:
 				check(entry.created_minute == world.game_time.total_minutes and entry.expires_at_minute == entry.created_minute + 120, "Deadline uses actual completion minute")
-				check(entry.type == "well_fed" and entry.context.display_name == "Вкусно поел" and entry.tags == ["positive"] and entry.modifiers.is_empty(), "Positive named state has no modifiers")
+				check(entry.type == "well_fed" and entry.context.display_name == "Вкусно поел" and entry.tags == ["positive"] and entry.modifiers == [{"channel":"need_growth_rate","need":"hunger","multiplier":0.5}], "Positive named state has exactly the agreed hunger-growth modifier")
 			check(actor.data.mood == mood, "Base mood is unchanged")
 			world.free()
 	_repeat_and_expire()

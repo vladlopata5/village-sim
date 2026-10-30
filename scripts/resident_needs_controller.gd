@@ -246,7 +246,8 @@ func _finish() -> void:
 			# Ownership is cleared before store callbacks. One accepted meal has one token.
 			_data.moodlets.add_or_refresh({
 				"id": "well_fed", "type": "well_fed", "tags": ["positive"],
-				"context": {"display_name": "Вкусно поел"}, "modifiers": [],
+				"context": {"display_name": "Вкусно поел"},
+				"modifiers": [{"channel":"need_growth_rate","need":"hunger","multiplier":0.5}],
 				"created_minute": completed_minute,
 				"expires_at_minute": completed_minute + Balance.GLUTTON_WELL_FED_MINUTES,
 				"source_occurrence_id": "meal/%s/%d/%d" % [_data.id, get_instance_id(), completed.get_instance_id()],

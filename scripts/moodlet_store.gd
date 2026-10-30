@@ -1,11 +1,16 @@
 extends RefCounted
-## Inert temporary state. Future consumers use ResidentModifiers, not formulas here.
+## Temporary state; numeric formulas remain in ResidentModifiers.
 const Data = preload("res://scripts/event_store_data.gd")
+const Modifiers = preload("res://scripts/resident_modifiers.gd")
 const EVENT_REFRESH_TYPES = {"angry": preload("res://scripts/balance_config.gd").ANGRY_MOODLET_MINUTES}
 signal changed(entry_id: String)
 var _owner_id: String
 var _entries: Dictionary = {}
 var _next_expiry_minute := -1 # No timed records. Derived deadline, never a second effect store.
+var _growth_dirty := true
+var _growth_factors: Dictionary = {}
+var _growth_minute := -1
+var _next_growth_change := -1
 
 func _init(owner_id: String) -> void:
 	_owner_id = owner_id
@@ -18,6 +23,19 @@ func size() -> int:
 
 func next_expiry_minute() -> int:
 	return _next_expiry_minute
+
+func need_growth_factors(minute: int) -> Dictionary:
+	if minute<0: return {}
+	if _growth_dirty or minute<_growth_minute or (_next_growth_change>=0 and minute>=_next_growth_change):
+		_rebuild_growth_cache(minute)
+	return _growth_factors.duplicate() # Minute-local consumer snapshot; callers cannot mutate the cache.
+
+func _rebuild_growth_cache(minute: int) -> void:
+	var state := Modifiers.moodlet_need_growth_state(_entries.values(),minute)
+	_growth_factors=state.factors
+	_next_growth_change=state.next_change
+	_growth_minute=minute
+	_growth_dirty=false
 
 func _update_next_expiry() -> void:
 	_next_expiry_minute = -1
@@ -85,6 +103,7 @@ func _prepare_record(record: Dictionary) -> Dictionary:
 func _apply_event_add(prepared: Dictionary) -> void:
 	# Internal commit primitive; publish only after all event writes + metadata.
 	_entries[prepared.id] = prepared.duplicate(true)
+	_growth_dirty=true
 	_update_next_expiry()
 
 func is_active(entry_id: String, minute: int) -> bool:
@@ -106,12 +125,14 @@ func expire(minute: int) -> int:
 	# Complete this local operation before notifying. A callback may add another ID;
 	# it must not be silently erased by the rest of this expiration pass.
 	for entry_id: String in expired: _entries.erase(entry_id)
+	_growth_dirty=true
 	_update_next_expiry() # Before callbacks: their changes must retain their own next deadline.
 	for entry_id: String in expired: changed.emit(entry_id)
 	return expired.size()
 
 func remove(entry_id: String) -> bool:
 	if not _entries.erase(entry_id): return false
+	_growth_dirty=true
 	_update_next_expiry()
 	changed.emit(entry_id)
 	return true
@@ -130,5 +151,5 @@ func _valid(record: Dictionary) -> bool:
 	var modifiers: Variant = record.get("modifiers", [])
 	if not modifiers is Array: return false
 	for modifier in modifiers:
-		if not modifier is Dictionary: return false
+		if not modifier is Dictionary or not Modifiers.valid_moodlet_modifier(modifier): return false
 	return true

@@ -35,6 +35,7 @@ func setup(clock: Node, data: Data) -> void:
 	_data = data
 	clock.minute_changed.connect(_on_minute_changed)
 func _on_minute_changed(_minute: int) -> void:
+	var growth_factors := _data.moodlets.need_growth_factors(_minute)
 	var activity = _data.activity
 	var ordinary_idle: bool = activity == Activity.Type.IDLE and ordinary_idle_provider.is_valid() and ordinary_idle_provider.call()
 	var active_work: bool = activity in [Activity.Type.WORKING,Activity.Type.HAULING] and active_work_provider.is_valid() and active_work_provider.call()
@@ -43,18 +44,23 @@ func _on_minute_changed(_minute: int) -> void:
 	if activity == Activity.Type.SLEEPING: hunger_rate = HUNGER_SLEEPING
 	elif activity == Activity.Type.EATING:
 		hunger_rate = eating_rate_provider.call() if eating_rate_provider.is_valid() else HUNGER_EATING
-	_apply(NeedType.Type.HUNGER, hunger_rate)
+	_apply(NeedType.Type.HUNGER, Modifiers.need_growth_rate(NeedType.Type.HUNGER,hunger_rate,growth_factors))
 	var fatigue_rate: float = FATIGUE_RATES[activity]
 	fatigue_rate = Modifiers.fatigue_need_rate(_data,fatigue_rate,active_work)
 	if activity == Activity.Type.SLEEPING: fatigue_rate *= _data.current_sleep_quality
-	_apply(NeedType.Type.FATIGUE, fatigue_rate)
+	_apply(NeedType.Type.FATIGUE, Modifiers.need_growth_rate(NeedType.Type.FATIGUE,fatigue_rate,growth_factors))
 	var social_rate := Modifiers.social_need_rate(_data, SOCIAL_RATES[activity], caring_partner)
+	social_rate = Modifiers.need_growth_rate(NeedType.Type.SOCIAL,social_rate,growth_factors)
 	_apply_slow_growth(NeedType.Type.SOCIAL, social_rate, Balance.SOCIAL_GROWTH_DIVISOR, Balance.SLEEP_SOCIAL_GROWTH_MULTIPLIER if activity == Activity.Type.SLEEPING else 1.0)
 	var leisure_rate := Modifiers.leisure_need_rate(_data, LEISURE_RATES[activity], ordinary_idle)
+	leisure_rate = Modifiers.need_growth_rate(NeedType.Type.LEISURE,leisure_rate,growth_factors)
 	_apply_slow_growth(NeedType.Type.LEISURE, leisure_rate, Balance.LEISURE_GROWTH_DIVISOR, Balance.SLEEP_LEISURE_GROWTH_MULTIPLIER if activity == Activity.Type.SLEEPING else 1.0)
 func _apply_slow_growth(type: NeedType.Type, rate: float, divisor: int, growth_multiplier: float = 1.0) -> void:
 	# Fixed-point fractions retain small nonzero sleep growth without float drift.
-	var scaled_rate := roundi(rate * divisor * 1000) if rate < 0 else roundi(rate * growth_multiplier * 1000)
+	var scaled: float = rate * divisor * 1000 if rate < 0 else rate * growth_multiplier * 1000
+	# Need values are bounded0..100; clip before int conversion, including very large numeric effects.
+	var limit: float = UNITS_PER_POINT * divisor * 1000 * 100.0
+	var scaled_rate := roundi(clampf(scaled,-limit,limit))
 	_apply(type, scaled_rate, UNITS_PER_POINT * divisor * 1000)
 func _apply(type: NeedType.Type, rate: float, units_per_point: int = UNITS_PER_POINT) -> void:
 	var need = _data.get_need(type)
@@ -62,7 +68,7 @@ func _apply(type: NeedType.Type, rate: float, units_per_point: int = UNITS_PER_P
 		_fractions[type] = 0
 		return
 	_fractions[type] += rate
-	var points := int(float(_fractions[type]) / units_per_point)
+	var points := int(clampf(float(_fractions[type]) / units_per_point,-100.0,100.0))
 	if points != 0:
 		_fractions[type] -= points * units_per_point
 		need.value += points
