@@ -12,6 +12,8 @@ static func work_rate(resident: RefCounted, rules: WorkRules) -> float:
 	return percent / 100.0
 
 enum Action { WORK, EAT, SOCIAL, WANDER, LEISURE, REST }
+static func opinion_delta(resident: RefCounted, base_delta: int) -> float:
+	return base_delta * Balance.HOTHEADED_OPINION_DELTA_MULTIPLIER if resident.has_trait(Trait.Type.HOTHEADED) else float(base_delta)
 static func social_partner_multiplier(resident: RefCounted, opinion: int) -> float:
 	var bounded := clampi(opinion, Balance.OPINION_MIN, Balance.OPINION_MAX)
 	if resident != null:

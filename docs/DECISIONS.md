@@ -6315,3 +6315,36 @@ preferences; CARING/HOTHEADED/CALM/HASTY/DELIBERATE остаются исклю�
 это ожидаемое следствие включения черты, не попытка сохранить старый состав.
 Воспроизводимость при одинаковом seed, независимый RNG preferences, сохранённый
 порядок и согласование описания с grammatical_gender сохраняются.
+
+## HOTHEADED: усиление directed opinion с вероятностным округлением (2026-10-30)
+
+ResidentModifiers.opinion_delta возвращает float delta ×1.5 для HOTHEADED, иначе
+исходную величину. ResidentData.apply_opinion_change — единая фактическая операция:
+проверить цель/ноль/уже достигнутую границу, вычислить модуль, один draw только для
+дробной части, восстановить знак, ограничить −100…100 и записать через прежний
+set_opinion. Поддерживается bool change_opinion как оболочка этой же операции;
+абсолютные set_opinion/Relationship.opinion по-прежнему устанавливают значение.
+Нет дробного состояния, второго хранилища или повторного множителя у вызывающих.
+
+По прямому согласованию пользователя выбран stochastic rounding вместо округления
+половин от нуля или накопления остатка: ±1.5 даёт ±1/±2 с шансами 50/50; ±10 даёт
+точно ±15, без RNG. Чтения, ноль, self/empty и outward no-op при ±100 не расходуют
+draw. Если изменение возможно, fractional draw выполняется до clamp, даже если
+оба результата округления в итоге достигают одной границы.
+
+Каждый ResidentData владеет opinion_rng (RandomNumberGenerator; seed=id.hash()
+XOR 0x4F50494E). Это обычный для проекта отдельный seeded stream, независимо от
+DecisionController, SocialEventService, narrative и EventEngine RNG. Явный seed
+можно задать в диагностике; runtime/save/load ограничения проекта не меняются.
+
+Операция возвращает собственные before/after, сохранённые до публикации сигналов.
+SocialEventService использует эти снимки, а не вторую случайную preview-проверку
+и не итоговое состояние после произвольного callback. Исходный opinion_delta
+остаётся базовым результатом реакции, applied_delta/after — фактическими. Снимки
+обоих attitudes перед изменениями, порядок реакционных RNG и последующие JSON
+события сохранены. EventEffectExecutor всё ещё поддерживает memory/moodlet, а
+opinion.add остаётся неподдерживаемым резервом формата: новая операция не вводится.
+
+HOTHEADED добавлен в общий GENERATION_POOL для черт и tastes; stable enum IDs
+сохранены, HOTHEADED/CALM конфликтуют. CARING/CALM/HASTY/DELIBERATE исключены из
+случайной выдачи. Старые seeded результаты генерации могут измениться из-за пула.

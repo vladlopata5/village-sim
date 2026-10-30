@@ -24,6 +24,7 @@ func make_scene():
 	root.add_child(scene)
 	scene.game_time.set_process(false)
 	for runtime in scene.resident_runtimes:
+		runtime.data.set_traits([]) # Transport baseline excludes generated overtime/utility modifiers.
 		runtime.view.set_process(false)
 		runtime.need_dynamics.free() # Handling time must not introduce unrelated hunger interrupts.
 		runtime.wander.target_provider = Callable()

@@ -119,12 +119,8 @@ func resolve(a: RefCounted, b: RefCounted, context: Event.Context, tags_a: Array
 	result.reaction_2 = reaction(result.roll_2 + result.attitude_2_to_1)
 	result.opinion_delta_1 = delta(result.reaction_1)
 	result.opinion_delta_2 = delta(result.reaction_2)
-	var before_1: int = a.get_opinion(b.id)
-	var after_1 := clampi(before_1 + result.opinion_delta_1, Balance.OPINION_MIN, Balance.OPINION_MAX)
-	a.change_opinion(b.id, result.opinion_delta_1)
-	var before_2: int = b.get_opinion(a.id)
-	var after_2 := clampi(before_2 + result.opinion_delta_2, Balance.OPINION_MIN, Balance.OPINION_MAX)
-	b.change_opinion(a.id, result.opinion_delta_2)
+	var applied_1: Dictionary = a.apply_opinion_change(b.id, result.opinion_delta_1)
+	var applied_2: Dictionary = b.apply_opinion_change(a.id, result.opinion_delta_2)
 	result._participant_sources = [weakref(a), weakref(b)]
 	# Owned operation values are historical facts, not later callback-edited state.
 	result._confirmed_context = {
@@ -137,9 +133,9 @@ func resolve(a: RefCounted, b: RefCounted, context: Event.Context, tags_a: Array
 			"reaction_1": Event.Reaction.keys()[result.reaction_1],
 			"reaction_2": Event.Reaction.keys()[result.reaction_2],
 			"opinion_delta_1": result.opinion_delta_1, "opinion_delta_2": result.opinion_delta_2,
-			"applied_delta_1": after_1 - before_1, "applied_delta_2": after_2 - before_2,
-			"opinion_before_1": before_1, "opinion_after_1": after_1,
-			"opinion_before_2": before_2, "opinion_after_2": after_2,
+			"applied_delta_1": applied_1.after - applied_1.before, "applied_delta_2": applied_2.after - applied_2.before,
+			"opinion_before_1": applied_1.before, "opinion_after_1": applied_1.after,
+			"opinion_before_2": applied_2.before, "opinion_after_2": applied_2.after,
 			"attitude_1_to_2": result.attitude_1_to_2, "attitude_2_to_1": result.attitude_2_to_1,
 			"roll_1": result.roll_1, "roll_2": result.roll_2,
 			"location_id": String(location_id), "time_known": is_instance_valid(clock),

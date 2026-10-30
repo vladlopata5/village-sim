@@ -61,6 +61,7 @@ func social_count(f: Dictionary) -> int:
 
 func _run() -> void:
 	confirmed_results()
+	hotheaded_result()
 	conditions()
 	facts_and_reverse_main()
 	compatibility_and_identity()
@@ -68,6 +69,19 @@ func _run() -> void:
 	await real_controllers()
 	print("Social game events: %d checks, %d failures" % [checks, failures])
 	quit(1 if failures else 0)
+
+func hotheaded_result() -> void:
+	var f := fixture(); prime(f)
+	f.a.add_trait(Traits.Type.HOTHEADED)
+	var rounding := CountingRng.new(); f.a.opinion_rng = rounding
+	var result: RefCounted = f.social.resolve(f.a, f.b, SocialResult.Context.CONVERSATION)
+	var payload: Dictionary = result.confirmed_context().payload
+	check(payload.opinion_delta_1 == -1 and payload.applied_delta_1 == -2 and payload.opinion_after_1 == -2 and f.a.get_opinion("b") == -2 and f.b.get_opinion("a") == 1 and rounding.draws == 1, "HOTHEADED commits exactly one rounded directed change before JSON follow-up")
+	check(social_count(f) == 1 and f.a.memories.size() == 1 and f.a.moodlets.size() == 1 and f.a.diary_entries.size() == 1, "Existing event effects apply once without scaling opinion again")
+	var event_draws: int = f.rng.draws; var effect_draws: int = f.service.executor.rng.draws
+	f.social.interaction_committed.emit(result)
+	check(social_count(f) == 1 and rounding.draws == 1 and f.rng.draws == event_draws and f.service.executor.rng.draws == effect_draws and f.a.get_opinion("b") == -2, "Duplicate event notification neither rerolls nor changes opinion")
+	cleanup(f)
 
 func confirmed_results() -> void:
 	for context in SocialResult.Context.values():

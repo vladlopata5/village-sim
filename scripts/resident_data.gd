@@ -108,6 +108,7 @@ func _init(unique_id: String, initial_name: String, initial_age: int, initial_pr
 	needs[NeedType.Type.HUNGER].changed.connect(hunger_changed.emit)
 	needs[NeedType.Type.FATIGUE].changed.connect(fatigue_changed.emit)
 	id = unique_id
+	opinion_rng.seed = unique_id.hash() ^ 0x4F50494E # Independent of AI/social reaction RNG.
 	memories = MemoryStore.new(unique_id)
 	moodlets = MoodletStore.new(unique_id)
 	resident_name = initial_name
@@ -172,6 +173,8 @@ func _commit_skill_gains(gains: Dictionary) -> bool:
 	return true
 
 const Relationship = preload("res://scripts/resident_relationship.gd")
+const Modifiers = preload("res://scripts/resident_modifiers.gd")
+var opinion_rng: RefCounted = RandomNumberGenerator.new()
 signal relationship_changed(other_resident_id: StringName)
 # Outgoing directed records only. Never update another resident's reverse record.
 var relationships: Dictionary = {}
@@ -195,7 +198,22 @@ func set_opinion(other_id: StringName, value: int) -> bool:
 	relation.opinion = bounded
 	return true
 func change_opinion(other_id: StringName, delta: int) -> bool:
-	return set_opinion(other_id, get_opinion(other_id) + delta)
+	var applied := apply_opinion_change(other_id, delta)
+	return applied.before != applied.after
+func apply_opinion_change(other_id: StringName, delta: int) -> Dictionary:
+	# Return this operation's facts, even if an emitted callback changes opinion again.
+	var before := get_opinion(other_id)
+	var applied := {"before": before, "after": before}
+	if other_id == StringName(id) or other_id.is_empty() or delta == 0: return applied
+	if (before == Balance.OPINION_MAX and delta > 0) or (before == Balance.OPINION_MIN and delta < 0): return applied
+	var magnitude := absf(Modifiers.opinion_delta(self, delta))
+	var whole := floori(magnitude)
+	var fraction := magnitude - whole
+	# Only a committed fractional change consumes one draw. Reads/set/previews do not.
+	if fraction > 0.0 and opinion_rng.randf() < fraction: whole += 1
+	applied.after = clampi(before + whole * signi(delta), Balance.OPINION_MIN, Balance.OPINION_MAX)
+	set_opinion(other_id, applied.after)
+	return applied
 func _on_relationship_opinion_changed(other_id: StringName) -> void:
 	relationship_changed.emit(other_id)
 
