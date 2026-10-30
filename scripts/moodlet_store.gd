@@ -4,6 +4,7 @@ const Data = preload("res://scripts/event_store_data.gd")
 signal changed(entry_id: String)
 var _owner_id: String
 var _entries: Dictionary = {}
+var _next_expiry_minute := -1 # No timed records. Derived deadline, never a second effect store.
 
 func _init(owner_id: String) -> void:
 	_owner_id = owner_id
@@ -13,6 +14,15 @@ func owner() -> Dictionary:
 
 func size() -> int:
 	return _entries.size()
+
+func next_expiry_minute() -> int:
+	return _next_expiry_minute
+
+func _update_next_expiry() -> void:
+	_next_expiry_minute = -1
+	for entry: Dictionary in _entries.values():
+		if entry.expires_at_minute != null and (_next_expiry_minute < 0 or entry.expires_at_minute < _next_expiry_minute):
+			_next_expiry_minute = entry.expires_at_minute
 
 func get_entry(entry_id: String) -> Dictionary:
 	return _entries.get(entry_id, {}).duplicate(true)
@@ -60,6 +70,7 @@ func _prepare_record(record: Dictionary) -> Dictionary:
 func _apply_event_add(prepared: Dictionary) -> void:
 	# Internal commit primitive; publish only after all event writes + metadata.
 	_entries[prepared.id] = prepared.duplicate(true)
+	_update_next_expiry()
 
 func is_active(entry_id: String, minute: int) -> bool:
 	if minute < 0 or not _entries.has(entry_id): return false
@@ -73,18 +84,20 @@ func active(minute: int, query: Dictionary = {}) -> Array:
 	return result
 
 func expire(minute: int) -> int:
-	if minute < 0: return 0
+	if minute < 0 or _next_expiry_minute < 0 or minute < _next_expiry_minute: return 0
 	var expired: Array = []
 	for entry: Dictionary in _entries.values():
 		if entry.expires_at_minute != null and entry.expires_at_minute <= minute: expired.append(entry.id)
 	# Complete this local operation before notifying. A callback may add another ID;
 	# it must not be silently erased by the rest of this expiration pass.
 	for entry_id: String in expired: _entries.erase(entry_id)
+	_update_next_expiry() # Before callbacks: their changes must retain their own next deadline.
 	for entry_id: String in expired: changed.emit(entry_id)
 	return expired.size()
 
 func remove(entry_id: String) -> bool:
 	if not _entries.erase(entry_id): return false
+	_update_next_expiry()
 	changed.emit(entry_id)
 	return true
 

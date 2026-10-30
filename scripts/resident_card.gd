@@ -9,6 +9,10 @@ var equipment_durability: Label
 var durability_bar: ProgressBar
 var _equipment_view: RefCounted
 var clock: Node
+var moodlets_label: Label
+var _moodlet_store: RefCounted
+var _moodlet_rows: Array = [] # Visible card projection (titles/times), not gameplay modifiers.
+const MOODLET_NAMES = {"well_fed":"Вкусно поел", "pride":"Гордость", "admiration":"Восхищение", "success_envy":"Зависть к чужому успеху", "work_satisfaction":"Удовлетворение от работы"}
 var _refresh_elapsed := 0.0
 func _widget(id: String) -> Node:
 	return get_node(close_path) if id == "Close" else get_node("%" + id)
@@ -66,6 +70,11 @@ func _ready() -> void:
 	equipment_label=inventory_body.get_child(1);equipment_quality=inventory_body.get_child(2);equipment_durability=inventory_body.get_child(3)
 	durability_bar=ProgressBar.new();durability_bar.max_value=100;durability_bar.show_percentage=false;durability_bar.custom_minimum_size.y=14;inventory_body.add_child(durability_bar)
 	visibility_changed.connect(_bind_equipment)
+	moodlets_label = Label.new()
+	moodlets_label.name = "Moodlets"
+	moodlets_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	get_node("%Bio").add_child(moodlets_label)
+	visibility_changed.connect(_bind_moodlets)
 	summary_label = _widget("Summary")
 	summary_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	profession_choice = OptionButton.new()
@@ -192,6 +201,7 @@ func _on_selection_changed() -> void:
 		_assignment_resident.diary_changed.disconnect(_refresh_diary)
 		_assignment_resident.trait_preferences_changed.disconnect(_on_preferences_changed)
 	_assignment_resident = _selection.selected_resident
+	_bind_moodlets()
 	_relationship_snapshot = [null]
 	if _assignment_resident != null:
 		_connect_need_signals()
@@ -368,6 +378,34 @@ func apply_presentation(expanded: bool, tab: StringName) -> void:
 	get_node("%Relations").visible = tab == &"relations"
 	inventory_body.visible = tab == &"inventory"
 	_bind_equipment()
+	_bind_moodlets()
+
+func _bind_moodlets() -> void:
+	var selected: RefCounted = _selection.selected_resident if _selection != null else null
+	var store: RefCounted = selected.moodlets if selected != null and is_visible_in_tree() and get_node("%Bio").visible and _widget("Scroll").visible else null
+	if store == _moodlet_store: return
+	if _moodlet_store != null and _moodlet_store.changed.is_connected(_refresh_moodlets): _moodlet_store.changed.disconnect(_refresh_moodlets)
+	_moodlet_store = store
+	if store != null: store.changed.connect(_refresh_moodlets)
+	_refresh_moodlets()
+
+func _refresh_moodlets(_entry_id: String = "") -> void:
+	_moodlet_rows.clear()
+	if _moodlet_store != null:
+		for entry: Dictionary in _moodlet_store.find():
+			var title: Variant = entry.context.get("display_name", MOODLET_NAMES.get(entry.type, entry.type))
+			if not title is String or title.is_empty(): title = entry.type
+			_moodlet_rows.append({"title":title, "created":entry.created_minute, "expiry":entry.expires_at_minute})
+	_update_moodlet_times()
+
+func _update_moodlet_times() -> void:
+	if moodlets_label == null: return
+	var now: int = clock.total_minutes if clock != null else 0
+	var lines: PackedStringArray = []
+	for row: Dictionary in _moodlet_rows:
+		if now < row.created or (row.expiry != null and now >= row.expiry): continue
+		lines.append("%s — %s" % [row.title, "без срока" if row.expiry == null else "%d мин." % (row.expiry-now)])
+	moodlets_label.text = "Мудлеты: нет" if lines.is_empty() else "Мудлеты:\n" + "\n".join(lines)
 func _clear_home() -> void:
 	if _control != null and _selection.selected_resident != null:
 		_control.clear_household(_selection.selected_resident.id)
@@ -426,6 +464,7 @@ func refresh_work_task() -> void:
 		intent_label.text = "Рабочая задача: " + (_intent_text(reason) if is_work else "нет активной задачи")
 	intent_label.show()
 func _exit_tree() -> void:
+	if _moodlet_store != null and _moodlet_store.changed.is_connected(_refresh_moodlets): _moodlet_store.changed.disconnect(_refresh_moodlets)
 	if _equipment_view!=null and _equipment_view.changed.is_connected(_refresh_equipment):_equipment_view.changed.disconnect(_refresh_equipment)
 	_disconnect_need_signals()
 	if _assignment_resident != null:

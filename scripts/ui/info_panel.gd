@@ -136,6 +136,7 @@ func _close() -> void:
 		clear_type_preview()
 	elif selection != null: selection.clear()
 func _minute(_minutes: int) -> void:
+	resident_details._update_moodlet_times()
 	var day: int = clock.get_day()
 	if day != _last_day:
 		_last_day = day
