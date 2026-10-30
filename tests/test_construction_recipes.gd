@@ -22,6 +22,7 @@ func fixture() -> Node:
 	world.social_events.enabled = false
 	world.game_time.total_minutes = 420
 	for actor in world.resident_runtimes:
+		actor.data.set_traits([]) # Baseline work duration, independent of generated character.
 		actor.decision._deciding = true
 		actor.intents.abort_current(actor.intents.current_intent)
 		actor.view.set_physics_process(false)

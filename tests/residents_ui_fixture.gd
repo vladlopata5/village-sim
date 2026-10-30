@@ -10,6 +10,7 @@ static func create(tree: SceneTree) -> Node:
 	world.social_events.enabled=false
 	world.decision_dispatcher.set_process(false)
 	for actor in world.resident_runtimes:
+		actor.data.set_traits([]) # Controlled baseline; trait-specific scenarios assign their traits explicitly.
 		actor.decision._deciding=true
 		actor.intents.abort_current(actor.intents.current_intent)
 		actor.view.set_physics_process(false)

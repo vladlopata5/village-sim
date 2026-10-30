@@ -28,6 +28,7 @@ const LEISURE_RATES = {
 var eating_rate_provider: Callable # Current paid EAT parameters, no copied need state.
 var ordinary_idle_provider: Callable # Read current intent ownership; task pauses are not empty AI idle.
 var active_work_provider: Callable # Existing operation guards; WORKING alone is not accepted work.
+var caring_partner_provider: Callable # Other active talking members; pending meetings give no recovery bonus.
 var _data: Data
 var _fractions: Dictionary = {NeedType.Type.HUNGER: 0, NeedType.Type.FATIGUE: 0, NeedType.Type.SOCIAL: 0, NeedType.Type.LEISURE: 0}
 func setup(clock: Node, data: Data) -> void:
@@ -37,6 +38,7 @@ func _on_minute_changed(_minute: int) -> void:
 	var activity = _data.activity
 	var ordinary_idle: bool = activity == Activity.Type.IDLE and ordinary_idle_provider.is_valid() and ordinary_idle_provider.call()
 	var active_work: bool = activity in [Activity.Type.WORKING,Activity.Type.HAULING] and active_work_provider.is_valid() and active_work_provider.call()
+	var caring_partner: bool = activity == Activity.Type.TALKING and caring_partner_provider.is_valid() and caring_partner_provider.call()
 	var hunger_rate := HUNGER_AWAKE
 	if activity == Activity.Type.SLEEPING: hunger_rate = HUNGER_SLEEPING
 	elif activity == Activity.Type.EATING:
@@ -46,7 +48,7 @@ func _on_minute_changed(_minute: int) -> void:
 	fatigue_rate = Modifiers.fatigue_need_rate(_data,fatigue_rate,active_work)
 	if activity == Activity.Type.SLEEPING: fatigue_rate *= _data.current_sleep_quality
 	_apply(NeedType.Type.FATIGUE, fatigue_rate)
-	var social_rate := Modifiers.social_need_rate(_data, SOCIAL_RATES[activity])
+	var social_rate := Modifiers.social_need_rate(_data, SOCIAL_RATES[activity], caring_partner)
 	_apply_slow_growth(NeedType.Type.SOCIAL, social_rate, Balance.SOCIAL_GROWTH_DIVISOR, Balance.SLEEP_SOCIAL_GROWTH_MULTIPLIER if activity == Activity.Type.SLEEPING else 1.0)
 	var leisure_rate := Modifiers.leisure_need_rate(_data, LEISURE_RATES[activity], ordinary_idle)
 	_apply_slow_growth(NeedType.Type.LEISURE, leisure_rate, Balance.LEISURE_GROWTH_DIVISOR, Balance.SLEEP_LEISURE_GROWTH_MULTIPLIER if activity == Activity.Type.SLEEPING else 1.0)

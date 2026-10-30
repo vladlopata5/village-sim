@@ -23,6 +23,7 @@ func start_world() -> void:
 	world=load("res://scenes/main_3d.tscn").instantiate();root.add_child(world)
 	world.game_time.set_process(false);world.game_time.total_minutes=420;world.game_logger.console_enabled=false
 	for actor in world.resident_runtimes:
+		actor.data.set_traits([]) # Baseline construction and reverse-work duration.
 		actor.decision._deciding=true;actor.schedule._phase="День";actor.intents.abort_current(actor.intents.current_intent);actor.view.set_physics_process(false)
 		for need in actor.data.needs.values():need.value=0;need.base_weight=0
 func site_at(point: Vector3, category: int = T.HOME) -> RefCounted:

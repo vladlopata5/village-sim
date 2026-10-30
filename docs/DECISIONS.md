@@ -6423,3 +6423,24 @@ WorkProgress/партии/строительство/дерево/месторо
 DELIBERATE включён в общий GENERATION_POOL, HASTY/DELIBERATE исключаются
 симметрично. CARING ещё не выдаётся. Stable IDs и составные описания не изменены;
 старые seeded результаты генерации могут измениться из-за нового пула.
+
+## CARING: индивидуальные веса и бонус собеседнику (2026-10-30)
+
+SocialWorld передаёт в общий ResidentModifiers.social_partner_weight параллельные
+opinion и SOCIAL deficit для тех же допустимых участников. Усредняется произведение
+individual opinion modifier × (1+deficit/100 для CARING), затем прежний company
+modifier; произведение двух средних не используется. Фильтры/дистанция/прямые
+команды и социальные события остаются прежними.
+
+Тот же SocialWorld.has_caring_partner читает participants действительной группы,
+проверяя TALKING и живые runtime/social, исключая самого получателя. Pending venue
+claims не считаются разговором. ResidentSocialController предоставляет query в
+NeedDynamics через Callable, связанный Runtime; контекст фиксируется перед
+callbacks нужд, как active_work. ResidentModifiers.social_need_rate добавляет один
+×1.25 только к отрицательному rate при другом CARING. Собственные SOCIABLE/
+INTROVERTED применяются ровно один раз; бонус не суммируется по числу CARING.
+Состав группы не кэшируется и не дублируется, его изменения видны следующему тику.
+
+CARING добавлен в конец GENERATION_POOL: все13 черт реализованы. Stable IDs,
+пять несовместимых пар, две совместимые черты, порядок описаний и род прежние.
+Новая версия пула меняет seeded генерацию; одинаковый seed по-прежнему воспроизводим.

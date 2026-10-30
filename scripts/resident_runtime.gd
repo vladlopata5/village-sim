@@ -64,6 +64,7 @@ func setup(resident: RefCounted, presentation: Node, clock: Node, locations: Ref
 	need_dynamics.eating_rate_provider = needs.get_hunger_eating_rate
 	need_dynamics.ordinary_idle_provider = intents.is_ordinary_idle
 	need_dynamics.active_work_provider = is_actively_working
+	need_dynamics.caring_partner_provider = social.has_caring_partner
 	need_dynamics.setup(clock, data)
 	needs.food_availability = food_availability
 	needs.setup(clock, data, buildings, locations, intents, schedule)

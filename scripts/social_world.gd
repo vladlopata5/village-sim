@@ -5,6 +5,8 @@ var logger: EventLog
 const Group = preload("res://scripts/conversation_group.gd")
 const Activity = preload("res://scripts/resident_activity.gd")
 const Modifiers = preload("res://scripts/resident_modifiers.gd")
+const Need = preload("res://scripts/need_type.gd").Type
+const Trait = preload("res://scripts/trait_type.gd").Type
 const BASE_OPTION_WEIGHT := 500.0
 const DISTANCE_PENALTY := 0.5
 signal conversation_joined(resident_id: String)
@@ -33,6 +35,16 @@ func group_of(id: String):
 	for group in groups.values():
 		if id in group.participants: return group
 	return null
+func has_caring_partner(id: String) -> bool:
+	var recipient = get_runtime(id)
+	if recipient == null or recipient.data.activity != Activity.Type.TALKING: return false
+	var group = group_of(id)
+	if group == null: return false
+	for member_id in group.participants:
+		if member_id == id: continue
+		var member = get_runtime(member_id)
+		if member != null and is_instance_valid(member.social) and member.data.activity == Activity.Type.TALKING and member.data.has_trait(Trait.CARING): return true
+	return false
 func options_for(id: String) -> Array:
 	var options: Array = []
 	var seen_groups: Array = []
@@ -56,8 +68,11 @@ func _partner_multiplier(id: String, other_id: String, group: RefCounted) -> flo
 	var chooser = get_runtime(id)
 	if chooser == null: return 1.0 # Read-only observers have no personal opinion or traits.
 	var opinions: Array[int] = []
+	var deficits: Array[int] = []
 	if group == null:
 		opinions.append(chooser.data.get_opinion(StringName(other_id)))
+		var other = get_runtime(other_id)
+		deficits.append(other.data.get_need(Need.SOCIAL).value if other != null else 0)
 	else:
 		for member_id in group.participants:
 			if member_id == id: continue
@@ -65,7 +80,8 @@ func _partner_multiplier(id: String, other_id: String, group: RefCounted) -> flo
 			if member == null or member.data.activity != Activity.Type.TALKING: continue
 			if not is_instance_valid(member.social): continue
 			opinions.append(chooser.data.get_opinion(StringName(member_id)))
-	return Modifiers.social_partner_weight(chooser.data, opinions)
+			deficits.append(member.data.get_need(Need.SOCIAL).value)
+	return Modifiers.social_partner_weight(chooser.data, opinions, deficits)
 func target_option(id: String, target_id: String) -> Dictionary:
 	if id == target_id or not position_provider.is_valid(): return {}
 	var target = get_runtime(target_id)

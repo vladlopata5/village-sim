@@ -43,6 +43,7 @@ func run() -> void:
 	root.add_child(scene)
 	scene.game_time.set_process(false)
 	for actor in scene.resident_runtimes:
+		actor.data.set_traits([]) # Baseline work duration, independent of generated character.
 		actor.decision._deciding = true
 		actor.intents.cancel_current(actor.intents.current_intent)
 		actor.view.set_physics_process(false)

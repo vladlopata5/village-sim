@@ -30,6 +30,7 @@ func walk(actor: Node) -> void:
 		preload("res://tests/handling_test_step.gd").move_3d(actor,0.05)
 		if not actor.view.movement.is_moving(): break
 func reset(actor: Node) -> void:
+	actor.data.set_traits([]) # Portal/slot tests use baseline work duration.
 	# Interior fixture drives the schedule directly, with ordinary AI disabled.
 	actor.schedule.work_decision = Callable()
 	actor.intents.abort_current(actor.intents.current_intent)

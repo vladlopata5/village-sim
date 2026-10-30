@@ -35,6 +35,7 @@ func run() -> void:
 	root.add_child(scene)
 	scene.game_time.set_process(false)
 	for actor in scene.resident_runtimes:
+		actor.data.set_traits([]) # Baseline extraction and construction duration.
 		actor.view.set_physics_process(false)
 		actor.decision._deciding = true
 		for need in actor.data.needs.values():

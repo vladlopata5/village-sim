@@ -18,6 +18,7 @@ func check(ok: bool, message: String) -> void:
 		failures += 1
 		push_error(message)
 func quiet(actor: Node) -> void:
+	actor.data.set_traits([]) # Logistics fixture includes a baseline production recipe.
 	actor.decision._deciding=true
 	actor.view.set_physics_process(false)
 	actor.intents.abort_current(actor.intents.current_intent)

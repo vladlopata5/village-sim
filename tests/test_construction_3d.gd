@@ -42,6 +42,7 @@ func _run() -> void:
 	scene.game_time.set_process(false)
 	scene.set_process(false)
 	for actor in scene.resident_runtimes:
+		actor.data.set_traits([]) # Baseline work duration, independent of generated character.
 		actor.view.set_physics_process(false)
 		actor.intents.clear_reason(&"day_work")
 	await physics_frame

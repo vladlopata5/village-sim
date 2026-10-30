@@ -38,6 +38,7 @@ func run() -> void:
 	world=load("res://scenes/main_3d.tscn").instantiate();root.add_child(world)
 	world.game_time.set_process(false);world.game_time.total_minutes=420;world.game_logger.console_enabled=false
 	for worker in world.resident_runtimes:
+		worker.data.set_traits([]) # Gathering/handling timing is tested without speed traits.
 		worker.decision._deciding=true;worker.intents.abort_current(worker.intents.current_intent);worker.schedule._phase="День";worker.view.set_physics_process(false)
 		for need in worker.data.needs.values():need.value=0;need.base_weight=0
 	actor=world.resident_runtimes[0]

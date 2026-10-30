@@ -70,7 +70,7 @@ func run() -> void:
 		check(person.traits == repeat.traits and person.grammatical_gender == repeat.grammatical_gender and person.trait_description() == repeat.trait_description(), "Seed reproduces stored order and description")
 		var description: String = person.trait_description(); var snapshot: Array = person.traits
 		for read in 3: check(person.trait_description() == description and person.traits == snapshot, "Reading description never shuffles")
-	check(seen.size() == 12 and Trait.Type.SOCIABLE == 0 and Trait.Type.FOOLISH == 6, "Twelve implemented traits are generated, IDs stable")
+	check(seen.size() == 13 and Trait.Type.SOCIABLE == 0 and Trait.Type.FOOLISH == 6, "Thirteen implemented traits are generated, IDs stable")
 	for name in Generator.NAMES:
 		var person = Generator.new(42).generate(name)
 		check(person.grammatical_gender == Generator.NAME_GENDERS[Generator.NAMES.find(name)], "Built-in names carry explicit grammatical metadata")
@@ -82,19 +82,19 @@ func run() -> void:
 	print("Trait expansion: ", checks, " checks, ", failures, " failures")
 	quit(0 if failures == 0 else 1)
 func _rng_sequence() -> void:
-	# Same draw order, with the approved twelve-trait pool (stable, non-contiguous IDs).
+	# Same draw order, with the approved thirteen-trait pool (stable, non-contiguous IDs).
 	var rng := RandomNumberGenerator.new(); rng.seed = 123
 	var preference_rng := RandomNumberGenerator.new(); preference_rng.seed = 123 ^ 0x50524546
 	var generator := Generator.new(123)
 	for index in 100:
 		var name: String = Generator.NAMES[rng.randi_range(0, 4)]
-		var pool: Array = [0, 1, 2, 3, 4, 5, 6, 7, 9, 10, 11, 12]
-		var first: int = pool[rng.randi_range(0, 11)]
+		var pool: Array = [0, 1, 2, 3, 4, 5, 6, 7, 9, 10, 11, 12, 8]
+		var first: int = pool[rng.randi_range(0, 12)]
 		pool.erase(first)
 		var conflicts := {0: 1, 1: 0, 2: 3, 3: 2, 6: 7, 7: 6, 9: 10, 10: 9, 11: 12, 12: 11}
 		pool.erase(conflicts.get(first, -1))
 		var pair: Array = [first, pool[rng.randi_range(0, pool.size() - 1)]]
-		var preference_pool: Array = [0, 1, 2, 3, 4, 5, 6, 7, 9, 10, 11, 12]
+		var preference_pool: Array = [0, 1, 2, 3, 4, 5, 6, 7, 9, 10, 11, 12, 8]
 		var liked: Array = []; var disliked: Array = []
 		for count in 2: liked.append(preference_pool.pop_at(preference_rng.randi_range(0, preference_pool.size() - 1)))
 		disliked.append(preference_pool.pop_at(preference_rng.randi_range(0, preference_pool.size() - 1)))

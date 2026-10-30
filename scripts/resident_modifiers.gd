@@ -41,14 +41,19 @@ static func social_company_multiplier(resident: RefCounted, count: int) -> float
 		if resident.has_trait(Trait.Type.INTROVERTED): return pow(Balance.INTROVERTED_SOCIAL_COMPANY_FACTOR, count - 1)
 	return 1.0
 
-static func social_partner_weight(resident: RefCounted, opinions: Array[int]) -> float:
+static func social_partner_need_multiplier(resident: RefCounted, deficit: int) -> float:
+	return 1.0 + clampi(deficit, 0, 100) * Balance.CARING_SOCIAL_PARTNER_DEFICIT_FACTOR if resident != null and resident.has_trait(Trait.Type.CARING) else 1.0
+
+static func social_partner_weight(resident: RefCounted, opinions: Array[int], social_deficits: Array[int] = []) -> float:
 	if opinions.is_empty(): return 1.0
 	var total := 0.0
-	for opinion in opinions: total += social_partner_multiplier(resident, opinion)
+	for index in opinions.size():
+		var deficit: int = social_deficits[index] if index < social_deficits.size() else 0
+		total += social_partner_multiplier(resident, opinions[index]) * social_partner_need_multiplier(resident, deficit)
 	# Average individual modifiers before applying company size: opposite opinions do not cancel.
 	return total / opinions.size() * social_company_multiplier(resident, opinions.size())
 
-static func social_need_rate(resident: RefCounted, base_rate: float) -> float:
+static func social_need_rate(resident: RefCounted, base_rate: float, caring_partner: bool = false) -> float:
 	# Positive rates grow the deficit; negative rates restore it while talking.
 	var multiplier := 1.0
 	for trait_type in resident.traits:
@@ -57,6 +62,7 @@ static func social_need_rate(resident: RefCounted, base_rate: float) -> float:
 				multiplier *= Balance.SOCIABLE_SOCIAL_RECOVERY_MULTIPLIER if base_rate < 0 else Balance.SOCIABLE_SOCIAL_DEPLETION_MULTIPLIER
 			Trait.Type.INTROVERTED:
 				multiplier *= Balance.INTROVERTED_SOCIAL_RECOVERY_MULTIPLIER if base_rate < 0 else Balance.INTROVERTED_SOCIAL_DEPLETION_MULTIPLIER
+	if base_rate < 0 and caring_partner: multiplier *= Balance.CARING_PARTNER_SOCIAL_RECOVERY_MULTIPLIER
 	return base_rate * multiplier
 
 static func action_utility(resident: RefCounted, action: Action, base: float) -> float:

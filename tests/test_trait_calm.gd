@@ -94,9 +94,9 @@ func _generation() -> void:
 	for index in 1000:
 		var a = generator.generate(); var b = repeat.generate()
 		check(a.traits.size() == 2 and Trait.compatible(a.traits) and a.traits == b.traits and a.trait_description() == b.trait_description(), "Twelve-trait generation and descriptions remain compatible and reproducible")
-		for type in a.traits + a.liked_traits + a.disliked_traits: check(type not in [Trait.Type.CARING], "CARING is excluded")
+		for type in a.traits + a.liked_traits + a.disliked_traits: check(type in Trait.GENERATION_POOL, "Every generated trait is implemented")
 		if a.has_trait(Trait.Type.CALM): found += 1; check(not a.add_trait(Trait.Type.HOTHEADED), "Generated CALM rejects HOTHEADED")
-	check(found > 0 and Trait.GENERATION_POOL.size() == 12, "CALM participates in normal generation")
+	check(found > 0 and Trait.GENERATION_POOL.size() == 13, "CALM participates in normal generation")
 	check(Trait.description([Trait.Type.CALM, Trait.Type.PRUDENT]) == "Невозмутимый прагматик" and Trait.description([Trait.Type.CARING, Trait.Type.CALM], Trait.GrammaticalGender.FEMININE) == "Заботливая флегматичка", "Both grammatical forms compose with CALM")
 func _statistics() -> void:
 	var a := Data.new("stat", "Stat", 25); a.add_trait(Trait.Type.CALM)

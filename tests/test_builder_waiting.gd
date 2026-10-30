@@ -26,6 +26,7 @@ func scenario() -> Node:
 	scene.social_events.enabled = false
 	scene.game_logger.line_logged.connect(func(line, _level): lines.append(line))
 	for actor in scene.resident_runtimes:
+		actor.data.set_traits([]) # Baseline work duration, independent of generated character.
 		actor.view.set_process(false)
 		actor.decision._deciding = true
 		actor.schedule._phase = "День"

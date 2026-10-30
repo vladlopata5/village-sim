@@ -195,6 +195,6 @@ func generation() -> void:
 	var traits=preload("res://scripts/trait_type.gd");var generator=preload("res://scripts/resident_generator.gd").new(42);var found:=0
 	for index in 200:
 		var person=generator.generate();check(traits.compatible(person.traits),"Generated pair compatible")
-		for type in person.traits+person.liked_traits+person.disliked_traits:check(type not in [Trait.CARING],"CARING is excluded")
+		for type in person.traits+person.liked_traits+person.disliked_traits:check(type in traits.GENERATION_POOL,"Every generated trait is implemented")
 		if person.has_trait(Trait.HASTY):found+=1;check(not person.add_trait(Trait.DELIBERATE),"HASTY rejects DELIBERATE")
-	check(found>0 and traits.GENERATION_POOL.size()==12 and traits.description([Trait.HASTY,Trait.PRUDENT])=="Торопливый прагматик","HASTY generated and description stable")
+	check(found>0 and traits.GENERATION_POOL.size()==13 and traits.description([Trait.HASTY,Trait.PRUDENT])=="Торопливый прагматик","HASTY generated and description stable")

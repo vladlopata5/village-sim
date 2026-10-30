@@ -27,6 +27,8 @@ func setup(owner_runtime: Node, game_clock: Node) -> void:
 	runtime.intents.intent_changed.connect(_on_intent_changed)
 func position_in_conversation(position: Vector2) -> void:
 	conversation_position_requested.emit(position)
+func has_caring_partner() -> bool:
+	return is_instance_valid(world) and world.has_caring_partner(runtime.data.id)
 func has_social_action() -> bool:
 	return is_instance_valid(world) and not world.options_for(runtime.data.id).is_empty()
 func try_social(priority: int) -> bool:

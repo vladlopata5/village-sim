@@ -126,11 +126,11 @@ func _generation() -> void:
 	for index in 1000:
 		var person = generator.generate(); var same = repeat.generate()
 		check(person.traits.size() == 2 and Trait.compatible(person.traits) and person.traits == same.traits and person.trait_description() == same.trait_description(), "Generation remains compatible, stable and reproducible")
-		for type in person.traits + person.liked_traits + person.disliked_traits: check(type not in [Trait.Type.CARING], "CARING is excluded")
+		for type in person.traits + person.liked_traits + person.disliked_traits: check(type in Trait.GENERATION_POOL, "Every generated trait is implemented")
 		if person.has_trait(Trait.Type.HOTHEADED):
 			found += 1
 			check(not person.add_trait(Trait.Type.CALM), "Generated HOTHEADED rejects CALM")
-	check(found > 0 and Trait.GENERATION_POOL.size() == 12, "HOTHEADED remains in normal generation alongside CALM")
+	check(found > 0 and Trait.GENERATION_POOL.size() == 13, "HOTHEADED remains in normal generation alongside CALM")
 	var calm := Data.new("calm", "Calm", 25); calm.add_trait(Trait.Type.CALM)
 	check(not calm.add_trait(Trait.Type.HOTHEADED), "Reverse conflict preserved")
 	check(Trait.description([Trait.Type.HOTHEADED, Trait.Type.PRUDENT]) == "Вспыльчивый прагматик" and Trait.description([Trait.Type.CARING, Trait.Type.HOTHEADED], Trait.GrammaticalGender.FEMININE) == "Заботливая задира", "Both description forms compose with HOTHEADED")

@@ -67,6 +67,6 @@ func deliberate_generation() -> void:
 	for index in 500:
 		var person=generator.generate();var same=repeat.generate()
 		check(catalog.compatible(person.traits) and person.traits==same.traits and person.trait_description()==same.trait_description(),"Generation and ordered descriptions reproducible")
-		for type in person.traits+person.liked_traits+person.disliked_traits:check(type!=Trait.CARING,"CARING excluded from all random issue")
+		for type in person.traits+person.liked_traits+person.disliked_traits:check(type in catalog.GENERATION_POOL,"Every generated trait is implemented")
 		if person.has_trait(Trait.DELIBERATE):found+=1;check(not person.add_trait(Trait.HASTY),"Generated DELIBERATE rejects HASTY")
-	check(found>0 and catalog.GENERATION_POOL.size()==12 and catalog.description([Trait.DELIBERATE,Trait.PRUDENT])=="Неторопливый прагматик" and catalog.description([Trait.DELIBERATE,Trait.CALM],catalog.GrammaticalGender.FEMININE)=="Неторопливая флегматичка","DELIBERATE generated with both grammatical forms")
+	check(found>0 and catalog.GENERATION_POOL.size()==13 and catalog.description([Trait.DELIBERATE,Trait.PRUDENT])=="Неторопливый прагматик" and catalog.description([Trait.DELIBERATE,Trait.CALM],catalog.GrammaticalGender.FEMININE)=="Неторопливая флегматичка","DELIBERATE generated with both grammatical forms")
