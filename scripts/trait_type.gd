@@ -3,7 +3,7 @@ extends RefCounted
 enum Type { SOCIABLE, INTROVERTED, INDUSTRIOUS, LAZY, GLUTTON, RESTLESS, FOOLISH, PRUDENT, CARING, HOTHEADED, CALM, HASTY, DELIBERATE }
 enum GrammaticalGender { MASCULINE, FEMININE }
 # Only implemented traits participate in random character/preference generation.
-const GENERATION_POOL = [Type.SOCIABLE, Type.INTROVERTED, Type.INDUSTRIOUS, Type.LAZY, Type.GLUTTON, Type.RESTLESS, Type.FOOLISH]
+const GENERATION_POOL = [Type.SOCIABLE, Type.INTROVERTED, Type.INDUSTRIOUS, Type.LAZY, Type.GLUTTON, Type.RESTLESS, Type.FOOLISH, Type.PRUDENT]
 # Masculine adjective/noun, feminine adjective/noun. Identity is separate from wording.
 const FORMS = {
 	Type.INDUSTRIOUS: ["Трудолюбивый", "Трудяга", "Трудолюбивая", "Трудяга"],

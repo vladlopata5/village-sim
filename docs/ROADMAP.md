@@ -463,6 +463,10 @@ Mood/weather/health/events/policies и skill gameplay modifiers — будущи
 из сохранённого порядка черт и грамматического рода ResidentData. LAZY сохраняет
 REST ×1.5 / WORK ×0.9, но больше не ускоряет восстановление FATIGUE.
 
+PRUDENT (2026-10-30) включён в обычную генерацию восьмым: индивидуальные параметры
+UtilitySelector 0.85/2.5 через ResidentModifiers, без изменения utility действий.
+Остальные пять новых черт ещё не выдаются; FOOLISH сохраняет 0.55/1.5.
+
 
 ### Выполнено в Phase 4: directed relationship foundation (2026-10-07)
 

@@ -28,6 +28,7 @@ func scene() -> Node:
 	world.social_events.enabled = false
 	for actor in world.resident_runtimes:
 		actor.decision._deciding = true
+		actor.data.set_traits([]) # Recipe baseline must not depend on the generated trait pool.
 		actor.schedule._phase = "День"
 		actor.intents.abort_current(actor.intents.current_intent)
 		actor.view.set_physics_process(false)

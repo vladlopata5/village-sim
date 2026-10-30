@@ -87,9 +87,11 @@ static func selector_candidate_ratio(resident: RefCounted, base: float = Balance
 	var multiplier := 1.0
 	for trait_type in resident.traits:
 		if trait_type == Trait.Type.FOOLISH: multiplier *= Balance.FOOLISH_UTILITY_CANDIDATE_RATIO / Balance.UTILITY_CANDIDATE_RATIO
+		if trait_type == Trait.Type.PRUDENT: multiplier *= Balance.PRUDENT_UTILITY_CANDIDATE_RATIO / Balance.UTILITY_CANDIDATE_RATIO
 	return clampf(base * multiplier, 0.0, 1.0)
 static func selector_random_exponent(resident: RefCounted, base: float = Balance.UTILITY_RANDOM_EXPONENT) -> float:
 	var multiplier := 1.0
 	for trait_type in resident.traits:
 		if trait_type == Trait.Type.FOOLISH: multiplier *= Balance.FOOLISH_UTILITY_RANDOM_EXPONENT / Balance.UTILITY_RANDOM_EXPONENT
+		if trait_type == Trait.Type.PRUDENT: multiplier *= Balance.PRUDENT_UTILITY_RANDOM_EXPONENT / Balance.UTILITY_RANDOM_EXPONENT
 	return maxf(base * multiplier, 0.0)

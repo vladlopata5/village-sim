@@ -70,37 +70,37 @@ func run() -> void:
 		check(person.traits == repeat.traits and person.grammatical_gender == repeat.grammatical_gender and person.trait_description() == repeat.trait_description(), "Seed reproduces stored order and description")
 		var description: String = person.trait_description(); var snapshot: Array = person.traits
 		for read in 3: check(person.trait_description() == description and person.traits == snapshot, "Reading description never shuffles")
-	check(seen.size() == 7 and Trait.Type.SOCIABLE == 0 and Trait.Type.FOOLISH == 6, "All original traits remain generated and IDs stable")
+	check(seen.size() == 8 and Trait.Type.SOCIABLE == 0 and Trait.Type.FOOLISH == 6, "Original traits and PRUDENT are generated, IDs stable")
 	for name in Generator.NAMES:
 		var person = Generator.new(42).generate(name)
 		check(person.grammatical_gender == Generator.NAME_GENDERS[Generator.NAMES.find(name)], "Built-in names carry explicit grammatical metadata")
 	check(Generator.new(42).generate("Произвольное имя", Gender.FEMININE).grammatical_gender == Gender.FEMININE, "Custom names accept explicit gender")
 	check(Generator.new(42).generate("Произвольное имя").grammatical_gender == Gender.MASCULINE, "Unknown names have documented fallback without guessing")
 	check(Factory.create("invalid", "Invalid", 20, Profession.Type.NONE, [Trait.Type.FOOLISH, Trait.Type.PRUDENT], 0, 0, 50, &"", &"") == null, "Factory rejects conflicting list instead of silently truncating")
-	_old_rng_sequence()
+	_rng_sequence()
 	_ui()
 	print("Trait expansion: ", checks, " checks, ", failures, " failures")
 	quit(0 if failures == 0 else 1)
-func _old_rng_sequence() -> void:
-	# Reference draw order from the seven-trait generator before this change.
+func _rng_sequence() -> void:
+	# Same draw order, with the approved eight-trait pool and symmetric PRUDENT conflict.
 	var rng := RandomNumberGenerator.new(); rng.seed = 123
 	var preference_rng := RandomNumberGenerator.new(); preference_rng.seed = 123 ^ 0x50524546
 	var generator := Generator.new(123)
 	for index in 100:
 		var name: String = Generator.NAMES[rng.randi_range(0, 4)]
-		var pool: Array = [0, 1, 2, 3, 4, 5, 6]
-		var first: int = pool[rng.randi_range(0, 6)]
+		var pool: Array = [0, 1, 2, 3, 4, 5, 6, 7]
+		var first: int = pool[rng.randi_range(0, 7)]
 		pool.erase(first)
-		var old_conflicts := {0: 1, 1: 0, 2: 3, 3: 2}
-		pool.erase(old_conflicts.get(first, -1))
+		var conflicts := {0: 1, 1: 0, 2: 3, 3: 2, 6: 7, 7: 6}
+		pool.erase(conflicts.get(first, -1))
 		var pair: Array = [first, pool[rng.randi_range(0, pool.size() - 1)]]
-		var preference_pool: Array = [0, 1, 2, 3, 4, 5, 6]
+		var preference_pool: Array = [0, 1, 2, 3, 4, 5, 6, 7]
 		var liked: Array = []; var disliked: Array = []
 		for count in 2: liked.append(preference_pool.pop_at(preference_rng.randi_range(0, preference_pool.size() - 1)))
 		disliked.append(preference_pool.pop_at(preference_rng.randi_range(0, preference_pool.size() - 1)))
 		var expected := [name, rng.randi_range(18, 65), rng.randi_range(10, 30), rng.randi_range(5, 35), rng.randi_range(45, 80)]
 		var person = generator.generate()
-		check([person.resident_name, person.age, person.hunger, person.fatigue, person.mood] == expected and person.traits == pair and person.liked_traits == liked and person.disliked_traits == disliked, "No extra draws or altered old generation/preferences sequence")
+		check([person.resident_name, person.age, person.hunger, person.fatigue, person.mood] == expected and person.traits == pair and person.liked_traits == liked and person.disliked_traits == disliked, "Approved pool changes preserve reproducible draw order without extra draws")
 func _ui() -> void:
 	var world = preload("res://tests/behavior_test_setup.gd").make_scene(self)
 	var person = world.residents[1]; var other = world.residents[3]

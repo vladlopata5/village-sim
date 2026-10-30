@@ -26,6 +26,7 @@ func scene() -> Node:
 	world.social_events.enabled = false
 	for actor in world.resident_runtimes:
 		actor.decision._deciding = true
+		actor.data.set_traits([]) # Test baseline work utility, independent of generated personality.
 		actor.intents.abort_current(actor.intents.current_intent)
 		actor.schedule._phase = "День"
 		actor.view.set_physics_process(false)
