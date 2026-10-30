@@ -65,10 +65,6 @@ static func action_utility(resident: RefCounted, action: Action, base: float) ->
 			Trait.Type.FOOLISH:
 				if action == Action.LEISURE: multiplier *= Balance.FOOLISH_LEISURE_UTILITY_MULTIPLIER
 	return maxf(base * multiplier, 0.0)
-static func fatigue_need_rate(resident: RefCounted, base_rate: float, resting: bool) -> float:
-	if resting and base_rate < 0 and resident.has_trait(Trait.Type.LAZY):
-		return base_rate * Balance.LAZY_RESTING_RECOVERY_MULTIPLIER
-	return base_rate
 static func leisure_need_rate(resident: RefCounted, base_rate: float, ordinary_idle: bool) -> float:
 	if base_rate < 0 and resident.has_trait(Trait.Type.FOOLISH):
 		return base_rate * Balance.FOOLISH_LEISURE_RECOVERY_MULTIPLIER

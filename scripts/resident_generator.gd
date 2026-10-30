@@ -4,6 +4,7 @@ const Factory = preload("res://scripts/resident_factory.gd")
 const Profession = preload("res://scripts/resident_profession.gd")
 const NAMES = ["Анна", "Фёдор", "Марина", "Иван", "Дарья"]
 const Trait = preload("res://scripts/trait_type.gd")
+const NAME_GENDERS = [Trait.GrammaticalGender.FEMININE, Trait.GrammaticalGender.MASCULINE, Trait.GrammaticalGender.FEMININE, Trait.GrammaticalGender.MASCULINE, Trait.GrammaticalGender.FEMININE]
 const Balance = preload("res://scripts/balance_config.gd")
 var _preference_random = RandomNumberGenerator.new()
 var _random = RandomNumberGenerator.new()
@@ -15,16 +16,20 @@ func _init(seed_value: int, id_namespace: String = "generated") -> void:
 	_preference_random.seed = seed_value ^ 0x50524546
 	_namespace = id_namespace
 
-func generate(display_name: String = ""):
+func generate(display_name: String = "", grammatical_gender: int = -1):
 	_sequence += 1
 	var resident_id := "%s_%d_%04d" % [_namespace, _random.seed, _sequence]
 	var generated_name: String = NAMES[_random.randi_range(0, NAMES.size() - 1)]
+	# Explicit name metadata, never infer gender from spelling. Unknown custom names default masculine.
+	var name_index := NAMES.find(generated_name if display_name.is_empty() else display_name)
+	var gender: Trait.GrammaticalGender = NAME_GENDERS[name_index] if name_index >= 0 else Trait.GrammaticalGender.MASCULINE
+	if grammatical_gender in Trait.GrammaticalGender.values(): gender = grammatical_gender as Trait.GrammaticalGender
 	var traits := generate_traits()
 	var preferences := generate_preferences()
-	return Factory.create(resident_id, generated_name if display_name.is_empty() else display_name, _random.randi_range(18, 65), Profession.Type.NONE, traits, _random.randi_range(10, 30), _random.randi_range(5, 35), _random.randi_range(45, 80), &"", &"", preferences.liked, preferences.disliked)
+	return Factory.create(resident_id, generated_name if display_name.is_empty() else display_name, _random.randi_range(18, 65), Profession.Type.NONE, traits, _random.randi_range(10, 30), _random.randi_range(5, 35), _random.randi_range(45, 80), &"", &"", preferences.liked, preferences.disliked, gender)
 
 func generate_traits() -> Array:
-	var available: Array = Trait.Type.values()
+	var available: Array = Trait.GENERATION_POOL.duplicate()
 	var first: int = available[_random.randi_range(0, available.size() - 1)]
 	available.erase(first)
 	available.erase(Trait.conflict(first))
@@ -32,7 +37,7 @@ func generate_traits() -> Array:
 
 func generate_preferences() -> Dictionary:
 	# Own RNG stream preserves the existing character generation sequence.
-	var available: Array = Trait.Type.values()
+	var available: Array = Trait.GENERATION_POOL.duplicate()
 	var liked: Array = []
 	var disliked: Array = []
 	for category in range(2):

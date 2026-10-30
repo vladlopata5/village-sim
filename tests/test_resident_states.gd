@@ -53,7 +53,7 @@ func _run() -> void:
 		clock.set_speed(speed)
 		clock.advance(1440.0)
 	check(data.hunger == 100 and data.fatigue >= 0 and data.fatigue <= 100 and data.mood == 65, "Passing time grows hunger to cap with bounded fatigue and unchanged mood")
-	data.traits.clear()
+	data.set_traits([])
 	check(data.hunger == 100 and data.fatigue >= 0 and data.fatigue <= 100 and data.mood == 65, "Traits do not affect states")
 	data.hunger = 75
 	data.fatigue = 50

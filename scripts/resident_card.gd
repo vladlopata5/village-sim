@@ -285,7 +285,7 @@ func _refresh_traits() -> void:
 	var names := PackedStringArray()
 	if _assignment_resident != null:
 		for trait_type in _assignment_resident.traits: names.append("• " + Trait.display_name(trait_type))
-	traits_label.text = "Черты\n" + "\n".join(names) if not names.is_empty() else "Черты: нет"
+	traits_label.text = "Характер: " + _assignment_resident.trait_description() + "\n" + "\n".join(names) if not names.is_empty() else "Черты: нет"
 
 func _on_relationship_changed(_other_id: StringName) -> void:
 	_refresh_relationships()

@@ -19,7 +19,7 @@ func phase(world: Node, minute: int) -> void:
 		actor.schedule._on_phase_changed(world.game_time.get_phase())
 func prepare(world: Node) -> Node:
 	var actor: Node=world.resident_runtimes[0]
-	actor.data.traits.clear();actor.data.add_trait(Trait.INDUSTRIOUS)
+	actor.data.set_traits([]);actor.data.add_trait(Trait.INDUSTRIOUS)
 	actor.wander.target_available=func():return false
 	actor.decision.overtime_started.connect(func(_intent):starts+=1)
 	return actor
@@ -60,7 +60,7 @@ func availability_and_needs() -> void:
 	var world:=F.create(self);var actor:=prepare(world);var place:=sawmill(world)
 	world.player_control.assign_workplace(actor.data.id,place.id)
 	for traits in [[],[Trait.LAZY],[Trait.INDUSTRIOUS]]:
-		actor.data.traits.clear()
+		actor.data.set_traits([])
 		for trait_type in traits:actor.data.add_trait(trait_type)
 		for minute in [359,360,419,420,1019,1020,1379,1380]:
 			phase(world,minute)
@@ -68,7 +68,7 @@ func availability_and_needs() -> void:
 			check(offered(actor)==wanted,"Trait and phase bounds select exactly morning/evening")
 			check(not actor.intents.overtime_admission and not actor.intents.has_current_action() and place.resources.get_reserved_out(R.LOG)==0 and place.resources.get_reserved_in(R.PLANK)==0 and place.production_batches.is_empty(),"Availability probe never leaves authorization or claims")
 	phase(world,1020)
-	actor.data.traits.clear();actor.data.add_trait(Trait.INDUSTRIOUS)
+	actor.data.set_traits([]);actor.data.add_trait(Trait.INDUSTRIOUS)
 	check(not actor.recipe_work.request_work(),"Industrious cannot bypass the normal off-shift start gate")
 	actor.data.get_need(preload("res://scripts/need_type.gd").Type.FATIGUE).base_weight=100
 	actor.data.fatigue=90;choose(actor)

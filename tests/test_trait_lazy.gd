@@ -27,18 +27,13 @@ func run() -> void:
 				dynamics._fractions[need] = 0; baseline._fractions[need] = 0
 			for minute in 120:
 				dynamics._on_minute_changed(minute); baseline._on_minute_changed(minute)
-			if lazy and activity == Activity.RESTING:
-				check(data.fatigue == 30 and dynamics._fractions[Need.FATIGUE] == 0, "Exactly x1.5 RESTING recovery, not x2.25")
-			else:
-				check(data.fatigue == baseline_data.fatigue and dynamics._fractions[Need.FATIGUE] == baseline._fractions[Need.FATIGUE], "Growth, sleep quality and neutral residents preserve exact fatigue/fractions")
+			check(data.fatigue == baseline_data.fatigue and dynamics._fractions[Need.FATIGUE] == baseline._fractions[Need.FATIGUE], "Every activity, including LAZY RESTING, preserves base fatigue/fractions")
 			for other in [Need.HUNGER, Need.SOCIAL, Need.LEISURE]:
 				check(data.get_need(other).value == baseline_data.get_need(other).value and dynamics._fractions[other] == baseline._fractions[other], "Other needs are unchanged for every activity")
 		check(Modifiers.action_utility(data, Modifiers.Action.REST, 4000) == (6000 if lazy else 4000), "Only ordinary REST utility gets x1.5")
 		check(Modifiers.action_utility(data, Modifiers.Action.WORK, 7000) == (6300 if lazy else 7000), "Existing WORK x0.9 is applied once")
 		for action in [Modifiers.Action.EAT, Modifiers.Action.SOCIAL, Modifiers.Action.WANDER, Modifiers.Action.LEISURE]:
 			check(Modifiers.action_utility(data, action, 1000) == 1000, "Unapproved action utilities remain unchanged")
-		check(Modifiers.fatigue_need_rate(data, 4, true) == 4 and Modifiers.fatigue_need_rate(data, 0, true) == 0, "No growth or zero-rate effect, even with a resting flag")
-		check(Modifiers.fatigue_need_rate(data, -30, false) == -30, "Other recovery never gets the resting multiplier")
 		check(Modifiers.selector_candidate_ratio(data) == 0.75 and Modifiers.selector_random_exponent(data) == 2.0, "LAZY adds no random-selector changes")
 		dynamics.free(); baseline.free()
 		_live_rest(lazy)
@@ -73,7 +68,7 @@ func _live_rest(lazy: bool) -> void:
 	world.game_time.advance(9)
 	check(actor.data.activity == Activity.RESTING and actor.needs._minutes_left == 1, "Original ten-minute rest duration is preserved")
 	world.game_time.advance(1)
-	check(actor.data.fatigue == (38 if lazy else 39) and actor.need_dynamics._fractions[Need.FATIGUE] == (-30 if lazy else -40), "Real ten-minute cycle preserves fractional recovery: 2.5 vs 1.666 points")
+	check(actor.data.fatigue == 39 and actor.need_dynamics._fractions[Need.FATIGUE] == -40, "Real ten-minute cycle preserves baseline recovery for both residents")
 	check(actor.needs._active_intent == null and actor.intents.current_intent.reason_id != &"rest", "Rest completes through the original lifecycle")
 	check(actor.data.mood == mood and actor.data.moodlets.size() == 0, "Rest creates no mood or moodlet effects")
 	for skill in preload("res://scripts/skill_type.gd").Type.values(): check(actor.data.get_skill_xp(skill) == 0, "Rest adds no XP")

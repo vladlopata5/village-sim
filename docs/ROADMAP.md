@@ -458,6 +458,11 @@ EAT threshold, movement speed и selector parameters. UI traits event-driven.
 UtilitySelector generic, forced/critical/night/management bypass сохранён.
 Mood/weather/health/events/policies и skill gameplay modifiers — будущие этапы.
 
+Дополнение 2026-10-30: каталог расширен шестью пока не выдаваемыми чертами,
+пять пар несовместимости проверяются общим API, карточка составляет описание
+из сохранённого порядка черт и грамматического рода ResidentData. LAZY сохраняет
+REST ×1.5 / WORK ×0.9, но больше не ускоряет восстановление FATIGUE.
+
 
 ### Выполнено в Phase 4: directed relationship foundation (2026-10-07)
 

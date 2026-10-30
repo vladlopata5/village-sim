@@ -51,16 +51,32 @@ const MoodletStore = preload("res://scripts/moodlet_store.gd")
 var memories: MemoryStore
 var moodlets: MoodletStore
 signal traits_changed
-var traits: Array[Trait.Type] = []
-func has_trait(trait_type: Trait.Type) -> bool: return traits.has(trait_type)
+var _traits: Array[Trait.Type] = []
+var traits: Array[Trait.Type]:
+	get: return _traits.duplicate()
+	set(value): set_traits(value)
+var grammatical_gender: Trait.GrammaticalGender = Trait.GrammaticalGender.MASCULINE:
+	set(value):
+		if value not in Trait.GrammaticalGender.values() or grammatical_gender == value: return
+		grammatical_gender = value
+		traits_changed.emit()
+func trait_description() -> String:
+	return Trait.description(_traits, grammatical_gender)
+func set_traits(values: Array) -> bool:
+	if not Trait.compatible(values): return false
+	if _traits == values: return true
+	_traits.assign(values)
+	traits_changed.emit()
+	return true
+func has_trait(trait_type: Trait.Type) -> bool: return _traits.has(trait_type)
 func add_trait(trait_type: Trait.Type) -> bool:
-	if trait_type not in Trait.Type.values() or has_trait(trait_type) or traits.has(Trait.conflict(trait_type)): return false
-	traits.append(trait_type)
+	if trait_type not in Trait.Type.values() or has_trait(trait_type) or _traits.has(Trait.conflict(trait_type)): return false
+	_traits.append(trait_type)
 	traits_changed.emit()
 	return true
 func remove_trait(trait_type: Trait.Type) -> bool:
 	if not has_trait(trait_type): return false
-	traits.erase(trait_type)
+	_traits.erase(trait_type)
 	traits_changed.emit()
 	return true
 ## Higher hunger/fatigue means more hungry/tired; higher mood means happier.

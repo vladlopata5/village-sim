@@ -132,7 +132,7 @@ func _reentrant_completion() -> void:
 func _outdoor_meal() -> void:
 	var world: Node = preload("res://tests/residents_ui_fixture.gd").create(self)
 	var actor: Node = world.resident_runtimes[1]
-	actor.data.traits.clear(); actor.data.add_trait(Trait.GLUTTON)
+	actor.data.set_traits([]); actor.data.add_trait(Trait.GLUTTON)
 	for place in world.buildings: place.resources.try_take(FOOD, place.resources.get_available_amount(FOOD))
 	actor.data.hunger = 80; actor.need_dynamics._fractions[0] = 0
 	var drop: RefCounted = preload("res://tests/ground_stack_fixture.gd").create(world.ground_resources, FOOD, 4, actor.view.get_drop_sim_position() + Vector2(25, 0))
