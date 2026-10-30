@@ -1253,6 +1253,11 @@ func _bind_lumberjack(runtime: ResidentRuntime) -> void:
 	controller.name = "Lumberjack"
 	runtime.add_child(controller)
 	controller.setup(runtime,game_time,trees,tree_locations,_deplete_tree)
+	var vent = preload("res://scripts/resident_vent_anger_controller.gd").new()
+	vent.name = "VentAnger"
+	runtime.add_child(vent)
+	vent.setup(runtime,game_time,trees,tree_locations)
+	runtime.moodlet_actions.register_action("VENT_ANGER","angry",preload("res://scripts/balance_config.gd").VENT_ANGER_PRIORITY,vent)
 	controller.world = self
 	runtime.view.tree_exiting.connect(controller.abort.bind(false))
 

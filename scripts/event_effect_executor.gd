@@ -84,13 +84,18 @@ func _prepare_commit(selection: Dictionary, context: Dictionary, minute: int, so
 	# Pure validation hooks only. No await, RNG, signals or gameplay calls between
 	# this last check and ALL writes. Internal apply primitives cannot reject.
 	if not _active(source): return _error("inactive_source", "source changed during preparation")
+	var destinations: Dictionary = {}
 	for write: Dictionary in writes:
 		if not _active(write.person): return _error("inactive_recipient", write.person.id)
 		if write.kind == "diary":
 			if not write.person.can_add_diary_entry(write.entry): return _error("diary_failed", write.person.id)
 		else:
 			var current_store: RefCounted = write.person.memories if write.kind == "memory.add" else write.person.moodlets
-			if current_store != write.store or write.store.prepare_add(write.raw) != write.prepared: return _error("prepare_failed", "stale store: " + write.person.id)
+			var destination := "%s:%s" % [write.store.get_instance_id(), write.prepared.id]
+			if destinations.has(destination): return _error("prepare_failed", "duplicate store destination")
+			destinations[destination] = true
+			var prepared: Dictionary = write.store.prepare_event_add(write.raw) if write.kind == "moodlet.add" else write.store.prepare_add(write.raw)
+			if current_store != write.store or prepared != write.prepared: return _error("prepare_failed", "stale store: " + write.person.id)
 	var result := {"status": "completed", "event_id": "event:" + context.occurrence_id, "definition_id": definition.id, "main": selection.main, "minute": minute, "effects": applied, "exclusive_groups": chosen.groups, "secondary_diary": chosen.secondary}
 	for write: Dictionary in writes:
 		if write.kind == "diary": write.person._apply_event_diary(write.entry)
@@ -184,7 +189,7 @@ func _effect(item: Dictionary, env: Dictionary, definition: Dictionary, context:
 			expiry = int(expiry)
 		record.merge({"expires_at_minute": expiry, "modifiers": effect.get("modifiers", [])})
 		store = person.moodlets
-	var prepared: Dictionary = store.prepare_add(record)
+	var prepared: Dictionary = store.prepare_event_add(record) if effect.op == "moodlet.add" else store.prepare_add(record)
 	if prepared.is_empty(): return _error("prepare_failed", item.slot + ": store rejected record")
 	return {"ok": true, "write": {"kind": effect.op, "person": person, "store": store, "raw": record, "prepared": prepared}}
 

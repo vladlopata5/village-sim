@@ -1,6 +1,7 @@
 extends RefCounted
 ## Inert temporary state. Future consumers use ResidentModifiers, not formulas here.
 const Data = preload("res://scripts/event_store_data.gd")
+const EVENT_REFRESH_TYPES = {"angry": preload("res://scripts/balance_config.gd").ANGRY_MOODLET_MINUTES}
 signal changed(entry_id: String)
 var _owner_id: String
 var _entries: Dictionary = {}
@@ -46,16 +47,30 @@ func prepare_add(record: Dictionary) -> Dictionary:
 	return _prepare_record(record)
 
 func add_or_refresh(record: Dictionary) -> bool:
-	# Explicit singleton policy; ordinary add/event additions keep their old semantics.
-	if not _valid(record): return false
-	var previous: Dictionary = _entries.get(record.id, {})
-	if not previous.is_empty():
-		if previous.type != record.type or previous.source_occurrence_id == record.source_occurrence_id: return false
-		if record.created_minute < previous.created_minute: return false
-	var prepared := _prepare_record(record)
+	# Explicit singleton API; event-specific policies are prepared separately below.
+	var prepared := _prepare_refresh(record)
+	if prepared.is_empty(): return false
 	_apply_event_add(prepared)
 	changed.emit(prepared.id)
 	return true
+
+func prepare_event_add(record: Dictionary) -> Dictionary:
+	# Explicit per-type event policy. Other definitions keep independent occurrence IDs.
+	if not EVENT_REFRESH_TYPES.has(record.get("type")): return prepare_add(record)
+	if not _valid(record): return {}
+	var duration: int = EVENT_REFRESH_TYPES[record.type]
+	if record.created_minute > 9223372036854775807-duration or record.get("expires_at_minute") != record.created_minute+duration: return {}
+	var singleton := record.duplicate(true)
+	singleton.id = record.type
+	return _prepare_refresh(singleton)
+
+func _prepare_refresh(record: Dictionary) -> Dictionary:
+	if not _valid(record): return {}
+	var previous: Dictionary = _entries.get(record.id, {})
+	if not previous.is_empty():
+		if previous.type != record.type or previous.source_occurrence_id == record.source_occurrence_id: return {}
+		if record.created_minute < previous.created_minute: return {}
+	return _prepare_record(record)
 
 func _prepare_record(record: Dictionary) -> Dictionary:
 	var entry := record.duplicate(true)

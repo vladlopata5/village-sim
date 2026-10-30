@@ -12,7 +12,7 @@ var clock: Node
 var moodlets_label: Label
 var _moodlet_store: RefCounted
 var _moodlet_rows: Array = [] # Visible card projection (titles/times), not gameplay modifiers.
-const MOODLET_NAMES = {"well_fed":"Вкусно поел", "pride":"Гордость", "admiration":"Восхищение", "success_envy":"Зависть к чужому успеху", "work_satisfaction":"Удовлетворение от работы"}
+const MOODLET_NAMES = {"angry":"Разгневан", "well_fed":"Вкусно поел", "pride":"Гордость", "admiration":"Восхищение", "success_envy":"Зависть к чужому успеху", "work_satisfaction":"Удовлетворение от работы"}
 var _refresh_elapsed := 0.0
 func _widget(id: String) -> Node:
 	return get_node(close_path) if id == "Close" else get_node("%" + id)
@@ -162,6 +162,7 @@ func _refresh() -> void:
 	profession_choice.disabled = _control == null
 	var intent = _control.current_intent(data.id) if _control != null else null
 	var reason: String = String(intent.reason_id) if intent != null else ""
+	if reason == "vent_anger": activity_label.text = "Занятие: " + ("Идёт выпустить злость" if intent.type != preload("res://scripts/resident_intent.gd").Type.NONE else "Выпускает злость")
 	var handling: StringName = intent.resource_handling if intent != null else &""
 	intent_label.text = "Действие: " + (("Погрузка" if handling==&"loading" else "Разгрузка") if not handling.is_empty() else _intent_text(reason))
 	intent_label.visible = not reason.is_empty() and not (reason == "social" and data.activity == Activity.Type.TALKING) and not (reason == "eat" and data.activity == Activity.Type.EATING) and not (reason == "leisure" and data.activity == Activity.Type.RELAXING)
@@ -267,6 +268,7 @@ func _assignment_state_text(state: Assignment.State) -> String:
 		_: return ""
 
 func _intent_text(reason: String) -> String:
+	if reason == "vent_anger": return "Выпустить злость"
 	var labels := {"chop_tree": "Рубка дерева", "plant_tree": "Посадка дерева", "mine_rock": "Добыча камня", "mine_clay": "Добыча глины", "recipe_work": "Производственная работа", "builder_wait_materials": "Ожидает строительные материалы", "builder_source": "Идёт за строительным материалом", "builder_delivery": "Доставляет материалы на стройку", "builder_site": "Строительная работа", "eat": "Идёт поесть", "social": "Идёт к собеседнику", "leisure": "Отдыхает", "wander": "Прогулка", "day_work": "Работа по расписанию", "night_home": "Возвращается домой", "night_outdoor": "Спит снаружи", "haul_source": "Идёт за грузом", "haul_destination": "Доставляет груз", "player_move": "Идёт по приказу игрока", "critical_sleep": "Восстанавливает силы", "rest": "Отдыхает"}
 	return labels.get(reason, reason)
 

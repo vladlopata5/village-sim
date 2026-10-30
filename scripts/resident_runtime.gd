@@ -20,6 +20,7 @@ var builder = preload("res://scripts/resident_builder_controller.gd").new()
 var assignments = Assignments.new()
 var commands = Commands.new()
 var social = Social.new()
+var moodlet_actions = preload("res://scripts/resident_moodlet_actions.gd").new()
 var wander = Wander.new()
 var data: RefCounted
 var view: Node
@@ -46,7 +47,7 @@ func setup(resident: RefCounted, presentation: Node, clock: Node, locations: Ref
 	_on_minute(clock.total_minutes)
 	data.skill_changed.connect(_on_skill_changed)
 	view = presentation
-	for controller in [intents, commands, schedule, need_dynamics, needs, assignments, decision, social, wander, builder, recipe_work, self_logistics, shepherd, clothing, farmer]:
+	for controller in [intents, commands, schedule, need_dynamics, needs, assignments, decision, social, wander, builder, recipe_work, self_logistics, shepherd, clothing, farmer, moodlet_actions]:
 		add_child(controller)
 	for controller in [commands, schedule, needs, assignments, decision, social, wander, builder, recipe_work]:
 		controller.logger = logger
@@ -79,6 +80,8 @@ func setup(resident: RefCounted, presentation: Node, clock: Node, locations: Ref
 	wander.setup(self, clock)
 	decision.wander = wander
 	decision.social = social
+	moodlet_actions.setup(self,clock)
+	decision.moodlet_actions = moodlet_actions
 	decision.setup(clock, data, intents, needs, schedule)
 	builder.setup(data, clock, locations, buildings, intents, decision)
 	recipe_work.setup(self, clock, locations, buildings)

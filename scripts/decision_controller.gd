@@ -33,6 +33,7 @@ var clothing: Node
 var assignments: Node
 var social: Node
 var wander: Node
+var moodlet_actions: Node
 var rng := RandomNumberGenerator.new()
 var last_selection: Dictionary = {}
 var _work_selected := false
@@ -142,6 +143,7 @@ func collect_actions(has_available_work: bool) -> Array:
 	if is_instance_valid(wander) and wander.has_action(): actions.append({"id": "WANDER", "priority": Modifiers.action_utility(_data, Modifiers.Action.WANDER, Balance.WANDER_PRIORITY)})
 	if is_instance_valid(assignments): actions.append_array(assignments.collect_actions())
 	if is_instance_valid(clothing) and clothing.has_action(): actions.append({"id":"CLOTHING","priority":Balance.CLOTHING_PRIORITY})
+	if is_instance_valid(moodlet_actions): actions.append_array(moodlet_actions.collect_actions())
 	return actions
 
 func _can_offer_overtime() -> bool:
@@ -201,6 +203,7 @@ func _choose_need(has_available_work: bool) -> bool:
 			_:
 				if selected.id.begins_with("ASSIGNMENT:"):
 					started = assignments.start(StringName(selected.id.trim_prefix("ASSIGNMENT:")))
+				elif is_instance_valid(moodlet_actions): started = moodlet_actions.start(selected.id,priority)
 		if started: break
 		# A synchronous world change can invalidate an action between check and start.
 		actions = actions.filter(func(row): return row.id != selected.id)

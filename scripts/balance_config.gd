@@ -93,6 +93,9 @@ const EAT_MAX_UTILITY := 10000
 const EAT_UTILITY_EXPONENT := 2.0
 const WANDER_PRIORITY := 500
 const OVERTIME_WORK_PRIORITY := 450 # Comparable to WANDER; no quota or retry delay.
+const VENT_ANGER_PRIORITY := 600 # Ordinary optional action, between WANDER500 and need threshold1000.
+const VENT_ANGER_MINUTES := 10
+const ANGRY_MOODLET_MINUTES := 120
 const WANDER_RADIUS := 100.0
 const WANDER_STAY_MINUTES := 10
 # One uniform draw per ordinary empty-action period, in game minutes.
