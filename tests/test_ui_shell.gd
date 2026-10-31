@@ -76,7 +76,7 @@ func run() -> void:
 	if rendered:
 		# Exercise the real feed connection with an explicit presentation fixture,
 		# without inventing domain history, journal entries or notification state.
-		world.social_events.feed_message.emit("Лента сообщений: существующий SocialFeed")
+		world.game_events.resident_message.emit(world.residents[0].id, world.residents[0].resident_name, "Лента сообщений: существующий SocialFeed")
 		for resolution in [Vector2i(1920,1080),Vector2i(1600,900)]:
 			root.size=resolution
 			await process_frame

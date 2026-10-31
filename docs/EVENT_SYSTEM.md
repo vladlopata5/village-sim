@@ -1,8 +1,9 @@
 # Универсальные события: ядро, представление, первый триггер и личные хранилища
 
-Ядро R2-B1 по-прежнему пригодно для изолированного dry-run. R2-B3 подключает к нему
-только skill.raised через GameEventService и обязательный дневник. Общий renderer
-R2-B2 используется и старым социальным представлением, механика которого сохранена.
+Ядро пригодно и для изолированного dry-run, и для живого подбора через
+GameEventService/EventEffectExecutor. Подключены skill.raised, social.resolved,
+construction.completed и meal.completed. Общий EventTextRenderer сохранён;
+старый отдельный каталог12 социальных историй удалён.
 Ядро состоит из RefCounted; игровой адаптер — один Node без покадровых обновлений.
 
 ## Компоненты и вызов
@@ -178,26 +179,15 @@ ID/kind переопределять нельзя; отсутствующее и
 политика отправки остаются у вызывающей стороны. Формирование этих строк не означает
 создания обязательной записи дневника или исполнения выбранного события.
 
-### Адаптер старых историй
+### Удалённый адаптер старых историй
 
-SocialNarrativeEntry сохраняет свой формат, фильтры и render(template,a,b). Этот метод
-передаёт renderer только два имени и включает legacy-диалект %A%/%B%. Для него сохранён
-прежний порядок замен: сначала A, затем B; фигурные скобки не интерпретируются.
-Это совместимый вход в общий renderer, не второй каталог историй/планировщик.
-Все 12 entries.json остаются побайтно прежними. Fallback также формируется renderer,
-с прежними строками и однопроходной подстановкой имён, как у старого sprintf.
-
-SocialNarrativePresenter теперь владеет matching, одним ticket на entry, выбором
-ориентации, Feed и опциональным Diary; SocialEventService вызывает его через
-небольшие совместимые методы. Шансы, RNG draws, реакции, −1/0/+1, границы
-20% для каждой непустой дневниковой стороны и две попытки при создании пары прежние.
-Правило обязательного diary_main универсальных событий к legacy не применяется.
-
-До изменений presentation снят golden на 03b590b: 648 сочетаний фильтров, 24 случая
-историй (12 × обе ориентации), границы Diary/пустые строки, 150 seeded resolves,
-runtime-вступления в разговор и сервисные MEAL/WORK. Fixture не пересоздаётся обычным запуском
-теста. test_event_presentation_compatibility.gd сравнивает её с текущим поведением;
-test_event_text_renderer.gd проверяет новые шаблоны и результаты R2-B1.
+R2-B2 временно использовал общий renderer для старого социального представления.
+Теперь каталог12 историй, SocialNarrativePresenter/Entry, fallback, narrative RNG,
+переключатель и совместимые обёртки удалены. У render больше нет legacy-режима
+%A%/%B%; эти последовательности являются обычным текстом. Исполняемый renderer
+EventEngine, его JSON-выражения и отдельные каналы дневников сохранены.
+Старая presentation fixture удалена; её проверку механики заменяет снятый до
+удаления social_mechanics_golden на2100 взаимодействий всех13 черт и пяти seed.
 
 ## R2-B3: skill.raised → обязательный Diary
 
@@ -551,8 +541,8 @@ R2-B1/B2/B3/B4a и golden старых социальных историй.
 Main подключает GameEventService.attach_social к одному SocialEventService на сессию
 мира. Общий источник для CONVERSATION/MEAL/WORK — новый interaction_committed после
 существующего resolve. Старые chance, participant_pool, реакции, обе записи отношений,
-present (делегированный отдельному presenter), logger и event_resolved сохраняют
-прежний порядок. Feed/Diary остаются прежними при включённом legacy-представлении.
+logger и event_resolved сохраняют прежний порядок. Старого present/Feed/Diary
+между расчётом и публикацией больше нет; вывод выполняют выбранные JSON-события.
 Новый источник не подписан отдельно на нужды/работу/минуты разговора.
 
 При вложенном legacy resolve новые уведомления ждут окончания внешнего legacy вызова.
@@ -570,10 +560,10 @@ ID. GameEventService допускает один социальный producer �
 Между запусками/сохранениями ID пока не сохраняются.
 
 SocialEvent.confirmed_context() возвращает копию зафиксированных данных. Они отделены
-от прежних изменяемых полей представления/ориентации результата:
+от дальнейших изменений состояния жителей; старые поля представления удалены:
 
 - trigger="social.resolved", actor/other — две resident-ссылки; actor — инициатор
-  исходной legacy попытки, даже если текст старой истории использовал reverse.
+  исходной социальной попытки. Перестановки ролей ради старого текста больше нет.
 - minute — время попытки; payload.time_known отмечает наличие clock. Без clock
   отдельный тестовый сервис использует 0 с time_known=false.
 - payload.interaction — CONVERSATION/MEAL/WORK; reaction_1/reaction_2 — NEGATIVE,
@@ -638,7 +628,7 @@ source_occurrence_id/context._event добавляет прежний испол
 SOCIAL_FOLLOWUP_EVENT_CHANCE=0.30 в BalanceConfig — отдельный тестовый шанс после
 подтверждённого legacy результата, не замена старых 30%/100%/50%. Тесты могут поставить
 selector.set_chance("social.resolved",1). Используются существующие собственные
-selector/executor RNG универсальной системы, не legacy rng/narrative_rng. В production
+selector/executor RNG универсальной системы, отдельно от rng социальных реакций. В production
 JSON не навязан новый cooldown; его прежний необязательный формат работает и проверен.
 
 Первое определение описывает зависть инициатора. Возможность сделать вторую сторону
@@ -978,48 +968,38 @@ commit согласует все записи до publish, где отправ�
 запись. Повтор того же события после refresh/expiry/remove остаётся no-op через
 существующий event replay, без новой истории обработанных событий внутри Store.
 
-## Разделение социальной механики и старых историй (2026-10-31)
+## Окончательное удаление старых социальных историй (2026-10-31)
 
-SocialEventService сохраняет точки входа CONVERSATION/MEAL/WORK, chance, поиск
-участников, снимок двух attitudes, обе реакции и apply_opinion_change. Персональные
-HOTHEADED/CALM и их opinion_rng остаются в ResidentData/ResidentModifiers.
-В сервисе также остаются подтверждённый контекст, счётчик occurrence, защита вложенной
-публикации, interaction_committed и календарный cleanup прежних временных дневников.
-GameEventService и контракт social.resolved не изменены.
+SocialEventService теперь отвечает только за источники CONVERSATION/MEAL/WORK,
+контекстные30/100/50%, выбор второго участника, снимок двух attitudes, независимые
+реакции, apply_opinion_change, диагностику и подтверждённый social.resolved.
+HOTHEADED/CALM, персональный opinion_rng, очередь вложенных commit и уникальность
+occurrence сохранены. Старые поля selected_entry_id/reversed_orientation удалены
+только из transient SocialEvent; packet confirmed_context остался прежним.
 
-Новый небольшой RefCounted SocialNarrativePresenter содержит только прежнее
-представление: загрузку12 entries.json, narrative RNG, matching/orientation,
-feed, опциональные20%-дневники и fallback-тексты. Он использует тот же
-SocialNarrativeEntry/EventTextRenderer, не рассчитывает отношения и не вызывает
-EventEngine. Переданный clock используется на прежней границе записи Diary,
-без новой подписки на минуты/фазы и без долгоживущего хранения мира в presenter.
+Удалены assets/social_events/entries.json, SocialNarrativePresenter/Entry и UID,
+legacy_stories_enabled, entries/narrative_rng/diary_chance, matching/present/fallback,
+feed_message сервиса и его подключение в Main. set_seed задаёт только механический
+RNG. Неиспользуемый SOCIAL_EVENT_DIARY_CHANCE и legacy-ветка renderer удалены.
+Новых заменяющих фраз или событий не добавлялось: обычное взаимодействие допустимо
+без текста в чате и без дневника. Ни одна реакция или единица opinion от этого не теряется.
 
-По умолчанию старые истории включены. Для проверки или следующего этапа перехода:
+GameEventService получает прежний interaction_committed после диагностики и
+event_resolved. Все его каталоги, вероятность follow-up30%, веса, cooldown, эффекты,
+дневники и сообщения не менялись. Одна попытка interaction по-прежнему создаёт один
+факт; при создании пары остаются две независимые попытки. Новые JSON-истории могут
+оставить дневник/память/мудлет; это не автоматический вывод каждого взаимодействия.
 
-```gdscript
-world.social_events.legacy_stories_enabled = false
-```
+SocialFeed и его общий add_message/add_resident_message сохранены для chat.say
+и независимых реплик пастуха. INFO/DEBUG социального сервиса сохраняют время,
+участников, контекст, attitudes, rolls, реакции и дельты; из них удалены лишь
+несуществующие entry ID/счётчики старого вывода. Утреннее удаление TEMPORARY Diary
+сохранено как общий lifecycle: этот тип дневника поддерживается EventEngine/API.
 
-Это отключает только present: нет выбора записи, narrative RNG draws, реплик,
-старых дневников и fallback. Сам resolve и его подтверждённый social.resolved
-проходят прежним путём, а JSON-истории сохраняют свои шансы/последствия/дневники.
-Старое `enabled=false` по-прежнему отключает обычный trigger целиком и для этой
-цели не используется. `entries=[]` также не заменяет новый переключатель:
-при включённом presenter пустой набор по-прежнему печатает две fallback-реплики.
-
-Совместимые entries/narrative_rng/diary_chance и matching_entries/present у сервиса
-только делегируют в один presenter; второй копии данных или RNG нет. set_seed
-сохраняет прежний XOR для narrative stream. При отключении legacy этот поток не
-расходуется; механический, персональные opinion и универсальные event RNG не
-меняются. Повторное включение возобновляет оставшийся narrative stream.
-
-Порядок публикации при включённом представлении сохранён: механика/confirmed
-snapshot → legacy output → logger/event_resolved → drain interaction_committed →
-GameEventService. При отключённом режиме пропускается только legacy output.
-Представление не может опубликовать взаимодействие повторно или изменить frozen
-payload ориентацией рассказа. Прежняя возможность вложенных callbacks отношений
-и порядок фактов при них сохранены, новой транзакции отношений не вводилось.
-
-12 историй не перенесены, JSON и golden fixture не менялись. Компонент пока загружает
-старый каталог при создании, даже если затем выключен; удаление этого файла и
-окончательное переключение канонической игры остаются следующим заданием.
+Удалены тесты только старого представления и его golden. Механические проверки
+остались: thresholds, directed traits/opinion, RNG, source hooks, двойной старт,
+participant pools, вложенные commits и EventEngine on/off parity. Добавлен компактный
+pre-removal golden:70 контрольных сумм (13 черт плюс обычный житель ×5 seed),
+30 взаимодействий на случай, всего2100. Сверяются payload, мнения и состояния RNG.
+Реальные conversation/meal/builder controllers и общие сообщения/диагностика
+продолжают проверяться отдельно. Нового фреймворка или изменения AI не требуется.

@@ -101,7 +101,7 @@ func _social() -> void:
 			var a := Data.new("a", "A", 25); var b := Data.new("b", "B", 25)
 			a.add_trait(Trait.Type.HOTHEADED)
 			var rounding := RoundingRng.new(); a.opinion_rng = rounding
-			var social := Social.new(); root.add_child(social); social.entries = []
+			var social := Social.new(); root.add_child(social)
 			var reaction := ReactionRng.new(); reaction.rolls = [-100, 100] if negative else [100, -100]; social.rng = reaction
 			var result = social.resolve(a, b, context)
 			var payload: Dictionary = result.confirmed_context().payload
@@ -109,8 +109,8 @@ func _social() -> void:
 			check(result.opinion_delta_1 == sign_value and a.get_opinion("b") == 2 * sign_value and b.get_opinion("a") == -sign_value and rounding.calls == 1, "Conversation/meal/work apply owner modifier once; raw reactions unchanged")
 			check(payload.applied_delta_1 == 2 * sign_value and payload.opinion_after_1 == 2 * sign_value and payload.applied_delta_2 == -sign_value, "Social world trigger receives actual applied delta")
 			check(reaction.calls == 2, "Rounding never consumes reaction RNG")
-			social.present(result, a, b, [], []); social.present(result, a, b, [], [])
-			check(a.get_opinion("b") == 2 * sign_value and rounding.calls == 1, "Repeated presentation cannot reapply opinion or reroll")
+			result.confirmed_context(); social._publish_commits(); social._publish_commits()
+			check(a.get_opinion("b") == 2 * sign_value and rounding.calls == 1, "Repeated reads/publication cannot reapply opinion or reroll")
 			check(is_equal_approx(Modifiers.social_partner_multiplier(a, a.get_opinion("b")), 1.0 + 0.003 * 2 * sign_value), "Partner choice continues to use actual directed opinion")
 			a.set_opinion("b", 0); b.set_opinion("a", 0); reaction.calls = 0; reaction.rolls = [0, 0]
 			social.resolve(a, b, context)

@@ -2,10 +2,6 @@ extends SceneTree
 const TextRenderer = preload("res://scripts/event_text_renderer.gd")
 const Facts = preload("res://scripts/event_facts.gd")
 const Setup = preload("res://tests/event_test_setup.gd")
-const Entry = preload("res://scripts/social_narrative_entry.gd")
-const Data = preload("res://scripts/resident_data.gd")
-const Service = preload("res://scripts/social_event_service.gd")
-const SocialEvent = preload("res://scripts/social_event.gd")
 var checks := 0
 var failures := 0
 
@@ -31,14 +27,6 @@ func _initialize() -> void:
 	var node := Node.new()
 	check(not TextRenderer.render("{actor.name}", {"actor": node}).ok, "Live Godot objects are not read")
 	node.free()
-	var entry := Entry.new()
-	var a := Data.new("a", "%B%", 25)
-	var b := Data.new("b", "Борис", 30)
-	check(entry.render("%A% / %B% / {actor.name}", a, b) == "Борис / Борис / {actor.name}", "Legacy ordered replacements and literal braces retained exactly")
-	var service := Service.new()
-	a.resident_name = "{other.name} %B%"
-	check(service._fallback_text(a, b, SocialEvent.Reaction.NEUTRAL) == "{other.name} %B%: «Провёл время с Борис — ничего особенного».", "Fallback keeps sprintf-style literal names through common renderer")
-	service.free()
 	var data := Setup.enabled_data()
 	var labels := {}
 	for id in ["a", "b", "c"]: labels[Facts.ref_key(Setup.person(id))] = {"name": {"a": "Анна", "b": "Борис", "c": "Степан"}[id]}

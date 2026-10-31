@@ -10,14 +10,19 @@ func check(ok: bool,message: String) -> void:
 func run() -> void:
 	var world=F.create(self)
 	var received: Array[String]=[]
-	world.social_events.feed_message.connect(func(text):received.append(text))
+	world.game_events.resident_message.connect(func(_id,resident_name,text):received.append("%s: «%s»." % [resident_name,text]))
+	var initial: int=world.social_feed.messages.size()
 	var event=world.social_events.resolve(world.residents[0],world.residents[1],E.Context.CONVERSATION)
-	check(event!=null and not received.is_empty(),"Real social resolution supplies presentation")
-	check(world.social_feed.messages.map(func(label):return label.text)==received,"Feed preserves payload and signal publication order")
+	check(event!=null and world.social_feed.messages.size()==initial,"Ordinary social interaction invents no chat text")
+	# Exercise existing EventEngine and independent shepherd UI routes, not a new story.
+	world.game_events.resident_message.emit(world.residents[0].id,world.residents[0].resident_name,"я вкусно поел")
+	check(world.social_feed.messages.back().text==received.back(),"EventEngine message keeps exact sender and text")
+	world.resident_runtimes[0].shepherd.say("Мне некуда привести овцу")
+	check(world.social_feed.messages.back().text=="%s: «Мне некуда привести овцу»." % world.residents[0].resident_name,"Independent diagnostic resident message remains available")
 	var before: Array=received.duplicate()
 	world.social_feed._show_latest()
 	check(received==before,"Rendering cannot generate additional social messages")
-	check(world.social_feed._column.get_child(0).text==received[-1],"Latest actual event payload at top")
+	check(world.social_feed._column.get_child(0).text==world.social_feed.messages.back().text,"Latest actual message remains at top")
 	var game_minute: int=world.game_time.total_minutes
 	paused=true
 	await create_timer(12.15,true).timeout

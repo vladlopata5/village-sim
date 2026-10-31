@@ -72,14 +72,14 @@ func _social() -> void:
 		for draw in [0.0, 0.9]:
 			var a := Data.new("a", "A", 25); var b := Data.new("b", "B", 25); a.add_trait(Trait.Type.CALM)
 			var rounding := RoundingRng.new(); rounding.value = draw; a.opinion_rng = rounding
-			var service := Social.new(); root.add_child(service); service.entries = []
+			var service := Social.new(); root.add_child(service)
 			var reactions := ReactionRng.new(); service.rng = reactions
 			var result = service.resolve(a, b, context); var payload: Dictionary = result.confirmed_context().payload
 			var applied := -1 if draw < 0.75 else 0
 			check(payload.opinion_delta_1 == -1 and payload.opinion_before_1 == 0 and payload.opinion_after_1 == applied and payload.applied_delta_1 == applied, "Social payload preserves raw reaction and actual zero/nonzero outcome")
 			check(a.get_opinion("b") == applied and b.get_opinion("a") == 1 and rounding.calls == 1 and reactions.calls == 2, "Only CALM direction reduced; old reaction RNG unchanged")
-			service.present(result, a, b, [], []); service.present(result, a, b, [], [])
-			check(rounding.calls == 1 and a.get_opinion("b") == applied, "Repeated presentation cannot reroll or apply twice")
+			result.confirmed_context(); service._publish_commits(); service._publish_commits()
+			check(rounding.calls == 1 and a.get_opinion("b") == applied, "Repeated reads/publication cannot reroll or apply twice")
 			service.free()
 	var nested_person := Data.new("nested", "Nested", 25); nested_person.add_trait(Trait.Type.CALM)
 	var rng := RoundingRng.new(); rng.value = 0.0; nested_person.opinion_rng = rng

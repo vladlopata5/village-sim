@@ -1,9 +1,7 @@
 extends SceneTree
 const Service = preload("res://scripts/social_event_service.gd")
 const Event = preload("res://scripts/social_event.gd")
-const Entry = preload("res://scripts/social_narrative_entry.gd")
 const Data = preload("res://scripts/resident_data.gd")
-const Diary = preload("res://scripts/diary_entry.gd")
 const EventLog = preload("res://scripts/game_logger.gd")
 const Setup = preload("res://tests/behavior_test_setup.gd")
 class FixedRng extends RefCounted:
@@ -17,7 +15,6 @@ class FixedRng extends RefCounted:
 		return clampi(value,low,high)
 var checks := 0
 var failures := 0
-var feed: Array = []
 var logs: Array = []
 var info_logs: Array = []
 func _initialize() -> void: call_deferred("_run")
@@ -40,64 +37,25 @@ func _run() -> void:
 	game_clock.set_process(false)
 	game_clock.total_minutes=635
 	service.logger.setup(game_clock)
-	service.feed_message.connect(func(text): feed.append(text))
 	var random := FixedRng.new()
 	service.rng=random
 	var a := Data.new("a","Анна",25)
 	var b := Data.new("b","Степан",30)
-	service.entries=[]
 	for context in Event.Context.values():
 		for first_roll in [-100,0,100]:
 			for second_roll in [-100,0,100]:
 				# Reset opinion so all nine reaction combinations are explicit.
 				a.set_opinion(b.id,0); b.set_opinion(a.id,0)
 				random.values=[first_roll,second_roll]; random.cursor=0
-				feed.clear(); logs.clear(); info_logs.clear()
+				logs.clear(); info_logs.clear()
 				var outcome:=service.resolve(a,b,context)
-				check(outcome!=null and feed.size()==2,"Every successful no-match event emits Feed, all contexts/outcomes")
-				check(logs.size()==1 and logs[0].contains("entry=none feed=2 diary=0"),"Exactly one DEBUG for event with output counts")
+				check(outcome!=null,"Accepted interaction exists independently of presentation")
+				check(logs.size()==1 and logs[0].contains("context="+Event.Context.keys()[context]),"Exactly one diagnostic DEBUG for mechanical event")
 				check(info_logs.size()==1 and info_logs[0].begins_with("[10:35][SOCIAL_EVENT]"),"One ordinary log per event with game time")
 				check(info_logs[0].contains("context="+Event.Context.keys()[context]) and info_logs[0].contains("A=Анна B=Степан"),"Ordinary log contains context and both names")
 				check(info_logs[0].contains("reaction=%s delta=%+d" % [Event.Reaction.keys()[outcome.reaction_1],outcome.opinion_delta_1]) and info_logs[0].contains("reaction=%s delta=%+d" % [Event.Reaction.keys()[outcome.reaction_2],outcome.opinion_delta_2]),"Ordinary log contains both reactions and signed deltas")
-				check(info_logs[0].ends_with("entry=none"),"No narrative match still logged")
-				check(a.diary_entries.is_empty() and b.diary_entries.is_empty(),"Fallback alone never creates Diary")
-				check(a.get_opinion(b.id)==Service.delta(outcome.reaction_1) and b.get_opinion(a.id)==Service.delta(outcome.reaction_2),"Fallback preserves mechanical opinion updates")
-				var word: String = "Приятно" if first_roll>50 else "раздражает" if first_roll< -50 else "ничего особенного"
-				check(feed[0].contains("Анна") and feed[0].contains("Степан") and feed[0].contains(word),"Reaction-aware fallback with correct names")
-	print(info_logs[0])
-	var narrative := Entry.new({"id":"specific","feed_text_a":"%A% встретил %B%","diary_text_a":"diary %A%","diary_importance":Diary.Importance.TEMPORARY})
-	service.entries=[narrative]
-	random.values=[100,-100]
-	service.diary_chance=0
-	feed.clear(); logs.clear(); info_logs.clear()
-	service.logger.debug_enabled=false
-	var result:=service.resolve(a,b,Event.Context.MEAL)
-	check(feed.size()==1 and feed[0].contains("встретил"),"One narrative line sufficient, no fallback duplication")
-	check(logs.is_empty() and info_logs.size()==1 and info_logs[0].ends_with("entry=specific"),"Ordinary selected-entry log works without DEBUG toggle")
-	check(a.diary_entries.is_empty() and b.diary_entries.is_empty(),"Diary chance zero remains independent")
-	# Use forced orientation for stable assertions, leave filtering itself untouched.
-	narrative.conditions={"reaction_a":"POSITIVE"}
-	narrative.feed_text_a=""
-	service.diary_chance=1
-	feed.clear(); logs.clear(); info_logs.clear()
-	result=service.resolve(a,b,Event.Context.MEAL)
-	check(feed.size()==2 and result.selected_entry_id=="specific","Selected entry without Feed uses fallback, selection preserved")
-	check(a.diary_entries.size()==1 and b.diary_entries.is_empty(),"Selected narrative still controls independent Diary")
-	check(info_logs.size()==1 and info_logs[0].ends_with("entry=specific"),"Fallback does not change logged selected entry")
-	var before: int = a.get_opinion(b.id)
-	feed.clear()
-	var output:=service.present(result,a,b,[],[])
-	check(a.get_opinion(b.id)==before and output.feed==2,"Repeated presentation/fallback never changes opinion")
-	narrative.diary_importance=Diary.Importance.NONE
-	narrative.feed_text_a=" "; narrative.feed_text_b="\t"
-	feed.clear(); logs.clear(); info_logs.clear()
-	result=service.resolve(a,b,Event.Context.WORK)
-	check(feed.size()==2 and info_logs.size()==1,"Whitespace output also falls back; NONE never creates Diary")
-	narrative.feed_text_b="%B%: normal"
-	feed.clear()
-	service.resolve(a,b,Event.Context.WORK)
-	check(feed.size()==1 and feed[0].ends_with("normal"),"B-only narrative output suppresses fallback")
-	check(service.resolve(a,a,Event.Context.WORK)==null,"Rejected self event has no output")
+				check(a.diary_entries.is_empty() and b.diary_entries.is_empty(),"Ordinary mechanics does not invent Diary")
+				check(a.get_opinion(b.id)==Service.delta(outcome.reaction_1) and b.get_opinion(a.id)==Service.delta(outcome.reaction_2),"Mechanical directed opinion updates preserved")
 	service.free()
 	game_clock.free()
 	var scene=Setup.make_scene(self)
@@ -117,5 +75,5 @@ func _run() -> void:
 	random.probability=0
 	check(service.trigger(actor,Event.Context.CONVERSATION)==null and logs.is_empty() and info_logs.is_empty(),"No eligible participants also creates no event/log")
 	scene.free()
-	print("Social Feed guarantee checks: %d, failures: %d" % [checks,failures])
+	print("Social diagnostic checks: %d, failures: %d" % [checks,failures])
 	quit(0 if failures==0 else 1)

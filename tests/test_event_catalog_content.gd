@@ -42,7 +42,7 @@ func _run() -> void:
 	competition()
 	chances_and_cooldowns()
 	actual_memory_chain()
-	legacy_catalog_parity()
+	mechanical_catalog_parity()
 	matrix()
 	await actual_conversation()
 	print("Event catalog content: %d checks, %d failures" % [checks, failures])
@@ -201,20 +201,18 @@ func matrix() -> void:
 				check(f.rng.draws == draws and f.service.executor.rng.draws == effect_draws and f.service.completed_events().size() == after, "Full catalog matrix deduplicates an actual confirmed result")
 				cleanup(f)
 
-func legacy_catalog_parity() -> void:
+func mechanical_catalog_parity() -> void:
 	var traces: Array = []
 	for enabled_followup in [false, true]:
 		var f := fixture(); prime(f)
-		f.social.entries = JSON.parse_string(FileAccess.get_file_as_string("res://assets/social_events/entries.json")).map(func(raw): return preload("res://scripts/social_narrative_entry.gd").new(raw))
 		f.social.rng = RandomNumberGenerator.new(); f.social.set_seed(77)
 		f.service.selector.set_chance("social.resolved", 1 if enabled_followup else 0)
-		var events: Array = []; var feed: Array = []; var diaries: Array = []
+		var events: Array = []; var diaries: Array = []
 		var starts := [0, 0]
-		f.social.feed_message.connect(func(text): feed.append(text))
 		# This legacy notification precedes the generic post-commit hook. Capture
 		# its actual diary additions, not a text-based guess about their origin.
 		f.social.event_resolved.connect(func(result):
-			events.append([result.roll_1, result.roll_2, result.reaction_1, result.reaction_2, result.opinion_delta_1, result.opinion_delta_2, result.selected_entry_id, result.reversed_orientation])
+			events.append([result.roll_1, result.roll_2, result.reaction_1, result.reaction_2, result.opinion_delta_1, result.opinion_delta_2, result.confirmed_context()])
 			var additions: Array = []
 			for index in 2:
 				var person: RefCounted = f.a if index == 0 else f.b
@@ -224,10 +222,10 @@ func legacy_catalog_parity() -> void:
 			starts[0] = f.a.diary_entries.size(); starts[1] = f.b.diary_entries.size()
 			f.clock.total_minutes = 635 + i
 			f.social.resolve(f.a, f.b, (i % 3) as SocialResult.Context)
-		traces.append([events, feed, diaries, f.social.rng.state, f.social.narrative_rng.state, f.a.get_opinion("b"), f.b.get_opinion("a")])
+		traces.append([events, diaries, f.social.rng.state, f.a.get_opinion("b"), f.b.get_opinion("a")])
 		check(not enabled_followup or f.service.completed_events().size() > 1, "Parity scenario actually executes new content")
 		cleanup(f)
-	check(traces[0] == traces[1], "Full enabled catalog preserves exact legacy reactions, feed, diary attempts, relations and RNG states")
+	check(traces[0] == traces[1], "Full enabled catalog preserves exact reactions, confirmed facts, lack of direct diary writes, relations and RNG state")
 
 func actual_conversation() -> void:
 	var scene := Setup.make_scene(self); configure_world(scene)

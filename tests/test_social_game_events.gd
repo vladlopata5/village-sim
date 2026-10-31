@@ -39,7 +39,7 @@ func fixture(people: Array = []) -> Dictionary:
 	service.catalog.load_data({"definitions": historical}, service.facts)
 	service.selector.set_chance("social.resolved", 1)
 	service.selector.rng = CountingRng.new(); service.executor.rng = SequenceRng.new()
-	var social := SocialService.new(); root.add_child(social); social.clock = clock; social.entries = []; social.rng = LegacyRng.new()
+	var social := SocialService.new(); root.add_child(social); social.clock = clock; social.rng = LegacyRng.new()
 	service.attach_social(social)
 	return {"control": control, "clock": clock, "service": service, "social": social, "rng": service.selector.rng, "a": people[0], "b": people.back()}
 
@@ -214,24 +214,21 @@ func swap_roles(value: Variant) -> Variant:
 	return value
 
 func compatibility_and_identity() -> void:
-	# Identical seeds/results/feed/legacy diary attempts with the extra channel on/off.
+	# Universal stories never perturb ordinary reaction mechanics or its RNG.
 	var traces: Array = []
 	for enabled_followup in [false, true]:
 		var f := fixture(); prime(f)
-		f.social.entries = JSON.parse_string(FileAccess.get_file_as_string("res://assets/social_events/entries.json")).map(func(raw): return preload("res://scripts/social_narrative_entry.gd").new(raw))
 		f.social.rng = RandomNumberGenerator.new()
 		f.social.set_seed(77)
 		if not enabled_followup: f.service.selector.set_chance("social.resolved", 0)
-		var events: Array = []; var feed: Array = []
-		f.social.feed_message.connect(func(text): feed.append(text))
+		var events: Array = []
 		for i in 30:
 			var result: RefCounted = f.social.resolve(f.a, f.b, (i % 3) as SocialResult.Context)
-			events.append([result.roll_1, result.roll_2, result.reaction_1, result.reaction_2, result.opinion_delta_1, result.opinion_delta_2, result.selected_entry_id, result.reversed_orientation])
-		var legacy_diary: Array = []
-		for person in [f.a, f.b]: legacy_diary.append(person.diary_entries.filter(func(entry): return not entry.text.contains("испытывает зависть:")).map(func(entry): return [entry.text, entry.importance, entry.created_minute]))
-		traces.append([events, feed, legacy_diary, f.social.rng.state, f.social.narrative_rng.state, f.a.get_opinion("b"), f.b.get_opinion("a")])
+			events.append([result.roll_1, result.roll_2, result.reaction_1, result.reaction_2, result.opinion_delta_1, result.opinion_delta_2, result.confirmed_context()])
+		check(f.a.diary_entries.size()==social_count(f),"Only completed universal follow-ups create initiator diaries")
+		traces.append([events,f.social.rng.state,f.a.get_opinion("b"),f.b.get_opinion("a")])
 		cleanup(f)
-	check(traces[0] == traces[1], "Enabled follow-up preserves legacy rolls, narratives, feed, 20% diaries, final RNG states and relations")
+	check(traces[0] == traces[1], "Enabled follow-up preserves exact rolls, confirmed contexts, RNG state and directed relations")
 	var repeated := fixture(); prime(repeated)
 	var one: RefCounted = repeated.social.resolve(repeated.a, repeated.b, SocialResult.Context.CONVERSATION)
 	var two: RefCounted = repeated.social.resolve(repeated.a, repeated.b, SocialResult.Context.CONVERSATION)
@@ -241,7 +238,7 @@ func compatibility_and_identity() -> void:
 func configure_world(scene: Node) -> void:
 	scene.game_time.set_process(false); scene.game_time.total_minutes = 635
 	scene.game_logger.console_enabled = false
-	scene.social_events.enabled = true; scene.social_events.diary_chance = 0
+	scene.social_events.enabled = true
 	scene.social_events.rng = LegacyRng.new()
 	scene.game_events.selector.set_chance("social.resolved", 1)
 	scene.game_events.executor.rng = SequenceRng.new()

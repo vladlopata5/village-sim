@@ -1,7 +1,6 @@
 extends SceneTree
 const Service = preload("res://scripts/social_event_service.gd")
 const Event = preload("res://scripts/social_event.gd")
-const Entry = preload("res://scripts/social_narrative_entry.gd")
 const Diary = preload("res://scripts/diary_entry.gd")
 const Data = preload("res://scripts/resident_data.gd")
 const Trait = preload("res://scripts/trait_type.gd")
@@ -28,7 +27,6 @@ class FixedRng extends RefCounted:
 		return clampi(value, low, high)
 var checks := 0
 var failures := 0
-var feed: Array = []
 var debug_lines: Array = []
 var event_count := 0
 func _initialize() -> void: call_deferred("_run")
@@ -44,17 +42,9 @@ func fixed(service: Node, rolls: Array = [0, 0], probability: float = 0.0) -> Fi
 	random.probability = probability
 	service.rng = random
 	return random
-func result() -> Event:
-	var value := Event.new()
-	value.context = Event.Context.CONVERSATION
-	value.reaction_1 = Event.Reaction.POSITIVE
-	value.reaction_2 = Event.Reaction.NEGATIVE
-	return value
 func _run() -> void:
-	check(Balance.SOCIAL_EVENT_DIARY_CHANCE==0.20,"Diary prototype chance")
 	var service := Service.new()
 	root.add_child(service)
-	service.feed_message.connect(func(text): feed.append(text))
 	service.logger=preload("res://scripts/game_logger.gd").new()
 	service.logger.debug_enabled=true
 	service.logger.console_enabled=false
@@ -103,63 +93,17 @@ func _run() -> void:
 	check(a.relationships.is_empty() and b.relationships.is_empty(),"Neutral preserves sparse lazy records")
 	check(service.resolve(a,a,Event.Context.WORK)==null,"Self event rejected")
 	check(not "social_attitude" in a,"Attitude is not resident stored state")
-	service.entries=[]; fixed(service,[100,-100]); event=service.resolve(a,b,Event.Context.MEAL)
-	check(event.selected_entry_id.is_empty() and a.get_opinion(b.id)==1 and b.get_opinion(a.id)==-1,"No text match preserves mechanical result")
-	check(not feed.is_empty(),"No-match feed fallback")
-	var before: int=a.get_opinion(b.id)
-	service.present(event,a,b,[],[])
-	check(a.get_opinion(b.id)==before,"Presentation never mutates opinion")
-	# Every optional condition independently filters; wildcard entries remain eligible.
-	event=result(); b.add_trait(Trait.Type.FOOLISH); a.add_trait(Trait.Type.LAZY)
-	var filters: Array=[{"allowed_contexts":["MEAL"]},{"reaction_a":"NEUTRAL"},{"reaction_b":"NEUTRAL"},{"required_traits_a":[Trait.Type.FOOLISH]},{"required_traits_b":[Trait.Type.LAZY]},{"participant_state_tags_a":["EATING"]},{"participant_state_tags_b":["WORKING"]}]
-	for condition in filters:
-		var entry := Entry.new({"id":"filter","conditions":condition})
-		check(not entry.matches(event.context,a,b,event.reaction_1,event.reaction_2,["TALKING"],["TALKING"]),"Mismatching optional condition rejected")
-	var wildcard := Entry.new({"id":"general"})
-	var specific := Entry.new({"id":"specific","conditions":{"allowed_contexts":["CONVERSATION"],"reaction_a":"POSITIVE","reaction_b":"NEGATIVE","required_traits_a":[Trait.Type.LAZY],"required_traits_b":[Trait.Type.FOOLISH],"participant_state_tags_a":["TALKING"],"participant_state_tags_b":["VISITOR"]}})
-	service.entries=[wildcard,specific]
-	var matches:=service.matching_entries(event,a,b,["TALKING"],["VISITOR"])
-	check(matches.size()==2,"General and specific get one ticket each")
-	check(matches[0].orientations.size()==2,"Both orientations do not double entry weight")
-	check(specific.matches(event.context,a,b,event.reaction_1,event.reaction_2,["TALKING"],["VISITOR"]),"All filters can match")
-	# Reverse orientation applies to text only, not to mechanical directions.
-	var reverse := Entry.new({"id":"reverse","conditions":{"reaction_a":"NEGATIVE","required_traits_b":[Trait.Type.LAZY]},"feed_text_a":"%A% -> %B%","feed_text_b":"%B% -> %A%","diary_text_a":"%A% dislikes %B%","diary_text_b":"%B% likes %A%","diary_importance":1})
-	service.entries=[reverse]; service.diary_chance=1; feed.clear()
-	service.present(event,a,b,["TALKING"],["TALKING"])
-	check(event.reversed_orientation and event.selected_entry_id=="reverse","Reverse orientation selected")
-	check(feed==["Марина -> Анна","Анна -> Марина"],"A/B feed names reversed correctly")
-	check(b.diary_entries.back().text=="Марина dislikes Анна" and a.diary_entries.back().text=="Анна likes Марина","A/B diary ownership follows narrative roles")
-	check(event.reaction_1==Event.Reaction.POSITIVE,"Presentation leaves result directions unchanged")
-	# Diary rules and morning expiry; every roll independent from mechanical RNG.
-	a.diary_entries.clear(); b.diary_entries.clear(); service.diary_chance=0
-	service.present(event,a,b,[],[])
-	check(a.diary_entries.is_empty() and b.diary_entries.is_empty(),"Diary chance zero prevents history")
-	service.diary_chance=1; reverse.diary_importance=Diary.Importance.NONE
-	service.present(event,a,b,[],[])
-	check(a.diary_entries.is_empty(),"NONE prevents history even at chance one")
-	reverse.diary_importance=Diary.Importance.KEY
-	service.present(event,a,b,[],[])
-	check(a.diary_entries[0].importance==Diary.Importance.KEY,"KEY history stored")
-	a.add_diary_entry(Diary.new("temporary",Diary.Importance.TEMPORARY,100))
-	a.expire_temporary_diary(360)
-	check(a.diary_entries.size()==1 and a.diary_entries[0].importance==Diary.Importance.KEY,"Morning removes temporary and retains key")
-	reverse.diary_text_a=""; reverse.diary_text_b=""; reverse.feed_text_a=""; reverse.feed_text_b=""; feed.clear()
-	service.present(event,a,b,[],[])
-	check(feed.size()==2 and a.diary_entries.size()==1,"Missing output text uses feed fallback without extra diary")
-	# Equal-weight sampling and narrative independence from mechanics.
-	service.entries=[wildcard,specific]; service.rng=RandomNumberGenerator.new(); service.set_seed(5)
-	var counts := {"general":0,"specific":0}
-	for i in range(1000):
-		service.present(event,a,b,["TALKING"],["VISITOR"])
-		counts[event.selected_entry_id]+=1
-	check(counts.general>400 and counts.specific>400,"Uniform entries including general/specific")
+	fixed(service,[100,-100]); event=service.resolve(a,b,Event.Context.MEAL)
+	check(a.get_opinion(b.id)==1 and b.get_opinion(a.id)==-1 and a.diary_entries.is_empty() and b.diary_entries.is_empty(),"Ordinary interaction preserves reactions without inventing narrative output")
 	var s2:=Service.new(); root.add_child(s2)
-	service.set_seed(123); s2.set_seed(123); s2.entries=[]
+	service.rng=RandomNumberGenerator.new(); service.set_seed(123); s2.set_seed(123)
 	var p2:=pair(); people=pair()
 	for i in range(25):
 		var one:=service.resolve(people[0],people[1],Event.Context.CONVERSATION)
 		var two:=s2.resolve(p2[0],p2[1],Event.Context.CONVERSATION)
-		check(one.roll_1==two.roll_1 and one.roll_2==two.roll_2,"Narrative choices do not perturb future reaction RNG")
+		var first_context: Dictionary=one.confirmed_context(); var second_context: Dictionary=two.confirmed_context()
+		first_context.erase("occurrence_id"); second_context.erase("occurrence_id")
+		check(first_context==second_context,"Equal seeds reproduce confirmed mechanics independently of each service's occurrence sequence")
 	s2.free(); service.free()
 	await _runtime_tests()
 	print("Social event checks: %d, failures: %d" % [checks,failures])
@@ -167,15 +111,6 @@ func _run() -> void:
 func _runtime_tests() -> void:
 	var scene=Setup.make_scene(self)
 	var service: Node=scene.social_events
-	check(service.entries.size()==12,"Twelve data-driven entries loaded")
-	var sample:=result()
-	var people:=pair()
-	people[1].add_trait(Trait.Type.FOOLISH)
-	var library_matches: Array=service.matching_entries(sample,people[0],people[1],["TALKING"],["TALKING"])
-	check(library_matches.any(func(row): return row.entry.id=="foolish_story"),"Real data trait-specific entry matches")
-	var reversed_matches: Array=service.matching_entries(sample,people[1],people[0],["TALKING"],["TALKING"])
-	check(not reversed_matches.any(func(row): return row.entry.id=="foolish_story"),"Real data requires positive reactor paired with FOOLISH target")
-
 	service.enabled=true
 	service.event_resolved.connect(func(_value): event_count+=1)
 	var actor=scene.resident_runtimes[1]

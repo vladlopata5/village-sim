@@ -1534,34 +1534,20 @@ Attitude не хранится. Независимые integer rolls −100..100
 score <−50 negative, >50 positive, иначе neutral. Через existing opinion API
 применяется −1/0/+1. Оба attitude определяются до изменения opinion.
 
-После mechanics выбирается data-driven narrative entry с optional context,
-reaction, trait и participant-tag filters. Возможны обе A/B orientation. Все
-подходящие записи равноправны; matching обеих ориентаций не удваивает вес записи.
-Текст никогда не меняет reaction/opinion/chance. No match не отменяет mechanics.
-Библиотека prototype содержит 12 записей, включая общие тексты и FOOLISH/LAZY.
-Старым представлением теперь владеет небольшой SocialNarrativePresenter, а механикой
-и подтверждённым social.resolved — SocialEventService. По умолчанию старые истории
-включены. legacy_stories_enabled=false выключает их выбор, Feed/Diary и fallback,
-но оставляет обычное общение, обе реакции/мнения и дальнейшие события EventEngine.
-Шансы30/100/50% и отдельные30% универсального follow-up не меняются. Это техническая
-подготовка замены контента, без переноса12 историй и без нового поведения AI.
+После расчёта механики SocialEventService публикует social.resolved для EventEngine.
+Старый каталог12 историй, его presenter, fallback и narrative RNG полностью удалены.
+У взаимодействия больше нет обязательного текста. Дневник, память, мудлет или
+реплика появляются только если выбрано соответствующее действующее JSON-событие;
+его отдельный шанс follow-up30% и вероятности последствий остаются прежними.
+Новых шаблонных реплик вместо удалённых текстов не добавляется.
 
-Feed — отдельный краткий UI stream: до 4 сообщений, новые снизу, expire через
-12 реальных секунд (также на pause), без permanent history. Дневник ResidentCard
-— отдельные optional records в ResidentData. Chance 20% на каждый непустой diary
-text, только если entry importance TEMPORARY/KEY; NONE исключён. Temporary
-удаляется следующим утром, KEY permanent. Diary не является psychological memory.
-Событие само по себе не сохраняется. Результаты не меняют SOCIAL utility/target,
-conversation duration/need, работу, mood, skills, assignments или event chance.
-
-
-Уточнение prototype/debug Social Events: каждый успешно созданный event даёт
-Feed output при включённом старом presenter. Narrative strings используются первыми; только если нет ни одной
-непустой строки, fallback выдаёт две короткие реплики по уже рассчитанным реакциям.
-Fallback не меняет mechanics, entry selection или Diary. Diary остаётся optional
-с прежним chance/lifetime. Одна DEBUG запись успешного event содержит reactions,
-entry и фактические counts feed/diary; failed chance rolls не логируются.
-Conversation double-roll при создании группы, pool, formulas и RNG не изменены.
+Feed — общий краткий UI stream: до4 сообщений, новое сверху, expire через12 реальных
+секунд, в том числе на паузе. Сохранены сообщения событий (например, «я вкусно поел»)
+и независимые реплики/отказы пастуха. Социальная диагностика остаётся в GameLogger,
+а не превращается в системный сюжетный чат. TEMPORARY/KEY Diary и утренний cleanup
+сохраняются как общий механизм; прежних20%-попыток дневника от каждого общения нет.
+Реакции, opinion, SOCIAL utility/targets, длительности, потребности, AI, XP и работа
+не меняются удалением старого представления.
 
 MEAL 100% относится только к началу еды и требует eligible другого resident
 в прежней semantic location. Пустой pool не создаёт событие. Conversation 30%
@@ -1571,8 +1557,8 @@ MEAL 100% относится только к началу еды и требуе
 Для playtest/diagnostics каждый successful SocialEvent пишет одну обычную INFO
 строку [SOCIAL_EVENT] через общий GameLogger, как AI/NEED/SOCIAL/LOGISTICS,
 без DEBUG toggle: game time/context/names/attitudes/rolls/reactions/signed deltas/
-entry ID или none. Existing DEBUG detail сохранён. Failed chance и пустой pool
-не логируются. Feed/Diary/mechanics/RNG и баланс 30%/100%/50% не меняются.
+без entry ID и счётчиков удалённого вывода. Existing DEBUG detail механики сохранён.
+Failed chance и пустой pool не логируются. Баланс30%/100%/50% и mechanical RNG прежние.
 
 
 ### Технический 2.5D vertical slice (2026-10-08)

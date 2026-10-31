@@ -1,29 +1,13 @@
 extends Node
 ## Rolls only at action boundaries. No persistent event pool and no AI feedback.
 const Event = preload("res://scripts/social_event.gd")
-const Presenter = preload("res://scripts/social_narrative_presenter.gd")
 const Balance = preload("res://scripts/balance_config.gd")
 const Activity = preload("res://scripts/resident_activity.gd")
 const EventLog = preload("res://scripts/game_logger.gd")
 signal event_resolved(result: Event)
 signal interaction_committed(result: Event)
-signal feed_message(text: String)
 var enabled := true
 var rng: RefCounted = RandomNumberGenerator.new()
-var narrative: Presenter
-# Compatibility accessors; legacy presentation has one owner, separate from mechanics.
-var legacy_stories_enabled: bool:
-	get: return narrative.enabled
-	set(value): narrative.enabled = value
-var narrative_rng: RefCounted:
-	get: return narrative.rng
-	set(value): narrative.rng = value
-var entries: Array:
-	get: return narrative.entries
-	set(value): narrative.entries = value
-var diary_chance: float:
-	get: return narrative.diary_chance
-	set(value): narrative.diary_chance = value
 var logger: EventLog
 var world: Node
 var clock: Node
@@ -34,11 +18,8 @@ var _publishing_commits := false
 var _committed: Array = []
 func _init() -> void:
 	rng.randomize()
-	narrative = Presenter.new()
-	narrative.feed_message.connect(feed_message.emit)
 func set_seed(value: int) -> void:
 	rng.seed = value
-	narrative_rng.seed = value ^ 0x534F4349
 func setup(social_world: Node, game_clock: Node, locations: Array) -> void:
 	world = social_world
 	clock = game_clock
@@ -151,10 +132,9 @@ func resolve(a: RefCounted, b: RefCounted, context: Event.Context, tags_a: Array
 		}
 	}
 	_committed.append(result)
-	var output := present(result, a, b, tags_a, tags_b)
 	if logger != null:
-		logger.info(EventLog.SOCIAL_EVENT, "context=%s A=%s B=%s | %s attitude=%d roll=%d reaction=%s delta=%+d | %s attitude=%d roll=%d reaction=%s delta=%+d | entry=%s" % [Event.Context.keys()[context], a.resident_name, b.resident_name, a.resident_name, result.attitude_1_to_2, result.roll_1, Event.Reaction.keys()[result.reaction_1], result.opinion_delta_1, b.resident_name, result.attitude_2_to_1, result.roll_2, Event.Reaction.keys()[result.reaction_2], result.opinion_delta_2, result.selected_entry_id if not result.selected_entry_id.is_empty() else "none"])
-		logger.debug(EventLog.SOCIAL, "context=%s A=%s B=%s; A attitude=%d roll=%d score=%d reaction=%s delta=%d; B attitude=%d roll=%d score=%d reaction=%s delta=%d; entry=%s feed=%d diary=%d" % [Event.Context.keys()[context], a.resident_name, b.resident_name, result.attitude_1_to_2, result.roll_1, result.attitude_1_to_2 + result.roll_1, Event.Reaction.keys()[result.reaction_1], result.opinion_delta_1, result.attitude_2_to_1, result.roll_2, result.attitude_2_to_1 + result.roll_2, Event.Reaction.keys()[result.reaction_2], result.opinion_delta_2, result.selected_entry_id if not result.selected_entry_id.is_empty() else "none", output.feed, output.diary])
+		logger.info(EventLog.SOCIAL_EVENT, "context=%s A=%s B=%s | %s attitude=%d roll=%d reaction=%s delta=%+d | %s attitude=%d roll=%d reaction=%s delta=%+d" % [Event.Context.keys()[context], a.resident_name, b.resident_name, a.resident_name, result.attitude_1_to_2, result.roll_1, Event.Reaction.keys()[result.reaction_1], result.opinion_delta_1, b.resident_name, result.attitude_2_to_1, result.roll_2, Event.Reaction.keys()[result.reaction_2], result.opinion_delta_2])
+		logger.debug(EventLog.SOCIAL, "context=%s A=%s B=%s; A attitude=%d roll=%d score=%d reaction=%s delta=%d; B attitude=%d roll=%d score=%d reaction=%s delta=%d" % [Event.Context.keys()[context], a.resident_name, b.resident_name, result.attitude_1_to_2, result.roll_1, result.attitude_1_to_2 + result.roll_1, Event.Reaction.keys()[result.reaction_1], result.opinion_delta_1, result.attitude_2_to_1, result.roll_2, result.attitude_2_to_1 + result.roll_2, Event.Reaction.keys()[result.reaction_2], result.opinion_delta_2])
 	event_resolved.emit(result)
 	_resolve_depth -= 1
 	_publish_commits()
@@ -164,14 +144,6 @@ func _publish_commits() -> void:
 	_publishing_commits = true
 	while not _committed.is_empty(): interaction_committed.emit(_committed.pop_front())
 	_publishing_commits = false
-func matching_entries(result: Event, a: RefCounted, b: RefCounted, tags_a: Array, tags_b: Array) -> Array:
-	return narrative.matching_entries(result, a, b, tags_a, tags_b)
-func present(result: Event, a: RefCounted, b: RefCounted, tags_a: Array, tags_b: Array) -> Dictionary:
-	return narrative.present(result, a, b, tags_a, tags_b, clock)
-func _fallback_feed(result: Event, a: RefCounted, b: RefCounted) -> int:
-	return narrative._fallback_feed(result, a, b) if legacy_stories_enabled else 0
-func _fallback_text(resident: RefCounted, other: RefCounted, response: Event.Reaction) -> String:
-	return narrative._fallback_text(resident, other, response)
 func _on_conversation_joined(id: String) -> void:
 	var runtime = world.get_runtime(id)
 	if runtime != null: trigger(runtime, Event.Context.CONVERSATION)

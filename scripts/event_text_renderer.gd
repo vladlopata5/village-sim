@@ -10,17 +10,8 @@ static func _tokens() -> RegEx:
 		_pattern.compile("\\{([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z0-9_]+)*)\\}")
 	return _pattern
 
-static func render(template: String, values: Dictionary, legacy: bool = false) -> Dictionary:
+static func render(template: String, values: Dictionary) -> Dictionary:
 	if not Facts.plain(values): return _failure("text values must be bounded JSON data")
-	if legacy:
-		# Preserve the old ordered replace, including %B% inside the first name.
-		# Literal braces in a legacy template/name are never reinterpreted.
-		var text := template
-		for pair in [["%A%", "a.name"], ["%B%", "b.name"]]:
-			var resolved := _read(values, pair[1])
-			if not resolved.ok: return resolved
-			text = text.replace(pair[0], resolved.text)
-		return {"ok": true, "text": text, "errors": []}
 	var output := ""
 	var cursor := 0
 	# Only the original template is scanned: substituted names are literal text.

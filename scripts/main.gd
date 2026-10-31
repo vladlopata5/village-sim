@@ -83,7 +83,6 @@ func _ready() -> void:
 	social_feed = preload("res://scripts/social_feed.gd").new()
 	social_feed.name = "SocialFeed"
 	$HUD.add_child(social_feed)
-	social_events.feed_message.connect(social_feed.add_message)
 	game_events.resident_message.connect(social_feed.add_resident_message)
 	_build_hud()
 	interaction_menu = InteractionMenu.new()
