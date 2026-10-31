@@ -2,7 +2,10 @@ extends RefCounted
 ## Temporary state; numeric formulas remain in ResidentModifiers.
 const Data = preload("res://scripts/event_store_data.gd")
 const Modifiers = preload("res://scripts/resident_modifiers.gd")
-const EVENT_REFRESH_TYPES = {"angry": preload("res://scripts/balance_config.gd").ANGRY_MOODLET_MINUTES}
+const EVENT_REFRESH_TYPES = {
+	"angry": preload("res://scripts/balance_config.gd").ANGRY_MOODLET_MINUTES,
+	"well_fed": preload("res://scripts/balance_config.gd").GLUTTON_WELL_FED_MINUTES,
+}
 signal changed(entry_id: String)
 var _owner_id: String
 var _entries: Dictionary = {}

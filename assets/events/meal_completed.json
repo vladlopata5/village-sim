@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "definitions": [
+    {
+      "schema_version": 1,
+      "id": "personal.well_fed",
+      "revision": 1,
+      "enabled": true,
+      "trigger": "meal.completed",
+      "main_role": "actor",
+      "roles": {"actor": {"type": "resident", "from": "ctx.actor", "active_required": true}},
+      "when": {"all": [
+        {"exists": {"from": {"fact": [{"role": "actor"}, "traits"]}, "as": "candidate", "where": {"eq": [{"local": "candidate"}, "glutton"]}}},
+        {"lte": [{"ctx": "payload.hunger"}, 20]}
+      ]},
+      "weight": 1,
+      "diary_importance": 2,
+      "text": {"diary_main": "{actor.name} вкусно поел."},
+      "effects": [
+        {
+          "op": "moodlet.add",
+          "owner": {"role": "actor"},
+          "definition": "well_fed",
+          "duration_minutes": 120,
+          "tags": ["positive"],
+          "context": {"display_name": "Вкусно поел"},
+          "modifiers": [{"channel": "need_growth_rate", "need": "hunger", "multiplier": 0.5}],
+          "chance": 0.8
+        },
+        {"op": "chat.say", "owner": {"role": "actor"}, "text": "я вкусно поел", "chance": 0.5}
+      ]
+    }
+  ]
+}

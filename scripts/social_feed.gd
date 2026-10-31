@@ -24,6 +24,9 @@ func _ready() -> void:
 	_column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_scroll.add_child(_column)
 	visible = false
+func add_resident_message(_resident_id: String, resident_name: String, text: String) -> void:
+	add_message("%s: «%s»." % [resident_name, text])
+
 func add_message(text: String) -> void:
 	if text.is_empty(): return
 	var label := Label.new()

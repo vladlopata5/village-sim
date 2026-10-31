@@ -9,6 +9,7 @@ const Balance = preload("res://scripts/balance_config.gd")
 const ResidentFacts = preload("res://scripts/resident_event_facts.gd")
 const CandidatePicker = preload("res://scripts/event_candidate_picker.gd")
 signal event_completed(result: Dictionary)
+signal resident_message(resident_id: String, resident_name: String, text: String)
 var enabled := true
 var facts := Facts.new()
 var catalog := Catalog.new()
@@ -30,12 +31,15 @@ var _history: Dictionary = {}
 var _last_occurrence: Dictionary = {}
 var _social_source: Node
 var _construction_sources: Array = [] # Weak building refs; no worker history.
+var _meal_sources: Array = [] # Weak controllers; no separate meal history.
 
 func _init() -> void:
 	selector.rng.randomize() # Own stream; never consumes social or resident RNG.
 	selector.set_chance("skill.raised", Balance.SKILL_RAISED_EVENT_CHANCE)
 	selector.set_chance("construction.completed", Balance.CONSTRUCTION_COMPLETED_EVENT_CHANCE)
 	selector.set_chance("social.resolved", Balance.SOCIAL_FOLLOWUP_EVENT_CHANCE)
+	selector.set_chance("meal.completed", 1.0)
+	executor.resident_message.connect(resident_message.emit)
 	# Schemas for validation only. Live values are short-lived pair snapshots.
 	var schema := ResidentFacts.snapshot_schema()
 	for key in schema: facts.register_fact(key, "resident", schema[key][0], schema[key][1])
@@ -43,7 +47,7 @@ func _init() -> void:
 
 func _load_catalogs() -> void:
 	var combined := {"schema_version": 1, "definitions": [], "catalogs": {}}
-	for path in ["res://assets/events/skill_progress.json", "res://assets/events/social_success_envy.json", "res://assets/events/catalog_expansion.json", "res://assets/events/construction_completed.json"]:
+	for path in ["res://assets/events/skill_progress.json", "res://assets/events/social_success_envy.json", "res://assets/events/catalog_expansion.json", "res://assets/events/construction_completed.json", "res://assets/events/meal_completed.json"]:
 		var parser := JSON.new()
 		if parser.parse(FileAccess.get_file_as_string(path)) != OK:
 			push_error(path + ": " + parser.get_error_message())
@@ -94,6 +98,24 @@ func observe_construction(building: RefCounted) -> void:
 	var callback := _on_construction_completed.bind(reference)
 	building.construction_completed.connect(callback)
 	_construction_sources.append({"reference": reference, "callback": callback})
+
+func observe_meals(controller: Node, data: RefCounted) -> void:
+	for row in _meal_sources:
+		if row.reference.get_ref() == controller: return
+	_meal_sources = _meal_sources.filter(func(row): return row.reference.get_ref() != null)
+	var callback := _on_meal_completed.bind(weakref(data))
+	controller.meal_completed.connect(callback)
+	_meal_sources.append({"reference": weakref(controller), "callback": callback})
+
+func _on_meal_completed(snapshot: Dictionary, resident_ref: WeakRef) -> void:
+	var person: RefCounted = resident_ref.get_ref()
+	if person == null or snapshot.get("resident_id") != person.id: return
+	if not snapshot.get("meal_id") is String or snapshot.meal_id.is_empty(): return
+	if not snapshot.get("minute") is int or snapshot.minute < 0 or not snapshot.get("hunger") is int or snapshot.hunger < 0 or snapshot.hunger > 100: return
+	var payload := snapshot.duplicate(true)
+	payload.erase("minute")
+	var id := JSON.stringify(["meal.completed", _source_generation(person), snapshot.meal_id])
+	_enqueue({"occurrence_id": id, "trigger": "meal.completed", "minute": snapshot.minute, "actor": {"kind": "resident", "id": person.id}, "payload": payload}, person)
 
 func _on_construction_completed(snapshot: Dictionary, source_ref: WeakRef) -> void:
 	var building: RefCounted = source_ref.get_ref()
@@ -176,6 +198,8 @@ func _process_occurrence(context: Dictionary, source: RefCounted, expected_other
 		var second: RefCounted = _control.get_resident(context.other.id)
 		if second != expected_other or not _active(second): return {"status": "inactive_social_pair"}
 		evaluation_facts = ResidentFacts.snapshot(source, second, _clock.total_minutes)
+	elif context.trigger == "meal.completed":
+		evaluation_facts = ResidentFacts.snapshot(source, null, _clock.total_minutes)
 	selector.facts = evaluation_facts
 	executor.setup(_control, evaluation_facts, _active)
 	var result := _select_and_commit(context, source, required_main)
@@ -206,6 +230,10 @@ func completed_events() -> Dictionary: return _completed.duplicate(true)
 func cooldown_history() -> Dictionary: return _history.duplicate(true)
 
 func _exit_tree() -> void:
+	for row in _meal_sources:
+		var controller: Node = row.reference.get_ref()
+		if controller != null and controller.meal_completed.is_connected(row.callback): controller.meal_completed.disconnect(row.callback)
+	_meal_sources.clear()
 	for row in _construction_sources:
 		var building: RefCounted = row.reference.get_ref()
 		if building != null and building.construction_completed.is_connected(row.callback): building.construction_completed.disconnect(row.callback)

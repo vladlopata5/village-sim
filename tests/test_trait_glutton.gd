@@ -3,6 +3,13 @@ const Setup = preload("res://tests/need_test_setup.gd")
 const Store = preload("res://scripts/moodlet_store.gd")
 const Trait = preload("res://scripts/trait_type.gd").Type
 const FOOD = preload("res://scripts/resource_type.gd").Type.FOOD
+class MealRng extends RefCounted:
+	var values: Array = []
+	var draws := 0
+	func randf() -> float:
+		var index := draws
+		draws += 1
+		return values[index] if index < values.size() else 0.0
 var failures := 0
 var checks := 0
 func _initialize() -> void: call_deferred("run")
@@ -12,6 +19,8 @@ func check(ok: bool, message: String) -> void:
 func fixture(glutton: bool = true) -> Node:
 	var world: Node = Setup.make_scene(self, 420, 6)
 	world.social_events.enabled = false; world.game_logger.console_enabled = false
+	# These lifecycle checks select the successful 80% branch explicitly.
+	world.game_events.executor.rng = MealRng.new()
 	var actor: Node = world.resident_runtimes[0]
 	actor.decision._deciding = true
 	actor.intents.abort_current(actor.intents.current_intent)
@@ -131,6 +140,7 @@ func _reentrant_completion() -> void:
 	world.free()
 func _outdoor_meal() -> void:
 	var world: Node = preload("res://tests/residents_ui_fixture.gd").create(self)
+	world.game_events.executor.rng = MealRng.new()
 	var actor: Node = world.resident_runtimes[1]
 	actor.data.set_traits([]); actor.data.add_trait(Trait.GLUTTON)
 	for place in world.buildings: place.resources.try_take(FOOD, place.resources.get_available_amount(FOOD))

@@ -9,6 +9,7 @@ const EFFECT_FIELDS := {
 	"skill.add_xp": ["owner", "skill", "amount"],
 	"moodlet.add": ["owner", "definition"],
 	"memory.add": ["owner", "kind"],
+	"chat.say": ["owner", "text"],
 	"none": []
 }
 var errors: Array = []
@@ -198,11 +199,11 @@ func _validate_descriptions(effects: Variant, names: Dictionary, facts: RefCount
 				if key not in ["op", "chance", "weight"]: errors.append(label + ": none option cannot contain effect arguments")
 		for key in EFFECT_FIELDS[effect.op]:
 			if not effect.has(key): errors.append(label + ": missing effect field " + key)
-		for key in ["owner", "target", "amount", "duration_minutes", "expires_at_minute", "salience", "strength", "skill", "kind", "topic", "definition", "permanent"]:
+		for key in ["owner", "target", "amount", "duration_minutes", "expires_at_minute", "salience", "strength", "skill", "kind", "topic", "definition", "permanent", "text"]:
 			if not effect.has(key): continue
 			var evaluator := Evaluator.new()
 			var type := evaluator.validate(effect[key], names, facts, errors, label + "/effects/" + key)
-			var expected := "entity" if key in ["owner", "target"] else "string" if key in ["skill", "kind", "topic", "definition"] else "bool" if key == "permanent" else "number"
+			var expected := "entity" if key in ["owner", "target"] else "string" if key in ["skill", "kind", "topic", "definition", "text"] else "bool" if key == "permanent" else "number"
 			if type not in [expected, "any", "invalid"] and not (key in ["target", "expires_at_minute"] and type == "null"): errors.append(label + ": incompatible effect field " + key)
 		if not _probability(effect.get("chance", 1.0)): errors.append(label + ": invalid effect chance")
 		_validate_payload(effect, names, facts, label + "/effects")

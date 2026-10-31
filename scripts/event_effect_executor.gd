@@ -6,6 +6,7 @@ const Evaluator = preload("res://scripts/event_expression.gd")
 const TextRenderer = preload("res://scripts/event_text_renderer.gd")
 const Data = preload("res://scripts/event_store_data.gd")
 const Diary = preload("res://scripts/diary_entry.gd")
+signal resident_message(resident_id: String, resident_name: String, text: String)
 var rng: RefCounted = RandomNumberGenerator.new()
 var _control: RefCounted
 var _facts: RefCounted
@@ -43,7 +44,10 @@ func publish(occurrence_id: String) -> void:
 	_notices.erase(occurrence_id) # Reentrant publish cannot emit twice.
 	for write: Dictionary in notices:
 		if write.kind == "diary": write.person.diary_changed.emit()
-		else: write.store.changed.emit(write.prepared.id)
+		elif write.kind != "chat.say": write.store.changed.emit(write.prepared.id)
+	# Presentation happens only after the whole transaction and its store notices.
+	for write: Dictionary in notices:
+		if write.kind == "chat.say": resident_message.emit(write.person.id, write.name, write.text)
 
 func _prepare_commit(selection: Dictionary, context: Dictionary, minute: int, source: RefCounted) -> Dictionary:
 	if selection.get("status") != "selected" or minute < 0: return _error("invalid_selection", "selection/minute")
@@ -53,10 +57,10 @@ func _prepare_commit(selection: Dictionary, context: Dictionary, minute: int, so
 	# A probability must never conceal an unsupported operation, including an
 	# unchosen reserved R2-B1 opinion/XP description.
 	for effect in definition.get("effects", []):
-		if effect.get("op") not in ["memory.add", "moodlet.add"]: return _error("unsupported_effect", str(effect.get("op")))
+		if effect.get("op") not in ["memory.add", "moodlet.add", "chat.say"]: return _error("unsupported_effect", str(effect.get("op")))
 	for group in definition.get("exclusive_groups", []):
 		for option in group.options:
-			if option.get("op") not in ["memory.add", "moodlet.add", "none"]: return _error("unsupported_effect", str(option.get("op")))
+			if option.get("op") not in ["memory.add", "moodlet.add", "chat.say", "none"]: return _error("unsupported_effect", str(option.get("op")))
 	var chosen := _choose(definition)
 	if not chosen.ok: return _error("invalid_rng", chosen.error)
 	var main := _person(selection.get("main"))
@@ -89,7 +93,7 @@ func _prepare_commit(selection: Dictionary, context: Dictionary, minute: int, so
 		if not _active(write.person): return _error("inactive_recipient", write.person.id)
 		if write.kind == "diary":
 			if not write.person.can_add_diary_entry(write.entry): return _error("diary_failed", write.person.id)
-		else:
+		elif write.kind != "chat.say":
 			var current_store: RefCounted = write.person.memories if write.kind == "memory.add" else write.person.moodlets
 			var destination := "%s:%s" % [write.store.get_instance_id(), write.prepared.id]
 			if destinations.has(destination): return _error("prepare_failed", "duplicate store destination")
@@ -99,7 +103,7 @@ func _prepare_commit(selection: Dictionary, context: Dictionary, minute: int, so
 	var result := {"status": "completed", "event_id": "event:" + context.occurrence_id, "definition_id": definition.id, "main": selection.main, "minute": minute, "effects": applied, "exclusive_groups": chosen.groups, "secondary_diary": chosen.secondary}
 	for write: Dictionary in writes:
 		if write.kind == "diary": write.person._apply_event_diary(write.entry)
-		else: write.store._apply_event_add(write.prepared)
+		elif write.kind != "chat.say": write.store._apply_event_add(write.prepared)
 	_notices[context.occurrence_id] = writes
 	return result
 
@@ -165,6 +169,12 @@ func _effect(item: Dictionary, env: Dictionary, definition: Dictionary, context:
 	var resolved := _resolve(item.description, env)
 	if not resolved.known: return _error("prepare_failed", item.slot + ": " + resolved.reason)
 	var effect: Dictionary = resolved.value
+	if effect.op == "chat.say":
+		if not Data.only_keys(effect, ["op", "owner", "text", "chance", "weight"]): return _error("prepare_failed", item.slot + ": unsupported chat arguments")
+		var speaker := _person(effect.get("owner"))
+		if speaker == null: return _error("inactive_recipient", item.slot + ": speaker")
+		if not effect.get("text") is String or effect.text.strip_edges().is_empty(): return _error("text_failed", item.slot + ": empty chat text")
+		return {"ok": true, "write": {"kind": effect.op, "person": speaker, "name": speaker.resident_name, "text": effect.text, "prepared": {"id": item.slot}}}
 	var allowed := ["op", "owner", "target", "tags", "context", "chance", "weight"]
 	allowed.append_array(["kind", "topic", "strength", "permanent", "provenance"] if effect.op == "memory.add" else ["definition", "duration_minutes", "expires_at_minute", "modifiers"])
 	if not Data.only_keys(effect, allowed): return _error("prepare_failed", item.slot + ": unsupported arguments")

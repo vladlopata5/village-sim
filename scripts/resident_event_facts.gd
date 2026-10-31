@@ -8,7 +8,7 @@ static func snapshot(first: RefCounted, second: RefCounted, minute: int) -> RefC
 	var facts := Facts.new()
 	var schema := snapshot_schema()
 	for key in schema: facts.register_fact(key, "resident", schema[key][0], schema[key][1])
-	var people := [first, second]
+	var people := [first] if second == null or second == first else [first, second]
 	for person in people: facts.register_entity({"kind": "resident", "id": person.id})
 	for person in people:
 		var ref := {"kind": "resident", "id": person.id}

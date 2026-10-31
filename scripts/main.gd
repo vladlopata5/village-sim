@@ -84,6 +84,7 @@ func _ready() -> void:
 	social_feed.name = "SocialFeed"
 	$HUD.add_child(social_feed)
 	social_events.feed_message.connect(social_feed.add_message)
+	game_events.resident_message.connect(social_feed.add_resident_message)
 	_build_hud()
 	interaction_menu = InteractionMenu.new()
 	interaction_menu.service = interactions
@@ -378,6 +379,7 @@ func _create_resident_runtime(data: ResidentData, start: Vector2) -> ResidentRun
 	return runtime
 
 func _bind_resident_control(runtime: ResidentRuntime) -> void:
+	game_events.observe_meals(runtime.needs, runtime.data)
 	runtime.schedule.housing_control = player_control
 	runtime.shepherd.setup(runtime,self)
 	runtime.farmer.setup(runtime,self)
