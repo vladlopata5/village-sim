@@ -187,8 +187,9 @@ SocialNarrativeEntry сохраняет свой формат, фильтры и
 Все 12 entries.json остаются побайтно прежними. Fallback также формируется renderer,
 с прежними строками и однопроходной подстановкой имён, как у старого sprintf.
 
-SocialEventService по-прежнему владеет matching, одним ticket на entry, выбором
-ориентации, Feed и опциональным Diary. Шансы, RNG draws, реакции, −1/0/+1, границы
+SocialNarrativePresenter теперь владеет matching, одним ticket на entry, выбором
+ориентации, Feed и опциональным Diary; SocialEventService вызывает его через
+небольшие совместимые методы. Шансы, RNG draws, реакции, −1/0/+1, границы
 20% для каждой непустой дневниковой стороны и две попытки при создании пары прежние.
 Правило обязательного diary_main универсальных событий к legacy не применяется.
 
@@ -550,7 +551,8 @@ R2-B1/B2/B3/B4a и golden старых социальных историй.
 Main подключает GameEventService.attach_social к одному SocialEventService на сессию
 мира. Общий источник для CONVERSATION/MEAL/WORK — новый interaction_committed после
 существующего resolve. Старые chance, participant_pool, реакции, обе записи отношений,
-present, Feed/Diary, logger и event_resolved сохраняют свои вызовы/порядок/RNG.
+present (делегированный отдельному presenter), logger и event_resolved сохраняют
+прежний порядок. Feed/Diary остаются прежними при включённом legacy-представлении.
 Новый источник не подписан отдельно на нужды/работу/минуты разговора.
 
 При вложенном legacy resolve новые уведомления ждут окончания внешнего legacy вызова.
@@ -975,3 +977,49 @@ expiry/activation и производный кэш не менялись. Под
 commit согласует все записи до publish, где отправляется один changed на принятую
 запись. Повтор того же события после refresh/expiry/remove остаётся no-op через
 существующий event replay, без новой истории обработанных событий внутри Store.
+
+## Разделение социальной механики и старых историй (2026-10-31)
+
+SocialEventService сохраняет точки входа CONVERSATION/MEAL/WORK, chance, поиск
+участников, снимок двух attitudes, обе реакции и apply_opinion_change. Персональные
+HOTHEADED/CALM и их opinion_rng остаются в ResidentData/ResidentModifiers.
+В сервисе также остаются подтверждённый контекст, счётчик occurrence, защита вложенной
+публикации, interaction_committed и календарный cleanup прежних временных дневников.
+GameEventService и контракт social.resolved не изменены.
+
+Новый небольшой RefCounted SocialNarrativePresenter содержит только прежнее
+представление: загрузку12 entries.json, narrative RNG, matching/orientation,
+feed, опциональные20%-дневники и fallback-тексты. Он использует тот же
+SocialNarrativeEntry/EventTextRenderer, не рассчитывает отношения и не вызывает
+EventEngine. Переданный clock используется на прежней границе записи Diary,
+без новой подписки на минуты/фазы и без долгоживущего хранения мира в presenter.
+
+По умолчанию старые истории включены. Для проверки или следующего этапа перехода:
+
+```gdscript
+world.social_events.legacy_stories_enabled = false
+```
+
+Это отключает только present: нет выбора записи, narrative RNG draws, реплик,
+старых дневников и fallback. Сам resolve и его подтверждённый social.resolved
+проходят прежним путём, а JSON-истории сохраняют свои шансы/последствия/дневники.
+Старое `enabled=false` по-прежнему отключает обычный trigger целиком и для этой
+цели не используется. `entries=[]` также не заменяет новый переключатель:
+при включённом presenter пустой набор по-прежнему печатает две fallback-реплики.
+
+Совместимые entries/narrative_rng/diary_chance и matching_entries/present у сервиса
+только делегируют в один presenter; второй копии данных или RNG нет. set_seed
+сохраняет прежний XOR для narrative stream. При отключении legacy этот поток не
+расходуется; механический, персональные opinion и универсальные event RNG не
+меняются. Повторное включение возобновляет оставшийся narrative stream.
+
+Порядок публикации при включённом представлении сохранён: механика/confirmed
+snapshot → legacy output → logger/event_resolved → drain interaction_committed →
+GameEventService. При отключённом режиме пропускается только legacy output.
+Представление не может опубликовать взаимодействие повторно или изменить frozen
+payload ориентацией рассказа. Прежняя возможность вложенных callbacks отношений
+и порядок фактов при них сохранены, новой транзакции отношений не вводилось.
+
+12 историй не перенесены, JSON и golden fixture не менялись. Компонент пока загружает
+старый каталог при создании, даже если затем выключен; удаление этого файла и
+окончательное переключение канонической игры остаются следующим заданием.

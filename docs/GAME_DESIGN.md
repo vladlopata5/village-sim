@@ -1538,7 +1538,13 @@ score <−50 negative, >50 positive, иначе neutral. Через existing opi
 reaction, trait и participant-tag filters. Возможны обе A/B orientation. Все
 подходящие записи равноправны; matching обеих ориентаций не удваивает вес записи.
 Текст никогда не меняет reaction/opinion/chance. No match не отменяет mechanics.
-Библиотека prototype содержит 12 записей, включая общие fallback и FOOLISH/LAZY.
+Библиотека prototype содержит 12 записей, включая общие тексты и FOOLISH/LAZY.
+Старым представлением теперь владеет небольшой SocialNarrativePresenter, а механикой
+и подтверждённым social.resolved — SocialEventService. По умолчанию старые истории
+включены. legacy_stories_enabled=false выключает их выбор, Feed/Diary и fallback,
+но оставляет обычное общение, обе реакции/мнения и дальнейшие события EventEngine.
+Шансы30/100/50% и отдельные30% универсального follow-up не меняются. Это техническая
+подготовка замены контента, без переноса12 историй и без нового поведения AI.
 
 Feed — отдельный краткий UI stream: до 4 сообщений, новые снизу, expire через
 12 реальных секунд (также на pause), без permanent history. Дневник ResidentCard
@@ -1550,7 +1556,7 @@ conversation duration/need, работу, mood, skills, assignments или event
 
 
 Уточнение prototype/debug Social Events: каждый успешно созданный event даёт
-Feed output. Narrative strings используются первыми; только если нет ни одной
+Feed output при включённом старом presenter. Narrative strings используются первыми; только если нет ни одной
 непустой строки, fallback выдаёт две короткие реплики по уже рассчитанным реакциям.
 Fallback не меняет mechanics, entry selection или Diary. Diary остаётся optional
 с прежним chance/lifetime. Одна DEBUG запись успешного event содержит reactions,
