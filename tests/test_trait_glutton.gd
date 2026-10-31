@@ -74,21 +74,22 @@ func _store_cases() -> void:
 	var callback := func(id: String):
 		var committed: Dictionary = store.get_entry(id)
 		notifications.append(committed)
-		check(store.size() == 1 and not store.add_or_refresh(committed), "Nested duplicate sees committed singleton and cannot refresh it")
+		check(store.find({"type":committed.type}).size() == 1 and not store.add_or_refresh(committed), "Nested duplicate sees one committed record of its type and cannot refresh it")
 	store.changed.connect(callback)
 	check(store.add_or_refresh(record("meal/1", 500)), "Explicit singleton addition")
 	var repeated := record("meal/1", 550)
 	check(not store.add_or_refresh(repeated) and store.get_entry("well_fed").expires_at_minute == 620 and notifications.size() == 1, "Same source with later time is a no-op")
 	check(store.add_or_refresh(record("meal/2", 560)) and store.size() == 1 and store.get_entry("well_fed").expires_at_minute == 680, "New meal replaces deadline, without adding to old deadline")
-	check(not store.add(record("meal/3", 570)), "Ordinary add still rejects an existing ID")
+	check(not store.add(record("meal/2", 570)), "Ordinary add rejects a repeated event just like add_or_refresh")
 	check(not store.add_or_refresh(record("stale", 540)) and notifications.size() == 2, "Stale refresh cannot overwrite a newer completion")
 	var invalid := record("invalid", 570); invalid.expires_at_minute = 1
 	check(not store.add_or_refresh(invalid) and store.get_entry("well_fed").source_occurrence_id == "meal/2", "Invalid refresh preserves the record")
 	var wrong_type := record("different", 570); wrong_type.type = "pride"
-	check(not store.add_or_refresh(wrong_type), "Refresh cannot replace a different type occupying this ID")
+	wrong_type.expires_at_minute = 680
+	check(store.add_or_refresh(wrong_type) and store.size() == 2 and store.get_entry("pride").type == "pride", "Different type has its own canonical slot regardless of supplied ID")
 	check(store.is_active("well_fed", 679) and not store.is_active("well_fed", 680), "Existing half-open expiry applies")
 	store.changed.disconnect(callback)
-	check(store.expire(680) == 1 and store.size() == 0, "Explicit cleanup keeps existing semantics")
+	check(store.expire(680) == 2 and store.size() == 0, "Explicit cleanup expires both independent types")
 	var other := Store.new("other")
 	check(other.size() == 0 and other.add_or_refresh(record("meal/2", 560)), "Residents have independent singleton records")
 func _repeat_and_expire() -> void:

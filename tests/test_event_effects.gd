@@ -172,7 +172,7 @@ func failure_then_success() -> void:
 	var draws: int = f.service.executor.rng.draws
 	check(raise_rank(f).status == "no_match" and f.service.executor.rng.draws == draws and f.a.diary_entries.size() == 1, "Successful commit starts cooldown; rejected selection does not roll effects")
 	f.clock.total_minutes += 60
-	check(raise_rank(f).status == "completed" and f.a.diary_entries.size() == 2 and f.a.memories.size() == 2 and f.a.moodlets.size() == 2, "Exact expiry permits a new complete event; no implicit memory reinforcement")
+	check(raise_rank(f).status == "completed" and f.a.diary_entries.size() == 2 and f.a.memories.size() == 2 and f.a.moodlets.size() == 1, "Exact cooldown expiry permits a new complete event, refreshing one moodlet without implicit memory reinforcement")
 	cleanup(f)
 	for who in ["a", "b"]:
 		f = fixture(); data = content(f.service); definition = data.definitions[0]

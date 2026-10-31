@@ -157,12 +157,12 @@ func conditions() -> void:
 		check(social_count(f) == 0 and f.a.diary_entries.size() == diaries and f.a.memories.size() == memories and f.a.moodlets.size() == moods, "No extra event for " + scenario)
 		check(f.a.get_opinion("b") == clampi(before + result.opinion_delta_1, -100, 100), "Legacy result still applies when follow-up fails: " + scenario)
 		cleanup(f)
-	# Multiple eligible pride records still give one ticket, selecting one actual skill.
+	# New pride replaces the old skill context, still yielding one event ticket.
 	var multiple := fixture(); prime(multiple); prime(multiple, multiple.b, Skill.Type.CONSTRUCTION)
 	multiple.social.resolve(multiple.a, multiple.b, SocialResult.Context.CONVERSATION)
 	var context: Dictionary = multiple.service.last_occurrence()
 	var selection: Dictionary = multiple.service.selector.run(context)
-	check(selection.duplicate and selection.eligible == ["social.success_envy"] and selection.definitions_checked == 1, "Multiple matching bindings do not multiply event tickets/weights")
+	check(selection.duplicate and selection.eligible == ["social.success_envy"] and selection.definitions_checked == 1 and multiple.b.moodlets.size() == 1 and selection.bindings.skill == "construction", "Latest pride supplies one skill context and one event ticket")
 	check(multiple.a.memories.find()[0].topic == selection.bindings.skill and multiple.b.moodlets.get_entry(selection.bindings.success.id).context.skill == selection.bindings.skill, "Chosen fact and consequence refer to the same pride skill")
 	cleanup(multiple)
 

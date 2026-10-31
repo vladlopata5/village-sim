@@ -2,10 +2,6 @@ extends RefCounted
 ## Temporary state; numeric formulas remain in ResidentModifiers.
 const Data = preload("res://scripts/event_store_data.gd")
 const Modifiers = preload("res://scripts/resident_modifiers.gd")
-const EVENT_REFRESH_TYPES = {
-	"angry": preload("res://scripts/balance_config.gd").ANGRY_MOODLET_MINUTES,
-	"well_fed": preload("res://scripts/balance_config.gd").GLUTTON_WELL_FED_MINUTES,
-}
 signal changed(entry_id: String)
 var _owner_id: String
 var _entries: Dictionary = {}
@@ -64,37 +60,21 @@ func add(record: Dictionary) -> bool:
 	return true
 
 func prepare_add(record: Dictionary) -> Dictionary:
-	if not _valid(record) or _entries.has(record.id): return {}
-	return _prepare_record(record)
-
-func add_or_refresh(record: Dictionary) -> bool:
-	# Explicit singleton API; event-specific policies are prepared separately below.
-	var prepared := _prepare_refresh(record)
-	if prepared.is_empty(): return false
-	_apply_event_add(prepared)
-	changed.emit(prepared.id)
-	return true
-
-func prepare_event_add(record: Dictionary) -> Dictionary:
-	# Explicit per-type event policy. Other definitions keep independent occurrence IDs.
-	if not EVENT_REFRESH_TYPES.has(record.get("type")): return prepare_add(record)
 	if not _valid(record): return {}
-	var duration: int = EVENT_REFRESH_TYPES[record.type]
-	if record.created_minute > 9223372036854775807-duration or record.get("expires_at_minute") != record.created_minute+duration: return {}
-	var singleton := record.duplicate(true)
-	singleton.id = record.type
-	return _prepare_refresh(singleton)
-
-func _prepare_refresh(record: Dictionary) -> Dictionary:
-	if not _valid(record): return {}
-	var previous: Dictionary = _entries.get(record.id, {})
+	# One slot per type, independent of event, target or the caller's instance ID.
+	var previous: Dictionary = _entries.get(record.type, {})
 	if not previous.is_empty():
-		if previous.type != record.type or previous.source_occurrence_id == record.source_occurrence_id: return {}
+		if previous.source_occurrence_id == record.source_occurrence_id: return {}
 		if record.created_minute < previous.created_minute: return {}
 	return _prepare_record(record)
 
+func add_or_refresh(record: Dictionary) -> bool:
+	# Kept for existing callers; add and event writes now use the same rule.
+	return add(record)
+
 func _prepare_record(record: Dictionary) -> Dictionary:
 	var entry := record.duplicate(true)
+	entry.id = record.type
 	entry.owner = owner()
 	entry.target = entry.get("target")
 	entry.tags = entry.get("tags", [])

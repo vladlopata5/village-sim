@@ -17,7 +17,7 @@ func memory(entry_id: String = "m1") -> Dictionary:
 	return {"id": entry_id, "type": "envy", "topic": "clothing", "target": {"kind": "resident", "id": "other"}, "tags": ["negative", "personal"], "strength": 20, "permanent": false, "created_minute": 10, "source_occurrence_id": "event/1", "provenance": {"kind": "experienced"}, "context": {"detail": {"label": "coat"}}}
 
 func moodlet(entry_id: String = "t1") -> Dictionary:
-	return {"id": entry_id, "type": "envy", "target": {"kind": "resident", "id": "other"}, "tags": ["negative"], "created_minute": 10, "expires_at_minute": 30, "source_occurrence_id": "event/1", "modifiers": [{"channel": "future_channel", "value": -3}], "context": {"topic": "clothing"}}
+	return {"id": entry_id, "type": entry_id, "target": {"kind": "resident", "id": "other"}, "tags": ["negative"], "created_minute": 10, "expires_at_minute": 30, "source_occurrence_id": "event/1", "modifiers": [{"channel": "future_channel", "value": -3}], "context": {"topic": "clothing"}}
 
 func _initialize() -> void:
 	memories()
@@ -99,9 +99,9 @@ func moodlets() -> void:
 	var snapshot := store.get_entry("t1"); snapshot.modifiers[0].value = 100
 	var results := store.active(20); results[0].context.topic = "changed"
 	check(store.get_entry("t1").modifiers[0].value == -3 and store.get_entry("t1").context.topic == "clothing", "Moodlet input and read views are detached")
-	check(not store.add(moodlet()) and store.get_entry("t1").expires_at_minute == 30, "Duplicate ID does not silently refresh, replace or stack")
+	check(not store.add(moodlet()) and store.get_entry("t1").expires_at_minute == 30, "Same source cannot refresh the same type twice")
 	var second := moodlet("t2")
-	check(store.add(second) and store.active(20, {"type": "envy"}).size() == 2, "Distinct explicit instances may coexist; no formula combines them")
+	check(store.add(second) and store.active(20).size() == 2, "Distinct types coexist independently")
 	var indefinite := moodlet("indefinite"); indefinite.erase("expires_at_minute"); indefinite.erase("modifiers")
 	check(store.add(indefinite) and store.is_active("indefinite", 10000000) and store.get_entry("indefinite").modifiers.is_empty(), "No deadline is allowed without implied effects")
 	check(store.expire(29) == 0 and store.size() == 3, "Expiration before deadline is a no-op")

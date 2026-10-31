@@ -14,7 +14,7 @@ class ObservedStore extends Moodlets:
 		if index_passes != before: expiry_passes += 1; expiry_visits += entries
 		return result
 func timed_record(id: String, created: int, expiry: Variant = null) -> Dictionary:
-	return {"id":id,"type":"well_fed","source_occurrence_id":"source/"+id+"/"+str(created),"created_minute":created,"expires_at_minute":expiry,"context":{"display_name":"Вкусно поел"},"modifiers":[]}
+	return {"id":id,"type":id,"source_occurrence_id":"source/"+id+"/"+str(created),"created_minute":created,"expires_at_minute":expiry,"context":{"display_name":"Вкусно поел"},"modifiers":[]}
 func _run() -> void:
 	deadline_cases()
 	await runtime_order_and_time()
@@ -32,7 +32,7 @@ func deadline_cases() -> void:
 	check(store.next_expiry_minute()==30 and notices[0]==["a",30],"Add updates deadline before notification")
 	var passes: int=store.index_passes
 	for minute in 30:check(store.expire(minute)==0 and store.index_passes==passes,"No entries traversed before earliest expiry")
-	check(not store.add(timed_record("a",20,40)) and store.next_expiry_minute()==30 and store.index_passes==passes,"Rejected duplicate neither refreshes nor changes index")
+	check(not store.add(timed_record("a",10,40)) and store.next_expiry_minute()==30 and store.index_passes==passes,"Rejected same-source duplicate neither refreshes nor changes index")
 	check(store.add_or_refresh(timed_record("a",20,70)) and store.next_expiry_minute()==50,"Refreshing the nearest record selects the next deadline")
 	check(store.remove("b") and store.next_expiry_minute()==70,"Removing the earliest record updates deadline")
 	check(store.add_or_refresh(timed_record("a",25)) and store.next_expiry_minute()==-1,"Refresh to indefinite removes last timed deadline")
@@ -92,12 +92,12 @@ func event_cycle() -> void:
 	var before: int=other.moodlets.size();service.replay(occurrence)
 	check(other.moodlets.size()==before,"Replaying the same occurrence never duplicates or refreshes moodlet")
 	other.add_skill_xp(Skill.Type.GATHERING,600)
-	check(other.moodlets.size()==2,"A distinct ordinary event retains independent-ID stacking policy")
+	check(other.moodlets.size()==1 and other.moodlets.find()[0].context.skill=="gathering","A distinct ordinary event replaces one pride record with its current context")
 	world.social_events.resolve(first,other,SocialResult.Context.WORK)
 	var count:=func():return service.completed_events().values().filter(func(row):return row.definition_id=="social.success_envy").size()
 	check(count.call()==1 and first.moodlets.size()==1,"Another real JSON event reads active pride and awards envy")
 	world.game_time.debug_skip_minutes(119)
-	check(other.moodlets.active(754).size()==2,"Event moodlets remain active to final preceding minute")
+	check(other.moodlets.active(754).size()==1,"Refreshed event moodlet remains active to final preceding minute")
 	# Resident0 callbacks can precede resident1 cleanup; fact filtering must still reject expiry.
 	first.hunger=10;world.resident_runtimes[0].need_dynamics._fractions[0]=56
 	var boundary: Array=[]

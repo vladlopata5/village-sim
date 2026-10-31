@@ -54,9 +54,9 @@ func event_policy() -> void:
 	definition.effects.append(definition.effects[0].duplicate(true))
 	check(world.game_events.catalog.load_data({"definitions":[definition]},world.game_events.facts),"Duplicate singleton destinations reach normal atomic validation")
 	check(grant(world,actor).status=="prepare_failed" and actor.data.diary_entries.size()==diary_count and store.get_entry("angry")==original,"Two singleton writes in one event reject whole bundle without partial diary or refresh")
-	definition.effects.resize(1);definition.effects[0].duration_minutes=119
+	definition.effects.resize(1);definition.effects[0].duration_minutes=-1
 	world.game_events.catalog.load_data({"definitions":[definition]},world.game_events.facts)
-	check(grant(world,actor).status=="prepare_failed" and actor.data.diary_entries.size()==diary_count and store.get_entry("angry")==original,"Wrong angry duration rejects whole bundle without changing current record")
+	check(grant(world,actor).status=="prepare_failed" and actor.data.diary_entries.size()==diary_count and store.get_entry("angry")==original,"Invalid duration rejects whole bundle through common validation without changing current record")
 	world.free();await process_frame
 func complete_cycle() -> void:
 	var world=anger_world();var actor: Node=world.resident_runtimes[0]
