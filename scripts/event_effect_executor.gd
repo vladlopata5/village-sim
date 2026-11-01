@@ -16,7 +16,7 @@ var _outcomes: Dictionary = {}
 var _notices: Dictionary = {}
 
 func _init() -> void:
-	rng.randomize() # Separate from event selection, legacy social events and AI.
+	rng.randomize() # Separate from event selection, social mechanics and AI.
 
 func setup(control: RefCounted, facts: RefCounted, active_guard: Callable) -> void:
 	assert(_control == null or _control == control)
@@ -81,7 +81,7 @@ func _prepare_commit(selection: Dictionary, context: Dictionary, minute: int, so
 	var env := {"ctx": context, "role": selection.roles, "binding": selection.bindings, "param": definition.get("params", {}), "catalog": selection.get("tables", {}), "local": {}}
 	var applied: Array = []
 	for item: Dictionary in chosen.items:
-		var prepared := _effect(item, env, definition, context, minute)
+		var prepared := _effect(item, env, definition, context, minute, rendered.values)
 		if not prepared.ok: return prepared
 		writes.append(prepared.write)
 		applied.append({"slot": item.slot, "op": item.description.op, "owner": prepared.write.person.id, "id": prepared.write.prepared.id})
@@ -165,7 +165,7 @@ func _weighted(options: Array) -> Dictionary:
 		if remainder < 0: return {"ok": true, "index": i}
 	return {"ok": true, "index": last} # Inclusive upper RNG boundary, positive weights only.
 
-func _effect(item: Dictionary, env: Dictionary, definition: Dictionary, context: Dictionary, minute: int) -> Dictionary:
+func _effect(item: Dictionary, env: Dictionary, definition: Dictionary, context: Dictionary, minute: int, text_values: Dictionary) -> Dictionary:
 	var resolved := _resolve(item.description, env)
 	if not resolved.known: return _error("prepare_failed", item.slot + ": " + resolved.reason)
 	var effect: Dictionary = resolved.value
@@ -173,8 +173,9 @@ func _effect(item: Dictionary, env: Dictionary, definition: Dictionary, context:
 		if not Data.only_keys(effect, ["op", "owner", "text", "chance", "weight"]): return _error("prepare_failed", item.slot + ": unsupported chat arguments")
 		var speaker := _person(effect.get("owner"))
 		if speaker == null: return _error("inactive_recipient", item.slot + ": speaker")
-		if not effect.get("text") is String or effect.text.strip_edges().is_empty(): return _error("text_failed", item.slot + ": empty chat text")
-		return {"ok": true, "write": {"kind": effect.op, "person": speaker, "name": speaker.resident_name, "text": effect.text, "prepared": {"id": item.slot}}}
+		var speech := TextRenderer.render_choice(effect.get("text"), text_values, rng)
+		if not speech.ok or speech.text.strip_edges().is_empty(): return _error("text_failed", item.slot + ": invalid/empty chat text: " + str(speech.get("errors", [])))
+		return {"ok": true, "write": {"kind": effect.op, "person": speaker, "name": speaker.resident_name, "text": speech.text, "prepared": {"id": item.slot}}}
 	var allowed := ["op", "owner", "target", "tags", "context", "chance", "weight"]
 	allowed.append_array(["kind", "topic", "strength", "permanent", "provenance"] if effect.op == "memory.add" else ["definition", "duration_minutes", "expires_at_minute", "modifiers"])
 	if not Data.only_keys(effect, allowed): return _error("prepare_failed", item.slot + ": unsupported arguments")
@@ -226,12 +227,17 @@ func _render(selection: Dictionary, context: Dictionary, secondary: bool) -> Dic
 	var labels: Dictionary = {}
 	for value in selection.roles.values() + selection.bindings.values():
 		var person := _person(value)
-		if person != null: labels[Facts.ref_key(value)] = {"name": person.resident_name}
+		if person != null: labels[Facts.ref_key(value)] = person.event_text_projection()
 	var view := selection.duplicate(true)
 	var text: Dictionary = selection.selected.get("text", {})
 	view.selected.text = {"diary_main": text.get("diary_main", "")}
 	if secondary: view.selected.text.diary_secondary = text.get("diary_secondary", "")
-	return TextRenderer.render_event(view, context, labels)
+	var rendered := TextRenderer.render_event(view, context, labels, rng)
+	if rendered.ok:
+		var values := TextRenderer.event_values(view, context, labels)
+		if not values.known: return {"ok": false, "errors": [values.reason]}
+		rendered.values = values.value
+	return rendered
 
 func _diary(person: RefCounted, text: Variant, definition: Dictionary, minute: int) -> Dictionary:
 	if not text is String or text.strip_edges().is_empty(): return _error("text_failed", "mandatory selected diary text is empty")

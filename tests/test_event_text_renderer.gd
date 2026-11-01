@@ -23,7 +23,7 @@ func _initialize() -> void:
 	check(not TextRenderer.render("{payload.absent}", values).ok, "Known null is not an invented display name/zero")
 	values.actor.name = "{other.name} %B%"
 	check(TextRenderer.render("{actor.name}", values).text == "{other.name} %B%", "Inserted name is literal, never another template")
-	check(TextRenderer.render("{actor.get_tree()} %A%", values).text == "{actor.get_tree()} %A%", "Text outside the permitted placeholder grammar is literal, not code")
+	check(not TextRenderer.render("{actor.get_tree()} %A%", values).ok, "Malformed reference is rejected, never executed")
 	var node := Node.new()
 	check(not TextRenderer.render("{actor.name}", {"actor": node}).ok, "Live Godot objects are not read")
 	node.free()

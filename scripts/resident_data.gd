@@ -32,7 +32,22 @@ var household_id: StringName = &"":
 		household_id=value
 		household_changed.emit(previous,value)
 var id: String
-var resident_name: String
+var resident_name: String:
+	set(value):
+		if resident_name == value: return
+		resident_name = value
+		_name_forms = {} # Explicit forms belong to this exact displayed name.
+const NameGrammar = preload("res://scripts/event_russian_grammar.gd")
+var _name_forms: Dictionary = {}
+var name_indeclinable := false
+func set_name_forms(forms: Dictionary, indeclinable: bool = false) -> bool:
+	if not forms.is_empty() and not NameGrammar.valid_forms(forms, resident_name): return false
+	_name_forms = forms.duplicate(true)
+	name_indeclinable = indeclinable
+	return true
+func event_text_projection() -> Dictionary:
+	var gender := "feminine" if grammatical_gender == Trait.GrammaticalGender.FEMININE else "masculine"
+	return {"name": resident_name, "gender": gender, "name_forms": NameGrammar.forms(resident_name, gender, _name_forms, name_indeclinable)}
 var age: int
 const Profession = preload("res://scripts/resident_profession.gd")
 var profession: Profession.Type:

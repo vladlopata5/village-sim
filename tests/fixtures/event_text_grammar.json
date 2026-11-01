@@ -1,0 +1,30 @@
+[
+  {
+    "template": "Лучше бы я не {actor.gender:разговаривал|разговаривала} {other.with}!",
+    "values": {
+      "actor": {
+        "name": "Анна",
+        "gender": "feminine"
+      },
+      "other": {
+        "name": "Степан",
+        "gender": "masculine"
+      }
+    },
+    "expected": "Лучше бы я не разговаривала со Степаном!"
+  },
+  {
+    "template": "Нет {other.name:gen}. Я {actor.gender:подумал|подумала} {other.about}: {other.pronoun:nom} {other.gender:доволен|довольна}.",
+    "values": {
+      "actor": {
+        "name": "Иван",
+        "gender": "masculine"
+      },
+      "other": {
+        "name": "Анна",
+        "gender": "feminine"
+      }
+    },
+    "expected": "Нет Анны. Я подумал об Анне: она довольна."
+  }
+]

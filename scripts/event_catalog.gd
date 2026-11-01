@@ -1,6 +1,7 @@
 extends RefCounted
 ## Atomic JSON catalog loading. Only the requested trigger bucket is read at runtime.
 const Facts = preload("res://scripts/event_facts.gd")
+const TextRenderer = preload("res://scripts/event_text_renderer.gd")
 const Evaluator = preload("res://scripts/event_expression.gd")
 const MAX_DEFINITIONS := 10000
 const MAX_JSON_CHARACTERS := 16000000
@@ -153,7 +154,7 @@ func _validate_definition(raw: Dictionary, base_names: Dictionary, facts: RefCou
 		errors.append(label + ": main_role requires a declared role/binding")
 	elif names.binding.has(main) or (raw.roles[main] is Dictionary and raw.roles[main].get("type") == "resident"):
 		var text: Variant = raw.get("text", {})
-		if not text is Dictionary or not text.get("diary_main") is String or text.diary_main.strip_edges().is_empty(): errors.append(label + ": resident main role requires a future diary_main template")
+		if not text is Dictionary or not _required_text(text.get("diary_main")): errors.append(label + ": resident main role requires a future diary_main template")
 	if raw.has("cooldown"):
 		var cooldown: Variant = raw.cooldown
 		if not cooldown is Dictionary or not _integer(cooldown.get("minutes"), 0) or not cooldown.get("scope", []) is Array:
@@ -182,7 +183,7 @@ func _validate_definition(raw: Dictionary, base_names: Dictionary, facts: RefCou
 		var diary: Variant = raw.secondary_diary
 		if not diary is Dictionary or not diary.get("role") is String or not (names.role.has(diary.role) or names.binding.has(diary.role)) or not _probability(diary.get("chance")):
 			errors.append(label + ": invalid secondary diary policy")
-		elif not raw.get("text", {}) is Dictionary or not raw.text.get("diary_secondary") is String: errors.append(label + ": missing secondary diary template")
+		elif not raw.get("text", {}) is Dictionary or not _required_text(raw.text.get("diary_secondary")): errors.append(label + ": missing secondary diary template")
 	_validate_text(raw.get("text", {}), names, label)
 
 func _validate_descriptions(effects: Variant, names: Dictionary, facts: RefCounted, label: String, allow_none: bool = false) -> void:
@@ -201,6 +202,9 @@ func _validate_descriptions(effects: Variant, names: Dictionary, facts: RefCount
 			if not effect.has(key): errors.append(label + ": missing effect field " + key)
 		for key in ["owner", "target", "amount", "duration_minutes", "expires_at_minute", "salience", "strength", "skill", "kind", "topic", "definition", "permanent", "text"]:
 			if not effect.has(key): continue
+			if key == "text" and (effect[key] is String or effect[key] is Array):
+				_validate_template(effect[key], names, label + "/effects/text")
+				continue
 			var evaluator := Evaluator.new()
 			var type := evaluator.validate(effect[key], names, facts, errors, label + "/effects/" + key)
 			var expected := "entity" if key in ["owner", "target"] else "string" if key in ["skill", "kind", "topic", "definition", "text"] else "bool" if key == "permanent" else "number"
@@ -222,15 +226,17 @@ func _validate_text(text: Variant, names: Dictionary, label: String) -> void:
 	if not text is Dictionary:
 		errors.append(label + ": text must be object")
 		return
-	var pattern := RegEx.new()
-	pattern.compile("\\{([A-Za-z_][A-Za-z0-9_]*)(?:\\.[A-Za-z0-9_.]+)?\\}")
-	for template in text.values():
-		if not template is String:
-			errors.append(label + ": templates must be strings")
-			continue
-		for found in pattern.search_all(template):
-			var root: String = found.get_string(1)
-			if not names.role.has(root) and not names.binding.has(root) and root != "payload": errors.append(label + ": unknown text reference " + root)
+	for template in text.values(): _validate_template(template, names, label)
+
+func _validate_template(value: Variant, names: Dictionary, label: String) -> void:
+	var roots: Array = names.role.keys() + names.binding.keys() + ["payload"]
+	var result := TextRenderer.validate_choice(value, roots)
+	if not result.ok:
+		for error in result.errors: errors.append(label + ": " + str(error))
+
+static func _required_text(value: Variant) -> bool:
+	if value is String: return not value.strip_edges().is_empty()
+	return TextRenderer.alternatives(value).ok
 
 static func _integer(value: Variant, minimum: int) -> bool:
 	return _nonnegative(value) and float(value) >= minimum and floor(float(value)) == float(value)
