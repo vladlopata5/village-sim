@@ -1,4 +1,5 @@
 extends SceneTree
+const MoodSetup = preload("res://tests/mood_test_setup.gd")
 const Activity = preload("res://scripts/resident_activity.gd")
 const Intent = preload("res://scripts/resident_intent.gd")
 var failures := 0
@@ -85,7 +86,7 @@ func _run() -> void:
 		check(data.activity == Activity.Type.IDLE and not view.has_movement_target, "Morning cancels unfinished home movement to IDLE")
 		view.intent_completed.emit(cancelled)
 		check(data.activity == Activity.Type.IDLE, "Late cancelled arrival cannot cause sleep")
-	check(data.fatigue >= 0 and data.fatigue <= 100 and data.mood == 65, "Activities leave mood unchanged and fatigue bounded")
+	check(data.fatigue >= 0 and data.fatigue <= 100 and data.mood == MoodSetup.expected(data), "Activities leave mood unchanged and fatigue bounded")
 	data.activity = Activity.Type.SLEEPING
 	card._refresh()
 	check(card.activity_label.text == "Занятие: Спит", "Card reads original data without its own state")

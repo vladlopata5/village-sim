@@ -42,6 +42,7 @@ func is_actively_working() -> bool:
 
 func setup(resident: RefCounted, presentation: Node, clock: Node, locations: RefCounted, buildings: Array, housing: RefCounted = null) -> void:
 	data = resident
+	data.moodlets.bind_clock(clock)
 	# Same minute stream, connected before this resident's schedule/needs/work callbacks.
 	clock.minute_changed.connect(_on_minute)
 	_on_minute(clock.total_minutes)
@@ -90,7 +91,7 @@ func setup(resident: RefCounted, presentation: Node, clock: Node, locations: Ref
 	intents.intent_changed.connect(view.apply_intent)
 
 func _on_minute(minute: int) -> void:
-	if is_inside_tree() and data != null: data.moodlets.expire(minute)
+	if is_inside_tree() and data != null: data.moodlets.advance(minute)
 
 func _process(_delta: float) -> void:
 	if logger != null and data != null: logger.sync_activity(data)

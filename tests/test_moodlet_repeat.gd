@@ -1,9 +1,9 @@
 extends "res://tests/test_social_game_events.gd"
 class ObservedRepeatStore extends Moodlets:
 	var rebuilds := 0
-	func _rebuild_growth_cache(minute: int) -> void:
+	func _rebuild_numeric_cache(minute: int) -> void:
 		rebuilds += 1
-		super._rebuild_growth_cache(minute)
+		super._rebuild_numeric_cache(minute)
 
 func state(type: String, source: String, minute: int, duration: int = 120, factor: float = 0.5) -> Dictionary:
 	return {"id":"instance/"+source,"type":type,"created_minute":minute,"expires_at_minute":minute+duration,"source_occurrence_id":source,"target":{"kind":"resident","id":source},"context":{"reason":source},"tags":["positive"],"modifiers":[{"channel":"need_growth_rate","need":"hunger","multiplier":factor}]}

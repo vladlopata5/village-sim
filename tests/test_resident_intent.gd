@@ -1,4 +1,5 @@
 extends SceneTree
+const MoodSetup = preload("res://tests/mood_test_setup.gd")
 const ResidentIntent = preload("res://scripts/resident_intent.gd")
 const IntentController = preload("res://scripts/resident_intent_controller.gd")
 var failures: int = 0
@@ -88,7 +89,7 @@ func _run() -> void:
 	check(scene.resident_runtimes[0].schedule.request_manual_move(start), "Morning manual intent replaces unfinished home path")
 	check(intents.current_intent.reason_id == &"manual_move", "Manual intent becomes current after morning release")
 	var data = scene.residents[0]
-	check(data.fatigue >= 0 and data.fatigue <= 100 and data.mood == 65, "Intent mechanism leaves mood unchanged and fatigue bounded")
+	check(data.fatigue >= 0 and data.fatigue <= 100 and data.mood == MoodSetup.expected(data), "Intent mechanism leaves mood unchanged and fatigue bounded")
 	scene.queue_free()
 	print("Intent checks: ", "PASS" if failures == 0 else "FAIL (%d)" % failures)
 	quit(0 if failures == 0 else 1)

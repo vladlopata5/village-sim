@@ -1,4 +1,5 @@
 extends SceneTree
+const MoodSetup = preload("res://tests/mood_test_setup.gd")
 const Clock = preload("res://scripts/game_time.gd")
 const Data = preload("res://scripts/resident_data.gd")
 const Hunger = preload("res://scripts/need_dynamics.gd")
@@ -112,7 +113,7 @@ func _run() -> void:
 	view._process(20.0)
 	check(data.activity == Activity.Type.SLEEPING, "Hunger 100 does not prevent sleep")
 	key(KEY_3)
-	check(data.activity == Activity.Type.IDLE and data.fatigue >= 0 and data.fatigue <= 100 and data.mood == 65, "Morning still wakes; mood unchanged and fatigue bounded")
+	check(data.activity == Activity.Type.IDLE and data.fatigue >= 0 and data.fatigue <= 100 and data.mood == MoodSetup.expected(data), "Morning still wakes; mood unchanged and fatigue bounded")
 	# Data continues to evolve without its visual representation or card selection.
 	data.hunger = 20
 	scene.resident_selection.clear()

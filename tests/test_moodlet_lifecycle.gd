@@ -126,7 +126,7 @@ func card_lifecycle() -> void:
 	check(card.moodlets_label.text=="Мудлеты: нет","Future record remains hidden before activation")
 	world.game_time.debug_skip_minutes(4);check(card.moodlets_label.text.contains("5 мин.") and panel.tab_rebuild_count==tabs,"Projection handles creation boundary without rebuilding tabs")
 	world.free();await process_frame
-	check(first.moodlets.get_signal_connection_list("changed").is_empty(),"Freed card leaves no store subscriptions")
+	check(first.moodlets.get_signal_connection_list("changed").size()==1 and first.moodlets.get_signal_connection_list("changed")[0].callable.get_method()==&"_on_store_changed" and first.moodlets.modifiers_changed.get_connections().is_empty(),"Freed card leaves only the internal cache subscription")
 func hundred_residents() -> void:
 	var world=F.create(self)
 	for amount in [50,46]:check(world.debug_spawn.spawn_residents(Vector3(-10,0,24),amount,Profession.Type.NONE).created==amount,"100 actual residents created with existing debug fixture")

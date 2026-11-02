@@ -1,4 +1,5 @@
 extends SceneTree
+const MoodSetup = preload("res://tests/mood_test_setup.gd")
 const Activity = preload("res://scripts/resident_activity.gd")
 const Intent = preload("res://scripts/resident_intent.gd")
 var failures := 0
@@ -109,7 +110,7 @@ func _run() -> void:
 	check(not schedule.request_manual_move(Vector2.ZERO), "Work period remains protected without place")
 	next_phase()
 	check(schedule.request_manual_move(Vector2(-100, 180)), "Evening permits manual command after missing work")
-	check(data.fatigue >= 0 and data.fatigue <= 100 and data.mood == 65, "Full cycles leave mood unchanged and fatigue bounded")
+	check(data.fatigue >= 0 and data.fatigue <= 100 and data.mood == MoodSetup.expected(data), "Full cycles leave mood unchanged and fatigue bounded")
 	scene.queue_free()
 	# Initial setup during a work phase also follows the schedule.
 	var day_scene = preload("res://tests/domain_world.gd").instantiate()

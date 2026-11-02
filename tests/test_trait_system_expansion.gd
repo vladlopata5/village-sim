@@ -76,7 +76,7 @@ func run() -> void:
 		check(person.grammatical_gender == Generator.NAME_GENDERS[Generator.NAMES.find(name)], "Built-in names carry explicit grammatical metadata")
 	check(Generator.new(42).generate("Произвольное имя", Gender.FEMININE).grammatical_gender == Gender.FEMININE, "Custom names accept explicit gender")
 	check(Generator.new(42).generate("Произвольное имя").grammatical_gender == Gender.MASCULINE, "Unknown names have documented fallback without guessing")
-	check(Factory.create("invalid", "Invalid", 20, Profession.Type.NONE, [Trait.Type.FOOLISH, Trait.Type.PRUDENT], 0, 0, 50, &"", &"") == null, "Factory rejects conflicting list instead of silently truncating")
+	check(Factory.create("invalid", "Invalid", 20, Profession.Type.NONE, [Trait.Type.FOOLISH, Trait.Type.PRUDENT], 0, 0, &"", &"") == null, "Factory rejects conflicting list instead of silently truncating")
 	_rng_sequence()
 	_ui()
 	print("Trait expansion: ", checks, " checks, ", failures, " failures")
@@ -98,9 +98,11 @@ func _rng_sequence() -> void:
 		var liked: Array = []; var disliked: Array = []
 		for count in 2: liked.append(preference_pool.pop_at(preference_rng.randi_range(0, preference_pool.size() - 1)))
 		disliked.append(preference_pool.pop_at(preference_rng.randi_range(0, preference_pool.size() - 1)))
-		var expected := [name, rng.randi_range(18, 65), rng.randi_range(10, 30), rng.randi_range(5, 35), rng.randi_range(45, 80)]
+		var expected := [name, rng.randi_range(18, 65), rng.randi_range(10, 30), rng.randi_range(5, 35)]
+		rng.randi_range(45,80) # Retained draw, no longer an independent mood value.
+		expected.append(50.0)
 		var person = generator.generate()
-		check([person.resident_name, person.age, person.hunger, person.fatigue, person.mood] == expected and person.traits == pair and person.liked_traits == liked and person.disliked_traits == disliked, "Approved pool changes preserve reproducible draw order without extra draws")
+		check([person.resident_name, person.age, person.hunger, person.fatigue, person.mood] == expected and person.traits == pair and person.liked_traits == liked and person.disliked_traits == disliked, "Approved draw order: actual=" + str([person.resident_name,person.age,person.hunger,person.fatigue,person.mood]) + " expected=" + str(expected) + " traits=" + str([person.traits,pair]) + " prefs=" + str([person.liked_traits,liked,person.disliked_traits,disliked]))
 func _ui() -> void:
 	var world = preload("res://tests/behavior_test_setup.gd").make_scene(self)
 	var person = world.residents[1]; var other = world.residents[3]

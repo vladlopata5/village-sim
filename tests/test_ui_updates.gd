@@ -1,4 +1,5 @@
 extends SceneTree
+const MoodSetup = preload("res://tests/mood_test_setup.gd")
 const C = preload("res://scripts/resource_category.gd").Type
 const F=preload("res://tests/residents_ui_fixture.gd")
 const N=preload("res://scripts/need_type.gd").Type
@@ -86,7 +87,7 @@ func run() -> void:
 	var old_connections: int=a.relationship_changed.get_connections().size()
 	selection.select(b)
 	check(a.relationship_changed.get_connections().size()==old_connections-1,"Selection disconnects old callbacks")
-	b.mood=77
+	MoodSetup.set_value(b, 77)
 	b.activity=preload("res://scripts/resident_activity.gd").Type.MOVING
 	card._process(0.25)
 	check(card.mood_label.text.contains("77") and card.activity_label.text.contains("Идёт"),"Real mood fallback and activity signal")

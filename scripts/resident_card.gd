@@ -12,6 +12,7 @@ var clock: Node
 var moodlets_label: Label
 var _moodlet_store: RefCounted
 var _moodlet_rows: Array = [] # Visible card projection (titles/times), not gameplay modifiers.
+const NeedMoodlets = preload("res://scripts/need_moodlet_rules.gd")
 const MOODLET_NAMES = {"angry":"Разгневан", "well_fed":"Вкусно поел", "pride":"Гордость", "admiration":"Восхищение", "success_envy":"Зависть к чужому успеху", "work_satisfaction":"Удовлетворение от работы"}
 var _refresh_elapsed := 0.0
 func _widget(id: String) -> Node:
@@ -171,7 +172,7 @@ func _refresh() -> void:
 	fatigue_label.text = _state_line("Усталость", data.fatigue, StateText.fatigue_description(data.fatigue))
 	social_label.text = _state_line("Общение", data.get_need(NeedType.Type.SOCIAL).value, "Хочет общения" if data.get_need(NeedType.Type.SOCIAL).value >= 25 else "Достаточно общения")
 	leisure_label.text = _state_line("Досуг", data.get_need(NeedType.Type.LEISURE).value, "Хочет развлечься" if data.get_need(NeedType.Type.LEISURE).value >= 25 else "Достаточно досуга")
-	mood_label.text = "Настроение: %d/100 — %s" % [data.mood, StateText.mood_description(data.mood)] if show_state_numbers else "Настроение: " + StateText.mood_description(data.mood)
+	mood_label.text = "Настроение: %s/100 — %s" % [String.num(data.mood,2).trim_suffix(".0"), StateText.mood_description(data.mood)] if show_state_numbers else "Настроение: " + StateText.mood_description(data.mood)
 
 	refresh_work_task()
 
@@ -294,6 +295,7 @@ func _refresh_skills() -> void:
 	skills_label.text = "\n".join(lines)
 
 func _refresh_traits() -> void:
+	_refresh_moodlets()
 	var names := PackedStringArray()
 	if _assignment_resident != null:
 		for trait_type in _assignment_resident.traits: names.append("• " + Trait.display_name(trait_type))
@@ -395,7 +397,8 @@ func _refresh_moodlets(_entry_id: String = "") -> void:
 	_moodlet_rows.clear()
 	if _moodlet_store != null:
 		for entry: Dictionary in _moodlet_store.find():
-			var title: Variant = entry.context.get("display_name", MOODLET_NAMES.get(entry.type, entry.type))
+			var need_title := NeedMoodlets.display_name(entry.type, _assignment_resident.grammatical_gender)
+			var title: Variant = entry.context.get("display_name", need_title if not need_title.is_empty() else MOODLET_NAMES.get(entry.type, entry.type))
 			if not title is String or title.is_empty(): title = entry.type
 			_moodlet_rows.append({"title":title, "created":entry.created_minute, "expiry":entry.expires_at_minute})
 	_update_moodlet_times()
@@ -413,10 +416,12 @@ func _clear_home() -> void:
 		_control.clear_household(_selection.selected_resident.id)
 func _connect_need_signals() -> void:
 	_assignment_resident.activity_changed.connect(_refresh)
+	_assignment_resident.moodlets.modifiers_changed.connect(_refresh)
 	for need in _assignment_resident.needs.values():
 		need.changed.connect(_refresh)
 		_needs_connected.append(need)
 func _disconnect_need_signals() -> void:
+	if _assignment_resident != null and _assignment_resident.moodlets.modifiers_changed.is_connected(_refresh): _assignment_resident.moodlets.modifiers_changed.disconnect(_refresh)
 	for need in _needs_connected:
 		if need.changed.is_connected(_refresh): need.changed.disconnect(_refresh)
 	_needs_connected.clear()

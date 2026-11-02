@@ -18,7 +18,7 @@ static func fatigue_description(value: int) -> String:
 		return "Устал"
 	return "Очень устал"
 
-static func mood_description(value: int) -> String:
+static func mood_description(value: float) -> String:
 	if value < 25:
 		return "Очень плохое"
 	if value < 50:

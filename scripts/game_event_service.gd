@@ -140,6 +140,7 @@ func _sync_residents() -> void:
 		_tracked.erase(id)
 		facts.register_entity({"kind": "resident", "id": id}, false)
 	for data in _control.get_residents():
+		data.moodlets.bind_clock(_clock)
 		if not _tracked.has(data.id):
 			var callback := _on_skill_raised.bind(data)
 			_tracked[data.id] = {"data": data, "generation": _source_generation(data), "callback": callback}

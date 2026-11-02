@@ -65,7 +65,7 @@ func _run() -> void:
 	check(a.get_trait_preference_score(b) == 30, "Additive contribution has no artificial clamp")
 	var liked: Array = [Trait.Type.GLUTTON, Trait.Type.RESTLESS]
 	var disliked: Array = [Trait.Type.FOOLISH]
-	var explicit = Factory.create("explicit", "Тест", 25, Profession.Type.NONE, [], 0, 0, 50, &"", &"", liked, disliked)
+	var explicit = Factory.create("explicit", "Тест", 25, Profession.Type.NONE, [], 0, 0, &"", &"", liked, disliked)
 	explicit.remove_liked_trait(Trait.Type.GLUTTON)
 	check(liked.size() == 2 and explicit.liked_traits.size() == 1 and explicit.disliked_traits == disliked, "Factory copies explicit lists into resident-owned data")
 	check(Balance.LIKED_TRAITS_PER_RESIDENT == 2 and Balance.DISLIKED_TRAITS_PER_RESIDENT == 1 and Balance.LIKED_TRAIT_PREFERENCE_VALUE == 10 and Balance.DISLIKED_TRAIT_PREFERENCE_VALUE == -10, "Centralized prototype constants")

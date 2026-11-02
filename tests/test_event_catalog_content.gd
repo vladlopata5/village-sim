@@ -1,4 +1,5 @@
 extends "res://tests/test_social_game_events.gd"
+const MoodSetup = preload("res://tests/mood_test_setup.gd")
 const NEW_IDS := ["social.success_admiration", "social.warm_sympathy", "social.rough_conversation", "social.old_grudge", "social.character_contrast", "personal.skill_progress_advanced"]
 
 func fixture(people: Array = []) -> Dictionary:
@@ -26,7 +27,7 @@ func prepare_story(f: Dictionary, id: String) -> void:
 	match id:
 		"social.success_admiration": prime(f); f.social.rng.rolls = [100, 0]
 		"social.warm_sympathy": f.social.rng.rolls = [100, 100]
-		"social.rough_conversation": f.social.rng.rolls = [-100, -100]; f.a.mood = 20
+		"social.rough_conversation": f.social.rng.rolls = [-100, -100]; MoodSetup.set_value(f.a, 20)
 		"social.old_grudge": remember(f); f.social.rng.rolls = [-100, 100]
 		"social.character_contrast":
 			f.a.add_trait(Traits.Type.SOCIABLE); f.b.add_trait(Traits.Type.INTROVERTED)
@@ -93,7 +94,7 @@ func negative_definitions() -> void:
 				f.social.rng.rolls = [-100, 100] if scenario == "negative_reaction" else [100, 0]
 				if scenario == "expired": f.clock.total_minutes += 120
 			else: prepare_story(f, id)
-			if scenario == "mood_high": f.a.mood = 21
+			if scenario == "mood_high": MoodSetup.set_value(f.a, 21)
 			if scenario == "one_neutral": f.social.rng.rolls = [-100 if id == "social.rough_conversation" else 100, 0]
 			if scenario == "missing_trait": f.a.remove_trait(Traits.Type.SOCIABLE)
 			if scenario == "reverse_traits":
@@ -118,7 +119,7 @@ func competition() -> void:
 		check(f.service.completed_events().size() == before + 1 and selection.duplicate, "Adding definitions does not add events per opportunity")
 		cleanup(f)
 	for value in [0.0, 0.5, 1.0]:
-		var f := fixture(); prime(f); remember(f); remember(f, {"id": "another-old-chat"}); f.a.mood = 20; f.social.rng.rolls = [-100, -100]; f.rng.value = value
+		var f := fixture(); prime(f); remember(f); remember(f, {"id": "another-old-chat"}); MoodSetup.set_value(f.a, 20); f.social.rng.rolls = [-100, -100]; f.rng.value = value
 		var result := fire(f)
 		var selection: Dictionary = f.service.selector.run(f.service.last_occurrence())
 		check(selection.eligible == ["social.old_grudge", "social.rough_conversation", "social.success_envy"] and result.definition_id == selection.eligible[int(value * 2)], "New memory/history stories compete with existing envy without extra memory tickets")
@@ -154,7 +155,7 @@ func chances_and_cooldowns() -> void:
 			var result := fire(f)
 			check(result.status == "completed", "Narrative succeeds independently of optional consequence")
 			if id == "social.warm_sympathy": check(f.a.diary_entries.size() == (1 if roll == 0 else 0) and f.b.diary_entries.size() == 1, "Optional second diary uses its own JSON probability")
-			else: check(f.a.memories.size() + f.a.moodlets.size() == ((2 if id == "social.rough_conversation" else 1) if roll == 0 else 0), "New content consequence can pass or fail without suppressing the diary")
+			else: check(f.a.memories.size() + f.a.moodlets.find({"type":"admiration"}).size() + f.a.moodlets.find({"type":"angry"}).size() == ((2 if id == "social.rough_conversation" else 1) if roll == 0 else 0), "New content consequence can pass or fail without suppressing the diary")
 			var draws: int = f.service.executor.rng.draws
 			var token: String = f.service.last_occurrence().occurrence_id
 			var diaries: int = f.a.diary_entries.size() + f.b.diary_entries.size()
@@ -178,7 +179,7 @@ func chances_and_cooldowns() -> void:
 	cleanup(boundary)
 
 func actual_memory_chain() -> void:
-	var f := fixture(); f.a.mood = 20; f.social.rng.rolls = [-100, -100]
+	var f := fixture(); MoodSetup.set_value(f.a, 20); f.social.rng.rolls = [-100, -100]
 	check(fire(f).definition_id == "social.rough_conversation" and f.a.memories.size() == 1, "Actual bad conversation stores a real negative memory")
 	f.clock.total_minutes += 1
 	check(fire(f).definition_id == "social.old_grudge" and f.a.memories.size() == 1 and f.a.get_opinion("b") == -2 and f.b.get_opinion("a") == -2, "Next unpleasant interaction can recall the existing memory without reinforcement or doubled relations")
@@ -242,5 +243,5 @@ func actual_conversation() -> void:
 	actor.view._process(100)
 	check(contexts.size() == 2 and completed.size() == 2 and scene.social_events.rng.chances == 2, "Two old start opportunities still produce at most two universal events")
 	for result in completed: check(result.definition_id == "social.warm_sympathy" and result.main.id == contexts[result.occurrence_id].other.id, "Production sympathy resolves the actual other participant as main")
-	check(actor.data.diary_entries.size() == 2 and target.data.diary_entries.size() == 2 and actor.data.memories.size() == 0 and actor.data.moodlets.size() == 0, "Two distinct narrative events have main/secondary diaries without mechanical filler")
+	check(actor.data.diary_entries.size() == 2 and target.data.diary_entries.size() == 2 and actor.data.memories.size() == 0 and actor.data.moodlets.size() == 1 and actor.data.moodlets.get_entry("lonely").size() > 0, "Two distinct narrative events have main/secondary diaries without mechanical filler")
 	scene.free(); await process_frame

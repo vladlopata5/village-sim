@@ -13,7 +13,7 @@ func _run() -> void:
 func quarrel_fixture() -> Dictionary:
 	var f := fixture([Data.new("a", "Иван", 25), Data.new("b", "Анна", 30)])
 	f.b.grammatical_gender = Traits.GrammaticalGender.FEMININE
-	f.a.mood = 20; f.b.mood = 20
+	MoodSetup.set_value(f.a, 20); MoodSetup.set_value(f.b, 20)
 	f.social.rng.rolls = [-100, -100]
 	only(f, "social.rough_conversation")
 	return f
@@ -22,7 +22,7 @@ func conditions_and_contexts() -> void:
 	for context in SocialResult.Context.values():
 		for mood in [19,20,21]:
 			for reactions in [[-100,-100],[-100,0],[0,-100]]:
-				var f := quarrel_fixture(); f.a.mood = mood; f.social.rng.rolls = reactions
+				var f := quarrel_fixture(); MoodSetup.set_value(f.a, mood); f.social.rng.rolls = reactions
 				var result := fire(f, context)
 				var expected: bool = mood <= 20 and reactions == [-100,-100]
 				check((result.status == "completed") == expected, "Quarrel conditions mood/context/reactions: " + str([mood,context,reactions]))
@@ -46,7 +46,7 @@ func outcomes_and_grammar() -> void:
 				check(fire(f).status == "completed", "Every combination is a successful event")
 				var memory: bool = memory_roll < 0.6; var angry: bool = anger_roll < 0.4
 				check(f.service.chronicle.size() == 1 and f.service.chronicle.entries()[0].text == "Иван поссорился с Анной.", "Mandatory objective grammatical chronicle")
-				check(f.a.memories.size() == int(memory) and f.a.moodlets.size() == int(angry) and messages.size() == int(angry), "Independent60% memory / shared40% moodlet and message")
+				check(f.a.memories.size() == int(memory) and f.a.moodlets.find({"type":"angry"}).size() == int(angry) and messages.size() == int(angry), "Independent60% memory / shared40% moodlet and message")
 				check(f.service.executor.rng.draws == 2 + int(angry), "One group draw; text choice only on success")
 				if memory:
 					var entry: Dictionary = f.a.memories.find()[0]
@@ -70,7 +70,7 @@ func cooldown_and_identity() -> void:
 	f.clock.total_minutes = 754
 	check(fire(f).status == "no_match" and f.service.chronicle.size() == 1, "120-minute directed cooldown before boundary")
 	f.clock.total_minutes = 755
-	check(fire(f).status == "completed" and f.service.chronicle.size() == 2 and f.a.moodlets.size() == 1 and f.a.moodlets.get_entry("angry").expires_at_minute == 875, "Exact boundary and new occurrence refresh one angry")
+	check(fire(f).status == "completed" and f.service.chronicle.size() == 2 and f.a.moodlets.find({"type":"angry"}).size() == 1 and f.a.moodlets.get_entry("angry").expires_at_minute == 875, "Exact boundary and new occurrence refresh one angry")
 	var reverse: RefCounted = f.social.resolve(f.b,f.a,SocialResult.Context.MEAL)
 	check(f.service.replay(reverse.confirmed_context().occurrence_id).status == "completed" and f.service.chronicle.size() == 3, "Opposite directed pair has independent cooldown")
 	cleanup(f)
@@ -90,14 +90,14 @@ func atomic_refusals() -> void:
 		f.a.memories.changed.connect(func(_id): notices.append("memory"))
 		f.a.moodlets.changed.connect(func(_id): notices.append("moodlet"))
 		f.service.resident_message.connect(func(_id,_name,_text): notices.append("chat"))
-		check(fire(f).status != "completed" and f.service.chronicle.size() == 0 and f.a.memories.size() == 0 and f.a.moodlets.size() == 0 and notices.is_empty(), "No partial state or notices: " + scenario)
+		check(fire(f).status != "completed" and f.service.chronicle.size() == 0 and f.a.memories.size() == 0 and f.a.moodlets.find({"type":"angry"}).is_empty() and notices.is_empty(), "No partial state or notices: " + scenario)
 		check(f.service.cooldown_history().is_empty(), "Failed event has no cooldown")
 		cleanup(f)
 
 func live_action() -> void:
 	var world = load("res://scenes/main_3d.tscn").instantiate(); root.add_child(world); world.game_time.set_process(false); world.game_logger.console_enabled = false
 	var actor: Node = world.resident_runtimes[0]; var other: Node = world.resident_runtimes[1]
-	actor.data.mood = 20; actor.data.set_traits([]); other.data.set_traits([])
+	MoodSetup.set_value(actor.data, 20); actor.data.set_traits([]); other.data.set_traits([])
 	var definition: Dictionary = world.game_events.catalog.definitions_for("social.resolved").filter(func(d): return d.id == "social.rough_conversation")[0]
 	check(world.game_events.catalog.load_data({"definitions":[definition]},world.game_events.facts), "Canonical event catalog")
 	world.game_events.selector.rng = CountingRng.new(); world.game_events.executor.rng = SequenceRng.new(); world.social_events.rng = LegacyRng.new(); world.social_events.rng.rolls = [-100,-100]

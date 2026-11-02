@@ -161,7 +161,7 @@ func _create_test_residents() -> void:
 	residents.append(ResidentFactory.create(
 		"resident_001", "Степан", 30, Profession.Type.PORTER,
 		generator.generate_traits(),
-		20, 35, 65, preload("res://scripts/household_data.gd").id_for(_starting_home_id(0)), warehouse_data.id, starting_preferences.liked, starting_preferences.disliked))
+		20, 35, preload("res://scripts/household_data.gd").id_for(_starting_home_id(0)), warehouse_data.id, starting_preferences.liked, starting_preferences.disliked))
 	for index in range(3):
 		var data = generator.generate(["Анна", "Фёдор", "Марина"][index])
 		data.household_id = preload("res://scripts/household_data.gd").id_for(_starting_home_id(index+1))

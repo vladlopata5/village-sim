@@ -7,32 +7,52 @@ const Utility = preload("res://scripts/action_utility.gd")
 const WorkRules = preload("res://scripts/work_skill_rules.gd")
 const Need = preload("res://scripts/need_type.gd")
 const NEED_GROWTH_CHANNEL := "need_growth_rate"
+const MOOD_CHANNEL := "mood.offset"
 
 static func valid_moodlet_modifier(modifier: Dictionary) -> bool:
+	if modifier.get("channel") == MOOD_CHANNEL:
+		var value: Variant = modifier.get("value")
+		return modifier.size() == 2 and (value is int or value is float) and is_finite(float(value))
 	if modifier.get("channel") != NEED_GROWTH_CHANNEL: return true # Legacy opaque channels stay inert.
 	if modifier.size()!=3 or not modifier.get("need") is String or modifier.need.to_upper() not in Need.Type: return false
 	var factor: Variant = modifier.get("multiplier")
 	return (factor is int or factor is float) and is_finite(float(factor)) and factor>=0
 
-static func moodlet_need_growth_state(entries: Array, minute: int) -> Dictionary:
+static func moodlet_numeric_state(entries: Array, minute: int) -> Dictionary:
 	var factors: Dictionary = {}
 	var invalid: Dictionary = {}
 	var next_change := -1
+	var offsets: Array[float] = []
 	for entry: Dictionary in entries:
-		var numeric: Array = entry.modifiers.filter(func(row):return row.get("channel")==NEED_GROWTH_CHANNEL and valid_moodlet_modifier(row))
+		var numeric: Array = entry.modifiers.filter(func(row):return row.get("channel") in [NEED_GROWTH_CHANNEL,MOOD_CHANNEL] and valid_moodlet_modifier(row))
 		if numeric.is_empty() or (entry.expires_at_minute!=null and minute>=entry.expires_at_minute): continue
 		if minute<entry.created_minute:
 			if next_change<0 or entry.created_minute<next_change: next_change=entry.created_minute
 			continue
 		if entry.expires_at_minute!=null and (next_change<0 or entry.expires_at_minute<next_change): next_change=entry.expires_at_minute
 		for modifier: Dictionary in numeric:
+			if modifier.channel == MOOD_CHANNEL:
+				offsets.append(float(modifier.value))
+				continue
 			var type: int = Need.Type[modifier.need.to_upper()]
 			if invalid.has(type): continue
 			var product: float = float(factors.get(type,1.0))*modifier.multiplier
 			if not is_finite(product):
 				factors.erase(type);invalid[type]=true # An unrepresentable channel has no numeric effect.
 			else: factors[type]=product
-	return {"factors":factors,"next_change":next_change}
+	# Normalise the signed sum to avoid inf-inf for very large finite inputs.
+	var maximum := 0.0
+	for offset in offsets: maximum = maxf(maximum,absf(offset))
+	var total := 0.0
+	if maximum > 1.0e308 / maxi(offsets.size(),1):
+		for offset in offsets: total += offset / maximum
+		total *= maximum
+	else:
+		for offset in offsets: total += offset
+	return {"factors":factors,"mood_offset":total,"next_change":next_change}
+
+static func mood_from_offset(offset: float) -> float:
+	return clampf(50.0 + offset, 0.0, 100.0)
 
 static func need_growth_rate(type: int, base_rate: float, factors: Dictionary) -> float:
 	if base_rate<=0: return base_rate

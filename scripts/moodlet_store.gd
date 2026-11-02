@@ -3,16 +3,44 @@ extends RefCounted
 const Data = preload("res://scripts/event_store_data.gd")
 const Modifiers = preload("res://scripts/resident_modifiers.gd")
 signal changed(entry_id: String)
+signal modifiers_changed
 var _owner_id: String
 var _entries: Dictionary = {}
 var _next_expiry_minute := -1 # No timed records. Derived deadline, never a second effect store.
-var _growth_dirty := true
+var _numeric_dirty := true
 var _growth_factors: Dictionary = {}
-var _growth_minute := -1
-var _next_growth_change := -1
+var _numeric_minute := -1
+var _next_numeric_change := -1
+var _mood_offset := 0.0
+var _observed_minute := 0
+var _clock: WeakRef
 
 func _init(owner_id: String) -> void:
 	_owner_id = owner_id
+	changed.connect(_on_store_changed)
+
+func bind_clock(clock: Node) -> void:
+	# Read the existing clock; no subscription, new timer or scheduler.
+	_clock = weakref(clock)
+	advance(clock.total_minutes)
+
+func current_minute() -> int:
+	var clock: Node = _clock.get_ref() if _clock != null else null
+	return clock.total_minutes if clock != null else _observed_minute
+
+func advance(minute: int) -> void:
+	if minute < 0: return
+	_observed_minute = minute
+	expire(minute)
+	_ensure_numeric(minute)
+
+func _on_store_changed(_entry_id: String) -> void:
+	# Silent event writes never call this. Their notification is post-commit.
+	if _clock != null and _clock.get_ref() != null: _ensure_numeric(current_minute())
+
+func mood_offset() -> float:
+	_ensure_numeric(current_minute())
+	return _mood_offset
 
 func owner() -> Dictionary:
 	return {"kind": "resident", "id": _owner_id}
@@ -25,16 +53,23 @@ func next_expiry_minute() -> int:
 
 func need_growth_factors(minute: int) -> Dictionary:
 	if minute<0: return {}
-	if _growth_dirty or minute<_growth_minute or (_next_growth_change>=0 and minute>=_next_growth_change):
-		_rebuild_growth_cache(minute)
+	_ensure_numeric(minute)
 	return _growth_factors.duplicate() # Minute-local consumer snapshot; callers cannot mutate the cache.
 
-func _rebuild_growth_cache(minute: int) -> void:
-	var state := Modifiers.moodlet_need_growth_state(_entries.values(),minute)
+func _ensure_numeric(minute: int) -> void:
+	_observed_minute = minute
+	if _numeric_dirty or minute<_numeric_minute or (_next_numeric_change>=0 and minute>=_next_numeric_change): _rebuild_numeric_cache(minute)
+
+func _rebuild_numeric_cache(minute: int) -> void:
+	var previous_factors := _growth_factors
+	var previous_mood := Modifiers.mood_from_offset(_mood_offset)
+	var state := Modifiers.moodlet_numeric_state(_entries.values(),minute)
 	_growth_factors=state.factors
-	_next_growth_change=state.next_change
-	_growth_minute=minute
-	_growth_dirty=false
+	_mood_offset=state.mood_offset
+	_next_numeric_change=state.next_change
+	_numeric_minute=minute
+	_numeric_dirty=false
+	if previous_factors != _growth_factors or previous_mood != Modifiers.mood_from_offset(_mood_offset): modifiers_changed.emit()
 
 func _update_next_expiry() -> void:
 	_next_expiry_minute = -1
@@ -86,7 +121,7 @@ func _prepare_record(record: Dictionary) -> Dictionary:
 func _apply_event_add(prepared: Dictionary) -> void:
 	# Internal commit primitive; publish only after all event writes + metadata.
 	_entries[prepared.id] = prepared.duplicate(true)
-	_growth_dirty=true
+	_numeric_dirty=true
 	_update_next_expiry()
 
 func is_active(entry_id: String, minute: int) -> bool:
@@ -108,14 +143,14 @@ func expire(minute: int) -> int:
 	# Complete this local operation before notifying. A callback may add another ID;
 	# it must not be silently erased by the rest of this expiration pass.
 	for entry_id: String in expired: _entries.erase(entry_id)
-	_growth_dirty=true
+	_numeric_dirty=true
 	_update_next_expiry() # Before callbacks: their changes must retain their own next deadline.
 	for entry_id: String in expired: changed.emit(entry_id)
 	return expired.size()
 
 func remove(entry_id: String) -> bool:
 	if not _entries.erase(entry_id): return false
-	_growth_dirty=true
+	_numeric_dirty=true
 	_update_next_expiry()
 	changed.emit(entry_id)
 	return true

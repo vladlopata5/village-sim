@@ -1,4 +1,5 @@
 extends SceneTree
+const MoodSetup = preload("res://tests/mood_test_setup.gd")
 const Fixture = preload("res://tests/canonical_ui_fixture.gd")
 const Coordinates = preload("res://scripts/world_3d/world_coordinates.gd")
 var failures := 0
@@ -74,7 +75,7 @@ func run() -> void:
 	before=executor.global_position
 	await create_timer(0.1).timeout
 	check(executor.global_position!=before,"Actual unpaused physics moves resident")
-	check(actor.data.hunger==20 and actor.data.fatigue==35 and actor.data.mood==65,"Movement does not mutate needs")
+	check(actor.data.hunger==20 and actor.data.fatigue==35 and actor.data.mood == MoodSetup.expected(actor.data),"Movement does not mutate needs")
 	world.free()
 	print("resident_movement: %d checks, %d failures" % [checks,failures])
 	quit(1 if failures else 0)

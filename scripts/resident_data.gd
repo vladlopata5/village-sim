@@ -115,17 +115,48 @@ var hunger: int:
 var fatigue: int:
 	get: return needs[NeedType.Type.FATIGUE].value
 	set(next): needs[NeedType.Type.FATIGUE].value = next
-var mood: int = 50:
-	set(value):
-		mood = clampi(value, 0, 100)
+# Derived, read-only: MoodletStore is the only source of mood contributions.
+var mood: float:
+	get: return Modifiers.mood_from_offset(moodlets.mood_offset())
+const NeedMoodlets = preload("res://scripts/need_moodlet_rules.gd")
+signal need_state_changed(context: Dictionary)
+var _need_state_sequence := 0
+var _need_state_depth := 0
+var _publishing_need_states := false
+var _pending_need_states: Array = []
+
+func _on_need_changed(type: int) -> void:
+	var definition: Dictionary = NeedMoodlets.DEFINITIONS[type]
+	var active := not moodlets.get_entry(definition.id).is_empty()
+	var deficit: int = needs[type].value
+	var desired := NeedMoodlets.desired(deficit, active)
+	if desired == active: return
+	_need_state_sequence += 1
+	var minute := moodlets.current_minute()
+	var occurrence_id := JSON.stringify(["need.state_changed", id, _need_state_sequence])
+	var context := {"trigger":"need.state_changed", "occurrence_id":occurrence_id, "minute":minute, "actor":{"kind":"resident","id":id}, "payload":{"need":NeedType.Type.keys()[type].to_lower(),"active":desired,"deficit":deficit,"moodlet":definition.id}}
+	# Enqueue before Store callbacks: nested threshold crossings retain fact order.
+	_pending_need_states.append(context)
+	_need_state_depth += 1
+	var changed: bool = moodlets.add(NeedMoodlets.record(type, minute, occurrence_id)) if desired else moodlets.remove(definition.id)
+	assert(changed, "A guaranteed need transition must use a valid owned moodlet store")
+	_need_state_depth -= 1
+	if _need_state_depth > 0 or _publishing_need_states: return
+	_publishing_need_states = true
+	while not _pending_need_states.is_empty(): need_state_changed.emit(_pending_need_states.pop_front().duplicate(true))
+	_publishing_need_states = false
 
 func _init(unique_id: String, initial_name: String, initial_age: int, initial_profession: Profession.Type = Profession.Type.NONE) -> void:
-	needs[NeedType.Type.HUNGER].changed.connect(hunger_changed.emit)
-	needs[NeedType.Type.FATIGUE].changed.connect(fatigue_changed.emit)
 	id = unique_id
 	opinion_rng.seed = unique_id.hash() ^ 0x4F50494E # Independent of AI/social reaction RNG.
 	memories = MemoryStore.new(unique_id)
 	moodlets = MoodletStore.new(unique_id)
+	# Guaranteed state transitions run before existing UI/AI need observers.
+	for type in NeedType.Type.values():
+		needs[type].changed.connect(_on_need_changed.bind(type))
+		_on_need_changed(type)
+	needs[NeedType.Type.HUNGER].changed.connect(hunger_changed.emit)
+	needs[NeedType.Type.FATIGUE].changed.connect(fatigue_changed.emit)
 	resident_name = initial_name
 	age = initial_age
 	profession = initial_profession

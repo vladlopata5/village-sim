@@ -26,7 +26,11 @@ func generate(display_name: String = "", grammatical_gender: int = -1):
 	if grammatical_gender in Trait.GrammaticalGender.values(): gender = grammatical_gender as Trait.GrammaticalGender
 	var traits := generate_traits()
 	var preferences := generate_preferences()
-	return Factory.create(resident_id, generated_name if display_name.is_empty() else display_name, _random.randi_range(18, 65), Profession.Type.NONE, traits, _random.randi_range(10, 30), _random.randi_range(5, 35), _random.randi_range(45, 80), &"", &"", preferences.liked, preferences.disliked, gender)
+	var age := _random.randi_range(18,65)
+	var hunger := _random.randi_range(10,30)
+	var fatigue := _random.randi_range(5,35)
+	_random.randi_range(45,80) # Preserve the established generator stream, without storing random mood.
+	return Factory.create(resident_id, generated_name if display_name.is_empty() else display_name, age, Profession.Type.NONE, traits, hunger, fatigue, &"", &"", preferences.liked, preferences.disliked, gender)
 
 func generate_traits() -> Array:
 	var available: Array = Trait.GENERATION_POOL.duplicate()

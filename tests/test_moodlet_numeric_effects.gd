@@ -7,9 +7,9 @@ const Activity = preload("res://scripts/resident_activity.gd").Type
 const Clock = preload("res://scripts/game_time.gd")
 class ObservedNumericStore extends Store:
 	var rebuilds := 0
-	func _rebuild_growth_cache(minute: int) -> void:
+	func _rebuild_numeric_cache(minute: int) -> void:
 		rebuilds+=1
-		super._rebuild_growth_cache(minute)
+		super._rebuild_numeric_cache(minute)
 class FixedEventRng extends RefCounted:
 	func randf() -> float: return 0.0
 func numeric_record(id: String, minute: int, duration: int = 120, need: String = "hunger", multiplier: float = 0.5) -> Dictionary:

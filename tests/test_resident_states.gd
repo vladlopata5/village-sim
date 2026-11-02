@@ -1,4 +1,5 @@
 extends SceneTree
+const MoodSetup = preload("res://tests/mood_test_setup.gd")
 const ResidentData = preload("res://scripts/resident_data.gd")
 const StateText = preload("res://scripts/resident_state_text.gd")
 var failures: int = 0
@@ -24,7 +25,7 @@ func _run() -> void:
 		check(StateText.fatigue_description(value) == fatigue_texts[band], "Fatigue boundary %d" % value)
 		check(StateText.mood_description(value) == mood_texts[band], "Mood boundary %d" % value)
 	var independent = ResidentData.new("test", "Тест", 25)
-	for property in ["hunger", "fatigue", "mood"]:
+	for property in ["hunger", "fatigue"]:
 		independent.set(property, -1)
 		check(independent.get(property) == 0, "Clamp lower bound: " + property)
 		independent.set(property, 101)
@@ -43,28 +44,28 @@ func _run() -> void:
 	var selection = scene.get_node("ResidentSelection")
 	var card = scene.resident_card_view()
 	var clock = scene.get_node("GameTime")
-	check(data.hunger == 20 and data.fatigue >= 0 and data.fatigue <= 100 and data.mood == 65, "Stepan starts with explicit test values")
+	check(data.hunger == 20 and data.fatigue >= 0 and data.fatigue <= 100 and data.mood == MoodSetup.expected(data), "Stepan starts with explicit test values")
 	selection.select(data)
 	check(card.hunger_label.text == "Голод: 20 — Сыт", "Initial hunger display")
 	check(card.fatigue_label.text == "Усталость: 35 — Немного устал", "Initial fatigue display")
-	check(card.mood_label.text == "Настроение: 65/100 — Хорошее", "Initial mood display")
+	check(card.mood_label.text == "Настроение: 50/100 — Хорошее", "Initial mood display: " + card.mood_label.text)
 	clock.set_process(false)
 	for speed in [1, 2, 4]:
 		clock.set_speed(speed)
 		clock.advance(1440.0)
-	check(data.hunger == 100 and data.fatigue >= 0 and data.fatigue <= 100 and data.mood == 65, "Passing time grows hunger to cap with bounded fatigue and unchanged mood")
+	check(data.hunger == 100 and data.fatigue >= 0 and data.fatigue <= 100 and data.mood == MoodSetup.expected(data), "Passing time grows hunger to cap with bounded fatigue and unchanged mood")
 	data.set_traits([])
-	check(data.hunger == 100 and data.fatigue >= 0 and data.fatigue <= 100 and data.mood == 65, "Traits do not affect states")
+	check(data.hunger == 100 and data.fatigue >= 0 and data.fatigue <= 100 and data.mood == MoodSetup.expected(data), "Traits do not affect states")
 	data.hunger = 75
 	data.fatigue = 50
-	data.mood = 0
+	MoodSetup.set_value(data, 0)
 	card._process(0.25) # Mood is polled every 250ms, not on an arbitrary two render frames.
 	paused = true
 	await process_frame
 	await process_frame
 	check(card.hunger_label.text == "Голод: 75 — Очень голоден", "Card reads updated hunger on pause")
 	check(card.fatigue_label.text == "Усталость: 50 — Устал", "Card reads updated fatigue on pause")
-	check(card.mood_label.text == "Настроение: 0/100 — Очень плохое", "Card reads updated mood on pause")
+	check(card.mood_label.text == "Настроение: 0/100 — Очень плохое", "Card reads updated mood on pause: " + card.mood_label.text)
 	card.show_state_numbers = false
 	card._process(0.25)
 	await process_frame

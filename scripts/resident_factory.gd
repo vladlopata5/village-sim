@@ -3,7 +3,7 @@ extends RefCounted
 const Data = preload("res://scripts/resident_data.gd")
 const Profession = preload("res://scripts/resident_profession.gd")
 
-static func create(resident_id: String, display_name: String, age: int, profession: Profession.Type, traits: Array, hunger: int, fatigue: int, mood: int, household_id: StringName, work_location_id: StringName, liked_traits: Array = [], disliked_traits: Array = [], grammatical_gender: Data.Trait.GrammaticalGender = Data.Trait.GrammaticalGender.MASCULINE) -> Data:
+static func create(resident_id: String, display_name: String, age: int, profession: Profession.Type, traits: Array, hunger: int, fatigue: int, household_id: StringName, work_location_id: StringName, liked_traits: Array = [], disliked_traits: Array = [], grammatical_gender: Data.Trait.GrammaticalGender = Data.Trait.GrammaticalGender.MASCULINE) -> Data:
 	var data = Data.new(resident_id, display_name, age, profession)
 	if not data.set_traits(traits): return null
 	data.grammatical_gender = grammatical_gender
@@ -11,7 +11,6 @@ static func create(resident_id: String, display_name: String, age: int, professi
 	for trait_type in disliked_traits: data.add_disliked_trait(trait_type)
 	data.hunger = hunger
 	data.fatigue = fatigue
-	data.mood = mood
 	data.household_id = household_id
 	data.work_location_id = work_location_id
 	return data

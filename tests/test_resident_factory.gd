@@ -16,8 +16,8 @@ func signature(data) -> Array:
 	return [data.id, data.resident_name, data.age, ids, data.hunger, data.fatigue, data.mood]
 func _run():
 	var traits = [preload("res://scripts/trait_type.gd").Type.RESTLESS]
-	var a = Factory.create("a", "A", 25, Profession.Type.PORTER, traits, 20, 30, 60, &"shared_home", &"warehouse_01")
-	var b = Factory.create("b", "B", 35, Profession.Type.NONE, traits, 10, 15, 70, &"shared_home", &"")
+	var a = Factory.create("a", "A", 25, Profession.Type.PORTER, traits, 20, 30, &"shared_home", &"warehouse_01")
+	var b = Factory.create("b", "B", 35, Profession.Type.NONE, traits, 10, 15, &"shared_home", &"")
 	check(a.inventory != b.inventory and a.activity == Activity.Type.IDLE and a.inventory.amount == 0, "Factory owns fresh inventory and initial activity")
 	a.inventory.put(FOOD, 1)
 	a.remove_trait(traits[0])
@@ -34,7 +34,7 @@ func _run():
 		check(not seen.has(generated.id), "Unique IDs within generator namespace")
 		seen.append(generated.id)
 		check(generated.traits.size() == 2 and generated.age >= 18 and generated.age <= 65, "Simple age and trait_type generation")
-		check(generated.hunger >= 10 and generated.hunger <= 30 and generated.fatigue >= 5 and generated.fatigue <= 35 and generated.mood >= 45 and generated.mood <= 80, "Reasonable initial needs")
+		check(generated.hunger >= 10 and generated.hunger <= 30 and generated.fatigue >= 5 and generated.fatigue <= 35 and generated.mood == 50, "Reasonable initial needs")
 		check(generated.profession == Profession.Type.NONE and generated.household_id.is_empty() and generated.work_location_id.is_empty(), "Settlement assigns profession and places")
 	check(signature(Generator.new(123).generate()) != signature(other.generate()), "Different seed changes generated data")
 	print("Factory/generator checks: ", "PASS" if failures == 0 else "FAIL")

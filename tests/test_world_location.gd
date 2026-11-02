@@ -1,4 +1,5 @@
 extends SceneTree
+const MoodSetup = preload("res://tests/mood_test_setup.gd")
 const HH=preload("res://scripts/household_data.gd")
 const Location = preload("res://scripts/world_location.gd")
 const Locations = preload("res://tests/domain_locations.gd")
@@ -65,7 +66,7 @@ func _run() -> void:
 	check(not view.has_movement_target and data.activity == Activity.Type.SLEEPING, "Missing home sleeps outdoors without bogus movement")
 	clock.debug_next_phase()
 	check(not scene.resident_runtimes[0].schedule.is_night, "Missing home still releases night lock in morning")
-	check(data.fatigue >= 0 and data.fatigue <= 100 and data.mood == 65, "Place lookup leaves mood unchanged and fatigue bounded")
+	check(data.fatigue >= 0 and data.fatigue <= 100 and data.mood == MoodSetup.expected(data), "Place lookup leaves mood unchanged and fatigue bounded")
 	scene.queue_free()
 	print("World location checks: ", "PASS" if failures == 0 else "FAIL (%d)" % failures)
 	quit(0 if failures == 0 else 1)
