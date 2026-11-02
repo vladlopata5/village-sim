@@ -25,7 +25,7 @@ static func _token_parts(token: String) -> Dictionary:
 		elif field == "gender":
 			if argument.split("|", true).size() != 2: return _failure("gender requires masculine|feminine: " + token)
 		else: return _failure("unsupported text modifier: " + token)
-	if field in ["pronoun", "with", "about"] or parts.size() == 2:
+	if field in ["pronoun", "with", "With", "about"] or parts.size() == 2:
 		if not "." in parts[0]: return _failure("grammar requires participant field: " + token)
 	return {"ok": true, "path": parts[0], "field": field, "argument": argument, "modified": parts.size() == 2}
 
@@ -78,7 +78,7 @@ static func render(template: String, values: Dictionary) -> Dictionary:
 	# Only the original template is scanned; substituted names are literal text.
 	for token in _tokens().search_all(template):
 		var parts := _token_parts(token.get_string(1))
-		var resolved := _grammar(values, parts) if parts.modified or parts.field in ["pronoun", "with", "about"] else _read(values, parts.path)
+		var resolved := _grammar(values, parts) if parts.modified or parts.field in ["pronoun", "with", "With", "about"] else _read(values, parts.path)
 		if not resolved.ok: return resolved
 		output += template.substr(cursor, token.get_start() - cursor) + resolved.text
 		cursor = token.get_end()
@@ -124,6 +124,17 @@ static func event_values(selection: Dictionary, context: Dictionary, projections
 	values.payload = context.get("payload", {})
 	return _expand(values, projections)
 
+static func bind_values(values: Dictionary, bindings: Dictionary, projections: Dictionary) -> Dictionary:
+	# Per-effect aliases reuse the same expansion/grammar path as event roles.
+	if not Facts.plain(values) or not Facts.plain(bindings) or bindings.size() > 8: return Facts.unknown("invalid text bindings")
+	var expanded := _expand(bindings, projections)
+	if not expanded.known: return expanded
+	var result := values.duplicate(true)
+	for key in expanded.value:
+		if not key.is_valid_identifier() or result.has(key): return Facts.unknown("ambiguous text binding: " + key)
+		result[key] = expanded.value[key]
+	return Facts.known(result)
+
 static func render_event(selection: Dictionary, context: Dictionary, projections: Dictionary = {}, rng: RefCounted = null) -> Dictionary:
 	var expanded := event_values(selection, context, projections)
 	if not expanded.known: return _event_failure(expanded.reason)
@@ -153,7 +164,9 @@ static func _grammar(values: Dictionary, parts: Dictionary) -> Dictionary:
 	var forms: Variant = parent.get("name_forms", Grammar.forms(parent.name, str(gender)))
 	if not Grammar.valid_forms(forms, parent.name): return _failure("invalid participant name forms: " + path)
 	var text: String
-	if parts.field == "with": text = Grammar.with_name(forms.ins)
+	if parts.field in ["with", "With"]:
+		text = Grammar.with_name(forms.ins)
+		if parts.field == "With": text = text.left(1).to_upper() + text.substr(1)
 	elif parts.field == "about": text = Grammar.about_name(forms.prep)
 	else: text = forms[parts.argument]
 	return {"ok": true, "text": text, "errors": []}

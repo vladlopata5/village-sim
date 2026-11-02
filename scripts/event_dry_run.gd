@@ -79,6 +79,7 @@ func run(context: Dictionary, history: Dictionary = {}, diagnostic: bool = false
 	result.tables = chosen.match.env.catalog # Frozen tables for consequence expressions.
 	result.main = chosen.match.main
 	result.cooldown_key = chosen.match.cooldown_key
+	result.cooldown_keys = chosen.match.cooldown_keys
 	return _remember(token, result)
 
 func _remember(token: String, result: Dictionary) -> Dictionary:
@@ -116,6 +117,7 @@ func _match(definition: Dictionary, context: Dictionary, tables: Dictionary, his
 	var main: Variant = env.role.get(definition.main_role, env.binding.get(definition.main_role))
 	if not facts.valid_entity(main): return _reject("invalid main participant")
 	var cooldown_key := ""
+	var cooldown_keys: Array = []
 	if definition.has("cooldown"):
 		var scope: Array = []
 		for expression in definition.cooldown.get("scope", []):
@@ -124,10 +126,16 @@ func _match(definition: Dictionary, context: Dictionary, tables: Dictionary, his
 			if Facts.value_type(value.value) not in ["entity", "string", "number", "bool", "null"]: return _reject("invalid cooldown scope type")
 			scope.append([value.value.kind, value.value.id] if Facts.is_ref(value.value) else value.value)
 		cooldown_key = JSON.stringify([definition.id, scope])
-		if history.has(cooldown_key):
-			if not _minute(history[cooldown_key]): return _reject("invalid cooldown history")
-			if context.minute < history[cooldown_key] + definition.cooldown.minutes: return _reject("cooldown")
-	return {"ok": true, "env": env, "main": main, "cooldown_key": cooldown_key}
+		cooldown_keys.append(cooldown_key)
+		if definition.cooldown.get("symmetric", false):
+			scope.reverse()
+			var reverse_key := JSON.stringify([definition.id, scope])
+			if reverse_key not in cooldown_keys: cooldown_keys.append(reverse_key)
+		for key in cooldown_keys:
+			if history.has(key):
+				if not _minute(history[key]): return _reject("invalid cooldown history")
+				if context.minute < history[key] + definition.cooldown.minutes: return _reject("cooldown")
+	return {"ok": true, "env": env, "main": main, "cooldown_key": cooldown_key, "cooldown_keys": cooldown_keys}
 
 func _first(values: Array, order: String) -> Dictionary:
 	var decorated: Array = []

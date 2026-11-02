@@ -83,9 +83,10 @@ func remove(entry_id: String) -> bool:
 
 func _valid(record: Dictionary) -> bool:
 	if not Data.text(_owner_id) or not Data.json_value(record): return false
-	if not Data.only_keys(record, ["id", "type", "topic", "owner", "target", "tags", "context", "strength", "permanent", "created_minute", "source_occurrence_id", "provenance"]): return false
+	if not Data.only_keys(record, ["id", "type", "topic", "owner", "target", "tags", "context", "strength", "permanent", "created_minute", "source_occurrence_id", "provenance", "text"]): return false
 	for key in ["id", "type", "topic", "source_occurrence_id"]:
 		if not Data.text(record.get(key)): return false
+	if record.has("text") and not Data.text(record.text): return false
 	if record.has("owner") and record.owner != owner(): return false
 	if record.get("target") != null and not Data.entity_ref(record.target): return false
 	if not Data.tags(record.get("tags", [])) or not record.get("context", {}) is Dictionary: return false

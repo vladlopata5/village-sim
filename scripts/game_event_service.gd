@@ -218,7 +218,7 @@ func _select_and_commit(context: Dictionary, source: RefCounted, required_main: 
 	var result := executor.execute(selection, context, minute, source)
 	if result.status != "completed": return result
 	_completed[context.occurrence_id] = result.duplicate(true)
-	if not selection.cooldown_key.is_empty(): _history[selection.cooldown_key] = minute
+	for key in selection.cooldown_keys: _history[key] = minute
 	return result
 
 func replay(occurrence_id: String) -> Dictionary:

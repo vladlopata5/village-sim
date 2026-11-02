@@ -200,7 +200,7 @@
     {
       "schema_version": 1,
       "id": "social.warm_sympathy",
-      "revision": 2,
+      "revision": 3,
       "enabled": true,
       "trigger": "social.resolved",
       "main_role": "other",
@@ -250,18 +250,263 @@
           {
             "role": "other"
           }
+        ],
+        "symmetric": true
+      },
+      "effects": [
+        {
+          "op": "diary.add",
+          "owner": {
+            "role": "actor"
+          },
+          "text": {
+            "param": "diary_text"
+          },
+          "text_bindings": {
+            "speaker": {
+              "role": "actor"
+            },
+            "partner": {
+              "role": "other"
+            }
+          },
+          "chance": 0.5
+        },
+        {
+          "op": "diary.add",
+          "owner": {
+            "role": "other"
+          },
+          "text": {
+            "param": "diary_text"
+          },
+          "text_bindings": {
+            "speaker": {
+              "role": "other"
+            },
+            "partner": {
+              "role": "actor"
+            }
+          },
+          "chance": 0.5
+        },
+        {
+          "op": "memory.add",
+          "owner": {
+            "role": "actor"
+          },
+          "kind": "pleasant_interaction",
+          "topic": "social",
+          "tags": [
+            "social",
+            "positive"
+          ],
+          "target": {
+            "role": "other"
+          },
+          "strength": 30,
+          "provenance": {
+            "kind": "experienced"
+          },
+          "permanent": false,
+          "text": {
+            "param": "memory_text"
+          },
+          "text_bindings": {
+            "speaker": {
+              "role": "actor"
+            },
+            "partner": {
+              "role": "other"
+            }
+          },
+          "chance": 0.3
+        },
+        {
+          "op": "memory.add",
+          "owner": {
+            "role": "other"
+          },
+          "kind": "pleasant_interaction",
+          "topic": "social",
+          "tags": [
+            "social",
+            "positive"
+          ],
+          "target": {
+            "role": "actor"
+          },
+          "strength": 30,
+          "provenance": {
+            "kind": "experienced"
+          },
+          "permanent": false,
+          "text": {
+            "param": "memory_text"
+          },
+          "text_bindings": {
+            "speaker": {
+              "role": "other"
+            },
+            "partner": {
+              "role": "actor"
+            }
+          },
+          "chance": 0.3
+        }
+      ],
+      "text": {
+        "chronicle": [
+          "{actor.name} и {other.name} приятно провели время вместе.",
+          "{actor.name} и {other.name} нашли общий язык.",
+          "Между {actor.name:ins} и {other.name:ins} возникла взаимная симпатия.",
+          "Общение {actor.name:gen} и {other.name:gen} оставило у обоих приятное впечатление."
         ]
       },
-      "effects": [],
-      "text": {
-        "chronicle": "{actor.name} и {other.name} приятно пообщались.",
-        "diary_main": "Мне было приятно общаться {actor.with}. Кажется, мы хорошо поладили.",
-        "diary_secondary": "Мне было приятно общаться {other.with}. Мы хорошо поладили."
+      "params": {
+        "diary_text": [
+          "Мне было приятно провести время {partner.with}",
+          "Кажется, мы {partner.with} неплохо ладим",
+          "Сегодня общение {partner.with} оставило приятное впечатление",
+          "Я {speaker.gender:обрадовался|обрадовалась} встрече {partner.with}",
+          "Иногда достаточно просто побыть рядом {partner.with}",
+          "Похоже, нам {partner.with} легко находить общий язык",
+          "Не {speaker.gender:ожидал|ожидала}, что мне будет так легко общаться {partner.with}",
+          "По-моему, {partner.name} — {partner.gender:приятный|приятная} {partner.gender:собеседник|собеседница}",
+          "Встреча {partner.with} оставила у меня хорошие впечатления",
+          "Сегодня мне понравилось, как мы {partner.with} поладили",
+          "Рядом {partner.with} я {speaker.gender:чувствовал|чувствовала} себя спокойно",
+          "Кажется, я {speaker.gender:нашёл|нашла} приятную компанию в лице {partner.name:gen}"
+        ],
+        "memory_text": [
+          "{partner.name} — {partner.gender:приятный|приятная} {partner.gender:собеседник|собеседница}",
+          "Мне приятно находиться рядом {partner.with}",
+          "{partner.With} легко найти общий язык",
+          "{partner.name} {partner.gender:оставил|оставила} хорошее впечатление",
+          "Мы {partner.with} неплохо поладили",
+          "Общение {partner.with} запомнилось мне с хорошей стороны",
+          "{partner.name} вызывает у меня симпатию",
+          "Я {speaker.gender:рад|рада}, что удалось провести время {partner.with}",
+          "Компания {partner.name:gen} мне по душе",
+          "Мне было легко и спокойно рядом {partner.with}",
+          "Я хорошо {speaker.gender:поладил|поладила} {partner.with}",
+          "После встречи {partner.with} осталось приятное впечатление"
+        ],
+        "chat_text": [
+          "{partner.With} приятно проводить время!",
+          "Похоже, мы {partner.with} неплохо ладим!",
+          "{partner.name} — {partner.gender:отличный|отличная} {partner.gender:собеседник|собеседница}!",
+          "Вот бы почаще пересекаться {partner.with}!",
+          "Не {speaker.gender:думал|думала}, что мы так быстро поладим!",
+          "Похоже, {partner.name} меня понимает",
+          "Вот с кем приятно проводить время — так это {partner.with}!",
+          "Хорошая компания — уже половина хорошего дня!",
+          "Рядом {partner.with} как-то легче",
+          "Сегодня мне повезло с компанией!",
+          "Надо будет ещё как-нибудь провести время {partner.with}",
+          "Кажется, у нас {partner.with} много общего!"
+        ]
       },
-      "secondary_diary": {
-        "role": "actor",
-        "chance": 0.2
-      }
+      "exclusive_groups": [
+        {
+          "id": "speaker",
+          "chance": 0.25,
+          "options": [
+            {
+              "op": "chat.say",
+              "owner": {
+                "role": "actor"
+              },
+              "text": {
+                "param": "chat_text"
+              },
+              "text_bindings": {
+                "speaker": {
+                  "role": "actor"
+                },
+                "partner": {
+                  "role": "other"
+                }
+              },
+              "weight": 1
+            },
+            {
+              "op": "chat.say",
+              "owner": {
+                "role": "other"
+              },
+              "text": {
+                "param": "chat_text"
+              },
+              "text_bindings": {
+                "speaker": {
+                  "role": "other"
+                },
+                "partner": {
+                  "role": "actor"
+                }
+              },
+              "weight": 1
+            }
+          ]
+        }
+      ],
+      "effect_groups": [
+        {
+          "id": "company",
+          "chance": 0.5,
+          "effects": [
+            {
+              "op": "moodlet.add",
+              "owner": {
+                "role": "actor"
+              },
+              "target": {
+                "role": "other"
+              },
+              "definition": "pleasant_company",
+              "duration_minutes": 120,
+              "tags": [
+                "social",
+                "positive"
+              ],
+              "context": {
+                "display_name": "Приятная компания"
+              },
+              "modifiers": [
+                {
+                  "channel": "mood.offset",
+                  "value": 10
+                }
+              ]
+            },
+            {
+              "op": "moodlet.add",
+              "owner": {
+                "role": "other"
+              },
+              "target": {
+                "role": "actor"
+              },
+              "definition": "pleasant_company",
+              "duration_minutes": 120,
+              "tags": [
+                "social",
+                "positive"
+              ],
+              "context": {
+                "display_name": "Приятная компания"
+              },
+              "modifiers": [
+                {
+                  "channel": "mood.offset",
+                  "value": 10
+                }
+              ]
+            }
+          ]
+        }
+      ]
     },
     {
       "schema_version": 1,

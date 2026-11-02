@@ -60,13 +60,13 @@ func _prepare_commit(selection: Dictionary, context: Dictionary, minute: int, so
 	# A probability must never conceal an unsupported operation, including an
 	# unchosen reserved R2-B1 opinion/XP description.
 	for effect in definition.get("effects", []):
-		if effect.get("op") not in ["memory.add", "moodlet.add", "chat.say"]: return _error("unsupported_effect", str(effect.get("op")))
+		if effect.get("op") not in ["memory.add", "moodlet.add", "chat.say", "diary.add"]: return _error("unsupported_effect", str(effect.get("op")))
 	for group in definition.get("exclusive_groups", []):
 		for option in group.options:
-			if option.get("op") not in ["memory.add", "moodlet.add", "chat.say", "none"]: return _error("unsupported_effect", str(option.get("op")))
+			if option.get("op") not in ["memory.add", "moodlet.add", "chat.say", "diary.add", "none"]: return _error("unsupported_effect", str(option.get("op")))
 	for group in definition.get("effect_groups", []):
 		for effect in group.effects:
-			if effect.get("op") not in ["memory.add", "moodlet.add", "chat.say"]: return _error("unsupported_effect", str(effect.get("op")))
+			if effect.get("op") not in ["memory.add", "moodlet.add", "chat.say", "diary.add"]: return _error("unsupported_effect", str(effect.get("op")))
 	var chosen := _choose(definition)
 	if not chosen.ok: return _error("invalid_rng", chosen.error)
 	var main := _person(selection.get("main"))
@@ -92,7 +92,7 @@ func _prepare_commit(selection: Dictionary, context: Dictionary, minute: int, so
 		var prepared := _effect(item, env, definition, context, minute, rendered.values)
 		if not prepared.ok: return prepared
 		writes.append(prepared.write)
-		applied.append({"slot": item.slot, "op": item.description.op, "owner": prepared.write.person.id, "id": prepared.write.prepared.id})
+		applied.append({"slot": item.slot, "op": item.description.op, "owner": prepared.write.person.id, "id": prepared.write.get("prepared", {}).get("id", item.slot)})
 	# The mandatory world record is prepared after the previous presentation draws.
 	# Single chronicle strings consume no RNG and preserve existing event streams.
 	var history_text := TextRenderer.render_choice(definition.get("text", {}).get("chronicle"), rendered.values, rng)
@@ -196,15 +196,18 @@ func _effect(item: Dictionary, env: Dictionary, definition: Dictionary, context:
 	var resolved := _resolve(item.description, env)
 	if not resolved.known: return _error("prepare_failed", item.slot + ": " + resolved.reason)
 	var effect: Dictionary = resolved.value
-	if effect.op == "chat.say":
-		if not Data.only_keys(effect, ["op", "owner", "text", "chance", "weight"]): return _error("prepare_failed", item.slot + ": unsupported chat arguments")
+	var values := _effect_values(effect, text_values)
+	if not values.known: return _error("text_failed", item.slot + ": " + values.reason)
+	if effect.op in ["chat.say", "diary.add"]:
+		if not Data.only_keys(effect, ["op", "owner", "text", "text_bindings", "chance", "weight"]): return _error("prepare_failed", item.slot + ": unsupported chat arguments")
 		var speaker := _person(effect.get("owner"))
 		if speaker == null: return _error("inactive_recipient", item.slot + ": speaker")
-		var speech := TextRenderer.render_choice(effect.get("text"), text_values, rng)
+		var speech := TextRenderer.render_choice(effect.get("text"), values.value, rng)
 		if not speech.ok or speech.text.strip_edges().is_empty(): return _error("text_failed", item.slot + ": invalid/empty chat text: " + str(speech.get("errors", [])))
+		if effect.op == "diary.add": return _diary(speaker, speech.text, definition, minute)
 		return {"ok": true, "write": {"kind": effect.op, "person": speaker, "name": speaker.resident_name, "text": speech.text, "prepared": {"id": item.slot}}}
 	var allowed := ["op", "owner", "target", "tags", "context", "chance", "weight"]
-	allowed.append_array(["kind", "topic", "strength", "permanent", "provenance"] if effect.op == "memory.add" else ["definition", "duration_minutes", "expires_at_minute", "modifiers"])
+	allowed.append_array(["kind", "topic", "strength", "permanent", "provenance", "text", "text_bindings"] if effect.op == "memory.add" else ["definition", "duration_minutes", "expires_at_minute", "modifiers"])
 	if not Data.only_keys(effect, allowed): return _error("prepare_failed", item.slot + ": unsupported arguments")
 	var person := _person(effect.get("owner"))
 	if person == null: return _error("inactive_recipient", item.slot + ": owner")
@@ -215,6 +218,10 @@ func _effect(item: Dictionary, env: Dictionary, definition: Dictionary, context:
 	var store: RefCounted
 	if effect.op == "memory.add":
 		record.merge({"topic": effect.get("topic"), "strength": effect.get("strength"), "permanent": effect.get("permanent", false), "provenance": effect.get("provenance")})
+		if effect.has("text"):
+			var memory_text := TextRenderer.render_choice(effect.text, values.value, rng)
+			if not memory_text.ok or memory_text.text.strip_edges().is_empty(): return _error("text_failed", item.slot + ": invalid memory text")
+			record["text"] = memory_text.text
 		store = person.memories
 	else:
 		if effect.has("duration_minutes") and effect.has("expires_at_minute"): return _error("prepare_failed", item.slot + ": two deadlines")
@@ -230,6 +237,17 @@ func _effect(item: Dictionary, env: Dictionary, definition: Dictionary, context:
 	var prepared: Dictionary = store.prepare_add(record)
 	if prepared.is_empty(): return _error("prepare_failed", item.slot + ": store rejected record")
 	return {"ok": true, "write": {"kind": effect.op, "person": person, "store": store, "raw": record, "prepared": prepared}}
+
+func _effect_values(effect: Dictionary, values: Dictionary) -> Dictionary:
+	if not effect.has("text_bindings"): return Facts.known(values)
+	var aliases: Variant = effect.get("text_bindings", {})
+	if not aliases is Dictionary: return Facts.unknown("text_bindings must be an object")
+	var labels: Dictionary = {}
+	for entity in aliases.values():
+		var person := _person(entity)
+		if person == null: return Facts.unknown("inactive text participant")
+		labels[Facts.ref_key(entity)] = person.event_text_projection()
+	return TextRenderer.bind_values(values, aliases, labels)
 
 func _resolve(value: Variant, env: Dictionary) -> Dictionary:
 	if value is Dictionary:

@@ -11,6 +11,7 @@ const EFFECT_FIELDS := {
 	"moodlet.add": ["owner", "definition"],
 	"memory.add": ["owner", "kind"],
 	"chat.say": ["owner", "text"],
+	"diary.add": ["owner", "text"],
 	"none": []
 }
 var errors: Array = []
@@ -160,10 +161,11 @@ func _validate_definition(raw: Dictionary, base_names: Dictionary, facts: RefCou
 		if not cooldown is Dictionary or not _integer(cooldown.get("minutes"), 0) or not cooldown.get("scope", []) is Array:
 			errors.append(label + ": cooldown requires integer minutes and scope array")
 		else:
+			if not cooldown.get("symmetric", false) is bool or (cooldown.get("symmetric", false) and cooldown.get("scope", []).size() != 2): errors.append(label + ": symmetric cooldown requires two scope values")
 			for scope in cooldown.get("scope", []):
 				var scope_evaluator := Evaluator.new()
 				scope_evaluator.validate(scope, names, facts, errors, label + "/cooldown")
-	_validate_descriptions(raw.get("effects", []), names, facts, label)
+	_validate_descriptions(raw.get("effects", []), names, facts, label, false, raw.get("params", {}))
 	var bundles: Variant = raw.get("effect_groups", [])
 	if not bundles is Array: errors.append(label + ": effect_groups must be array")
 	else:
@@ -176,7 +178,7 @@ func _validate_definition(raw: Dictionary, base_names: Dictionary, facts: RefCou
 				if key not in ["id", "chance", "effects"]: errors.append(label + ": unknown effect group field")
 			if bundle_ids.has(bundle.id): errors.append(label + ": duplicate effect group")
 			bundle_ids[bundle.id] = true
-			_validate_descriptions(bundle.effects, names, facts, label + "/effect_groups/" + bundle.id)
+			_validate_descriptions(bundle.effects, names, facts, label + "/effect_groups/" + bundle.id, false, raw.get("params", {}))
 			for effect in bundle.effects:
 				if effect is Dictionary and (effect.has("chance") or effect.has("weight")): errors.append(label + ": bundled effects share the group chance and cannot have chance/weight")
 	var groups: Variant = raw.get("exclusive_groups", [])
@@ -191,7 +193,7 @@ func _validate_definition(raw: Dictionary, base_names: Dictionary, facts: RefCou
 			if group_ids.has(group.id): errors.append(label + ": duplicate exclusive group")
 			group_ids[group.id] = true
 			if not _probability(group.get("chance", 1.0)): errors.append(label + ": invalid exclusive group chance")
-			_validate_descriptions(group.options, names, facts, label + "/" + group.id, true)
+			_validate_descriptions(group.options, names, facts, label + "/" + group.id, true, raw.get("params", {}))
 			for option in group.options:
 				if option is Dictionary and not _nonnegative(option.get("weight")): errors.append(label + ": exclusive option requires nonnegative weight")
 	if raw.has("secondary_diary"):
@@ -201,7 +203,7 @@ func _validate_definition(raw: Dictionary, base_names: Dictionary, facts: RefCou
 		elif not raw.get("text", {}) is Dictionary or not _required_text(raw.text.get("diary_secondary")): errors.append(label + ": missing secondary diary template")
 	_validate_text(raw.get("text", {}), names, label)
 
-func _validate_descriptions(effects: Variant, names: Dictionary, facts: RefCounted, label: String, allow_none: bool = false) -> void:
+func _validate_descriptions(effects: Variant, names: Dictionary, facts: RefCounted, label: String, allow_none: bool = false, params: Dictionary = {}) -> void:
 	if not effects is Array:
 		errors.append(label + ": effects must be array")
 		return
@@ -215,15 +217,28 @@ func _validate_descriptions(effects: Variant, names: Dictionary, facts: RefCount
 				if key not in ["op", "chance", "weight"]: errors.append(label + ": none option cannot contain effect arguments")
 		for key in EFFECT_FIELDS[effect.op]:
 			if not effect.has(key): errors.append(label + ": missing effect field " + key)
+		var text_names := names.duplicate(true)
+		var aliases: Variant = effect.get("text_bindings", {})
+		if not aliases is Dictionary or aliases.size() > 8: errors.append(label + ": invalid text bindings")
+		else:
+			for alias in aliases:
+				if not alias.is_valid_identifier() or alias in names.role or alias in names.binding or alias == "payload": errors.append(label + ": ambiguous text binding")
+				var alias_type := Evaluator.new().validate(aliases[alias], names, facts, errors, label + "/text_bindings")
+				if alias_type not in ["entity", "any", "invalid"]: errors.append(label + ": text binding requires participant")
+				text_names.binding[alias] = "entity"
 		for key in ["owner", "target", "amount", "duration_minutes", "expires_at_minute", "salience", "strength", "skill", "kind", "topic", "definition", "permanent", "text"]:
 			if not effect.has(key): continue
-			if key == "text" and (effect[key] is String or effect[key] is Array):
-				_validate_template(effect[key], names, label + "/effects/text")
-				continue
+			if key == "text":
+				var source: Variant = effect[key]
+				if source is Dictionary and source.size() == 1 and source.has("param"):
+					source = params.get(source.param)
+				if source is String or source is Array:
+					_validate_template(source, text_names, label + "/effects/text")
+					continue
 			var evaluator := Evaluator.new()
 			var type := evaluator.validate(effect[key], names, facts, errors, label + "/effects/" + key)
 			var expected := "entity" if key in ["owner", "target"] else "string" if key in ["skill", "kind", "topic", "definition", "text"] else "bool" if key == "permanent" else "number"
-			if type not in [expected, "any", "invalid"] and not (key in ["target", "expires_at_minute"] and type == "null"): errors.append(label + ": incompatible effect field " + key)
+			if type not in [expected, "any", "invalid"] and not (key == "text" and type == "array") and not (key in ["target", "expires_at_minute"] and type == "null"): errors.append(label + ": incompatible effect field " + key)
 		if not _probability(effect.get("chance", 1.0)): errors.append(label + ": invalid effect chance")
 		_validate_payload(effect, names, facts, label + "/effects")
 

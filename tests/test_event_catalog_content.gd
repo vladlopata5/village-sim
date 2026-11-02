@@ -64,10 +64,11 @@ func positive_definitions() -> void:
 		check(result.status == "completed" and result.definition_id == id and f.service.completed_events().size() == before + 1, "One real confirmed trigger selects " + id)
 		check(result.main.id == ("b" if id == "social.warm_sympathy" else "a"), "JSON main role for " + id)
 		if id == "social.warm_sympathy":
-			check(f.b.diary_entries.size() == 1 and f.a.diary_entries.size() == 1 and result.secondary_diary, "Sympathy: distinct main and optional actor diaries")
+			check(f.b.diary_entries.size() == 1 and f.a.diary_entries.size() == 1 and not result.secondary_diary, "Sympathy: two independently selected diary effects")
 		else: check(f.a.diary_entries.size() == (0 if id == "social.rough_conversation" else 1), "Declared personal diary for " + id)
 		match id:
 			"social.success_admiration": check(f.a.moodlets.find()[0].type == "admiration" and f.a.memories.size() == 0 and f.a.moodlets.find()[0].context.skill == "gathering", "Admiration is a skill-bound moodlet, no artificial memory")
+			"social.warm_sympathy": check(f.a.memories.size() == 1 and f.b.memories.size() == 1 and f.a.mood == 60 and f.b.mood == 60, "Sympathy applies both independent memories and the shared company moodlets")
 			"social.rough_conversation": check(f.a.memories.find()[0].target.id == "b" and f.a.memories.find()[0].tags.has("negative") and f.a.moodlets.find({"type": "angry"}).size() == 1, "Quarrel creates the selected independent memory and anger bundle")
 			"social.old_grudge": check(f.a.memories.size() == 1 and f.a.memories.find()[0].strength == 30 and f.a.moodlets.size() == 0, "Existing grudge affects selection without reinforcement or extra consequences")
 			"personal.skill_progress_advanced": check(f.a.moodlets.find()[0].type == "pride" and f.a.moodlets.find()[0].context.skill == "gathering" and f.a.memories.size() == 0, "Advanced achievement has pride only, from the actual skill")
@@ -151,10 +152,10 @@ func competition() -> void:
 func chances_and_cooldowns() -> void:
 	for id in ["social.success_admiration", "social.warm_sympathy", "social.rough_conversation"]:
 		for roll in [0.0, 1.0]:
-			var f := fixture(); prepare_story(f, id); only(f, id); f.service.executor.rng.values = [roll, roll]
+			var f := fixture(); prepare_story(f, id); only(f, id); f.service.executor.rng.values = [roll, roll, roll, roll, roll, roll, roll]
 			var result := fire(f)
 			check(result.status == "completed", "Narrative succeeds independently of optional consequence")
-			if id == "social.warm_sympathy": check(f.a.diary_entries.size() == (1 if roll == 0 else 0) and f.b.diary_entries.size() == 1, "Optional second diary uses its own JSON probability")
+			if id == "social.warm_sympathy": check(f.a.diary_entries.size() == (1 if roll == 0 else 0) and f.b.diary_entries.size() == (1 if roll == 0 else 0), "Both optional diaries use their own JSON probabilities")
 			else: check(f.a.memories.size() + f.a.moodlets.find({"type":"admiration"}).size() + f.a.moodlets.find({"type":"angry"}).size() == ((2 if id == "social.rough_conversation" else 1) if roll == 0 else 0), "New content consequence can pass or fail without suppressing the diary")
 			var draws: int = f.service.executor.rng.draws
 			var token: String = f.service.last_occurrence().occurrence_id
@@ -241,7 +242,7 @@ func actual_conversation() -> void:
 	actor.data.get_need(Need.Type.SOCIAL).value = 100; target.data.get_need(Need.Type.SOCIAL).value = 100
 	check(actor.social.try_social_at(StringName(target.data.id), 8000), "Real controller begins a conversation with the production catalog")
 	actor.view._process(100)
-	check(contexts.size() == 2 and completed.size() == 2 and scene.social_events.rng.chances == 2, "Two old start opportunities still produce at most two universal events")
+	check(contexts.size() == 2 and completed.size() == 1 and scene.social_events.rng.chances == 2, "Two real attempts remain; symmetric story cooldown blocks the second direction")
 	for result in completed: check(result.definition_id == "social.warm_sympathy" and result.main.id == contexts[result.occurrence_id].other.id, "Production sympathy resolves the actual other participant as main")
-	check(actor.data.diary_entries.size() == 2 and target.data.diary_entries.size() == 2 and actor.data.memories.size() == 0 and actor.data.moodlets.size() == 1 and actor.data.moodlets.get_entry("lonely").size() > 0, "Two distinct narrative events have main/secondary diaries without mechanical filler")
+	check(actor.data.diary_entries.size() == 1 and target.data.diary_entries.size() == 1 and actor.data.memories.size() == 1 and target.data.memories.size() == 1 and actor.data.moodlets.size() == 2 and actor.data.moodlets.get_entry("lonely").size() > 0 and actor.data.moodlets.find({"type":"pleasant_company"}).size() == 1, "One completed story has independent diaries/memories and company alongside the need state")
 	scene.free(); await process_frame
