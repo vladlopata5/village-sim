@@ -77,7 +77,7 @@ func _run() -> void:
 	check(signals == [[Skill.Type.CONSTRUCTION, 399, 0], [Skill.Type.CONSTRUCTION, 1, 0]], "Existing skill_changed arguments/count preserved")
 	check(f.a.diary_entries.size() == 1 and f.b.diary_entries.is_empty(), "Mandatory Diary belongs to the raised resident")
 	var entry: RefCounted = f.a.diary_entries[0]
-	check(entry.text == "Анна замечает прогресс в навыке «Строительство»: «Профан» → «Новичок»." and entry.created_minute == 635 and entry.importance == Diary.Importance.KEY, "Renderer, existing skill name, game minute and declared importance")
+	check(entry.text == "Я замечаю прогресс в навыке «Строительство»: «Профан» → «Новичок»." and entry.created_minute == 635 and entry.importance == Diary.Importance.KEY, "Renderer, existing skill name, game minute and declared importance")
 	check(f.a.get_skill_xp(Skill.Type.CONSTRUCTION) == 400 and f.a.mood == mood and f.a.relationships.is_empty(), "Diary does not add XP, mood or opinion")
 	check(f.service.completed_events().size() == 1 and f.rng.draws == 2, "Core chance + weighted choice, one completed event")
 	var occurrence: Dictionary = f.service.last_occurrence()

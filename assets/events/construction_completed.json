@@ -4,7 +4,7 @@
     {
       "schema_version": 1,
       "id": "personal.construction_finished",
-      "revision": 1,
+      "revision": 2,
       "enabled": true,
       "trigger": "construction.completed",
       "main_role": "actor",
@@ -54,7 +54,8 @@
         }
       ],
       "text": {
-        "diary_main": "{actor.name}: «Стройка „{payload.building_name}“ завершена. Приятно видеть готовое здание»."
+        "chronicle": "Завершено строительство «{payload.building_name}».",
+        "diary_main": "Мне приятно видеть завершённую стройку «{payload.building_name}»."
       }
     }
   ]

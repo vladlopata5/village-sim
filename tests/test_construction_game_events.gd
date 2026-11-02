@@ -213,7 +213,7 @@ func actual_builders() -> void:
 	check(events.size() == 1 and events[0].main.id in snapshots[0].assigned_builder_ids and world.game_events.candidate_picker.rng.draws == 1, "Actual construction produces only one event for one recorded assigned worker")
 	check(events[0].minute == snapshots[0].minute and world.game_events.last_occurrence().payload.timestamp_source == "caller", "Live Builder supplies the exact completion minute")
 	var selected: RefCounted = world.player_control.get_resident(events[0].main.id)
-	check(selected.diary_entries.any(func(entry): return entry.text.contains("Стройка")) and selected.moodlets.find({"type": "work_satisfaction"}).size() == 1, "Selected real resident owns the diary and optional satisfaction")
+	check(selected.diary_entries.any(func(entry): return entry.text.begins_with("Мне приятно видеть завершённую стройку")) and selected.moodlets.find({"type": "work_satisfaction"}).size() == 1, "Selected real resident owns the diary and optional satisfaction")
 	check(world._activated_buildings.has(site.id) and world.logistics._buildings.has(site.id), "Ordinary building/production activation remains intact")
 	for resource in [R.LOG, R.STONE]: check(site.get_construction_reserved_in(resource) == 0 and world.warehouse_data.resources.get_reserved_out(resource) == 0, "Actual material reservations are released normally")
 	world.free(); await process_frame

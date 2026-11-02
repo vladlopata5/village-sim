@@ -271,7 +271,8 @@
       ],
       "text": {
         "feed": "{actor.name} завидует {facet.label} {other.name}.",
-        "diary_main": "{actor.name} завидует {facet.label} {other.name}."
+        "diary_main": "{actor.name} завидует {facet.label} {other.name}.",
+        "chronicle": "Состоялось тестовое событие."
       },
       "cooldown": {
         "minutes": 240,
@@ -439,7 +440,8 @@
       ],
       "text": {
         "feed": "{other.name} помог освоить {skill} жителю {actor.name}.",
-        "diary_main": "{other.name} помог освоить {skill} жителю {actor.name}."
+        "diary_main": "{other.name} помог освоить {skill} жителю {actor.name}.",
+        "chronicle": "Состоялось тестовое событие."
       },
       "cooldown": {
         "minutes": 240,
@@ -604,7 +606,8 @@
       ],
       "text": {
         "feed": "{actor.name} пожаловался {other.name} на {subject.name}.",
-        "diary_main": "{actor.name} пожаловался {other.name} на {subject.name}."
+        "diary_main": "{actor.name} пожаловался {other.name} на {subject.name}.",
+        "chronicle": "Состоялось тестовое событие."
       },
       "cooldown": {
         "minutes": 240,
@@ -693,7 +696,8 @@
       ],
       "text": {
         "feed": "{actor.name} получил новое звание в навыке {payload.skill}.",
-        "diary_main": "{actor.name} получил новое звание в навыке {payload.skill}."
+        "diary_main": "{actor.name} получил новое звание в навыке {payload.skill}.",
+        "chronicle": "Состоялось тестовое событие."
       },
       "cooldown": {
         "minutes": 0,
@@ -876,7 +880,8 @@
       ],
       "text": {
         "feed": "{worker.name} работает на кухне, пока {diner.name} ест.",
-        "diary_main": "{worker.name} работает на кухне, пока {diner.name} ест."
+        "diary_main": "{worker.name} работает на кухне, пока {diner.name} ест.",
+        "chronicle": "Состоялось тестовое событие."
       },
       "cooldown": {
         "minutes": 240,
@@ -926,7 +931,8 @@
       "weight": 1,
       "effects": [],
       "text": {
-        "feed": "Завершено строительство {site.name}."
+        "feed": "Завершено строительство {site.name}.",
+        "chronicle": "Состоялось тестовое событие."
       },
       "exclusive_groups": []
     }

@@ -36,7 +36,7 @@ func real_outcomes() -> void:
 		check(snapshots.size() == 1 and snapshots[0].resident_id == actor.data.id and snapshots[0].hunger == 20 and snapshots[0].minute == 450 and not snapshots[0].meal_id.is_empty(), "Real meal publishes unique immutable completion context with final hunger")
 		var context: Dictionary = world.game_events.last_occurrence()
 		check(context.trigger == "meal.completed" and context.actor.id == actor.data.id and context.payload.meal_id == snapshots[0].meal_id, "The ordinary event adapter receives real completed meal identity")
-		check(actor.data.diary_entries.size() == 1 and actor.data.diary_entries[0].text == actor.data.resident_name + " вкусно поел." and world.game_events.completed_events().size() == 1, "Mandatory ordinary diary for every combination, including no consequences")
+		check(actor.data.diary_entries.size() == 1 and actor.data.diary_entries[0].text == ("Я вкусно поела." if actor.data.grammatical_gender == actor.data.Trait.GrammaticalGender.FEMININE else "Я вкусно поел.") and world.game_events.completed_events().size() == 1, "Mandatory ordinary diary for every combination, including no consequences")
 		check(actor.data.moodlets.is_active("well_fed",450) == fed and messages.size() == int(said) and rng.draws == 2, "Two independent rolls: " + str(rolls))
 		if said:
 			check(messages[0] == [actor.data.id,actor.data.resident_name,"я вкусно поел"], "Exact resident sender and message, not a system notification")

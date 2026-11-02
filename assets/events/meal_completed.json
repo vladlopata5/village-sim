@@ -4,7 +4,7 @@
     {
       "schema_version": 1,
       "id": "personal.well_fed",
-      "revision": 1,
+      "revision": 2,
       "enabled": true,
       "trigger": "meal.completed",
       "main_role": "actor",
@@ -15,7 +15,7 @@
       ]},
       "weight": 1,
       "diary_importance": 2,
-      "text": {"diary_main": "{actor.name} вкусно поел."},
+      "text": {"chronicle": "{actor.name} вкусно {actor.gender:поел|поела}.", "diary_main": "Я вкусно {actor.gender:поел|поела}."},
       "effects": [
         {
           "op": "moodlet.add",

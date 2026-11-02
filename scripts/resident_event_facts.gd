@@ -15,6 +15,7 @@ static func snapshot(first: RefCounted, second: RefCounted, minute: int) -> RefC
 		var traits: Array = []
 		for type in person.traits: traits.append(Trait.Type.keys()[type].to_lower())
 		facts.set_value(ref, "traits", traits)
+		facts.set_value(ref, "mood", person.mood)
 		facts.set_value(ref, "moodlets.active", person.moodlets.active(minute))
 		facts.set_value(ref, "memories", person.memories.find())
 		for other in people:
@@ -26,4 +27,4 @@ static func snapshot(first: RefCounted, second: RefCounted, minute: int) -> RefC
 	return facts
 
 static func snapshot_schema() -> Dictionary:
-	return {"traits": ["array", "none"], "opinion": ["number", "entity"], "skill.rank": ["number", "string"], "skill.name": ["string", "string"], "moodlets.active": ["array", "none"], "memories": ["array", "none"]}
+	return {"mood": ["number", "none"], "traits": ["array", "none"], "opinion": ["number", "entity"], "skill.rank": ["number", "string"], "skill.name": ["string", "string"], "moodlets.active": ["array", "none"], "memories": ["array", "none"]}

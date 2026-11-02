@@ -47,6 +47,7 @@ var building_uses = preload("res://scripts/world_3d/building_use_3d.gd").new()
 var settlement_panel: PanelContainer
 var work_areas_window: PanelContainer
 var buildings_window: PanelContainer
+var chronicle_window: PanelContainer
 var assignment_dialog: PanelContainer
 var debug_spawn: RefCounted
 var developer_panel: PanelContainer
@@ -100,6 +101,10 @@ func _ready() -> void:
 	$HUD.add_child(settlement_panel)
 	game_ui.register_window(&"residents", settlement_panel)
 	settlement_panel.setup(player_control,resident_selection)
+	chronicle_window = preload("res://scenes/ui/chronicle_window.tscn").instantiate()
+	$HUD.add_child(chronicle_window)
+	game_ui.register_window(&"chronicle", chronicle_window)
+	chronicle_window.setup(game_events.chronicle)
 	work_areas_window = preload("res://scenes/ui/work_areas_window.tscn").instantiate()
 	$HUD.add_child(work_areas_window)
 	game_ui.register_window(&"areas",work_areas_window)

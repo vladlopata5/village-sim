@@ -52,8 +52,8 @@ func _initialize() -> void:
 	bad.definitions[0].text.feed = "{unknown.name}"
 	check(not catalog.load_data(bad, facts), "Unknown narrative reference rejected")
 	bad = data.duplicate(true)
-	bad.definitions[0].text.erase("diary_main")
-	check(not catalog.load_data(bad, facts), "Future mandatory resident diary cannot be omitted")
+	bad.definitions[0].text.erase("chronicle")
+	check(not catalog.load_data(bad, facts), "Mandatory settlement chronicle cannot be omitted")
 	bad = data.duplicate(true)
 	bad.definitions[0].limits = {"max_per_root": 1}
 	check(not catalog.load_data(bad, facts), "Old event-count limits not silently enforced")

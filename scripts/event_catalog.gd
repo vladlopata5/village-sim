@@ -152,9 +152,9 @@ func _validate_definition(raw: Dictionary, base_names: Dictionary, facts: RefCou
 	if raw.has("diary_importance") and (not _integer(raw.diary_importance, 1) or raw.diary_importance > 2): errors.append(label + ": diary_importance must be TEMPORARY:1 or KEY:2")
 	if not main is String or (not names.role.has(main) and not names.binding.has(main)):
 		errors.append(label + ": main_role requires a declared role/binding")
-	elif names.binding.has(main) or (raw.roles[main] is Dictionary and raw.roles[main].get("type") == "resident"):
-		var text: Variant = raw.get("text", {})
-		if not text is Dictionary or not _required_text(text.get("diary_main")): errors.append(label + ": resident main role requires a future diary_main template")
+	var text: Variant = raw.get("text", {})
+	if not text is Dictionary or not _required_text(text.get("chronicle")): errors.append(label + ": event requires chronicle template")
+	if text is Dictionary and text.has("diary_main") and not _required_text(text.diary_main): errors.append(label + ": diary_main must be a nonempty template when present")
 	if raw.has("cooldown"):
 		var cooldown: Variant = raw.cooldown
 		if not cooldown is Dictionary or not _integer(cooldown.get("minutes"), 0) or not cooldown.get("scope", []) is Array:
@@ -164,6 +164,21 @@ func _validate_definition(raw: Dictionary, base_names: Dictionary, facts: RefCou
 				var scope_evaluator := Evaluator.new()
 				scope_evaluator.validate(scope, names, facts, errors, label + "/cooldown")
 	_validate_descriptions(raw.get("effects", []), names, facts, label)
+	var bundles: Variant = raw.get("effect_groups", [])
+	if not bundles is Array: errors.append(label + ": effect_groups must be array")
+	else:
+		var bundle_ids := {}
+		for bundle in bundles:
+			if not bundle is Dictionary or not bundle.get("id") is String or bundle.id.is_empty() or not bundle.get("effects") is Array or bundle.effects.is_empty() or not _probability(bundle.get("chance")):
+				errors.append(label + ": invalid effect group")
+				continue
+			for key in bundle:
+				if key not in ["id", "chance", "effects"]: errors.append(label + ": unknown effect group field")
+			if bundle_ids.has(bundle.id): errors.append(label + ": duplicate effect group")
+			bundle_ids[bundle.id] = true
+			_validate_descriptions(bundle.effects, names, facts, label + "/effect_groups/" + bundle.id)
+			for effect in bundle.effects:
+				if effect is Dictionary and (effect.has("chance") or effect.has("weight")): errors.append(label + ": bundled effects share the group chance and cannot have chance/weight")
 	var groups: Variant = raw.get("exclusive_groups", [])
 	if not groups is Array:
 		errors.append(label + ": exclusive_groups must be array")

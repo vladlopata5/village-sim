@@ -5,6 +5,8 @@ const Facts = preload("res://scripts/event_facts.gd")
 const Evaluator = preload("res://scripts/event_expression.gd")
 const TextRenderer = preload("res://scripts/event_text_renderer.gd")
 const Data = preload("res://scripts/event_store_data.gd")
+const Chronicle = preload("res://scripts/settlement_chronicle.gd")
+var chronicle: RefCounted = Chronicle.new()
 const Diary = preload("res://scripts/diary_entry.gd")
 signal resident_message(resident_id: String, resident_name: String, text: String)
 var rng: RefCounted = RandomNumberGenerator.new()
@@ -43,7 +45,8 @@ func publish(occurrence_id: String) -> void:
 	var notices: Array = _notices.get(occurrence_id, [])
 	_notices.erase(occurrence_id) # Reentrant publish cannot emit twice.
 	for write: Dictionary in notices:
-		if write.kind == "diary": write.person.diary_changed.emit()
+		if write.kind == "chronicle": write.store.changed.emit(write.prepared.id)
+		elif write.kind == "diary": write.person.diary_changed.emit()
 		elif write.kind != "chat.say": write.store.changed.emit(write.prepared.id)
 	# Presentation happens only after the whole transaction and its store notices.
 	for write: Dictionary in notices:
@@ -61,6 +64,9 @@ func _prepare_commit(selection: Dictionary, context: Dictionary, minute: int, so
 	for group in definition.get("exclusive_groups", []):
 		for option in group.options:
 			if option.get("op") not in ["memory.add", "moodlet.add", "chat.say", "none"]: return _error("unsupported_effect", str(option.get("op")))
+	for group in definition.get("effect_groups", []):
+		for effect in group.effects:
+			if effect.get("op") not in ["memory.add", "moodlet.add", "chat.say"]: return _error("unsupported_effect", str(effect.get("op")))
 	var chosen := _choose(definition)
 	if not chosen.ok: return _error("invalid_rng", chosen.error)
 	var main := _person(selection.get("main"))
@@ -68,9 +74,11 @@ func _prepare_commit(selection: Dictionary, context: Dictionary, minute: int, so
 	var rendered := _render(selection, context, chosen.secondary)
 	if not rendered.ok: return _error("text_failed", str(rendered.errors))
 	var writes: Array = []
-	var diary := _diary(main, rendered.texts.get("diary_main"), definition, minute)
-	if not diary.ok: return diary
-	writes.append(diary.write)
+	var diary: Dictionary
+	if definition.get("text", {}).has("diary_main"):
+		diary = _diary(main, rendered.texts.get("diary_main"), definition, minute)
+		if not diary.ok: return diary
+		writes.append(diary.write)
 	if chosen.secondary:
 		var role: String = definition.secondary_diary.role
 		var secondary := _person(selection.roles.get(role, selection.bindings.get(role)))
@@ -85,11 +93,25 @@ func _prepare_commit(selection: Dictionary, context: Dictionary, minute: int, so
 		if not prepared.ok: return prepared
 		writes.append(prepared.write)
 		applied.append({"slot": item.slot, "op": item.description.op, "owner": prepared.write.person.id, "id": prepared.write.prepared.id})
+	# The mandatory world record is prepared after the previous presentation draws.
+	# Single chronicle strings consume no RNG and preserve existing event streams.
+	var history_text := TextRenderer.render_choice(definition.get("text", {}).get("chronicle"), rendered.values, rng)
+	if not history_text.ok: return _error("text_failed", str(history_text.errors))
+	var participants: Array = []
+	for entity in selection.roles.values() + selection.bindings.values():
+		if Facts.is_ref(entity) and entity not in participants: participants.append(entity)
+	var raw := {"id": context.occurrence_id, "definition_id": definition.id, "minute": minute, "text": history_text.text, "participants": participants}
+	var history_record: Dictionary = chronicle.prepare_add(raw)
+	if history_record.is_empty(): return _error("chronicle_failed", "history rejected record")
+	writes.append({"kind": "chronicle", "store": chronicle, "raw": raw, "prepared": history_record})
 	# Pure validation hooks only. No await, RNG, signals or gameplay calls between
 	# this last check and ALL writes. Internal apply primitives cannot reject.
 	if not _active(source): return _error("inactive_source", "source changed during preparation")
 	var destinations: Dictionary = {}
 	for write: Dictionary in writes:
+		if write.kind == "chronicle":
+			if write.store != chronicle or chronicle.prepare_add(write.raw) != write.prepared: return _error("chronicle_failed", "stale history")
+			continue
 		if not _active(write.person): return _error("inactive_recipient", write.person.id)
 		if write.kind == "diary":
 			if not write.person.can_add_diary_entry(write.entry): return _error("diary_failed", write.person.id)
@@ -133,6 +155,11 @@ func _choose(definition: Dictionary) -> Dictionary:
 			if not chance.ok: return chance
 			if not chance.passed: continue
 		if option.op != "none": items.append({"description": option, "slot": "group/%s/option/%d" % [group.id, index]})
+	for group in definition.get("effect_groups", []):
+		var chance := _chance(group.chance)
+		if not chance.ok: return chance
+		if chance.passed:
+			for index in group.effects.size(): items.append({"description": group.effects[index], "slot": "bundle/%s/effect/%d" % [group.id, index]})
 	var secondary := false
 	if definition.has("secondary_diary"):
 		var chance := _chance(definition.secondary_diary.chance)
@@ -230,7 +257,8 @@ func _render(selection: Dictionary, context: Dictionary, secondary: bool) -> Dic
 		if person != null: labels[Facts.ref_key(value)] = person.event_text_projection()
 	var view := selection.duplicate(true)
 	var text: Dictionary = selection.selected.get("text", {})
-	view.selected.text = {"diary_main": text.get("diary_main", "")}
+	view.selected.text = {}
+	if text.has("diary_main"): view.selected.text.diary_main = text.diary_main
 	if secondary: view.selected.text.diary_secondary = text.get("diary_secondary", "")
 	var rendered := TextRenderer.render_event(view, context, labels, rng)
 	if rendered.ok:

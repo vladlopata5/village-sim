@@ -15,6 +15,8 @@ var facts := Facts.new()
 var catalog := Catalog.new()
 var selector := DryRunner.new(catalog, facts)
 var executor := EffectExecutor.new()
+var chronicle: RefCounted:
+	get: return executor.chronicle
 var candidate_picker := CandidatePicker.new()
 var _control: RefCounted
 var _clock: Node

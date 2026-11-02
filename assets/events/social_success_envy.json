@@ -4,7 +4,7 @@
     {
       "schema_version": 1,
       "id": "social.success_envy",
-      "revision": 3,
+      "revision": 4,
       "enabled": true,
       "trigger": "social.resolved",
       "main_role": "actor",
@@ -265,7 +265,8 @@
         }
       ],
       "text": {
-        "diary_main": "{actor.name} испытывает зависть: {other.name} лучше владеет навыком «{skill_name}»."
+        "chronicle": "{actor.name} {actor.gender:позавидовал|позавидовала} успехам {other.name:gen} в навыке «{skill_name}».",
+        "diary_main": "Я завидую {other.name:dat}: {other.pronoun} лучше владеет навыком «{skill_name}»."
       }
     }
   ]

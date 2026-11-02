@@ -26,7 +26,7 @@ func prepare_story(f: Dictionary, id: String) -> void:
 	match id:
 		"social.success_admiration": prime(f); f.social.rng.rolls = [100, 0]
 		"social.warm_sympathy": f.social.rng.rolls = [100, 100]
-		"social.rough_conversation": f.social.rng.rolls = [-100, -100]
+		"social.rough_conversation": f.social.rng.rolls = [-100, -100]; f.a.mood = 20
 		"social.old_grudge": remember(f); f.social.rng.rolls = [-100, 100]
 		"social.character_contrast":
 			f.a.add_trait(Traits.Type.SOCIABLE); f.b.add_trait(Traits.Type.INTROVERTED)
@@ -64,17 +64,17 @@ func positive_definitions() -> void:
 		check(result.main.id == ("b" if id == "social.warm_sympathy" else "a"), "JSON main role for " + id)
 		if id == "social.warm_sympathy":
 			check(f.b.diary_entries.size() == 1 and f.a.diary_entries.size() == 1 and result.secondary_diary, "Sympathy: distinct main and optional actor diaries")
-		else: check(f.a.diary_entries.size() == 1, "Exactly one mandatory diary for " + id)
+		else: check(f.a.diary_entries.size() == (0 if id == "social.rough_conversation" else 1), "Declared personal diary for " + id)
 		match id:
 			"social.success_admiration": check(f.a.moodlets.find()[0].type == "admiration" and f.a.memories.size() == 0 and f.a.moodlets.find()[0].context.skill == "gathering", "Admiration is a skill-bound moodlet, no artificial memory")
-			"social.rough_conversation": check(f.a.memories.find()[0].target.id == "b" and f.a.memories.find()[0].tags.has("negative") and f.a.moodlets.size() == 0, "Rough talk creates only the optional negative memory")
+			"social.rough_conversation": check(f.a.memories.find()[0].target.id == "b" and f.a.memories.find()[0].tags.has("negative") and f.a.moodlets.find({"type": "angry"}).size() == 1, "Quarrel creates the selected independent memory and anger bundle")
 			"social.old_grudge": check(f.a.memories.size() == 1 and f.a.memories.find()[0].strength == 30 and f.a.moodlets.size() == 0, "Existing grudge affects selection without reinforcement or extra consequences")
 			"personal.skill_progress_advanced": check(f.a.moodlets.find()[0].type == "pride" and f.a.moodlets.find()[0].context.skill == "gathering" and f.a.memories.size() == 0, "Advanced achievement has pride only, from the actual skill")
 			_: check(f.a.memories.size() == 0 and f.b.memories.size() == 0 and f.a.moodlets.size() == 0 and f.b.moodlets.size() == 0, "Narrative-only event has no mechanical filler")
 		cleanup(f)
 
 func negative_definitions() -> void:
-	var scenarios := {"social.success_admiration": ["no_pride", "expired", "negative_reaction"], "social.warm_sympathy": ["one_neutral"], "social.rough_conversation": ["one_neutral", "meal"], "social.old_grudge": ["missing", "wrong_target", "positive_memory", "zero_strength", "fresh", "hearsay", "positive_reaction"], "social.character_contrast": ["missing_trait", "reverse_traits", "work", "negative_reaction"], "personal.skill_progress_advanced": ["level_two"]}
+	var scenarios := {"social.success_admiration": ["no_pride", "expired", "negative_reaction"], "social.warm_sympathy": ["one_neutral"], "social.rough_conversation": ["one_neutral", "mood_high"], "social.old_grudge": ["missing", "wrong_target", "positive_memory", "zero_strength", "fresh", "hearsay", "positive_reaction"], "social.character_contrast": ["missing_trait", "reverse_traits", "work", "negative_reaction"], "personal.skill_progress_advanced": ["level_two"]}
 	for id in scenarios:
 		for scenario in scenarios[id]:
 			var f := fixture()
@@ -93,6 +93,7 @@ func negative_definitions() -> void:
 				f.social.rng.rolls = [-100, 100] if scenario == "negative_reaction" else [100, 0]
 				if scenario == "expired": f.clock.total_minutes += 120
 			else: prepare_story(f, id)
+			if scenario == "mood_high": f.a.mood = 21
 			if scenario == "one_neutral": f.social.rng.rolls = [-100 if id == "social.rough_conversation" else 100, 0]
 			if scenario == "missing_trait": f.a.remove_trait(Traits.Type.SOCIABLE)
 			if scenario == "reverse_traits":
@@ -117,7 +118,7 @@ func competition() -> void:
 		check(f.service.completed_events().size() == before + 1 and selection.duplicate, "Adding definitions does not add events per opportunity")
 		cleanup(f)
 	for value in [0.0, 0.5, 1.0]:
-		var f := fixture(); prime(f); remember(f); remember(f, {"id": "another-old-chat"}); f.social.rng.rolls = [-100, -100]; f.rng.value = value
+		var f := fixture(); prime(f); remember(f); remember(f, {"id": "another-old-chat"}); f.a.mood = 20; f.social.rng.rolls = [-100, -100]; f.rng.value = value
 		var result := fire(f)
 		var selection: Dictionary = f.service.selector.run(f.service.last_occurrence())
 		check(selection.eligible == ["social.old_grudge", "social.rough_conversation", "social.success_envy"] and result.definition_id == selection.eligible[int(value * 2)], "New memory/history stories compete with existing envy without extra memory tickets")
@@ -149,11 +150,11 @@ func competition() -> void:
 func chances_and_cooldowns() -> void:
 	for id in ["social.success_admiration", "social.warm_sympathy", "social.rough_conversation"]:
 		for roll in [0.0, 1.0]:
-			var f := fixture(); prepare_story(f, id); only(f, id); f.service.executor.rng.values = [roll]
+			var f := fixture(); prepare_story(f, id); only(f, id); f.service.executor.rng.values = [roll, roll]
 			var result := fire(f)
 			check(result.status == "completed", "Narrative succeeds independently of optional consequence")
 			if id == "social.warm_sympathy": check(f.a.diary_entries.size() == (1 if roll == 0 else 0) and f.b.diary_entries.size() == 1, "Optional second diary uses its own JSON probability")
-			else: check(f.a.memories.size() + f.a.moodlets.size() == (1 if roll == 0 else 0), "New content consequence can pass or fail without suppressing the diary")
+			else: check(f.a.memories.size() + f.a.moodlets.size() == ((2 if id == "social.rough_conversation" else 1) if roll == 0 else 0), "New content consequence can pass or fail without suppressing the diary")
 			var draws: int = f.service.executor.rng.draws
 			var token: String = f.service.last_occurrence().occurrence_id
 			var diaries: int = f.a.diary_entries.size() + f.b.diary_entries.size()
@@ -177,7 +178,7 @@ func chances_and_cooldowns() -> void:
 	cleanup(boundary)
 
 func actual_memory_chain() -> void:
-	var f := fixture(); f.social.rng.rolls = [-100, -100]
+	var f := fixture(); f.a.mood = 20; f.social.rng.rolls = [-100, -100]
 	check(fire(f).definition_id == "social.rough_conversation" and f.a.memories.size() == 1, "Actual bad conversation stores a real negative memory")
 	f.clock.total_minutes += 1
 	check(fire(f).definition_id == "social.old_grudge" and f.a.memories.size() == 1 and f.a.get_opinion("b") == -2 and f.b.get_opinion("a") == -2, "Next unpleasant interaction can recall the existing memory without reinforcement or doubled relations")

@@ -112,7 +112,7 @@ func confirmed_results() -> void:
 		var memory: Dictionary = f.a.memories.find()[0]; var moodlet: Dictionary = f.a.moodlets.find()[0]
 		check(memory.type == "success_envy" and memory.topic == "gathering" and memory.target.id == "b" and memory.strength == 30 and not memory.permanent and memory.source_occurrence_id == confirmed.occurrence_id, "Envy owner/target, exact skill and real social provenance")
 		check(moodlet.target.id == "b" and moodlet.context.skill == "gathering" and moodlet.expires_at_minute == 755 and moodlet.modifiers.is_empty(), "JSON envy lasts 120 minutes without behavior modifiers")
-		check(f.a.diary_entries[0].text == "Марина испытывает зависть: Степан лучше владеет навыком «Собирательство».", "Shared renderer uses actual skill name and participants")
+		check(f.a.diary_entries[0].text == "Я завидую Степану: он лучше владеет навыком «Собирательство».", "Shared renderer uses actual skill name and participants")
 		check(f.control.population_reads == population_reads, "New pair processing does not enumerate the settlement")
 		check(not f.service.facts.read(confirmed.other, "moodlets.active").known, "No persistent duplicate of the pair stores in engine facts")
 		var draws: int = f.rng.draws; var effect_draws: int = f.service.executor.rng.draws

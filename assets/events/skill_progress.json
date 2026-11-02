@@ -4,7 +4,7 @@
     {
       "schema_version": 1,
       "id": "personal.skill_progress",
-      "revision": 3,
+      "revision": 4,
       "enabled": true,
       "trigger": "skill.raised",
       "main_role": "actor",
@@ -80,7 +80,8 @@
         }
       ],
       "text": {
-        "diary_main": "{actor.name} замечает прогресс в навыке «{payload.skill_name}»: «{payload.previous_rank_name}» → «{payload.new_rank_name}»."
+        "chronicle": "{actor.name} {actor.gender:получил|получила} звание «{payload.new_rank_name}» в навыке «{payload.skill_name}».",
+        "diary_main": "Я замечаю прогресс в навыке «{payload.skill_name}»: «{payload.previous_rank_name}» → «{payload.new_rank_name}»."
       }
     }
   ]

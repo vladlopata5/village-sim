@@ -50,7 +50,7 @@ func run() -> void:
 	var camera: Camera3D=world.get_node("World/Camera3D")
 	var before: Transform3D=camera.global_transform
 	var zoom: float=camera.get_zoom_distance()
-	check(panel.collapsed and panel.sections.map(func(section): return section.id)==[&"construction",&"residents",&"areas",&"buildings"],"Construction TAB, Residents, Areas and Buildings QUICK_WINDOW; initial collapsed")
+	check(panel.collapsed and panel.sections.map(func(section): return section.id)==[&"construction",&"residents",&"areas",&"buildings",&"chronicle"],"Construction TAB, Residents, Areas and Buildings QUICK_WINDOW; initial collapsed")
 	check(panel.sections[0].kind==panel.Kind.TAB and panel.sections[1].kind==panel.Kind.QUICK_WINDOW and panel.sections[2].kind==panel.Kind.QUICK_WINDOW and panel.sections[3].kind==panel.Kind.QUICK_WINDOW,"Distinct registered action kinds")
 	var names:=[]
 	for category in catalog.categories: names.append(category.title)

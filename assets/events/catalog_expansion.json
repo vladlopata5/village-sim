@@ -4,7 +4,7 @@
     {
       "schema_version": 1,
       "id": "social.success_admiration",
-      "revision": 1,
+      "revision": 2,
       "enabled": true,
       "trigger": "social.resolved",
       "main_role": "actor",
@@ -78,7 +78,8 @@
         }
       ],
       "text": {
-        "diary_main": "{actor.name}: «{other.name} — вот пример успеха в навыке „{skill_name}“!»"
+        "chronicle": "{actor.name} {actor.gender:восхитился|восхитилась} успехами {other.name:gen} в навыке «{skill_name}».",
+        "diary_main": "Я восхищаюсь успехами {other.name:gen} в навыке «{skill_name}». Вот пример для меня!"
       },
       "bind": [
         {
@@ -199,7 +200,7 @@
     {
       "schema_version": 1,
       "id": "social.warm_sympathy",
-      "revision": 1,
+      "revision": 2,
       "enabled": true,
       "trigger": "social.resolved",
       "main_role": "other",
@@ -253,8 +254,9 @@
       },
       "effects": [],
       "text": {
-        "diary_main": "{other.name}: «{actor.name} — с этим человеком общаться приятно. Кажется, чувство взаимно».",
-        "diary_secondary": "{actor.name}: «{other.name} — приятная компания. Мы хорошо поладили»."
+        "chronicle": "{actor.name} и {other.name} приятно пообщались.",
+        "diary_main": "Мне было приятно общаться {actor.with}. Кажется, мы хорошо поладили.",
+        "diary_secondary": "Мне было приятно общаться {other.with}. Мы хорошо поладили."
       },
       "secondary_diary": {
         "role": "actor",
@@ -264,7 +266,7 @@
     {
       "schema_version": 1,
       "id": "social.rough_conversation",
-      "revision": 1,
+      "revision": 2,
       "enabled": true,
       "trigger": "social.resolved",
       "main_role": "actor",
@@ -288,14 +290,6 @@
           {
             "eq": [
               {
-                "ctx": "payload.interaction"
-              },
-              "CONVERSATION"
-            ]
-          },
-          {
-            "eq": [
-              {
                 "ctx": "payload.reaction_1"
               },
               "NEGATIVE"
@@ -307,6 +301,19 @@
                 "ctx": "payload.reaction_2"
               },
               "NEGATIVE"
+            ]
+          },
+          {
+            "lte": [
+              {
+                "fact": [
+                  {
+                    "role": "actor"
+                  },
+                  "mood"
+                ]
+              },
+              20
             ]
           }
         ]
@@ -354,13 +361,40 @@
         }
       ],
       "text": {
-        "diary_main": "{actor.name}: «{other.name} — этот разговор явно не задался. Кажется, раздражение было взаимным»."
-      }
+        "chronicle": "{actor.name} {actor.gender:поссорился|поссорилась} {other.with}."
+      },
+      "effect_groups": [
+        {
+          "id": "anger",
+          "chance": 0.4,
+          "effects": [
+            {
+              "op": "moodlet.add",
+              "owner": {
+                "role": "actor"
+              },
+              "definition": "angry",
+              "duration_minutes": 120,
+              "modifiers": []
+            },
+            {
+              "op": "chat.say",
+              "owner": {
+                "role": "actor"
+              },
+              "text": [
+                "{other.gender:Какой же|Какая же} {other.name} {other.gender:болван|дура}!",
+                "{other.name} умеет испортить настроение!"
+              ]
+            }
+          ]
+        }
+      ]
     },
     {
       "schema_version": 1,
       "id": "social.old_grudge",
-      "revision": 1,
+      "revision": 2,
       "enabled": true,
       "trigger": "social.resolved",
       "main_role": "actor",
@@ -402,7 +436,8 @@
       },
       "effects": [],
       "text": {
-        "diary_main": "{actor.name}: «{other.name} — прежняя неприятная история снова вспомнилась после этого общения»."
+        "chronicle": "{actor.name} {actor.gender:вспомнил|вспомнила} прежний неприятный случай после общения {other.with}.",
+        "diary_main": "После общения {other.with} я {actor.gender:вспомнил|вспомнила} прежнюю неприятную историю."
       },
       "bind": [
         {
@@ -499,7 +534,7 @@
     {
       "schema_version": 1,
       "id": "social.character_contrast",
-      "revision": 1,
+      "revision": 2,
       "enabled": true,
       "trigger": "social.resolved",
       "main_role": "actor",
@@ -595,13 +630,14 @@
       },
       "effects": [],
       "text": {
-        "diary_main": "{actor.name}: «Мне приятно искать компанию. {other.name} — человек более замкнутый; похоже, у нас разные привычки в общении»."
+        "chronicle": "{actor.name} и {other.name} пообщались, несмотря на различия в общительности.",
+        "diary_main": "Мне приятно искать компанию. {other.name} — человек более замкнутый; похоже, у нас разные привычки в общении."
       }
     },
     {
       "schema_version": 1,
       "id": "personal.skill_progress_advanced",
-      "revision": 2,
+      "revision": 3,
       "enabled": true,
       "trigger": "skill.raised",
       "main_role": "actor",
@@ -666,7 +702,8 @@
         }
       ],
       "text": {
-        "diary_main": "{actor.name} гордится достижением: новое звание в навыке «{payload.skill_name}» — «{payload.new_rank_name}»."
+        "chronicle": "{actor.name} {actor.gender:достиг|достигла} звания «{payload.new_rank_name}» в навыке «{payload.skill_name}».",
+        "diary_main": "Я горжусь достижением: новое звание в навыке «{payload.skill_name}» — «{payload.new_rank_name}»."
       }
     }
   ]
