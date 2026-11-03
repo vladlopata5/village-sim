@@ -1700,6 +1700,288 @@
           "{actor.name} и {other.name} разошлись с твёрдым убеждением, что следующий разговор можно немного отложить. Лет на пять."
         ]
       }
+    },
+    {
+      "schema_version": 1,
+      "id": "social.empty_conversation",
+      "revision": 1,
+      "enabled": true,
+      "trigger": "social.resolved",
+      "main_role": "actor",
+      "roles": {
+        "actor": {
+          "type": "resident",
+          "from": "ctx.actor",
+          "active_required": true
+        },
+        "other": {
+          "type": "resident",
+          "from": "ctx.other",
+          "active_required": true,
+          "different_from": [
+            "actor"
+          ]
+        }
+      },
+      "when": {
+        "all": [
+          {
+            "eq": [
+              {
+                "ctx": "payload.reaction_1"
+              },
+              "NEUTRAL"
+            ]
+          },
+          {
+            "eq": [
+              {
+                "ctx": "payload.reaction_2"
+              },
+              "NEUTRAL"
+            ]
+          },
+          {
+            "any": [
+              {
+                "eq": [
+                  {
+                    "ctx": "payload.interaction"
+                  },
+                  "CONVERSATION"
+                ]
+              },
+              {
+                "eq": [
+                  {
+                    "ctx": "payload.interaction"
+                  },
+                  "MEAL"
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "weight": 1,
+      "cooldown": {
+        "minutes": 240,
+        "scope": [
+          {
+            "role": "actor"
+          },
+          {
+            "role": "other"
+          }
+        ],
+        "symmetric": true
+      },
+      "params": {
+        "chat_text": [
+          "А ведь сегодня действительно сегодняшний день.",
+          "Иногда бывает тепло. А иногда, наоборот, не очень.",
+          "Вот так живёшь, живёшь... А потом ещё немного живёшь.",
+          "Интересно, почему утро всегда наступает раньше вечера? Хотя нет, вроде понятно.",
+          "Говорят, если долго смотреть на дерево, оно никуда не денется.",
+          "Знаешь, я тут {speaker.gender:подумал|подумала}... Впрочем, ничего особенного.",
+          "Вчера было как-то иначе. Возможно, потому что вчера.",
+          "А ведь если ничего не делать, то иногда ничего и не происходит.",
+          "Хорошо поговорили. То есть поговорили, это точно.",
+          "Ну, в общем, такие вот дела. Хотя какие именно — сложно сказать."
+        ],
+        "diary_text": [
+          "Сегодня поговорили {partner.with}. О чём именно — уже не помню. Кажется, ни о чём важном.",
+          "{speaker.gender:Провёл|Провела} некоторое время за разговором. Время прошло, разговор закончился. Всё закономерно.",
+          "Сегодняшняя беседа ничем особенным не запомнилась. Зачем я тогда о ней записываю?",
+          "Обсудили погоду и прочие вещи, которые прекрасно существуют без нашего обсуждения.",
+          "Иногда приятно просто поговорить. Сегодня просто поговорили.",
+          "Сегодня {speaker.gender:обнаружил|обнаружила}, что можно довольно долго беседовать и так ни к чему не прийти.",
+          "Кажется, мы {partner.with} согласились практически со всем. Впрочем, ничего спорного и не обсуждали.",
+          "Разговор получился самым обыкновенным. Даже записать особенно нечего.",
+          "Неожиданно выяснилось, что мы прекрасно знаем, как выглядит обычный день.",
+          "Сегодняшняя беседа прошла спокойно. Если бы меня спросили, о чём она была, пришлось бы задуматься."
+        ]
+      },
+      "effects": [
+        {
+          "op": "chat.say",
+          "owner": {
+            "role": "actor"
+          },
+          "text": {
+            "param": "chat_text"
+          },
+          "text_bindings": {
+            "speaker": {
+              "role": "actor"
+            },
+            "partner": {
+              "role": "other"
+            }
+          },
+          "chance": 0.5
+        },
+        {
+          "op": "chat.say",
+          "owner": {
+            "role": "other"
+          },
+          "text": {
+            "param": "chat_text"
+          },
+          "text_bindings": {
+            "speaker": {
+              "role": "other"
+            },
+            "partner": {
+              "role": "actor"
+            }
+          },
+          "chance": 0.5
+        }
+      ],
+      "effect_groups": [
+        {
+          "id": "actor_experience",
+          "chance": 0.3,
+          "effects": [
+            {
+              "op": "memory.add",
+              "owner": {
+                "role": "actor"
+              },
+              "kind": "neutral_interaction",
+              "topic": "social",
+              "tags": [
+                "social",
+                "neutral"
+              ],
+              "target": {
+                "role": "other"
+              },
+              "text": {
+                "param": "diary_text"
+              },
+              "text_bindings": {
+                "speaker": {
+                  "role": "actor"
+                },
+                "partner": {
+                  "role": "other"
+                }
+              },
+              "strength": 15,
+              "permanent": false,
+              "provenance": {
+                "kind": "experienced"
+              },
+              "context": {}
+            },
+            {
+              "op": "moodlet.add",
+              "owner": {
+                "role": "actor"
+              },
+              "definition": "talked_out",
+              "tags": [
+                "social",
+                "neutral"
+              ],
+              "target": {
+                "role": "other"
+              },
+              "duration_minutes": 120,
+              "context": {
+                "display_name": "Наговорился"
+              },
+              "modifiers": [
+                {
+                  "channel": "need_growth_rate",
+                  "need": "social",
+                  "multiplier": 0.5
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "other_experience",
+          "chance": 0.3,
+          "effects": [
+            {
+              "op": "memory.add",
+              "owner": {
+                "role": "other"
+              },
+              "kind": "neutral_interaction",
+              "topic": "social",
+              "tags": [
+                "social",
+                "neutral"
+              ],
+              "target": {
+                "role": "actor"
+              },
+              "text": {
+                "param": "diary_text"
+              },
+              "text_bindings": {
+                "speaker": {
+                  "role": "other"
+                },
+                "partner": {
+                  "role": "actor"
+                }
+              },
+              "strength": 15,
+              "permanent": false,
+              "provenance": {
+                "kind": "experienced"
+              },
+              "context": {}
+            },
+            {
+              "op": "moodlet.add",
+              "owner": {
+                "role": "other"
+              },
+              "definition": "talked_out",
+              "tags": [
+                "social",
+                "neutral"
+              ],
+              "target": {
+                "role": "actor"
+              },
+              "duration_minutes": 120,
+              "context": {
+                "display_name": "Наговорился"
+              },
+              "modifiers": [
+                {
+                  "channel": "need_growth_rate",
+                  "need": "social",
+                  "multiplier": 0.5
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "text": {
+        "chronicle": [
+          "{actor.name} и {other.name} поговорили о жизни. Никаких новых выводов сделано не было.",
+          "{actor.name} и {other.name} обсудили погоду, время суток и некоторые другие обстоятельства, не вызывающие сомнений.",
+          "{actor.name} и {other.name} провели содержательную беседу. Содержание, правда, никто не запомнил.",
+          "{actor.name} и {other.name} некоторое время разговаривали. Затем перестали. Ничего особенно не изменилось.",
+          "{actor.name} и {other.name} обменялись несколькими замечаниями. Все замечания были возвращены в исходном состоянии.",
+          "{actor.name} и {other.name} выяснили, что вчера было вчера, а завтра, вероятно, наступит позже.",
+          "{actor.name} и {other.name} обсудили множество вопросов, не требовавших ответов.",
+          "{actor.name} и {other.name} поговорили о том о сём. Особенно подробно удалось обсудить «то».",
+          "{actor.name} и {other.name} сошлись во мнении, что некоторые вещи бывают такими, какие они есть.",
+          "Беседа {actor.name:gen} и {other.name:gen} закончилась естественным образом: у обоих иссякли очевидные наблюдения."
+        ]
+      }
     }
   ]
 }
