@@ -25,6 +25,7 @@ strength0…100, permanent, provenance, context и исходные/послед
 | social.rough_conversation |60% |45 |
 | social.old_grudge |Нет новой записи; memory.reinforce +10 |До100 |
 | social.character_contrast |70% |15 |
+| social.awkward_conversation |30% каждой стороне независимо, вместе с её мудлетом |20 положительной стороне,30 отрицательной |
 
 Все новые записи каталога permanent:false. Каждый смысловой исход создаёт одну
 запись; прежних независимых Diary/Memory бросков нет. Сохранены остальные мудлеты,

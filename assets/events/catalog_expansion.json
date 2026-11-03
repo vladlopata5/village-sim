@@ -998,6 +998,428 @@
       "text": {
         "chronicle": "{actor.name} {actor.gender:достиг|достигла} звания «{payload.new_rank_name}» в навыке «{payload.skill_name}»."
       }
+    },
+    {
+      "schema_version": 1,
+      "id": "social.awkward_conversation",
+      "revision": 1,
+      "enabled": true,
+      "trigger": "social.resolved",
+      "main_role": "positive",
+      "roles": {
+        "actor": {
+          "type": "resident",
+          "from": "ctx.actor",
+          "active_required": true
+        },
+        "other": {
+          "type": "resident",
+          "from": "ctx.other",
+          "active_required": true,
+          "different_from": [
+            "actor"
+          ]
+        }
+      },
+      "bind": [
+        {
+          "as": "positive",
+          "type": "resident_ref",
+          "active_required": true,
+          "select": {
+            "from": {
+              "list": [
+                {
+                  "role": "actor"
+                },
+                {
+                  "role": "other"
+                }
+              ]
+            },
+            "as": "candidate",
+            "where": {
+              "any": [
+                {
+                  "all": [
+                    {
+                      "eq": [
+                        {
+                          "local": "candidate"
+                        },
+                        {
+                          "role": "actor"
+                        }
+                      ]
+                    },
+                    {
+                      "eq": [
+                        {
+                          "ctx": "payload.reaction_1"
+                        },
+                        "POSITIVE"
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "all": [
+                    {
+                      "eq": [
+                        {
+                          "local": "candidate"
+                        },
+                        {
+                          "role": "other"
+                        }
+                      ]
+                    },
+                    {
+                      "eq": [
+                        {
+                          "ctx": "payload.reaction_2"
+                        },
+                        "POSITIVE"
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            "take": 1,
+            "order_by": "id"
+          }
+        },
+        {
+          "as": "negative",
+          "type": "resident_ref",
+          "active_required": true,
+          "select": {
+            "from": {
+              "list": [
+                {
+                  "role": "actor"
+                },
+                {
+                  "role": "other"
+                }
+              ]
+            },
+            "as": "candidate",
+            "where": {
+              "any": [
+                {
+                  "all": [
+                    {
+                      "eq": [
+                        {
+                          "local": "candidate"
+                        },
+                        {
+                          "role": "actor"
+                        }
+                      ]
+                    },
+                    {
+                      "eq": [
+                        {
+                          "ctx": "payload.reaction_1"
+                        },
+                        "NEGATIVE"
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "all": [
+                    {
+                      "eq": [
+                        {
+                          "local": "candidate"
+                        },
+                        {
+                          "role": "other"
+                        }
+                      ]
+                    },
+                    {
+                      "eq": [
+                        {
+                          "ctx": "payload.reaction_2"
+                        },
+                        "NEGATIVE"
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            "take": 1,
+            "order_by": "id"
+          }
+        }
+      ],
+      "when": {
+        "any": [
+          {
+            "eq": [
+              {
+                "ctx": "payload.interaction"
+              },
+              "CONVERSATION"
+            ]
+          },
+          {
+            "eq": [
+              {
+                "ctx": "payload.interaction"
+              },
+              "MEAL"
+            ]
+          }
+        ]
+      },
+      "weight": 1,
+      "cooldown": {
+        "minutes": 240,
+        "scope": [
+          {
+            "role": "actor"
+          },
+          {
+            "role": "other"
+          }
+        ],
+        "symmetric": true
+      },
+      "params": {
+        "positive_chat": [
+          "{partner.gender:Какой приятный собеседник|Какая приятная собеседница}! Почти всё время молчит и внимательно слушает.",
+          "Наконец-то нашёлся кто-то, кому интересны мои истории! По крайней мере, никто не жаловался.",
+          "Вот это я понимаю — душевный разговор! Даже уходить не хотелось.",
+          "Мы отлично поладили. Правда, {partner.gender:собеседник почему-то очень спешил|собеседница почему-то очень спешила}.",
+          "Обожаю, когда люди так внимательно смотрят в одну точку. Сразу видно — задумались!",
+          "Какая замечательная беседа! Надо будет завтра повторить. И послезавтра.",
+          "Кажется, я умею находить общий язык буквально с кем угодно.",
+          "Когда разговор действительно интересный, время летит незаметно. Целый час как пять минут!",
+          "Мне кажется, мы стали гораздо ближе. Надо будет ещё рассказать историю про бочку.",
+          "Так приятно, когда не приходится тянуть из собеседника каждое слово. Можно просто говорить {speaker.gender:самому|самой}!"
+        ],
+        "negative_chat": [
+          "Я трижды {speaker.gender:сказал|сказала}, что мне пора. Кажется, это приняли за приглашение продолжать.",
+          "Никогда ещё дорога домой не казалась такой привлекательной.",
+          "У меня теперь есть мечта. Побыть в тишине. Хотя бы минуту.",
+          "Это был не разговор. Это была осада моих ушей.",
+          "В следующий раз притворюсь, что срочно нужно пересчитать все камни в округе.",
+          "Интересно, можно ли незаметно уснуть с открытыми глазами?",
+          "Кажется, за этот разговор я {speaker.gender:узнал|узнала} больше, чем хотел знать за всю жизнь.",
+          "Я {speaker.gender:кивал|кивала} так долго, что теперь болит шея.",
+          "В какой момент вежливость превращается в добровольное заточение?",
+          "Если меня опять позовут поговорить, скажите, что я {speaker.gender:уехал|уехала}. Куда угодно."
+        ],
+        "positive_diary": [
+          "Сегодня получилось очень душевно поговорить. Кажется, меня действительно умеют слушать.",
+          "{partner.With} удивительно легко общаться. Даже не приходится задумываться, что сказать дальше.",
+          "Мне кажется, мы отлично понимаем друг друга. Особенно приятно, что никто не спорит.",
+          "Такой замечательный разговор! Жаль, что всё хорошее когда-нибудь заканчивается.",
+          "Надо чаще общаться {partner.with}. У меня ещё столько всего осталось рассказать.",
+          "Сегодня удалось выговориться от души. Иногда человеку просто необходимо внимание.",
+          "Похоже, я умею поддерживать действительно интересные беседы. Приятное открытие!",
+          "Какая редкость — {partner.gender:собеседник, который не перебивает|собеседница, которая не перебивает} на самом интересном месте.",
+          "Хорошо, когда рядом есть кто-то, кто готов выслушать даже историю о том, как я выбираю сапоги.",
+          "Беседа сегодня получилась замечательной. Странно только, что прощаться пришлось так долго."
+        ],
+        "negative_diary": [
+          "Сегодня пришлось выслушать невероятно долгую историю. К концу я уже {speaker.gender:забыл|забыла}, с чего она началась.",
+          "После беседы {partner.with} особенно ценю тишину. Какая же она приятная.",
+          "Кажется, меня приняли за {speaker.gender:очень заинтересованного слушателя|очень заинтересованную слушательницу}. Надо научиться меньше кивать.",
+          "Весь разговор {speaker.gender:пытался|пыталась} найти подходящий момент попрощаться. Подходящий момент так и не наступил.",
+          "Иногда очень хочется сказать человеку правду. Например, что мне совершенно неинтересно.",
+          "Теперь я знаю, что улыбаться из вежливости можно до боли в щеках.",
+          "Не понимаю, как можно столько говорить и ни разу не заметить, что {speaker.gender:собеседник уже мысленно ушёл|собеседница уже мысленно ушла}.",
+          "Неловкий получился разговор. Кажется, единственное, о чём мы договорились, — что пора расходиться.",
+          "Мне нужно научиться заканчивать разговоры. Желательно раньше, чем состарюсь.",
+          "Сегодня {speaker.gender:получил|получила} важный жизненный урок: не спрашивать «как дела?», если не {speaker.gender:готов|готова} услышать ответ."
+        ]
+      },
+      "effects": [
+        {
+          "op": "chat.say",
+          "owner": {
+            "binding": "positive"
+          },
+          "chance": 0.5,
+          "text": {
+            "param": "positive_chat"
+          },
+          "text_bindings": {
+            "speaker": {
+              "binding": "positive"
+            },
+            "partner": {
+              "binding": "negative"
+            }
+          }
+        },
+        {
+          "op": "chat.say",
+          "owner": {
+            "binding": "negative"
+          },
+          "chance": 0.5,
+          "text": {
+            "param": "negative_chat"
+          },
+          "text_bindings": {
+            "speaker": {
+              "binding": "negative"
+            },
+            "partner": {
+              "binding": "positive"
+            }
+          }
+        }
+      ],
+      "effect_groups": [
+        {
+          "id": "positive_experience",
+          "chance": 0.3,
+          "effects": [
+            {
+              "op": "memory.add",
+              "owner": {
+                "binding": "positive"
+              },
+              "kind": "pleasant_interaction",
+              "topic": "social",
+              "tags": [
+                "social",
+                "positive"
+              ],
+              "target": {
+                "binding": "negative"
+              },
+              "text": {
+                "param": "positive_diary"
+              },
+              "text_bindings": {
+                "speaker": {
+                  "binding": "positive"
+                },
+                "partner": {
+                  "binding": "negative"
+                }
+              },
+              "strength": 20,
+              "permanent": false,
+              "provenance": {
+                "kind": "experienced"
+              },
+              "context": {}
+            },
+            {
+              "op": "moodlet.add",
+              "owner": {
+                "binding": "positive"
+              },
+              "definition": "pleasant_company",
+              "duration_minutes": 120,
+              "tags": [
+                "social",
+                "positive"
+              ],
+              "target": {
+                "binding": "negative"
+              },
+              "context": {
+                "display_name": "Приятная компания"
+              },
+              "modifiers": [
+                {
+                  "channel": "mood.offset",
+                  "value": 10
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "negative_experience",
+          "chance": 0.3,
+          "effects": [
+            {
+              "op": "memory.add",
+              "owner": {
+                "binding": "negative"
+              },
+              "kind": "awkward_interaction",
+              "topic": "social",
+              "tags": [
+                "social",
+                "negative"
+              ],
+              "target": {
+                "binding": "positive"
+              },
+              "text": {
+                "param": "negative_diary"
+              },
+              "text_bindings": {
+                "speaker": {
+                  "binding": "negative"
+                },
+                "partner": {
+                  "binding": "positive"
+                }
+              },
+              "strength": 30,
+              "permanent": false,
+              "provenance": {
+                "kind": "experienced"
+              },
+              "context": {}
+            },
+            {
+              "op": "moodlet.add",
+              "owner": {
+                "binding": "negative"
+              },
+              "definition": "awkwardness",
+              "duration_minutes": 120,
+              "tags": [
+                "social",
+                "negative"
+              ],
+              "target": {
+                "binding": "positive"
+              },
+              "context": {
+                "display_name": "Неловкость"
+              },
+              "modifiers": [
+                {
+                  "channel": "mood.offset",
+                  "value": -10
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "text": {
+        "chronicle": [
+          "{positive.name} и {negative.name} поговорили. Судя по всему, разговор понравился лишь одной стороне.",
+          "Беседа {positive.name:gen} и {negative.name:gen} закончилась без ссоры. Уже неплохо, хотя мнения о её качестве разошлись.",
+          "{positive.name} считает разговор замечательным. {negative.name} предпочитает эту тему больше не поднимать.",
+          "{positive.name} и {negative.name} попытались найти общий язык. Результаты поисков оказались разными.",
+          "После разговора {positive.name} явно хочет продолжения. {negative.name} явно надеется, что продолжения не будет.",
+          "Беседа {positive.name:gen} и {negative.name:gen} оказалась удивительно долгой. По мнению одного из участников — приятно, другого — мучительно.",
+          "{positive.name} и {negative.name} обменялись мыслями. Удовольствие от обмена оказалось неравноценным.",
+          "{positive.name} и {negative.name} поговорили по душам. По крайней мере, одна сторона считает, что именно это и произошло.",
+          "Разговор {positive.name:gen} и {negative.name:gen} оставил неизгладимое впечатление. Правда, совершенно разное.",
+          "{positive.name} и {negative.name} разошлись после беседы. Первой стороне было жаль заканчивать, второй — жаль, что не закончили раньше."
+        ]
+      }
     }
   ]
 }

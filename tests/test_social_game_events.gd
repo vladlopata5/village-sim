@@ -304,7 +304,7 @@ func json_facts_and_guards() -> void:
 	cleanup(f)
 
 func real_controllers() -> void:
-	var scene := Setup.make_scene(self); configure_world(scene)
+	var scene := Setup.make_scene(self); configure_original_events(scene)
 	var actor: Node = scene.resident_runtimes[1]; var target: Node = scene.resident_runtimes[3]
 	target.data.add_skill_xp(Skill.Type.GATHERING, 400)
 	var contexts: Array = []
@@ -317,7 +317,7 @@ func real_controllers() -> void:
 	actor.social._on_minute(636)
 	check(contexts.size() == 2, "Conversation minute ticks do not create new universal triggers")
 	scene.free(); await process_frame
-	scene = Setup.make_scene(self); configure_world(scene)
+	scene = Setup.make_scene(self); configure_original_events(scene)
 	actor = scene.resident_runtimes[1]; target = scene.resident_runtimes[3]
 	target.data.add_skill_xp(Skill.Type.GATHERING, 400)
 	target.data.activity = Activity.Type.WORKING; target.decision._work_cycle_active = true; target.decision._work_assignment = {"location_id": scene.kitchen_data.id}
@@ -329,7 +329,7 @@ func real_controllers() -> void:
 	check(contexts.size() == 1 and contexts[0].payload.interaction == "MEAL" and contexts[0].payload.location_id == String(scene.kitchen_data.id), "Actual meal_begun uses common adapter and real location")
 	check(actor.data.memories.find({"type": "success_envy"}).size() == 1, "Actual meal applies generic consequences")
 	scene.free(); await process_frame
-	scene = Setup.make_scene(self); configure_world(scene)
+	scene = Setup.make_scene(self); configure_original_events(scene)
 	actor = scene.resident_runtimes[1]; target = scene.resident_runtimes[3]
 	scene.player_control.assign_profession(actor.data.id, Profession.Type.BUILDER); scene.player_control.assign_profession(target.data.id, Profession.Type.BUILDER)
 	target.data.add_skill_xp(Skill.Type.CONSTRUCTION, 400)
@@ -347,3 +347,13 @@ func real_controllers() -> void:
 	check(contexts.any(func(context): return context.actor.id == actor.data.id and context.payload.interaction == "WORK" and context.payload.location_id == String(site.id)), "Actual work_cycle_started reaches common post-commit adapter")
 	check(actor.data.memories.find({"type": "success_envy"}).size() == 1 and actor.data.memories.find({"type": "success_envy"})[0].topic == "construction", "Real work uses peer's actual construction pride")
 	scene.free(); await process_frame
+
+func configure_original_events(scene: Node) -> void:
+	configure_world(scene)
+	# This regression asserts the original envy adapter, not the outcome of a
+	# weighted competition with newer stories. Full catalog selection is tested
+	# in test_event_catalog_content; the awkward story has its own live test.
+	var definitions: Array=[]
+	for trigger in ["skill.raised","social.resolved"]:
+		definitions.append_array(scene.game_events.catalog.definitions_for(trigger).filter(func(definition):return definition.id in ["personal.skill_progress","social.success_envy"]))
+	check(scene.game_events.catalog.load_data({"definitions":definitions},scene.game_events.facts),"Original adapter regression uses its controlled two-event catalog")
