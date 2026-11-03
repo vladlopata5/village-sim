@@ -6749,3 +6749,17 @@ talked_out «Наговорился»120мин содержит need_growth_rate
 личные подумал/подумала, провёл/провела, обнаружил/обнаружила заданы через renderer.
 «Мы оба» заменено на «мы» с сохранением смысла для любых сочетаний грамматического
 рода. Остальные12 определений, социальные реакции, opinion и общий30%-gate прежние.
+
+## Односторонний интерес (2026-11-03)
+
+Одно JSON-определение social.one_sided_interest выбирает positive/neutral через
+существующие resident_ref bindings по двум направленным реакциям. Оба направления,
+CONVERSATION/MEAL, вес1, симметричный cooldown240. Main positive независимо от actor.
+По50% независимого чата и по30% пакета memory.add+moodlet.add каждой стороне.
+Записи pleasant_interaction strength20 / neutral_interaction strength15, social,
+target — собеседник, experienced, permanent:false. Используются прежние
+pleasant_company(+10 mood.offset) и talked_out(need_growth_rate/social/0.5) на120мин.
+Пять текстовых пулов по10, локальные speaker/partner и независимые текстовые выборы.
+Дательный имени positive, род обоих участников и с/со обеспечены прежним renderer.
+Все13 прежних определений сохранены; новых сценарных обработчиков, AI-действий,
+числовых каналов, изменений opinion или общей30%-вероятности нет.

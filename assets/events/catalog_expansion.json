@@ -1982,6 +1982,429 @@
           "Беседа {actor.name:gen} и {other.name:gen} закончилась естественным образом: у обоих иссякли очевидные наблюдения."
         ]
       }
+    },
+    {
+      "schema_version": 1,
+      "id": "social.one_sided_interest",
+      "revision": 1,
+      "enabled": true,
+      "trigger": "social.resolved",
+      "main_role": "positive",
+      "roles": {
+        "actor": {
+          "type": "resident",
+          "from": "ctx.actor",
+          "active_required": true
+        },
+        "other": {
+          "type": "resident",
+          "from": "ctx.other",
+          "active_required": true,
+          "different_from": [
+            "actor"
+          ]
+        }
+      },
+      "bind": [
+        {
+          "as": "positive",
+          "type": "resident_ref",
+          "active_required": true,
+          "select": {
+            "from": {
+              "list": [
+                {
+                  "role": "actor"
+                },
+                {
+                  "role": "other"
+                }
+              ]
+            },
+            "as": "candidate",
+            "where": {
+              "any": [
+                {
+                  "all": [
+                    {
+                      "eq": [
+                        {
+                          "local": "candidate"
+                        },
+                        {
+                          "role": "actor"
+                        }
+                      ]
+                    },
+                    {
+                      "eq": [
+                        {
+                          "ctx": "payload.reaction_1"
+                        },
+                        "POSITIVE"
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "all": [
+                    {
+                      "eq": [
+                        {
+                          "local": "candidate"
+                        },
+                        {
+                          "role": "other"
+                        }
+                      ]
+                    },
+                    {
+                      "eq": [
+                        {
+                          "ctx": "payload.reaction_2"
+                        },
+                        "POSITIVE"
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            "take": 1,
+            "order_by": "id"
+          }
+        },
+        {
+          "as": "neutral",
+          "type": "resident_ref",
+          "active_required": true,
+          "select": {
+            "from": {
+              "list": [
+                {
+                  "role": "actor"
+                },
+                {
+                  "role": "other"
+                }
+              ]
+            },
+            "as": "candidate",
+            "where": {
+              "any": [
+                {
+                  "all": [
+                    {
+                      "eq": [
+                        {
+                          "local": "candidate"
+                        },
+                        {
+                          "role": "actor"
+                        }
+                      ]
+                    },
+                    {
+                      "eq": [
+                        {
+                          "ctx": "payload.reaction_1"
+                        },
+                        "NEUTRAL"
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "all": [
+                    {
+                      "eq": [
+                        {
+                          "local": "candidate"
+                        },
+                        {
+                          "role": "other"
+                        }
+                      ]
+                    },
+                    {
+                      "eq": [
+                        {
+                          "ctx": "payload.reaction_2"
+                        },
+                        "NEUTRAL"
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            "take": 1,
+            "order_by": "id"
+          }
+        }
+      ],
+      "when": {
+        "any": [
+          {
+            "eq": [
+              {
+                "ctx": "payload.interaction"
+              },
+              "CONVERSATION"
+            ]
+          },
+          {
+            "eq": [
+              {
+                "ctx": "payload.interaction"
+              },
+              "MEAL"
+            ]
+          }
+        ]
+      },
+      "weight": 1,
+      "cooldown": {
+        "minutes": 240,
+        "scope": [
+          {
+            "role": "actor"
+          },
+          {
+            "role": "other"
+          }
+        ],
+        "symmetric": true
+      },
+      "params": {
+        "positive_chat": [
+          "{partner.gender:Вот это собеседник|Вот это собеседница}! Я даже не {speaker.gender:заметил|заметила}, как разговор закончился.",
+          "Кажется, мы сходимся во взглядах буквально на всё. Ну, по крайней мере, на то, что успели обсудить.",
+          "Приятно встретить человека, который понимает тебя с полуслова. Остальные полслова я, конечно, тоже {speaker.gender:сказал|сказала}.",
+          "Надо будет чаще общаться. У меня уже есть несколько отличных тем!",
+          "Не {speaker.gender:ожидал|ожидала}, что обычный разговор может так поднять настроение.",
+          "Кажется, я наконец {speaker.gender:нашёл|нашла} человека, которому можно рассказывать свои истории!",
+          "Вот бы все беседы проходили так легко. Сразу чувствуешь себя интересной личностью.",
+          "Мы отлично поладили! По крайней мере, никаких признаков обратного я не {speaker.gender:заметил|заметила}.",
+          "А ведь у нас может получиться замечательная дружба. Нужно только ещё немного пообщаться.",
+          "Не знаю, как так получилось, но после этого разговора хочется улыбаться."
+        ],
+        "neutral_chat": [
+          "Поговорили. Вроде обо всём, вроде ни о чём. Вполне нормально.",
+          "Приятно, когда человек умеет поддержать беседу. Мне даже особенно стараться не пришлось.",
+          "Не {speaker.gender:думал|думала}, что мой рассказ про вчерашний ужин вызовет столько интереса.",
+          "Кажется, кому-то очень понравился наш разговор. Ну и хорошо.",
+          "Обычный разговор. Интересно, почему мне так долго махали на прощание?",
+          "Я просто {speaker.gender:ответил|ответила} на вопрос. Судя по реакции, довольно удачно.",
+          "Вроде неплохо поговорили. Хотя ничего выдающегося не произошло.",
+          "{partner.gender:Приятный собеседник. Немного увлечённый|Приятная собеседница. Немного увлечённая}, но это не страшно.",
+          "Забавно, как иногда обычная вежливость может кого-то обрадовать.",
+          "Ну вот, пообщались. Теперь можно и делами заняться."
+        ],
+        "positive_diary": [
+          "Сегодня удалось замечательно поговорить {partner.with}. Оказывается, у нас немало общего.",
+          "Иногда совершенно случайный разговор оставляет удивительно приятное впечатление.",
+          "Общаться {partner.with} оказалось гораздо интереснее, чем я {speaker.gender:ожидал|ожидала}. Надо будет повторить.",
+          "Кажется, мы могли бы стать хорошими друзьями. Во всяком случае, мне бы этого хотелось.",
+          "Сегодня было очень приятно почувствовать, что мои мысли кому-то интересны.",
+          "Даже обыкновенные вещи становятся интереснее, когда обсуждаешь их с подходящим человеком.",
+          "Не понимаю, почему мы раньше так мало общались. Надо исправлять.",
+          "Мне кажется, беседа получилась замечательной. После неё весь день как-то приятнее.",
+          "Удивительно, сколько общего можно обнаружить за один разговор. Возможно, я немного {speaker.gender:увлёкся|увлеклась}, но это мелочи.",
+          "Надеюсь, у нас {partner.with} ещё будет возможность спокойно поболтать. Мне очень понравилось."
+        ],
+        "neutral_diary": [
+          "Сегодня немного поговорили {partner.with}. Ничего особенного, но время прошло вполне приятно.",
+          "Кажется, моя обычная беседа произвела неожиданно хорошее впечатление. Приятно, наверное.",
+          "Неплохой разговор. Хотя я не {speaker.gender:уверен|уверена}, что завтра вспомню, о чём именно мы говорили.",
+          "Сегодня общение получилось спокойным и непринуждённым. Вполне достаточно.",
+          "Удивительно, как сильно иногда люди радуются самым обыкновенным разговорам.",
+          "{partner.With} вполне можно поболтать. Хотя особой потребности в этом я не испытываю.",
+          "Кажется, у нас получилась приятная беседа. Во всяком случае, {partner.gender:собеседник остался явно доволен|собеседница осталась явно довольна}.",
+          "Сегодня удалось немного отвлечься от дел. Поговорили, посмеялись, разошлись.",
+          "Неожиданно оказалось, что мои совершенно обычные мысли кому-то очень интересны.",
+          "Хорошо, когда можно просто поговорить без споров и лишних переживаний. Сегодня именно так и получилось."
+        ]
+      },
+      "effects": [
+        {
+          "op": "chat.say",
+          "owner": {
+            "binding": "positive"
+          },
+          "chance": 0.5,
+          "text": {
+            "param": "positive_chat"
+          },
+          "text_bindings": {
+            "speaker": {
+              "binding": "positive"
+            },
+            "partner": {
+              "binding": "neutral"
+            }
+          }
+        },
+        {
+          "op": "chat.say",
+          "owner": {
+            "binding": "neutral"
+          },
+          "chance": 0.5,
+          "text": {
+            "param": "neutral_chat"
+          },
+          "text_bindings": {
+            "speaker": {
+              "binding": "neutral"
+            },
+            "partner": {
+              "binding": "positive"
+            }
+          }
+        }
+      ],
+      "effect_groups": [
+        {
+          "id": "positive_experience",
+          "chance": 0.3,
+          "effects": [
+            {
+              "op": "memory.add",
+              "owner": {
+                "binding": "positive"
+              },
+              "kind": "pleasant_interaction",
+              "topic": "social",
+              "tags": [
+                "social",
+                "positive"
+              ],
+              "target": {
+                "binding": "neutral"
+              },
+              "text": {
+                "param": "positive_diary"
+              },
+              "text_bindings": {
+                "speaker": {
+                  "binding": "positive"
+                },
+                "partner": {
+                  "binding": "neutral"
+                }
+              },
+              "strength": 20,
+              "permanent": false,
+              "provenance": {
+                "kind": "experienced"
+              },
+              "context": {}
+            },
+            {
+              "op": "moodlet.add",
+              "owner": {
+                "binding": "positive"
+              },
+              "definition": "pleasant_company",
+              "tags": [
+                "social",
+                "positive"
+              ],
+              "target": {
+                "binding": "neutral"
+              },
+              "duration_minutes": 120,
+              "context": {
+                "display_name": "Приятная компания"
+              },
+              "modifiers": [
+                {
+                  "channel": "mood.offset",
+                  "value": 10
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "neutral_experience",
+          "chance": 0.3,
+          "effects": [
+            {
+              "op": "memory.add",
+              "owner": {
+                "binding": "neutral"
+              },
+              "kind": "neutral_interaction",
+              "topic": "social",
+              "tags": [
+                "social",
+                "neutral"
+              ],
+              "target": {
+                "binding": "positive"
+              },
+              "text": {
+                "param": "neutral_diary"
+              },
+              "text_bindings": {
+                "speaker": {
+                  "binding": "neutral"
+                },
+                "partner": {
+                  "binding": "positive"
+                }
+              },
+              "strength": 15,
+              "permanent": false,
+              "provenance": {
+                "kind": "experienced"
+              },
+              "context": {}
+            },
+            {
+              "op": "moodlet.add",
+              "owner": {
+                "binding": "neutral"
+              },
+              "definition": "talked_out",
+              "tags": [
+                "social",
+                "neutral"
+              ],
+              "target": {
+                "binding": "positive"
+              },
+              "duration_minutes": 120,
+              "context": {
+                "display_name": "Наговорился"
+              },
+              "modifiers": [
+                {
+                  "channel": "need_growth_rate",
+                  "need": "social",
+                  "multiplier": 0.5
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "text": {
+        "chronicle": [
+          "{positive.name} и {neutral.name} приятно побеседовали. По крайней мере, степень приятности оказалась заметно выше для одной стороны.",
+          "{positive.name} {positive.gender:обнаружил|обнаружила} {neutral.gender:удивительно интересного собеседника|удивительно интересную собеседницу}. {neutral.name} {neutral.gender:обнаружил|обнаружила}, что время прошло незаметно. Почти.",
+          "{positive.name} и {neutral.name} поговорили о жизни. {positive.gender:Один участник узнал|Одна участница узнала} много нового, {neutral.gender:второй|вторая} — ничего особенно неожиданного.",
+          "После разговора {positive.name} {positive.gender:захотел|захотела} общаться чаще. {neutral.name} пока не {neutral.gender:видел|видела} причин менять привычный распорядок.",
+          "Беседа принесла {positive.name:dat} массу приятных впечатлений. {neutral.name} {neutral.gender:получил|получила} обычный разговор и возможность вернуться к делам.",
+          "{positive.name} и {neutral.name} прекрасно провели время. Правда, слово «прекрасно» здесь использует только одна сторона.",
+          "{positive.name} {positive.gender:нашёл|нашла} немало общего {neutral.with}. Вторая сторона пока не придавала этому особого значения.",
+          "Разговор {positive.name:gen} и {neutral.name:gen} оказался удивительно успешным. Если судить по довольству одного из участников.",
+          "{positive.name} и {neutral.name} обменялись мыслями. Для одной стороны это было событие дня, для другой — событие между обедом и ужином.",
+          "После беседы {positive.name} явно {positive.gender:остался|осталась} под впечатлением. {neutral.name} просто {neutral.gender:продолжил|продолжила} заниматься своими делами."
+        ]
+      }
     }
   ]
 }

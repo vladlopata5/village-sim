@@ -5,6 +5,17 @@
 > Правила записей событий, ночи, слияния и UI: **[DIARY.md](DIARY.md)**.
 > Ниже сохранены исторические этапы; их старые вероятности дневника не текущие.
 
+> «Односторонний интерес» (2026-11-03): social.one_sided_interest, POSITIVE+NEUTRAL
+> в обеих перестановках, CONVERSATION/MEAL, вес1, симметричный cooldown240.
+> Resident bindings positive/neutral выбирают фактических участников; main positive,
+> исходный ctx.actor не переопределён. Два50%-чата и два30%-пакета независимы.
+> Positive: pleasant_interaction/social/positive strength20 + pleasant_company(+10 mood).
+> Neutral: neutral_interaction/social/neutral strength15 + talked_out(SOCIAL growth0.5).
+> Оба прежних мудлета120мин, стандартный singleton refresh; нового числового канала нет.
+> Пять пулов по10 формулировок, все выборы независимы; speaker/partner локальны.
+> Летопись обязательна; дательный/творительный падежи и род — прежний renderer.
+> Общий gate30%, остальные13 определений и производственный GDScript не менялись.
+
 > «Разговор ни о чём» (2026-11-03): social.empty_conversation, две NEUTRAL в
 > CONVERSATION/MEAL, вес1, симметричный cooldown240, общий gate30% прежний.
 > Два независимых50%-чата из общего пула10 и два независимых30%-пакета:
