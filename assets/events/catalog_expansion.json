@@ -1420,6 +1420,286 @@
           "{positive.name} и {negative.name} разошлись после беседы. Первой стороне было жаль заканчивать, второй — жаль, что не закончили раньше."
         ]
       }
+    },
+    {
+      "schema_version": 1,
+      "id": "social.bad_conversation",
+      "revision": 1,
+      "enabled": true,
+      "trigger": "social.resolved",
+      "main_role": "actor",
+      "roles": {
+        "actor": {
+          "type": "resident",
+          "from": "ctx.actor",
+          "active_required": true
+        },
+        "other": {
+          "type": "resident",
+          "from": "ctx.other",
+          "active_required": true,
+          "different_from": [
+            "actor"
+          ]
+        }
+      },
+      "when": {
+        "all": [
+          {
+            "eq": [
+              {
+                "ctx": "payload.reaction_1"
+              },
+              "NEGATIVE"
+            ]
+          },
+          {
+            "eq": [
+              {
+                "ctx": "payload.reaction_2"
+              },
+              "NEGATIVE"
+            ]
+          },
+          {
+            "any": [
+              {
+                "eq": [
+                  {
+                    "ctx": "payload.interaction"
+                  },
+                  "CONVERSATION"
+                ]
+              },
+              {
+                "eq": [
+                  {
+                    "ctx": "payload.interaction"
+                  },
+                  "MEAL"
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "weight": 1,
+      "cooldown": {
+        "minutes": 240,
+        "scope": [
+          {
+            "role": "actor"
+          },
+          {
+            "role": "other"
+          }
+        ],
+        "symmetric": true
+      },
+      "params": {
+        "chat_text": [
+          "Вот вроде и поговорили, а хорошего настроения почему-то стало меньше.",
+          "Удивительно, сколько можно сказать, совершенно ничего не объяснив.",
+          "Я не спорю. Просто моё мнение правильнее.",
+          "Не понимаю, зачем спрашивать моё мнение, если оно всё равно не нравится.",
+          "Прекрасный разговор. Особенно та часть, когда он закончился.",
+          "Некоторым людям стоило бы сначала думать, а потом говорить. Хотя бы иногда.",
+          "Кажется, мы не сошлись во мнениях даже о том, согласны ли мы.",
+          "В следующий раз предлагаю просто молча покивать. Результат будет тот же.",
+          "И ведь ничего особенно плохого не произошло. А раздражает!",
+          "Интересно, у нас когда-нибудь получится поговорить и не испортить друг другу день?"
+        ],
+        "diary_text": [
+          "Сегодня поговорили {partner.with}. Ничего страшного не произошло, но повторять почему-то не хочется.",
+          "Кажется, у нас {partner.with} совершенно разные представления о том, как должна выглядеть приятная беседа.",
+          "Сегодняшний разговор лишний раз убедил меня, что иногда лучше заниматься своими делами.",
+          "Сначала казалось, что мы обсуждаем одно и то же. К концу стало ясно, что это совершенно разные вещи.",
+          "Не понимаю, почему общение {partner.with} каждый раз требует столько терпения.",
+          "Сегодня хотелось просто спокойно поговорить. Почему это оказалось такой сложной задачей?",
+          "Странно, как можно настолько по-разному смотреть на самые обычные вещи.",
+          "Разговор закончился, а неприятный осадок остался. Хотя повод был совершенно пустяковый.",
+          "В следующий раз постараюсь не начинать разговор с вопроса, на который не хочу знать ответ.",
+          "Не думаю, что мы поссорились. Но некоторое время лучше пообщаться с кем-нибудь другим."
+        ]
+      },
+      "effects": [
+        {
+          "op": "chat.say",
+          "owner": {
+            "role": "actor"
+          },
+          "text": {
+            "param": "chat_text"
+          },
+          "text_bindings": {
+            "speaker": {
+              "role": "actor"
+            },
+            "partner": {
+              "role": "other"
+            }
+          },
+          "chance": 0.5
+        },
+        {
+          "op": "chat.say",
+          "owner": {
+            "role": "other"
+          },
+          "text": {
+            "param": "chat_text"
+          },
+          "text_bindings": {
+            "speaker": {
+              "role": "other"
+            },
+            "partner": {
+              "role": "actor"
+            }
+          },
+          "chance": 0.5
+        }
+      ],
+      "effect_groups": [
+        {
+          "id": "actor_experience",
+          "chance": 0.3,
+          "effects": [
+            {
+              "op": "memory.add",
+              "owner": {
+                "role": "actor"
+              },
+              "kind": "unpleasant_interaction",
+              "topic": "social",
+              "tags": [
+                "social",
+                "negative"
+              ],
+              "target": {
+                "role": "other"
+              },
+              "text": {
+                "param": "diary_text"
+              },
+              "text_bindings": {
+                "speaker": {
+                  "role": "actor"
+                },
+                "partner": {
+                  "role": "other"
+                }
+              },
+              "strength": 30,
+              "permanent": false,
+              "provenance": {
+                "kind": "experienced"
+              },
+              "context": {}
+            },
+            {
+              "op": "moodlet.add",
+              "owner": {
+                "role": "actor"
+              },
+              "definition": "irritation",
+              "tags": [
+                "social",
+                "negative"
+              ],
+              "target": {
+                "role": "other"
+              },
+              "duration_minutes": 120,
+              "context": {
+                "display_name": "Раздражение"
+              },
+              "modifiers": [
+                {
+                  "channel": "mood.offset",
+                  "value": -10
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "other_experience",
+          "chance": 0.3,
+          "effects": [
+            {
+              "op": "memory.add",
+              "owner": {
+                "role": "other"
+              },
+              "kind": "unpleasant_interaction",
+              "topic": "social",
+              "tags": [
+                "social",
+                "negative"
+              ],
+              "target": {
+                "role": "actor"
+              },
+              "text": {
+                "param": "diary_text"
+              },
+              "text_bindings": {
+                "speaker": {
+                  "role": "other"
+                },
+                "partner": {
+                  "role": "actor"
+                }
+              },
+              "strength": 30,
+              "permanent": false,
+              "provenance": {
+                "kind": "experienced"
+              },
+              "context": {}
+            },
+            {
+              "op": "moodlet.add",
+              "owner": {
+                "role": "other"
+              },
+              "definition": "irritation",
+              "tags": [
+                "social",
+                "negative"
+              ],
+              "target": {
+                "role": "actor"
+              },
+              "duration_minutes": 120,
+              "context": {
+                "display_name": "Раздражение"
+              },
+              "modifiers": [
+                {
+                  "channel": "mood.offset",
+                  "value": -10
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "text": {
+        "chronicle": [
+          "{actor.name} и {other.name} поговорили. К концу беседы оба убедились, что молчание — золото.",
+          "Разговор {actor.name:gen} и {other.name:gen} начался вполне мирно. К сожалению, на этом его достоинства закончились.",
+          "{actor.name} и {other.name} попытались найти общий язык. Похоже, каждый искал на своём.",
+          "Беседа {actor.name:gen} и {other.name:gen} закончилась обоюдным облегчением. Особенно приятным оказался момент прощания.",
+          "{actor.name} и {other.name} обсудили несколько важных вопросов. Ни один из них важным для обоих не оказался.",
+          "{actor.name} и {other.name} обменялись мнениями. Каждый предпочёл бы получить своё обратно.",
+          "Сегодня {actor.name} и {other.name} выяснили, что даже о погоде можно поговорить неприятно.",
+          "{actor.name} и {other.name} провели беседу, которую оба предпочли бы считать потерянным временем.",
+          "Разговор {actor.name:gen} и {other.name:gen} оставил неприятное послевкусие. И дело было совсем не в еде.",
+          "{actor.name} и {other.name} разошлись с твёрдым убеждением, что следующий разговор можно немного отложить. Лет на пять."
+        ]
+      }
     }
   ]
 }

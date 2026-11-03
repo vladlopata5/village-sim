@@ -109,11 +109,11 @@ func competition() -> void:
 		check(selection.eligible == ["social.success_admiration", "social.warm_sympathy"] and result.definition_id == ("social.success_admiration" if value == 0 else "social.warm_sympathy"), "Multiple suitable new definitions use one weighted choice")
 		check(f.service.completed_events().size() == before + 1 and selection.duplicate, "Adding definitions does not add events per opportunity")
 		cleanup(f)
-	for value in [0.0, 0.5, 1.0]:
+	for value in [0.0, 0.3, 0.6, 1.0]:
 		var f := fixture(); prime(f); remember(f); remember(f, {"id": "another-old-chat"}); MoodSetup.set_value(f.a, 20); f.social.rng.rolls = [-100, -100]; f.rng.value = value
 		var result := fire(f)
 		var selection: Dictionary = f.service.selector.run(f.service.last_occurrence())
-		check(selection.eligible == ["social.old_grudge", "social.rough_conversation", "social.success_envy"] and result.definition_id == selection.eligible[int(value * 2)], "New memory/history stories compete with existing envy without extra memory tickets")
+		check(selection.eligible == ["social.bad_conversation", "social.old_grudge", "social.rough_conversation", "social.success_envy"] and result.definition_id == selection.eligible[mini(int(value * 4),3)], "New memory/history stories compete with existing envy without extra memory tickets")
 		cleanup(f)
 	var skill_fixture := fixture()
 	skill_fixture.a.add_skill_xp(Skill.Type.CONSTRUCTION, 400)
@@ -171,8 +171,10 @@ func chances_and_cooldowns() -> void:
 
 func actual_memory_chain() -> void:
 	var f := fixture(); MoodSetup.set_value(f.a, 20); f.social.rng.rolls = [-100, -100]
+	# Pick the intended existing story from the expanded weighted catalog.
+	f.rng.value=1.0
 	check(fire(f).definition_id == "social.rough_conversation" and f.a.memories.size() == 1, "Actual bad conversation stores a real negative memory")
-	f.clock.total_minutes += 1
+	f.clock.total_minutes += 1; f.rng.value=.75
 	check(fire(f).definition_id == "social.old_grudge" and f.a.memories.size() == 1 and f.a.get_opinion("b") == -2 and f.b.get_opinion("a") == -2, "Next unpleasant interaction can recall the existing memory without reinforcement or doubled relations")
 	cleanup(f)
 

@@ -5,6 +5,16 @@
 > Правила записей событий, ночи, слияния и UI: **[DIARY.md](DIARY.md)**.
 > Ниже сохранены исторические этапы; их старые вероятности дневника не текущие.
 
+> Событие «Разговор не задался» (2026-11-03): social.bad_conversation, две NEGATIVE
+> в CONVERSATION/MEAL без проверки настроения; вес1, симметричный cooldown240.
+> При настроении actor≤20 конкурирует со Ссорой, не меняя её условия или вес.
+> Каждый участник имеет независимый50%-чат из общего пула и независимый30%-пакет:
+> memory.add(strength30,unpleasant_interaction)+irritation(«Раздражение»,−10 mood.offset,
+> 120мин). Irritation не является angry и не открывает VENT_ANGER. У каждого эффекта
+> свои speaker/partner text_bindings; оба используют общие пулы10 реплик/10 дневников
+> с независимыми текстовыми выборами. Летопись обязательна,10 вариантов. Общий gate30%,
+> остальные11 определений и расчёт opinion сохранены. Нового GDScript-обработчика нет.
+
 > Новое событие (2026-11-03): `social.awkward_conversation`, смешанные POSITIVE/NEGATIVE
 > в CONVERSATION/MEAL. Общий social.resolved gate30% прежний; вес1, симметричный
 > cooldown240. Два active resident bindings positive/negative выбираются существующим
