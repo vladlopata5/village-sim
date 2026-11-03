@@ -1,6 +1,7 @@
 extends RefCounted
 ## Isolated, JSON-only snapshots. No Nodes, property access or executable readers.
 ## Adapters may populate this registry before a dry-run; evaluation only reads it.
+const Collection = preload("res://scripts/event_fact_collection.gd")
 const MAX_COLLECTION := 256
 const MAX_DEPTH := 24
 var _schemas: Dictionary = {}
@@ -14,6 +15,7 @@ static func known(value: Variant) -> Dictionary:
 	return {"known": true, "value": value}
 
 static func value_type(value: Variant) -> String:
+	if value is Collection: return "collection"
 	match typeof(value):
 		TYPE_NIL: return "null"
 		TYPE_BOOL: return "bool"
@@ -53,13 +55,18 @@ static func ref_key(entity: Dictionary) -> String:
 
 func register_fact(key: String, kind: String, type: String, argument_type: String = "none", nullable: bool = false) -> bool:
 	if key.is_empty() or kind.is_empty() or _schemas.has(key): return false
-	if type not in ["bool", "number", "string", "array", "record", "entity"]: return false
+	if type not in ["bool", "number", "string", "array", "record", "entity", "collection"]: return false
 	if argument_type not in ["none", "bool", "number", "string", "entity"]: return false
 	_schemas[key] = {"kind": kind, "type": type, "argument_type": argument_type, "nullable": nullable}
 	return true
 
 func schema(key: String) -> Dictionary:
 	return _schemas.get(key, {}).duplicate()
+
+func include_entity_registry(registry: RefCounted) -> void:
+	# Personal triggers can bind another registered participant without copying
+	# their needs/memories or enumerating resident controllers.
+	_entities.merge(registry._entities.duplicate(), false)
 
 func register_entity(entity: Dictionary, active: bool = true) -> bool:
 	if not plain(entity) or not is_ref(entity): return false
@@ -80,6 +87,14 @@ func set_value(entity: Dictionary, key: String, value: Variant, argument: Varian
 		if not rule.nullable: return false
 	elif value_type(value) != rule.type: return false
 	_values[_value_key(entity, key, argument)] = copy_value(value)
+	return true
+
+func set_collection(entity: Dictionary, key: String, records: Array) -> bool:
+	var rule := schema(key)
+	if rule.get("type") != "collection" or rule.argument_type != "none" or not valid_entity(entity,rule.kind,false): return false
+	for record in records:
+		if not record is Dictionary or not plain(record): return false
+	_values[_value_key(entity,key,null)] = Collection.new(records)
 	return true
 
 func read(entity: Variant, key: Variant, argument: Variant = null) -> Dictionary:

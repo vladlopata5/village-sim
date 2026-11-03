@@ -7,7 +7,7 @@ const S=preload("res://scripts/skill_type.gd").Type
 const P=preload("res://scripts/resident_profession.gd").Type
 const R=preload("res://scripts/resource_type.gd").Type
 const T=preload("res://scripts/building_type.gd").Type
-const Diary=preload("res://scripts/diary_entry.gd")
+const Journal = preload("res://tests/journal_test_setup.gd")
 var checks:=0
 var failures:=0
 func _initialize() -> void: call_deferred("run")

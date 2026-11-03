@@ -70,7 +70,7 @@ func ordinary_events() -> void:
 	var observed: Array = []
 	var callback := func(id: String):
 		observed.append(id)
-		check(f.a.diary_entries.size() == 2 and f.a.moodlets.size() == 1 and f.service.completed_events().size() == 2 and f.service.replay(f.service.last_occurrence().occurrence_id).status == "completed", "Refreshed store notice sees atomic diary/store/completion metadata")
+		check(f.a.memories.size() == 0 and f.a.moodlets.size() == 1 and f.service.completed_events().size() == 2 and f.service.replay(f.service.last_occurrence().occurrence_id).status == "completed", "Refreshed store notice sees atomic diary/store/completion metadata")
 	f.a.moodlets.changed.connect(callback)
 	check(raise_rank(f).status == "completed" and observed == ["pride"], "Different JSON definition refreshes same type with one notification")
 	f.a.moodlets.changed.disconnect(callback)
@@ -78,9 +78,9 @@ func ordinary_events() -> void:
 	check(refreshed.source_occurrence_id != first_record.source_occurrence_id and refreshed.context._event.definition_id == definition.id and refreshed.expires_at_minute == f.clock.total_minutes+120 and f.a.moodlets.need_growth_factors(f.clock.total_minutes)[Need.Type.HUNGER] == 0.5, "New source owns refreshed state; numerical effect does not accumulate")
 	var draws: int = f.service.executor.rng.draws; f.clock.total_minutes += 10
 	f.a.skill_raised.emit(1,Skill.Type.GATHERING,0,1); f.service.executor.execute({},first,f.clock.total_minutes,f.a); f.service.executor.publish(first.occurrence_id)
-	check(f.a.moodlets.get_entry("pride") == refreshed and f.service.executor.rng.draws == draws and f.a.diary_entries.size() == 2, "Old event replay after another source refreshes cannot overwrite, reroll or duplicate")
+	check(f.a.moodlets.get_entry("pride") == refreshed and f.service.executor.rng.draws == draws and f.a.memories.size() == 0, "Old event replay after another source refreshes cannot overwrite, reroll or duplicate")
 	f.a.moodlets.expire(refreshed.expires_at_minute); f.a.skill_raised.emit(2,Skill.Type.GATHERING,1,2)
-	check(f.a.moodlets.size() == 0 and f.a.diary_entries.size() == 2 and f.service.executor.rng.draws == draws, "Replay after expiration cannot resurrect refreshed moodlet")
+	check(f.a.moodlets.size() == 0 and f.a.memories.size() == 0 and f.service.executor.rng.draws == draws, "Replay after expiration cannot resurrect refreshed moodlet")
 	cleanup(f)
 
 func duplicate_slots() -> void:
@@ -88,10 +88,10 @@ func duplicate_slots() -> void:
 	definition.effects = [{"op":"moodlet.add","owner":{"role":"actor"},"definition":"prototype","duration_minutes":120}]
 	definition.effects.append(definition.effects[0].duplicate(true))
 	load_content(f,{"definitions":[definition]})
-	check(raise_rank(f).status == "prepare_failed" and f.a.diary_entries.is_empty() and f.a.moodlets.size() == 0 and f.service.completed_events().is_empty(), "Two selected writes to same resident/type reject atomically without choosing an implicit winner")
+	check(raise_rank(f).status == "prepare_failed" and f.a.memories.find().is_empty() and f.a.moodlets.size() == 0 and f.service.completed_events().is_empty(), "Two selected writes to same resident/type reject atomically without choosing an implicit winner")
 	definition.effects[1].definition = "another"
 	load_content(f,{"definitions":[definition]})
-	check(raise_rank(f).status == "completed" and f.a.moodlets.size() == 2 and f.a.diary_entries.size() == 1, "Same event can still award independent types")
+	check(raise_rank(f).status == "completed" and f.a.moodlets.size() == 2 and f.a.memories.size() == 0, "Same event can still award independent types")
 	cleanup(f)
 
 func social_context() -> void:

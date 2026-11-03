@@ -271,8 +271,8 @@
       ],
       "text": {
         "feed": "{actor.name} завидует {facet.label} {other.name}.",
-        "diary_main": "{actor.name} завидует {facet.label} {other.name}.",
-        "chronicle": "Состоялось тестовое событие."
+        "chronicle": "Состоялось тестовое событие.",
+        "personal": "{actor.name} завидует {facet.label} {other.name}."
       },
       "cooldown": {
         "minutes": 240,
@@ -440,8 +440,8 @@
       ],
       "text": {
         "feed": "{other.name} помог освоить {skill} жителю {actor.name}.",
-        "diary_main": "{other.name} помог освоить {skill} жителю {actor.name}.",
-        "chronicle": "Состоялось тестовое событие."
+        "chronicle": "Состоялось тестовое событие.",
+        "personal": "{other.name} помог освоить {skill} жителю {actor.name}."
       },
       "cooldown": {
         "minutes": 240,
@@ -601,13 +601,14 @@
             "role": "actor"
           },
           "salience": 10,
-          "chance": 1
+          "chance": 1,
+          "text": "{actor.name} пожаловался {other.name} на {subject.name}."
         }
       ],
       "text": {
         "feed": "{actor.name} пожаловался {other.name} на {subject.name}.",
-        "diary_main": "{actor.name} пожаловался {other.name} на {subject.name}.",
-        "chronicle": "Состоялось тестовое событие."
+        "chronicle": "Состоялось тестовое событие.",
+        "personal": "{actor.name} пожаловался {other.name} на {subject.name}."
       },
       "cooldown": {
         "minutes": 240,
@@ -680,7 +681,8 @@
               "ctx": "payload.new_rank"
             }
           },
-          "chance": 1
+          "chance": 1,
+          "text": "{actor.name} получил новое звание в навыке {payload.skill}."
         },
         {
           "op": "moodlet.add",
@@ -696,8 +698,8 @@
       ],
       "text": {
         "feed": "{actor.name} получил новое звание в навыке {payload.skill}.",
-        "diary_main": "{actor.name} получил новое звание в навыке {payload.skill}.",
-        "chronicle": "Состоялось тестовое событие."
+        "chronicle": "Состоялось тестовое событие.",
+        "personal": "{actor.name} получил новое звание в навыке {payload.skill}."
       },
       "cooldown": {
         "minutes": 0,
@@ -880,8 +882,8 @@
       ],
       "text": {
         "feed": "{worker.name} работает на кухне, пока {diner.name} ест.",
-        "diary_main": "{worker.name} работает на кухне, пока {diner.name} ест.",
-        "chronicle": "Состоялось тестовое событие."
+        "chronicle": "Состоялось тестовое событие.",
+        "personal": "{worker.name} работает на кухне, пока {diner.name} ест."
       },
       "cooldown": {
         "minutes": 240,

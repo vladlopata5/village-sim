@@ -89,7 +89,7 @@ func _validate_query(query: Variant, names: Dictionary, facts: RefCounted, error
 		errors.append(path + ": query requires from/as:candidate/where")
 		return
 	var type := validate(query.from, names, facts, errors, path + "/from", depth + 1)
-	if type not in ["array", "any", "invalid"]: errors.append(path + ": query source must be array")
+	if type not in ["array", "collection", "any", "invalid"]: errors.append(path + ": query source must be array")
 	var inner := names.duplicate(true)
 	inner.local = {"candidate": "any"}
 	type = validate(query.where, inner, facts, errors, path + "/where", depth + 1)
@@ -190,9 +190,59 @@ func select_values(query: Dictionary, env: Dictionary, facts: RefCounted, depth:
 	if uncertain: return Facts.unknown("query candidate unknown")
 	return Facts.known(matches)
 
+func select_one(query: Dictionary, env: Dictionary, facts: RefCounted) -> Dictionary:
+	visits = 0; budget_exceeded = false
+	var source := _eval(query.from,env,facts)
+	if not source.known: return source
+	if not source.value is Facts.Collection:
+		var matches := select_values(query,env,facts)
+		if not matches.known: return matches
+		return _first_match(matches.value,query.order_by)
+	var best: Variant = null
+	var best_key: Variant = null
+	var uncertain := false
+	var base_visits := visits
+	# A finite immutable snapshot is streamed completely. Existing AST/depth/step
+	# limits apply to each predicate, not to an arbitrary prefix of the journal.
+	for page_index in source.value.page_count():
+		for candidate in source.value.page(page_index):
+			visits = base_visits
+			var inner := env.duplicate(); inner.local = {"candidate":candidate}
+			var result := _eval(query.where,inner,facts)
+			if budget_exceeded: return _budget()
+			if not result.known: uncertain = true; continue
+			if not result.value is bool: return Facts.unknown("query predicate type mismatch")
+			if not result.value: continue
+			var key: Variant = candidate.get("id") if query.order_by == "id" else candidate
+			if Facts.value_type(key) not in ["number","string"] or (best != null and Facts.value_type(key) != Facts.value_type(best_key)): return Facts.unknown("invalid binding sort key")
+			if best == null or key < best_key: best = candidate; best_key = key
+	if uncertain: return Facts.unknown("query candidate unknown")
+	return Facts.known(best)
+
+func _first_match(matches: Array, order: String) -> Dictionary:
+	var best: Variant = null; var best_key: Variant = null
+	for candidate in matches:
+		var key: Variant = candidate.get("id") if order == "id" and candidate is Dictionary else candidate if order == "value" else null
+		if Facts.value_type(key) not in ["number","string"] or (best != null and Facts.value_type(key) != Facts.value_type(best_key)): return Facts.unknown("invalid binding sort key")
+		if best == null or key < best_key: best = candidate; best_key = key
+	return Facts.known(best)
+
 func _exists(query: Dictionary, env: Dictionary, facts: RefCounted, depth: int) -> Dictionary:
 	var source := _eval(query.from, env, facts, depth + 1)
 	if not source.known: return source
+	if source.value is Facts.Collection:
+		var uncertain_collection := false
+		var base_visits := visits
+		for page_index in source.value.page_count():
+			for candidate in source.value.page(page_index):
+				visits = base_visits
+				var inner := env.duplicate(); inner.local = {"candidate":candidate}
+				var result := _eval(query.where,inner,facts,depth+1)
+				if budget_exceeded: return _budget()
+				if not result.known: uncertain_collection = true
+				elif not result.value is bool: return Facts.unknown("query predicate type mismatch")
+				elif result.value: return Facts.known(true)
+		return Facts.unknown("query candidate unknown") if uncertain_collection else Facts.known(false)
 	if not source.value is Array: return Facts.unknown("query source type mismatch")
 	if source.value.size() > Facts.MAX_COLLECTION: return _budget()
 	var uncertain := false

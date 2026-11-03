@@ -3,7 +3,7 @@ const Def = preload("res://scripts/building_definition.gd")
 const Types = preload("res://scripts/building_type.gd").Type
 const P = preload("res://scripts/resident_profession.gd").Type
 const R = preload("res://scripts/resource_type.gd").Type
-const Diary = preload("res://scripts/diary_entry.gd")
+const Journal = preload("res://tests/journal_test_setup.gd")
 const OUT = "C:/Users/SW/Documents/Codex/outputs/ui-e2-info-panel/"
 var checks := 0
 var failures := 0
@@ -57,7 +57,7 @@ func run() -> void:
 	var b=world.residents[1]
 	a.set_opinion(StringName(b.id),24)
 	b.set_opinion(StringName(a.id),-12)
-	for n in range(12): a.add_diary_entry(Diary.new("Запись текущего дня %d: тест длинного настоящего дневника жителя" % n,Diary.Importance.KEY,420+n))
+	for n in range(12): Journal.add(a,"Запись текущего дня %d: тест длинного настоящего дневника жителя" % n,420+n)
 	var home_result: Dictionary=world.debug_spawn.spawn_building(Vector3(-15,0,15),Def.for_type(Types.HOME))
 	var saw_result: Dictionary=world.debug_spawn.spawn_building(Vector3(-15,0,-14),Def.for_type(Types.SAWMILL))
 	var store_result: Dictionary=world.debug_spawn.spawn_building(Vector3(29,0,-15),Def.for_type(Types.STORAGE))

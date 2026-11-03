@@ -4,7 +4,7 @@
     {
       "schema_version": 1,
       "id": "social.success_envy",
-      "revision": 4,
+      "revision": 5,
       "enabled": true,
       "trigger": "social.resolved",
       "main_role": "actor",
@@ -193,7 +193,6 @@
         ]
       },
       "weight": 1,
-      "diary_importance": 2,
       "effects": [
         {
           "op": "memory.add",
@@ -212,7 +211,7 @@
           "target": {
             "role": "other"
           },
-          "strength": 30,
+          "strength": 35,
           "permanent": false,
           "provenance": {
             "kind": "experienced"
@@ -230,7 +229,8 @@
               ]
             }
           },
-          "chance": 0.6
+          "chance": 0.6,
+          "text": "Я завидую {other.name:dat}: {other.pronoun} лучше владеет навыком «{skill_name}»."
         },
         {
           "op": "moodlet.add",
@@ -265,8 +265,7 @@
         }
       ],
       "text": {
-        "chronicle": "{actor.name} {actor.gender:позавидовал|позавидовала} успехам {other.name:gen} в навыке «{skill_name}».",
-        "diary_main": "Я завидую {other.name:dat}: {other.pronoun} лучше владеет навыком «{skill_name}»."
+        "chronicle": "{actor.name} {actor.gender:позавидовал|позавидовала} успехам {other.name:gen} в навыке «{skill_name}»."
       }
     }
   ]

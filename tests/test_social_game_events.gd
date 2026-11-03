@@ -78,7 +78,7 @@ func hotheaded_result() -> void:
 	var result: RefCounted = f.social.resolve(f.a, f.b, SocialResult.Context.CONVERSATION)
 	var payload: Dictionary = result.confirmed_context().payload
 	check(payload.opinion_delta_1 == -1 and payload.applied_delta_1 == -2 and payload.opinion_after_1 == -2 and f.a.get_opinion("b") == -2 and f.b.get_opinion("a") == 1 and rounding.draws == 1, "HOTHEADED commits exactly one rounded directed change before JSON follow-up")
-	check(social_count(f) == 1 and f.a.memories.size() == 1 and f.a.moodlets.size() == 1 and f.a.diary_entries.size() == 1, "Existing event effects apply once without scaling opinion again")
+	check(social_count(f) == 1 and f.a.memories.size() == 1 and f.a.moodlets.size() == 1 and f.a.memories.find().size() == 1, "Existing event effects apply once without scaling opinion again")
 	var event_draws: int = f.rng.draws; var effect_draws: int = f.service.executor.rng.draws
 	f.social.interaction_committed.emit(result)
 	check(social_count(f) == 1 and rounding.draws == 1 and f.rng.draws == event_draws and f.service.executor.rng.draws == effect_draws and f.a.get_opinion("b") == -2, "Duplicate event notification neither rerolls nor changes opinion")
@@ -93,7 +93,7 @@ func calm_result() -> void:
 		var payload: Dictionary = result.confirmed_context().payload
 		var expected := -1 if draw < 0.75 else 0
 		check(payload.opinion_delta_1 == -1 and payload.applied_delta_1 == expected and payload.opinion_before_1 == 0 and payload.opinion_after_1 == expected and f.a.get_opinion("b") == expected and f.b.get_opinion("a") == 1 and rounding.draws == 1, "CALM JSON context keeps zero outcome and independent reverse reaction")
-		check(social_count(f) == 1 and f.a.memories.size() == 1 and f.a.diary_entries.size() == 1, "Original event conditions still use social reaction when opinion rounds to zero")
+		check(social_count(f) == 1 and f.a.memories.size() == 1 and f.a.memories.find().size() == 1, "Original event conditions still use social reaction when opinion rounds to zero")
 		var event_draws: int = f.rng.draws; var effect_draws: int = f.service.executor.rng.draws
 		f.social.interaction_committed.emit(result)
 		check(social_count(f) == 1 and rounding.draws == 1 and f.rng.draws == event_draws and f.service.executor.rng.draws == effect_draws and f.a.get_opinion("b") == expected, "Duplicate notification never rerolls CALM zero/nonzero outcomes")
@@ -108,17 +108,17 @@ func confirmed_results() -> void:
 		check(confirmed.trigger == "social.resolved" and confirmed.actor.id == "a" and confirmed.other.id == "b" and confirmed.minute == 635, "Confirmed identity, initiator and game minute")
 		check(confirmed.payload.interaction == SocialResult.Context.keys()[context] and confirmed.payload.reaction_1 == "NEGATIVE" and confirmed.payload.reaction_2 == "POSITIVE" and confirmed.payload.location_id == "kitchen", "Common adapter receives real result for " + str(context))
 		check(confirmed.payload.opinion_delta_1 == -1 and confirmed.payload.applied_delta_1 == -1 and f.a.get_opinion("b") == -1 and f.b.get_opinion("a") == 1, "Only legacy directional changes apply once")
-		check(social_count(f) == 1 and f.a.diary_entries.size() == 1 and f.a.memories.size() == 1 and f.a.moodlets.size() == 1, "Social JSON produces mandatory diary and independent states")
+		check(social_count(f) == 1 and f.a.memories.find().size() == 1 and f.a.memories.size() == 1 and f.a.moodlets.size() == 1, "Social JSON produces mandatory diary and independent states")
 		var memory: Dictionary = f.a.memories.find()[0]; var moodlet: Dictionary = f.a.moodlets.find()[0]
-		check(memory.type == "success_envy" and memory.topic == "gathering" and memory.target.id == "b" and memory.strength == 30 and not memory.permanent and memory.source_occurrence_id == confirmed.occurrence_id, "Envy owner/target, exact skill and real social provenance")
+		check(memory.type == "success_envy" and memory.topic == "gathering" and memory.target.id == "b" and memory.strength == 35 and not memory.permanent and memory.source_occurrence_id == confirmed.occurrence_id, "Envy owner/target, exact skill and real social provenance")
 		check(moodlet.target.id == "b" and moodlet.context.skill == "gathering" and moodlet.expires_at_minute == 755 and moodlet.modifiers.is_empty(), "JSON envy lasts 120 minutes without behavior modifiers")
-		check(f.a.diary_entries[0].text == "Я завидую Степану: он лучше владеет навыком «Собирательство».", "Shared renderer uses actual skill name and participants")
+		check(f.a.memories.find()[0].text == "Я завидую Степану: он лучше владеет навыком «Собирательство».", "Shared renderer uses actual skill name and participants")
 		check(f.control.population_reads == population_reads, "New pair processing does not enumerate the settlement")
 		check(not f.service.facts.read(confirmed.other, "moodlets.active").known, "No persistent duplicate of the pair stores in engine facts")
 		var draws: int = f.rng.draws; var effect_draws: int = f.service.executor.rng.draws
 		confirmed.payload.reaction_1 = "POSITIVE"
 		f.social.interaction_committed.emit(result)
-		check(social_count(f) == 1 and f.rng.draws == draws and f.service.executor.rng.draws == effect_draws and f.a.get_opinion("b") == -1 and f.a.diary_entries.size() == 1, "Duplicate result neither rerolls nor reapplies legacy/new mechanics")
+		check(social_count(f) == 1 and f.rng.draws == draws and f.service.executor.rng.draws == effect_draws and f.a.get_opinion("b") == -1 and f.a.memories.find().size() == 1, "Duplicate result neither rerolls nor reapplies legacy/new mechanics")
 		check(result.confirmed_context().payload.reaction_1 == "NEGATIVE", "Read-only confirmed context remains immutable")
 		cleanup(f)
 	var bounded_fixture := fixture()
@@ -151,10 +151,10 @@ func conditions() -> void:
 		if scenario == "chance_zero": f.service.selector.set_chance("social.resolved", 0)
 		if scenario == "empty_catalog": load_content(f, {"definitions": []})
 		if scenario == "inactive_other": f.control.unregister_resident("b")
-		var diaries: int = f.a.diary_entries.size(); var memories: int = f.a.memories.size(); var moods: int = f.a.moodlets.size()
+		var diaries: int = f.a.memories.find().size(); var memories: int = f.a.memories.size(); var moods: int = f.a.moodlets.size()
 		var before: int = f.a.get_opinion("b")
 		var result: RefCounted = f.social.resolve(f.a, f.b, SocialResult.Context.CONVERSATION)
-		check(social_count(f) == 0 and f.a.diary_entries.size() == diaries and f.a.memories.size() == memories and f.a.moodlets.size() == moods, "No extra event for " + scenario)
+		check(social_count(f) == 0 and f.a.memories.find().size() == diaries and f.a.memories.size() == memories and f.a.moodlets.size() == moods, "No extra event for " + scenario)
 		check(f.a.get_opinion("b") == clampi(before + result.opinion_delta_1, -100, 100), "Legacy result still applies when follow-up fails: " + scenario)
 		cleanup(f)
 	# New pride replaces the old skill context, still yielding one event ticket.
@@ -173,7 +173,7 @@ func facts_and_reverse_main() -> void:
 	var a := {"kind": "resident", "id": "a"}; var b := {"kind": "resident", "id": "b"}
 	check(facts.read(a, "traits").value == ["lazy"] and facts.read(a, "opinion", b).value == 7 and facts.read(b, "opinion", a).value == -4, "Current traits and directed opinions are read-only facts")
 	check(facts.read(b, "skill.rank", "gathering").value == Skill.Rank.NOVICE and facts.read(b, "skill.name", "gathering").value == "Собирательство" and facts.read(b, "moodlets.active").value.size() == 1 and facts.read(b, "memories").value.size() == 1, "Skills, active states and memories come from existing resident stores")
-	var read: Dictionary = facts.read(b, "memories"); read.value[0].strength = 0
+	var read: Dictionary = facts.read(b, "memories"); read.value.page(0)[0].strength = 0
 	check(f.b.memories.find()[0].strength == 30 and facts._entities.size() == 2, "Projected values are detached; only two resident identities are present")
 	# A committed delta remains a fact even if an existing callback later edits opinion.
 	f.a.set_opinion("b", 0)
@@ -193,12 +193,12 @@ func facts_and_reverse_main() -> void:
 	definition.when = {"eq": [{"ctx": "payload.reaction_2"}, "NEGATIVE"]}
 	definition.bind = swap_roles(definition.bind)
 	definition.effects = swap_roles(definition.effects)
-	definition.text.diary_main = "{other.name} завидует {actor.name}: {skill_name}"
+	definition.effects[0].text = "{other.name} завидует {actor.name}: {skill_name}"
 	load_content(f, data)
-	var before: int = f.a.diary_entries.size()
+	var before: int = f.a.memories.find().size()
 	result = f.social.resolve(f.a, f.b, SocialResult.Context.MEAL)
 	check(result.confirmed_context().actor.id == "a" and f.service.replay(result.confirmed_context().occurrence_id).main.id == "b", "JSON main_role can differ from the social initiator")
-	check(f.b.diary_entries.size() == 1 and f.a.diary_entries.size() == before and f.b.memories.find()[0].target.id == "a" and f.b.moodlets.find()[0].target.id == "a", "Reverse story has correct diary/effect owners and targets")
+	check(f.b.memories.find().size() == 1 and f.a.memories.find().size() == before and f.b.memories.find()[0].target.id == "a" and f.b.moodlets.find()[0].target.id == "a", "Reverse story has correct diary/effect owners and targets")
 	cleanup(f)
 
 func swap_roles(value: Variant) -> Variant:
@@ -225,7 +225,7 @@ func compatibility_and_identity() -> void:
 		for i in 30:
 			var result: RefCounted = f.social.resolve(f.a, f.b, (i % 3) as SocialResult.Context)
 			events.append([result.roll_1, result.roll_2, result.reaction_1, result.reaction_2, result.opinion_delta_1, result.opinion_delta_2, result.confirmed_context()])
-		check(f.a.diary_entries.size()==social_count(f),"Only completed universal follow-ups create initiator diaries")
+		check(f.a.memories.find().size()==social_count(f),"Only completed universal follow-ups create initiator diaries")
 		traces.append([events,f.social.rng.state,f.a.get_opinion("b"),f.b.get_opinion("a")])
 		cleanup(f)
 	check(traces[0] == traces[1], "Enabled follow-up preserves exact rolls, confirmed contexts, RNG state and directed relations")
@@ -269,14 +269,14 @@ func json_facts_and_guards() -> void:
 		replacement.add_skill_xp(Skill.Type.GATHERING, 400)
 	f.social.event_resolved.connect(replace)
 	f.social.resolve(f.a, f.b, SocialResult.Context.CONVERSATION)
-	check(social_count(f) == 0 and f.a.diary_entries.is_empty() and replacement.diary_entries.size() == 1, "Old confirmed result cannot target a replacement data object with reused ID")
+	check(social_count(f) == 0 and f.a.memories.find().is_empty() and replacement.memories.find().size() == 1, "Old confirmed result cannot target a replacement data object with reused ID")
 	f.social.event_resolved.disconnect(replace)
 	cleanup(f)
 	f = fixture(); prime(f)
 	var snapshots: Array = []
 	var captured: Array = []
 	f.social.event_resolved.connect(func(result): captured.append(result))
-	f.a.diary_changed.connect(func():
+	f.a.memories.changed.connect(func(_entry_id):
 		var context: Dictionary = f.service.last_occurrence()
 		snapshots.append([f.a.memories.size(), f.a.moodlets.size(), f.service.replay(context.occurrence_id).status])
 		f.social.interaction_committed.emit(captured[0]))
@@ -288,7 +288,7 @@ func json_facts_and_guards() -> void:
 	load_content(f, data)
 	var failed: RefCounted = f.social.resolve(f.a, f.b, SocialResult.Context.WORK)
 	check(f.service.replay(failed.confirmed_context().occurrence_id).status == "prepare_failed" and f.a.get_opinion("b") == -1 and f.b.get_opinion("a") == 1, "Failed extra event never rolls back or duplicates committed legacy relations")
-	check(f.a.diary_entries.is_empty() and f.a.memories.size() == 0 and f.a.moodlets.size() == 0 and f.service.selector.facts == f.service.facts and f.service.executor._facts == f.service.facts, "Social preparation failure leaves no partial bundle or retained pair registry")
+	check(f.a.memories.find().is_empty() and f.a.memories.size() == 0 and f.a.moodlets.size() == 0 and f.service.selector.facts == f.service.facts and f.service.executor._facts == f.service.facts, "Social preparation failure leaves no partial bundle or retained pair registry")
 	cleanup(f)
 	f = fixture(); prime(f)
 	var nested := [false]; var commits: Array = []
@@ -313,7 +313,7 @@ func real_controllers() -> void:
 	check(actor.social.try_social_at(StringName(target.data.id), 8000), "Actual social controller begins conversation")
 	actor.view._process(100)
 	check(contexts.size() == 2 and contexts[0].occurrence_id != contexts[1].occurrence_id and scene.social_events.rng.chances == 2, "Both original conversation start attempts remain independent")
-	check(actor.data.memories.find({"type": "success_envy"}).size() == 1 and actor.data.diary_entries.size() == 1, "Actual conversation reaches universal JSON/effects")
+	check(actor.data.memories.find({"type": "success_envy"}).size() == 1 and actor.data.memories.find().size() == 1, "Actual conversation reaches universal JSON/effects")
 	actor.social._on_minute(636)
 	check(contexts.size() == 2, "Conversation minute ticks do not create new universal triggers")
 	scene.free(); await process_frame

@@ -25,7 +25,6 @@ func setup(social_world: Node, game_clock: Node, locations: Array) -> void:
 	clock = game_clock
 	buildings = locations
 	world.conversation_joined.connect(_on_conversation_joined)
-	clock.phase_changed.connect(_on_phase_changed)
 	for runtime in world.residents.values(): register(runtime)
 func register(runtime: Node) -> void:
 	runtime.needs.meal_begun.connect(_on_meal.bind(runtime))
@@ -151,7 +150,3 @@ func _on_meal(building_id: StringName, runtime: Node) -> void:
 	trigger(runtime, Event.Context.MEAL, building_id)
 func _on_work(building_id: StringName, runtime: Node) -> void:
 	trigger(runtime, Event.Context.WORK, building_id)
-func _on_phase_changed(phase: String) -> void:
-	if phase == "Утро":
-		for runtime in world.residents.values():
-			if is_instance_valid(runtime) and not runtime.is_queued_for_deletion(): runtime.data.expire_temporary_diary(clock.total_minutes)

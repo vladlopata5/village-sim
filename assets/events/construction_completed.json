@@ -4,7 +4,7 @@
     {
       "schema_version": 1,
       "id": "personal.construction_finished",
-      "revision": 2,
+      "revision": 3,
       "enabled": true,
       "trigger": "construction.completed",
       "main_role": "actor",
@@ -24,7 +24,6 @@
         ]
       },
       "weight": 1,
-      "diary_importance": 2,
       "effects": [
         {
           "op": "moodlet.add",
@@ -51,11 +50,37 @@
           },
           "modifiers": [],
           "chance": 0.5
+        },
+        {
+          "op": "memory.add",
+          "owner": {
+            "role": "actor"
+          },
+          "kind": "construction_finished",
+          "topic": "construction",
+          "tags": [
+            "work",
+            "construction"
+          ],
+          "context": {
+            "building_type": {
+              "ctx": "payload.building_type"
+            }
+          },
+          "target": {
+            "ctx": "building"
+          },
+          "text": "Мне приятно видеть завершённую стройку «{payload.building_name}».",
+          "chance": 1,
+          "strength": 40,
+          "permanent": false,
+          "provenance": {
+            "kind": "experienced"
+          }
         }
       ],
       "text": {
-        "chronicle": "Завершено строительство «{payload.building_name}».",
-        "diary_main": "Мне приятно видеть завершённую стройку «{payload.building_name}»."
+        "chronicle": "Завершено строительство «{payload.building_name}»."
       }
     }
   ]

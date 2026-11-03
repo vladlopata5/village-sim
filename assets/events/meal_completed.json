@@ -4,30 +4,105 @@
     {
       "schema_version": 1,
       "id": "personal.well_fed",
-      "revision": 2,
+      "revision": 3,
       "enabled": true,
       "trigger": "meal.completed",
       "main_role": "actor",
-      "roles": {"actor": {"type": "resident", "from": "ctx.actor", "active_required": true}},
-      "when": {"all": [
-        {"exists": {"from": {"fact": [{"role": "actor"}, "traits"]}, "as": "candidate", "where": {"eq": [{"local": "candidate"}, "glutton"]}}},
-        {"lte": [{"ctx": "payload.hunger"}, 20]}
-      ]},
+      "roles": {
+        "actor": {
+          "type": "resident",
+          "from": "ctx.actor",
+          "active_required": true
+        }
+      },
+      "when": {
+        "all": [
+          {
+            "exists": {
+              "from": {
+                "fact": [
+                  {
+                    "role": "actor"
+                  },
+                  "traits"
+                ]
+              },
+              "as": "candidate",
+              "where": {
+                "eq": [
+                  {
+                    "local": "candidate"
+                  },
+                  "glutton"
+                ]
+              }
+            }
+          },
+          {
+            "lte": [
+              {
+                "ctx": "payload.hunger"
+              },
+              20
+            ]
+          }
+        ]
+      },
       "weight": 1,
-      "diary_importance": 2,
-      "text": {"chronicle": "{actor.name} вкусно {actor.gender:поел|поела}.", "diary_main": "Я вкусно {actor.gender:поел|поела}."},
+      "text": {
+        "chronicle": "{actor.name} вкусно {actor.gender:поел|поела}."
+      },
       "effects": [
         {
           "op": "moodlet.add",
-          "owner": {"role": "actor"},
+          "owner": {
+            "role": "actor"
+          },
           "definition": "well_fed",
           "duration_minutes": 120,
-          "tags": ["positive"],
-          "context": {"display_name": "Вкусно поел"},
-          "modifiers": [{"channel": "need_growth_rate", "need": "hunger", "multiplier": 0.5}],
+          "tags": [
+            "positive"
+          ],
+          "context": {
+            "display_name": "Вкусно поел"
+          },
+          "modifiers": [
+            {
+              "channel": "need_growth_rate",
+              "need": "hunger",
+              "multiplier": 0.5
+            }
+          ],
           "chance": 0.8
         },
-        {"op": "chat.say", "owner": {"role": "actor"}, "text": "я вкусно поел", "chance": 0.5}
+        {
+          "op": "chat.say",
+          "owner": {
+            "role": "actor"
+          },
+          "text": "я вкусно поел",
+          "chance": 0.5
+        },
+        {
+          "op": "memory.add",
+          "owner": {
+            "role": "actor"
+          },
+          "kind": "well_fed",
+          "topic": "meal",
+          "tags": [
+            "food",
+            "positive"
+          ],
+          "context": {},
+          "text": "Я вкусно {actor.gender:поел|поела}.",
+          "chance": 0.35,
+          "strength": 10,
+          "permanent": false,
+          "provenance": {
+            "kind": "experienced"
+          }
+        }
       ]
     }
   ]

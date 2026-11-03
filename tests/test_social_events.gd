@@ -1,7 +1,7 @@
 extends SceneTree
 const Service = preload("res://scripts/social_event_service.gd")
 const Event = preload("res://scripts/social_event.gd")
-const Diary = preload("res://scripts/diary_entry.gd")
+const Journal = preload("res://tests/journal_test_setup.gd")
 const Data = preload("res://scripts/resident_data.gd")
 const Trait = preload("res://scripts/trait_type.gd")
 const Balance = preload("res://scripts/balance_config.gd")
@@ -94,7 +94,7 @@ func _run() -> void:
 	check(service.resolve(a,a,Event.Context.WORK)==null,"Self event rejected")
 	check(not "social_attitude" in a,"Attitude is not resident stored state")
 	fixed(service,[100,-100]); event=service.resolve(a,b,Event.Context.MEAL)
-	check(a.get_opinion(b.id)==1 and b.get_opinion(a.id)==-1 and a.diary_entries.is_empty() and b.diary_entries.is_empty(),"Ordinary interaction preserves reactions without inventing narrative output")
+	check(a.get_opinion(b.id)==1 and b.get_opinion(a.id)==-1 and a.memories.find().is_empty() and b.memories.find().is_empty(),"Ordinary interaction preserves reactions without inventing narrative output")
 	var s2:=Service.new(); root.add_child(s2)
 	service.rng=RandomNumberGenerator.new(); service.set_seed(123); s2.set_seed(123)
 	var p2:=pair(); people=pair()
@@ -212,20 +212,20 @@ func _runtime_tests() -> void:
 
 	var card=scene.resident_card_view()
 	scene.resident_selection.select(actor.data)
-	actor.data.diary_entries.clear()
-	actor.data.add_diary_entry(Diary.new("today",Diary.Importance.TEMPORARY,scene.game_time.total_minutes))
-	actor.data.add_diary_entry(Diary.new("key",Diary.Importance.KEY,scene.game_time.total_minutes))
+	actor.data.memories._entries.clear()
+	Journal.add(actor.data,"today",scene.game_time.total_minutes,false,5)
+	Journal.add(actor.data,"key",scene.game_time.total_minutes,true)
 	check(card.get_node("%Diary").text.contains("today"),"Diary signal updates ResidentCard")
-	service._on_phase_changed("День")
-	check(actor.data.diary_entries.size()==2,"Other phases do not expire history")
+	actor.data.memories.advance(scene.game_time.total_minutes)
+	check(actor.data.memories.find().size()==2,"Other phases do not expire history")
 	scene.game_time.total_minutes+=1440
-	service._on_phase_changed("Утро")
-	check(actor.data.diary_entries.size()==1 and actor.data.diary_entries[0].text=="key","Next morning expiry signal updates diary")
+	actor.data.memories.advance(scene.game_time.total_minutes)
+	check(actor.data.memories.find().size()==1 and actor.data.memories.find()[0].text=="key","Next morning expiry signal updates diary")
 	check(not card.get_node("%Diary").text.contains("today"),"Card reflects expiry")
 	passer=scene.resident_runtimes[2]
 	passer.free()
-	service._on_phase_changed("Утро")
-	check(actor.data.diary_entries.size()==1 and actor.data.diary_entries[0].text=="key","Morning tolerates stale runtime reference and retains key history")
+	actor.data.memories.advance(scene.game_time.total_minutes)
+	check(actor.data.memories.find().size()==1 and actor.data.memories.find()[0].text=="key","Morning tolerates stale runtime reference and retains key history")
 	scene.free()
 	# Real gatherer and builder hooks each fire once per started cycle.
 	scene=Setup.make_scene(self); service=scene.social_events; service.enabled=true

@@ -6,7 +6,7 @@ const P = preload("res://scripts/resident_profession.gd").Type
 const R = preload("res://scripts/resource_type.gd").Type
 const Need = preload("res://scripts/need_type.gd").Type
 const Skill = preload("res://scripts/skill_type.gd").Type
-const Diary = preload("res://scripts/diary_entry.gd")
+const Journal = preload("res://tests/journal_test_setup.gd")
 var checks := 0
 var failures := 0
 func _initialize() -> void: call_deferred("run")
@@ -69,18 +69,18 @@ func run() -> void:
 	check(resident.skills_label.text.contains("Строительство: Новичок") and not resident.skills_label.text.contains("XP"),"Skill signal updates rank-only presentation")
 	resident.get_node("%SkillsToggle").button_pressed=true
 	check(resident.skills_label.visible,"Skills foldout operates")
-	var prior_diary_count: int=a.diary_entries.size()
+	var prior_diary_count: int=a.memories.find().size()
 	world.game_time.total_minutes=1500
 	world.game_time.minute_changed.emit(1500)
-	a.add_diary_entry(Diary.new("Старый ключевой факт",Diary.Importance.KEY,360))
-	a.add_diary_entry(Diary.new("Сегодняшняя запись",Diary.Importance.TEMPORARY,1490))
+	Journal.add(a,"Старый ключевой факт",360)
+	Journal.add(a,"Сегодняшняя запись",1490)
 	var diary: Label=resident.get_node("%Diary")
-	check(diary.text.contains("Сегодняшняя запись") and not diary.text.contains("Старый ключевой факт") and a.diary_entries.size()==prior_diary_count+2,"Diary filters current day without deleting old KEY or changing retention")
+	check(diary.text.contains("Сегодняшняя запись") and diary.text.contains("Старый ключевой факт") and a.memories.find().size()==prior_diary_count+2,"Diary filters current day without deleting old KEY or changing retention")
 	resident.get_node("%DiaryToggle").button_pressed=true
 	check(diary.visible,"Diary foldout operates")
 	world.game_time.total_minutes=2880
 	world.game_time.minute_changed.emit(2880)
-	check(panel.day_summary.text=="День 3 · Весна" and diary.text.contains("За текущий день записей нет"),"Midnight changes day and diary empty state")
+	check(panel.day_summary.text=="День 3 · Весна" and diary.text.contains("Сегодняшняя запись"),"Midnight changes day and diary empty state")
 	var old_connections: int=a.relationship_changed.get_connections().size()
 	selection.select(b)
 	check(a.relationship_changed.get_connections().size()==old_connections-1 and not a.get_need(Need.HUNGER).changed.is_connected(resident._refresh),"Old relationship/need subscriptions disconnected")

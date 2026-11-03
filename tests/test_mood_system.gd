@@ -158,7 +158,7 @@ func event_cycle() -> void:
 	var f := fixture(); var contexts: Array = []
 	f.a.need_state_changed.connect(func(context): contexts.append(context))
 	for type in [N.HUNGER,N.FATIGUE,N.SOCIAL]: f.a.get_need(type).value = 91
-	check(f.a.mood == 20 and f.service.chronicle.size() == 0 and f.a.diary_entries.is_empty() and f.rng.draws == 0 and f.service.executor.rng.draws == 0 and contexts.size() == 3, "Guaranteed changes have no story record or RNG draw")
+	check(f.a.mood == 20 and f.service.chronicle.size() == 0 and f.a.memories.find().is_empty() and f.rng.draws == 0 and f.service.executor.rng.draws == 0 and contexts.size() == 3, "Guaranteed changes have no story record or RNG draw")
 	var definition: Dictionary = f.service.catalog.definitions_for("skill.raised")[0]
 	definition.effects = [{"op":"moodlet.add","owner":{"role":"actor"},"definition":"event_mood","modifiers":[{"channel":"mood.offset","value":3}]}]
 	load_content(f,{"definitions":[definition]})
@@ -191,5 +191,5 @@ func actual_ui() -> void:
 	for name in ["Голодная","Измотанная","Одинокая","Скучающая"]: check(card.moodlets_label.text.contains(name), "Real feminine state label: " + name)
 	person.grammatical_gender = Trait.GrammaticalGender.MASCULINE
 	check(card.moodlets_label.text.contains("Голодный") and not card.moodlets_label.text.contains("Голодная"), "Gender switch updates cached display titles")
-	check(world.game_events.chronicle.size() == 0 and person.diary_entries.is_empty(), "Need states have no UI-created narrative output")
+	check(world.game_events.chronicle.size() == 0 and person.memories.find().is_empty(), "Need states have no UI-created narrative output")
 	world.free(); await process_frame

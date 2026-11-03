@@ -47,7 +47,7 @@ func _initialize() -> void:
 		check(JSON.stringify([selection, context, labels]) == before and runner.rng.state == rng_state, "Renderer changes neither inputs nor RNG")
 		check(TextRenderer.render_event(selection, context, labels) == rendered, "Rendering can repeat without event application")
 		if definition.id == "social.kitchen_encounter":
-			check(rendered.texts.diary_main == "Борис работает на кухне, пока Анна ест.", "Diary text follows resolved worker, not initiating actor")
+			check(rendered.texts.personal == "Борис работает на кухне, пока Анна ест.", "Diary text follows resolved worker, not initiating actor")
 		if definition.id == "social.complaint":
 			check(rendered.texts.feed == "Анна пожаловался Борис на Степан.", "Third-party reference uses explicit projection")
 			check(not TextRenderer.render_event(selection, context).ok, "Missing label is a diagnostic, not a guessed resident")
@@ -58,8 +58,8 @@ func _initialize() -> void:
 	var invalid_projection := {Facts.ref_key(Setup.person("a")): {"id": "spoofed"}}
 	var sample := {"status": "selected", "roles": {"actor": Setup.person("a")}, "bindings": {}, "selected": {"text": {"feed": "{actor.name}"}}}
 	check(not TextRenderer.render_event(sample, {}, invalid_projection).ok, "Projection cannot replace stable identity")
-	sample.selected.text = {"feed": "{actor.name}", "diary_main": "Main: {actor.name}", "diary_secondary": "Other: {payload.name}"}
+	sample.selected.text = {"feed": "{actor.name}", "personal": "Main: {actor.name}", "other_personal": "Other: {payload.name}"}
 	var channels := TextRenderer.render_event(sample, {"payload": {"name": "Борис"}}, labels)
-	check(channels.ok and channels.texts.diary_main == "Main: Анна" and channels.texts.diary_secondary == "Other: Борис", "Feed and independent participant text channels are preserved")
+	check(channels.ok and channels.texts.personal == "Main: Анна" and channels.texts.other_personal == "Other: Борис", "Feed and independent participant text channels are preserved")
 	print("Event text renderer: %d checks, %d failures" % [checks, failures])
 	quit(1 if failures else 0)

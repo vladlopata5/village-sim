@@ -19,23 +19,23 @@ func _run() -> void:
 func contract() -> void:
 	for private_diary in [false,true]:
 		var f := fixture(); var data := content(f.service)
-		if not private_diary: data.definitions[0].text.erase("diary_main")
+		if not private_diary: data.definitions[0].effects[0].chance=0
 		load_content(f,data)
 		var observed: Array = []
 		f.service.chronicle.changed.connect(func(id):
 			observed.append([f.service.replay(id).status,f.service.chronicle.size(),f.a.memories.size(),f.a.moodlets.size()])
 			f.service.executor.publish(id))
 		check(raise_rank(f).status == "completed", "Event can succeed with/without a personal diary")
-		check(f.service.chronicle.size() == 1 and f.a.diary_entries.size() == int(private_diary), "Mandatory world / optional personal record")
-		check(observed == [["completed",1,1,1]], "Chronicle callback sees all writes and completed metadata; nested publish cannot duplicate")
+		check(f.service.chronicle.size() == 1 and f.a.memories.find().size() == int(private_diary), "Mandatory world / optional personal record")
+		check(observed == [["completed",1,int(private_diary),1]], "Chronicle callback sees all writes and completed metadata; nested publish cannot duplicate")
 		var context: Dictionary = f.service.last_occurrence(); var draws: int = f.service.executor.rng.draws
 		f.service.replay(context.occurrence_id); f.service.executor.execute({},context,636,f.a); f.service.executor.publish(context.occurrence_id)
 		check(f.service.chronicle.size() == 1 and f.service.executor.rng.draws == draws and observed.size() == 1, "All duplicate delivery paths do not append or notify")
 		cleanup(f)
-	for channel in ["chronicle","diary_main"]:
+	for channel in ["chronicle","personal"]:
 		var definition := EventSetup.definition(); definition.text.erase(channel)
 		var catalog := Catalog.new()
-		check(catalog.load_data({"definitions":[definition]},EventSetup.registry()) == (channel == "diary_main"), "Mandatory history / absence of diary is intentional")
+		check(catalog.load_data({"definitions":[definition]},EventSetup.registry()) == (channel == "personal"), "Mandatory history / absence of diary is intentional")
 	for bad in ["", [], ["ok","{actor.name:bad}"]]:
 		var definition := EventSetup.definition(); definition.text.chronicle = bad
 		check(not Catalog.new().load_data({"definitions":[definition]},EventSetup.registry()), "Invalid mandatory history rejected at catalog")
@@ -61,10 +61,10 @@ func atomic_history() -> void:
 		load_content(f,data)
 		var notices: Array = []
 		f.service.chronicle.changed.connect(func(_id): notices.append("history"))
-		f.a.diary_changed.connect(func(): notices.append("diary"))
+		f.a.memories.changed.connect(func(_entry_id): notices.append("diary"))
 		f.a.memories.changed.connect(func(_id): notices.append("memory"))
 		check(raise_rank(f).status != "completed", "History preparation or final validation can reject")
-		check(f.service.chronicle.size() == 0 and f.a.diary_entries.is_empty() and f.a.memories.size() == 0 and f.a.moodlets.size() == 0 and notices.is_empty() and f.service.cooldown_history().is_empty(), "History participates in whole transaction: " + scenario)
+		check(f.service.chronicle.size() == 0 and f.a.memories.find().is_empty() and f.a.memories.size() == 0 and f.a.moodlets.size() == 0 and notices.is_empty() and f.service.cooldown_history().is_empty(), "History participates in whole transaction: " + scenario)
 		cleanup(f)
 
 func calendar_and_ownership() -> void:
@@ -92,6 +92,8 @@ func variants_and_rng() -> void:
 		check(raise_rank(f).status == "completed", "Variants use the common renderer")
 		check(f.service.executor.rng.draws == (3 if with_history_variant else 2), "Single chronicle does not change any existing RNG draw")
 		check(f.service.chronicle.entries()[0].text == ("Второй вариант." if with_history_variant else "Первый вариант."), "Weighted chronicle choice")
-		trace.append([f.a.memories.find(),f.a.moodlets.find(),f.a.diary_entries[0].text,f.rng.draws])
+		var memories: Array=f.a.memories.find()
+		for memory in memories: memory.erase("_version")
+		trace.append([memories,f.a.moodlets.find(),f.a.memories.find()[0].text,f.rng.draws])
 		cleanup(f)
 	check(trace[0] == trace[1], "New wording cannot change effects or previous diary choices of this event")

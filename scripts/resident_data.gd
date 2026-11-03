@@ -289,25 +289,3 @@ func _remove_trait_preference(list: Array[Trait.Type], trait_type: Trait.Type) -
 	return true
 func get_trait_preference_score(other: RefCounted) -> int:
 	return TraitPreferences.score(self, other)
-
-
-const DiaryEntry = preload("res://scripts/diary_entry.gd")
-signal diary_changed
-var diary_entries: Array[DiaryEntry] = []
-func add_diary_entry(entry: DiaryEntry) -> bool:
-	if not can_add_diary_entry(entry): return false
-	_apply_event_diary(entry)
-	diary_changed.emit()
-	return true
-func can_add_diary_entry(entry: DiaryEntry) -> bool:
-	return entry != null and entry.importance != DiaryEntry.Importance.NONE and not entry.text.is_empty()
-func _apply_event_diary(entry: DiaryEntry) -> void:
-	# Internal synchronous commit, deliberately separate from notification.
-	diary_entries.append(entry)
-func expire_temporary_diary(morning_minute: int) -> void:
-	var kept: Array[DiaryEntry] = []
-	for entry in diary_entries:
-		if entry.importance != DiaryEntry.Importance.TEMPORARY or entry.created_minute >= morning_minute: kept.append(entry)
-	if kept.size() == diary_entries.size(): return
-	diary_entries = kept
-	diary_changed.emit()

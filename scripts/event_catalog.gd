@@ -9,9 +9,9 @@ const EFFECT_FIELDS := {
 	"opinion.add": ["owner", "target", "amount"],
 	"skill.add_xp": ["owner", "skill", "amount"],
 	"moodlet.add": ["owner", "definition"],
-	"memory.add": ["owner", "kind"],
+	"memory.add": ["owner", "kind", "text"],
+	"memory.reinforce": ["owner", "entry_id", "expected_version", "amount"],
 	"chat.say": ["owner", "text"],
-	"diary.add": ["owner", "text"],
 	"none": []
 }
 var errors: Array = []
@@ -150,12 +150,12 @@ func _validate_definition(raw: Dictionary, base_names: Dictionary, facts: RefCou
 	var condition_type := evaluator.validate(raw.get("when", true), names, facts, errors, label + "/when")
 	if condition_type not in ["bool", "any", "invalid"]: errors.append(label + ": when must be boolean")
 	var main: Variant = raw.get("main_role")
-	if raw.has("diary_importance") and (not _integer(raw.diary_importance, 1) or raw.diary_importance > 2): errors.append(label + ": diary_importance must be TEMPORARY:1 or KEY:2")
+	if raw.has("diary_importance") or raw.has("secondary_diary"): errors.append(label + ": obsolete separate diary policy")
 	if not main is String or (not names.role.has(main) and not names.binding.has(main)):
 		errors.append(label + ": main_role requires a declared role/binding")
 	var text: Variant = raw.get("text", {})
 	if not text is Dictionary or not _required_text(text.get("chronicle")): errors.append(label + ": event requires chronicle template")
-	if text is Dictionary and text.has("diary_main") and not _required_text(text.diary_main): errors.append(label + ": diary_main must be a nonempty template when present")
+	if text is Dictionary and (text.has("diary_main") or text.has("diary_secondary")): errors.append(label + ": personal text belongs to memory.add")
 	if raw.has("cooldown"):
 		var cooldown: Variant = raw.cooldown
 		if not cooldown is Dictionary or not _integer(cooldown.get("minutes"), 0) or not cooldown.get("scope", []) is Array:
@@ -196,11 +196,6 @@ func _validate_definition(raw: Dictionary, base_names: Dictionary, facts: RefCou
 			_validate_descriptions(group.options, names, facts, label + "/" + group.id, true, raw.get("params", {}))
 			for option in group.options:
 				if option is Dictionary and not _nonnegative(option.get("weight")): errors.append(label + ": exclusive option requires nonnegative weight")
-	if raw.has("secondary_diary"):
-		var diary: Variant = raw.secondary_diary
-		if not diary is Dictionary or not diary.get("role") is String or not (names.role.has(diary.role) or names.binding.has(diary.role)) or not _probability(diary.get("chance")):
-			errors.append(label + ": invalid secondary diary policy")
-		elif not raw.get("text", {}) is Dictionary or not _required_text(raw.text.get("diary_secondary")): errors.append(label + ": missing secondary diary template")
 	_validate_text(raw.get("text", {}), names, label)
 
 func _validate_descriptions(effects: Variant, names: Dictionary, facts: RefCounted, label: String, allow_none: bool = false, params: Dictionary = {}) -> void:
@@ -226,7 +221,7 @@ func _validate_descriptions(effects: Variant, names: Dictionary, facts: RefCount
 				var alias_type := Evaluator.new().validate(aliases[alias], names, facts, errors, label + "/text_bindings")
 				if alias_type not in ["entity", "any", "invalid"]: errors.append(label + ": text binding requires participant")
 				text_names.binding[alias] = "entity"
-		for key in ["owner", "target", "amount", "duration_minutes", "expires_at_minute", "salience", "strength", "skill", "kind", "topic", "definition", "permanent", "text"]:
+		for key in ["owner", "target", "amount", "duration_minutes", "expires_at_minute", "salience", "strength", "skill", "kind", "topic", "definition", "permanent", "text", "entry_id", "expected_version"]:
 			if not effect.has(key): continue
 			if key == "text":
 				var source: Variant = effect[key]
@@ -237,7 +232,7 @@ func _validate_descriptions(effects: Variant, names: Dictionary, facts: RefCount
 					continue
 			var evaluator := Evaluator.new()
 			var type := evaluator.validate(effect[key], names, facts, errors, label + "/effects/" + key)
-			var expected := "entity" if key in ["owner", "target"] else "string" if key in ["skill", "kind", "topic", "definition", "text"] else "bool" if key == "permanent" else "number"
+			var expected := "entity" if key in ["owner", "target"] else "string" if key in ["skill", "kind", "topic", "definition", "text", "entry_id"] else "bool" if key == "permanent" else "number"
 			if type not in [expected, "any", "invalid"] and not (key == "text" and type == "array") and not (key in ["target", "expires_at_minute"] and type == "null"): errors.append(label + ": incompatible effect field " + key)
 		if not _probability(effect.get("chance", 1.0)): errors.append(label + ": invalid effect chance")
 		_validate_payload(effect, names, facts, label + "/effects")

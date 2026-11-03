@@ -105,79 +105,57 @@ func catalog_errors() -> void:
 	for bad in ["{unknown.name}", "{actor.name:wrong}", "{actor.gender:a|b|c}", "{actor.name", ["ok", "{actor.name:bad}"], [{"text": "A", "weight": 0}]]:
 		for channel in ["diary", "chat"]:
 			var definition := EventSetup.definition()
-			if channel == "diary": definition.text.diary_main = bad
+			if channel == "diary": definition.effects = [{"op":"memory.add","owner":{"role":"actor"},"kind":"test","text":bad}]
 			else: definition.effects = [{"op": "chat.say", "owner": {"role": "actor"}, "chance": 0, "text": bad}]
 			var catalog := Catalog.new()
 			check(not catalog.load_data({"definitions": [definition]}, EventSetup.registry()) and not catalog.errors.is_empty(), "Catalog rejects malformed text, even unchosen chance0 chat")
 
+func personal(owner: Dictionary,text: Variant) -> Dictionary:
+	return {"op":"memory.add","owner":owner,"kind":"test","topic":"test","text":text,"strength":30,"permanent":false,"provenance":{"kind":"experienced"},"chance":1}
+
 func live_content(f: Dictionary) -> Dictionary:
-	var data := content(f.service)
-	var definition: Dictionary = data.definitions[0]
-	data.catalogs = {"partner": {"kind": "resident", "id": "b"}}
-	definition.bind = [{"as": "other", "type": "resident_ref", "value": {"catalog": "partner"}}]
-	definition.text.diary_main = ["{actor.name} {actor.gender:поговорил|поговорила} {other.with}.", "{actor.name} думает {other.about}."]
-	definition.text.diary_secondary = ["Я {other.gender:согласился|согласилась}.", "Радость {other.name:gen}."]
-	definition.secondary_diary = {"role": "other", "chance": 1}
-	definition.effects = [{"op": "chat.say", "owner": {"role": "actor"}, "chance": 0.5, "text": ["Я {actor.gender:рад|рада}!", "Привет, {other.name}!"]}]
-	f.a.grammatical_gender = Trait.GrammaticalGender.FEMININE
+	var data:=content(f.service);var definition: Dictionary=data.definitions[0]
+	data.catalogs={"partner":{"kind":"resident","id":"b"}};definition.bind=[{"as":"other","type":"resident_ref","value":{"catalog":"partner"}}]
+	definition.effects=[personal({"role":"actor"},["{actor.name} {actor.gender:поговорил|поговорила} {other.with}.","{actor.name} думает {other.about}."]),personal({"binding":"other"},["Я {other.gender:согласился|согласилась}.","Радость {other.name:gen}."]),{"op":"chat.say","owner":{"role":"actor"},"chance":.5,"text":["Я {actor.gender:рад|рада}!","Привет, {other.name}!"]}]
+	f.a.grammatical_gender=Trait.GrammaticalGender.FEMININE
 	return data
 
 func live_choices() -> void:
-	for first in [0.1, 0.9]:
-		for second in [0.1, 0.9]:
-			var f := fixture(); load_content(f, live_content(f))
-			# All consequences are selected first: chat chance, secondary chance,
-			# then independent main/secondary/chat text choices.
-			f.service.executor.rng.values = [0.1, 0.1, first, 0.9, second]
-			var messages: Array = []
-			f.service.resident_message.connect(func(id, person_name, text): messages.append([id, person_name, text]))
-			check(raise_rank(f).status == "completed", "Real skill trigger executes variant templates")
-			check(f.a.diary_entries[0].text == ("Анна поговорила с Борисом." if first < 0.5 else "Анна думает о Борисе."), "Main diary independent choice")
-			check(f.b.diary_entries[0].text == "Радость Бориса.", "Additional diary uses same grammar and its own choice")
-			check(messages == [["a", "Анна", "Я рада!" if second < 0.5 else "Привет, Борис!"]], "Chat independent of diary, correct speaker")
-			var occurrence: Dictionary = f.service.last_occurrence()
-			var before: int = f.service.executor.rng.draws
-			f.a.skill_raised.emit(1, Skill.Type.GATHERING, 0, 1)
-			f.service.executor.execute({}, occurrence, 636, f.a)
-			f.service.executor.publish(occurrence.occurrence_id)
-			check(f.service.executor.rng.draws == before and messages.size() == 1 and f.a.diary_entries.size() == 1, "Repeat trigger/execute/publish cannot reroll texts or effects")
-			check(raise_rank(f).status == "completed" and f.a.diary_entries.size() == 2, "New independent occurrence remains allowed")
+	for first in [.1,.9]:
+		for second in [.1,.9]:
+			var f:=fixture();load_content(f,live_content(f));f.service.executor.rng.values=[0,0,.1,first,.9,second]
+			var messages: Array=[];f.service.resident_message.connect(func(id,name,text):messages.append([id,name,text]))
+			check(raise_rank(f).status=="completed","Canonical personal text variants commit")
+			check(f.a.memories.find()[0].text==("Анна поговорила с Борисом." if first<.5 else "Анна думает о Борисе."),"Owner's independent formulation")
+			check(f.b.memories.find()[0].text=="Радость Бориса.","Other participant's independent formulation")
+			check(messages==[["a","Анна","Я рада!" if second<.5 else "Привет, Борис!"]],"Chat independent from both personal records")
+			var token: String=f.service.last_occurrence().occurrence_id;var draws: int=f.service.executor.rng.draws
+			f.a.skill_raised.emit(1,Skill.Type.GATHERING,0,1);f.service.executor.publish(token)
+			check(f.service.executor.rng.draws==draws and f.a.memories.size()==1 and messages.size()==1,"Duplicate does not rerender or reapply")
+			check(raise_rank(f).status=="completed" and f.a.memories.size()==2,"Independent occurrence can select another variant")
 			cleanup(f)
-	var world := fixture(); load_content(world, live_content(world))
-	world.service.executor.rng.values = [0.9, 0.1, 0.1, 0.1]
-	check(raise_rank(world).status == "completed" and world.service.executor.rng.draws == 4, "Failed chat chance does not roll a formulation or affect secondary choice")
-	cleanup(world)
-	world = fixture(); var data := live_content(world)
-	data.definitions[0].effects[0].text = {"ctx": "payload.skill_name"}
-	load_content(world, data)
-	var expression_messages: Array = []
-	world.service.resident_message.connect(func(_id, _name, text): expression_messages.append(text))
-	check(raise_rank(world).status == "completed" and expression_messages == ["Собирательство"], "Existing expression-valued chat text remains supported")
-	cleanup(world)
+	var failed:=fixture();load_content(failed,live_content(failed));failed.service.executor.rng.values=[0,0,.9,.1,.9]
+	check(raise_rank(failed).status=="completed" and failed.service.executor.rng.draws==5,"Failed chat does not draw its formulation")
+	cleanup(failed)
+	var expression:=fixture();var data:=live_content(expression);data.definitions[0].effects=[{"op":"chat.say","owner":{"role":"actor"},"text":{"ctx":"payload.skill_name"}}];load_content(expression,data)
+	var expression_messages: Array=[];expression.service.resident_message.connect(func(_id,_name,text):expression_messages.append(text))
+	check(raise_rank(expression).status=="completed" and expression_messages==["Собирательство"],"Expression-valued text still supported")
+	cleanup(expression)
 
 func atomic_text_errors() -> void:
-	for scenario in ["diary", "secondary", "chat", "rng", "stale_recipient"]:
-		var f := fixture(); var data := live_content(f); var definition: Dictionary = data.definitions[0]
-		# Validly shaped syntax with a missing scalar fails at prepare, including
-		# alternatives not selected by the roll or carrying zero weight.
-		if scenario == "diary": definition.text.diary_main = ["OK", {"text": "{payload.missing}", "weight": 0}]
-		if scenario == "secondary": definition.text.diary_secondary = ["OK", "{other.missing}"]
-		if scenario == "chat": definition.effects[0].text = ["OK", "{payload.missing}"]
-		definition.effects.insert(0, {"op": "moodlet.add", "owner": {"role": "actor"}, "definition": "pride", "duration_minutes": 120})
-		load_content(f, data)
-		f.service.executor.rng.values = [0.0, 0.0, 0.0, NAN] if scenario == "rng" else [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-		if scenario == "stale_recipient":
-			f.service.executor.rng.on_draw = func(n):
-				if n == 6: f.control.unregister_resident("b")
-		var notices: Array = []
-		f.a.diary_changed.connect(func(): notices.append("diary"))
-		f.a.moodlets.changed.connect(func(_id): notices.append("moodlet"))
-		f.service.resident_message.connect(func(_id, _name, _text): notices.append("chat"))
-		check(raise_rank(f).status != "completed", "Atomic refusal: " + scenario)
-		check(f.a.diary_entries.is_empty() and f.b.diary_entries.is_empty() and f.a.moodlets.size() == 0 and notices.is_empty() and f.service.cooldown_history().is_empty(), "No partial writes/notices: " + scenario)
-		var draws: int = f.service.executor.rng.draws
-		f.a.skill_raised.emit(1, Skill.Type.GATHERING, 0, 1)
-		check(f.service.executor.rng.draws == draws, "Failed text cannot be rerolled by duplicate notification")
+	for scenario in ["personal","other","chat","rng","stale_recipient"]:
+		var f:=fixture();var data:=live_content(f);var definition: Dictionary=data.definitions[0]
+		if scenario=="personal":definition.effects[0].text=["OK",{"text":"{payload.missing}","weight":0}]
+		if scenario=="other":definition.effects[1].text=["OK","{other.missing}"]
+		if scenario=="chat":definition.effects[2].text=["OK","{payload.missing}"]
+		definition.effects.insert(0,{"op":"moodlet.add","owner":{"role":"actor"},"definition":"pride","duration_minutes":120})
+		load_content(f,data);f.service.executor.rng.values=[0,0,0,0,NAN] if scenario=="rng" else [0,0,0,0,0,0,0]
+		if scenario=="stale_recipient":f.service.executor.rng.on_draw=func(draw):
+			if draw==7:f.control.unregister_resident("b")
+		var notices: Array=[];f.a.memories.changed.connect(func(_id):notices.append("memory"));f.a.moodlets.changed.connect(func(_id):notices.append("moodlet"));f.service.resident_message.connect(func(_id,_name,_text):notices.append("chat"))
+		check(raise_rank(f).status!="completed" and f.a.memories.size()==0 and f.b.memories.size()==0 and f.a.moodlets.size()==0 and notices.is_empty() and f.service.chronicle.size()==0,"No partial writes on invalid/stale text: "+scenario)
+		var draws: int=f.service.executor.rng.draws;f.a.skill_raised.emit(1,Skill.Type.GATHERING,0,1)
+		check(f.service.executor.rng.draws==draws,"Failure does not permit a repeat text roll")
 		cleanup(f)
 
 func seeded_choices() -> void:
@@ -188,6 +166,6 @@ func seeded_choices() -> void:
 		var messages: Array = []
 		f.service.resident_message.connect(func(_id, _name, text): messages.append(text))
 		for index in 4: raise_rank(f)
-		traces.append([f.a.diary_entries.map(func(entry): return entry.text), f.b.diary_entries.map(func(entry): return entry.text), messages.duplicate(), rng.state])
+		traces.append([f.a.memories.find().map(func(entry): return entry.text), f.b.memories.find().map(func(entry): return entry.text), messages.duplicate(), rng.state])
 		cleanup(f)
 	check(traces[0] == traces[1], "Fixed seed reproduces texts, independent effects and final RNG state")

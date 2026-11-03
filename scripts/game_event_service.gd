@@ -141,6 +141,7 @@ func _sync_residents() -> void:
 		facts.register_entity({"kind": "resident", "id": id}, false)
 	for data in _control.get_residents():
 		data.moodlets.bind_clock(_clock)
+		data.memories.bind_clock(_clock)
 		if not _tracked.has(data.id):
 			var callback := _on_skill_raised.bind(data)
 			_tracked[data.id] = {"data": data, "generation": _source_generation(data), "callback": callback}
@@ -196,13 +197,14 @@ func _process_occurrence(context: Dictionary, source: RefCounted, expected_other
 		_last_occurrence = context.duplicate(true)
 	if not _active(source): return {"status": "inactive_source"}
 	facts.register_entity(context.actor, true)
-	var evaluation_facts: RefCounted = facts
+	var evaluation_facts: RefCounted
 	if context.trigger == "social.resolved":
 		var second: RefCounted = _control.get_resident(context.other.id)
 		if second != expected_other or not _active(second): return {"status": "inactive_social_pair"}
 		evaluation_facts = ResidentFacts.snapshot(source, second, _clock.total_minutes)
-	elif context.trigger == "meal.completed":
+	else:
 		evaluation_facts = ResidentFacts.snapshot(source, null, _clock.total_minutes)
+		evaluation_facts.include_entity_registry(facts)
 	selector.facts = evaluation_facts
 	executor.setup(_control, evaluation_facts, _active)
 	var result := _select_and_commit(context, source, required_main)

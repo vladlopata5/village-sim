@@ -49,14 +49,14 @@ func event_policy() -> void:
 	world.game_time.debug_skip_minutes(10);world.game_events.replay(occurrence)
 	check(store.get_entry("angry")==original,"Replay never refreshes or duplicates same occurrence")
 	check(grant(world,actor).status=="completed" and store.size()==1 and store.get_entry("angry").expires_at_minute==world.game_time.total_minutes+120 and store.get_entry("angry").source_occurrence_id!=original.source_occurrence_id,"Distinct event refreshes one stable ID to now+120")
-	original=store.get_entry("angry");var diary_count: int=actor.data.diary_entries.size()
+	original=store.get_entry("angry");var diary_count: int=actor.data.memories.find().size()
 	var definition: Dictionary=world.game_events.catalog.definitions_for("skill.raised")[0]
 	definition.effects.append(definition.effects[0].duplicate(true))
 	check(world.game_events.catalog.load_data({"definitions":[definition]},world.game_events.facts),"Duplicate singleton destinations reach normal atomic validation")
-	check(grant(world,actor).status=="prepare_failed" and actor.data.diary_entries.size()==diary_count and store.get_entry("angry")==original,"Two singleton writes in one event reject whole bundle without partial diary or refresh")
+	check(grant(world,actor).status=="prepare_failed" and actor.data.memories.find().size()==diary_count and store.get_entry("angry")==original,"Two singleton writes in one event reject whole bundle without partial diary or refresh")
 	definition.effects.resize(1);definition.effects[0].duration_minutes=-1
 	world.game_events.catalog.load_data({"definitions":[definition]},world.game_events.facts)
-	check(grant(world,actor).status=="prepare_failed" and actor.data.diary_entries.size()==diary_count and store.get_entry("angry")==original,"Invalid duration rejects whole bundle through common validation without changing current record")
+	check(grant(world,actor).status=="prepare_failed" and actor.data.memories.find().size()==diary_count and store.get_entry("angry")==original,"Invalid duration rejects whole bundle through common validation without changing current record")
 	world.free();await process_frame
 func complete_cycle() -> void:
 	var world=anger_world();var actor: Node=world.resident_runtimes[0]

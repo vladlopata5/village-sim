@@ -102,12 +102,12 @@ func _match(definition: Dictionary, context: Dictionary, tables: Dictionary, his
 		var value: Dictionary
 		if binding.has("select"):
 			evaluator.visits = 0
-			value = evaluator.select_values(binding.select, env, facts)
+			value = evaluator.select_one(binding.select, env, facts)
 			if not value.known: return _reject(value.reason)
-			if value.value.is_empty(): return _reject("empty binding: " + binding.as)
-			value = _first(value.value, binding.select.order_by)
+			if value.value == null: return _reject("empty binding: " + binding.as)
 		else: value = evaluator.evaluate(binding.value, env, facts)
 		if not value.known: return _reject(value.reason)
+		if not Facts.plain(value.value): return _reject("collection requires a query")
 		if binding.get("type", "") == "resident_ref" and not facts.valid_entity(value.value, "resident", binding.get("active_required", true)): return _reject("invalid bound resident: " + binding.as)
 		env.binding[binding.as] = value.value
 	var condition := evaluator.evaluate(definition.get("when", true), env, facts)
@@ -136,19 +136,6 @@ func _match(definition: Dictionary, context: Dictionary, tables: Dictionary, his
 				if not _minute(history[key]): return _reject("invalid cooldown history")
 				if context.minute < history[key] + definition.cooldown.minutes: return _reject("cooldown")
 	return {"ok": true, "env": env, "main": main, "cooldown_key": cooldown_key, "cooldown_keys": cooldown_keys}
-
-func _first(values: Array, order: String) -> Dictionary:
-	var decorated: Array = []
-	var type := ""
-	for i in values.size():
-		var value: Variant = values[i]
-		var key: Variant = value.get("id") if order == "id" and value is Dictionary else value if order == "value" else null
-		var current_type := Facts.value_type(key)
-		if current_type not in ["string", "number"] or (not type.is_empty() and current_type != type): return Facts.unknown("invalid binding sort key")
-		type = current_type
-		decorated.append({"key": key, "ordinal": i, "value": value})
-	decorated.sort_custom(func(a, b): return a.ordinal < b.ordinal if a.key == b.key else a.key < b.key)
-	return Facts.known(decorated[0].value)
 
 func _reject(reason: String) -> Dictionary:
 	return {"ok": false, "reason": reason}

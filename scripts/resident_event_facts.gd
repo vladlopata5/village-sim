@@ -5,6 +5,8 @@ const Skill = preload("res://scripts/skill_type.gd")
 const Trait = preload("res://scripts/trait_type.gd")
 
 static func snapshot(first: RefCounted, second: RefCounted, minute: int) -> RefCounted:
+	var stores: Array = [first.memories] if second == null else [first.memories,second.memories]
+	preload("res://scripts/memory_store.gd").advance_all(stores,minute)
 	var facts := Facts.new()
 	var schema := snapshot_schema()
 	for key in schema: facts.register_fact(key, "resident", schema[key][0], schema[key][1])
@@ -17,7 +19,7 @@ static func snapshot(first: RefCounted, second: RefCounted, minute: int) -> RefC
 		facts.set_value(ref, "traits", traits)
 		facts.set_value(ref, "mood", person.mood)
 		facts.set_value(ref, "moodlets.active", person.moodlets.active(minute))
-		facts.set_value(ref, "memories", person.memories.find())
+		assert(facts.set_collection(ref, "memories", person.memories.find()))
 		for other in people:
 			if other != person: facts.set_value(ref, "opinion", person.get_opinion(other.id), {"kind": "resident", "id": other.id})
 		for type in Skill.Type.values():
@@ -27,4 +29,4 @@ static func snapshot(first: RefCounted, second: RefCounted, minute: int) -> RefC
 	return facts
 
 static func snapshot_schema() -> Dictionary:
-	return {"mood": ["number", "none"], "traits": ["array", "none"], "opinion": ["number", "entity"], "skill.rank": ["number", "string"], "skill.name": ["string", "string"], "moodlets.active": ["array", "none"], "memories": ["array", "none"]}
+	return {"mood": ["number", "none"], "traits": ["array", "none"], "opinion": ["number", "entity"], "skill.rank": ["number", "string"], "skill.name": ["string", "string"], "moodlets.active": ["array", "none"], "memories": ["collection", "none"]}

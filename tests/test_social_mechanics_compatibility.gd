@@ -41,8 +41,8 @@ func mechanical_trace(seed_value: int, trait_type: int) -> Dictionary:
 func diary_lifecycle() -> void:
 	var scene := Setup.make_scene(self); configure_world(scene)
 	var actor: RefCounted = scene.resident_runtimes[0].data
-	actor.add_diary_entry(Diary.new("временное",Diary.Importance.TEMPORARY,634))
-	actor.add_diary_entry(Diary.new("ключевое",Diary.Importance.KEY,634))
-	scene.social_events._on_phase_changed("Утро")
-	check(actor.diary_entries.size() == 1 and actor.diary_entries[0].text == "ключевое", "General diary lifecycle survives removal of legacy stories")
+	Journal.add(actor,"временное",634)
+	Journal.add(actor,"ключевое",634)
+	actor.memories.advance(1380)
+	check(actor.memories.size() == 2 and actor.memories.find()[0].strength == 25, "General diary lifecycle survives removal of legacy stories")
 	scene.free(); await process_frame

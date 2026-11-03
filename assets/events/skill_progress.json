@@ -4,7 +4,7 @@
     {
       "schema_version": 1,
       "id": "personal.skill_progress",
-      "revision": 4,
+      "revision": 5,
       "enabled": true,
       "trigger": "skill.raised",
       "main_role": "actor",
@@ -26,7 +26,6 @@
         ]
       },
       "weight": 1,
-      "diary_importance": 2,
       "effects": [
         {
           "op": "memory.add",
@@ -57,7 +56,8 @@
               "ctx": "payload.new_rank"
             }
           },
-          "chance": 0.6
+          "chance": 1,
+          "text": "Я замечаю прогресс в навыке «{payload.skill_name}»: «{payload.previous_rank_name}» → «{payload.new_rank_name}»."
         },
         {
           "op": "moodlet.add",
@@ -80,8 +80,7 @@
         }
       ],
       "text": {
-        "chronicle": "{actor.name} {actor.gender:получил|получила} звание «{payload.new_rank_name}» в навыке «{payload.skill_name}».",
-        "diary_main": "Я замечаю прогресс в навыке «{payload.skill_name}»: «{payload.previous_rank_name}» → «{payload.new_rank_name}»."
+        "chronicle": "{actor.name} {actor.gender:получил|получила} звание «{payload.new_rank_name}» в навыке «{payload.skill_name}»."
       }
     }
   ]

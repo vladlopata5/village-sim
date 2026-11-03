@@ -4,7 +4,7 @@
     {
       "schema_version": 1,
       "id": "social.success_admiration",
-      "revision": 2,
+      "revision": 3,
       "enabled": true,
       "trigger": "social.resolved",
       "main_role": "actor",
@@ -32,7 +32,6 @@
         ]
       },
       "weight": 1,
-      "diary_importance": 2,
       "cooldown": {
         "minutes": 240,
         "scope": [
@@ -75,11 +74,36 @@
           },
           "modifiers": [],
           "chance": 0.4
+        },
+        {
+          "op": "memory.add",
+          "owner": {
+            "role": "actor"
+          },
+          "kind": "admiration",
+          "topic": "social",
+          "tags": [
+            "social"
+          ],
+          "context": {
+            "skill": {
+              "binding": "skill"
+            }
+          },
+          "target": {
+            "role": "other"
+          },
+          "text": "Я восхищаюсь успехами {other.name:gen} в навыке «{skill_name}». Вот пример для меня!",
+          "chance": 0.7,
+          "strength": 25,
+          "permanent": false,
+          "provenance": {
+            "kind": "experienced"
+          }
         }
       ],
       "text": {
-        "chronicle": "{actor.name} {actor.gender:восхитился|восхитилась} успехами {other.name:gen} в навыке «{skill_name}».",
-        "diary_main": "Я восхищаюсь успехами {other.name:gen} в навыке «{skill_name}». Вот пример для меня!"
+        "chronicle": "{actor.name} {actor.gender:восхитился|восхитилась} успехами {other.name:gen} в навыке «{skill_name}»."
       },
       "bind": [
         {
@@ -200,7 +224,7 @@
     {
       "schema_version": 1,
       "id": "social.warm_sympathy",
-      "revision": 3,
+      "revision": 4,
       "enabled": true,
       "trigger": "social.resolved",
       "main_role": "other",
@@ -240,7 +264,6 @@
         ]
       },
       "weight": 1,
-      "diary_importance": 2,
       "cooldown": {
         "minutes": 240,
         "scope": [
@@ -255,42 +278,6 @@
       },
       "effects": [
         {
-          "op": "diary.add",
-          "owner": {
-            "role": "actor"
-          },
-          "text": {
-            "param": "diary_text"
-          },
-          "text_bindings": {
-            "speaker": {
-              "role": "actor"
-            },
-            "partner": {
-              "role": "other"
-            }
-          },
-          "chance": 0.5
-        },
-        {
-          "op": "diary.add",
-          "owner": {
-            "role": "other"
-          },
-          "text": {
-            "param": "diary_text"
-          },
-          "text_bindings": {
-            "speaker": {
-              "role": "other"
-            },
-            "partner": {
-              "role": "actor"
-            }
-          },
-          "chance": 0.5
-        },
-        {
           "op": "memory.add",
           "owner": {
             "role": "actor"
@@ -310,7 +297,7 @@
           },
           "permanent": false,
           "text": {
-            "param": "memory_text"
+            "param": "diary_text"
           },
           "text_bindings": {
             "speaker": {
@@ -320,7 +307,7 @@
               "role": "other"
             }
           },
-          "chance": 0.3
+          "chance": 0.5
         },
         {
           "op": "memory.add",
@@ -342,7 +329,7 @@
           },
           "permanent": false,
           "text": {
-            "param": "memory_text"
+            "param": "diary_text"
           },
           "text_bindings": {
             "speaker": {
@@ -352,7 +339,7 @@
               "role": "actor"
             }
           },
-          "chance": 0.3
+          "chance": 0.5
         }
       ],
       "text": {
@@ -377,20 +364,6 @@
           "Сегодня мне понравилось, как мы {partner.with} поладили",
           "Рядом {partner.with} я {speaker.gender:чувствовал|чувствовала} себя спокойно",
           "Кажется, я {speaker.gender:нашёл|нашла} приятную компанию в лице {partner.name:gen}"
-        ],
-        "memory_text": [
-          "{partner.name} — {partner.gender:приятный|приятная} {partner.gender:собеседник|собеседница}",
-          "Мне приятно находиться рядом {partner.with}",
-          "{partner.With} легко найти общий язык",
-          "{partner.name} {partner.gender:оставил|оставила} хорошее впечатление",
-          "Мы {partner.with} неплохо поладили",
-          "Общение {partner.with} запомнилось мне с хорошей стороны",
-          "{partner.name} вызывает у меня симпатию",
-          "Я {speaker.gender:рад|рада}, что удалось провести время {partner.with}",
-          "Компания {partner.name:gen} мне по душе",
-          "Мне было легко и спокойно рядом {partner.with}",
-          "Я хорошо {speaker.gender:поладил|поладила} {partner.with}",
-          "После встречи {partner.with} осталось приятное впечатление"
         ],
         "chat_text": [
           "{partner.With} приятно проводить время!",
@@ -511,7 +484,7 @@
     {
       "schema_version": 1,
       "id": "social.rough_conversation",
-      "revision": 2,
+      "revision": 3,
       "enabled": true,
       "trigger": "social.resolved",
       "main_role": "actor",
@@ -564,7 +537,6 @@
         ]
       },
       "weight": 1,
-      "diary_importance": 2,
       "cooldown": {
         "minutes": 120,
         "scope": [
@@ -592,7 +564,7 @@
           "target": {
             "role": "other"
           },
-          "strength": 30,
+          "strength": 45,
           "permanent": false,
           "provenance": {
             "kind": "experienced"
@@ -602,7 +574,12 @@
               "ctx": "payload.interaction"
             }
           },
-          "chance": 0.6
+          "chance": 0.6,
+          "text": [
+            "Я {actor.gender:поссорился|поссорилась} {other.with}. Это было неприятно.",
+            "После общения {other.with} у меня осталось неприятное впечатление.",
+            "Мне тяжело вспоминать, как мы {other.with} поссорились."
+          ]
         }
       ],
       "text": {
@@ -639,7 +616,7 @@
     {
       "schema_version": 1,
       "id": "social.old_grudge",
-      "revision": 2,
+      "revision": 3,
       "enabled": true,
       "trigger": "social.resolved",
       "main_role": "actor",
@@ -667,7 +644,6 @@
         ]
       },
       "weight": 1,
-      "diary_importance": 2,
       "cooldown": {
         "minutes": 480,
         "scope": [
@@ -679,10 +655,34 @@
           }
         ]
       },
-      "effects": [],
+      "effects": [
+        {
+          "op": "memory.reinforce",
+          "owner": {
+            "role": "actor"
+          },
+          "entry_id": {
+            "field": [
+              {
+                "binding": "grievance"
+              },
+              "id"
+            ]
+          },
+          "expected_version": {
+            "field": [
+              {
+                "binding": "grievance"
+              },
+              "_version"
+            ]
+          },
+          "amount": 10,
+          "chance": 1
+        }
+      ],
       "text": {
-        "chronicle": "{actor.name} {actor.gender:вспомнил|вспомнила} прежний неприятный случай после общения {other.with}.",
-        "diary_main": "После общения {other.with} я {actor.gender:вспомнил|вспомнила} прежнюю неприятную историю."
+        "chronicle": "{actor.name} {actor.gender:вспомнил|вспомнила} прежний неприятный случай после общения {other.with}."
       },
       "bind": [
         {
@@ -779,7 +779,7 @@
     {
       "schema_version": 1,
       "id": "social.character_contrast",
-      "revision": 2,
+      "revision": 3,
       "enabled": true,
       "trigger": "social.resolved",
       "main_role": "actor",
@@ -861,7 +861,6 @@
         ]
       },
       "weight": 1,
-      "diary_importance": 2,
       "cooldown": {
         "minutes": 240,
         "scope": [
@@ -873,16 +872,38 @@
           }
         ]
       },
-      "effects": [],
+      "effects": [
+        {
+          "op": "memory.add",
+          "owner": {
+            "role": "actor"
+          },
+          "kind": "character_contrast",
+          "topic": "social",
+          "tags": [
+            "social"
+          ],
+          "context": {},
+          "target": {
+            "role": "other"
+          },
+          "text": "Мне приятно искать компанию. {other.name} — человек более замкнутый; похоже, у нас разные привычки в общении.",
+          "chance": 0.7,
+          "strength": 15,
+          "permanent": false,
+          "provenance": {
+            "kind": "experienced"
+          }
+        }
+      ],
       "text": {
-        "chronicle": "{actor.name} и {other.name} пообщались, несмотря на различия в общительности.",
-        "diary_main": "Мне приятно искать компанию. {other.name} — человек более замкнутый; похоже, у нас разные привычки в общении."
+        "chronicle": "{actor.name} и {other.name} пообщались, несмотря на различия в общительности."
       }
     },
     {
       "schema_version": 1,
       "id": "personal.skill_progress_advanced",
-      "revision": 3,
+      "revision": 4,
       "enabled": true,
       "trigger": "skill.raised",
       "main_role": "actor",
@@ -921,7 +942,6 @@
         ]
       },
       "weight": 1,
-      "diary_importance": 2,
       "effects": [
         {
           "op": "moodlet.add",
@@ -944,11 +964,39 @@
           },
           "modifiers": [],
           "chance": 1
+        },
+        {
+          "op": "memory.add",
+          "owner": {
+            "role": "actor"
+          },
+          "kind": "skill_progress_advanced",
+          "topic": {
+            "ctx": "payload.skill"
+          },
+          "tags": [
+            "achievement",
+            "skill"
+          ],
+          "context": {
+            "skill": {
+              "ctx": "payload.skill"
+            },
+            "new_rank": {
+              "ctx": "payload.new_rank"
+            }
+          },
+          "text": "Я горжусь достижением: новое звание в навыке «{payload.skill_name}» — «{payload.new_rank_name}».",
+          "chance": 1,
+          "strength": 50,
+          "permanent": false,
+          "provenance": {
+            "kind": "experienced"
+          }
         }
       ],
       "text": {
-        "chronicle": "{actor.name} {actor.gender:достиг|достигла} звания «{payload.new_rank_name}» в навыке «{payload.skill_name}».",
-        "diary_main": "Я горжусь достижением: новое звание в навыке «{payload.skill_name}» — «{payload.new_rank_name}»."
+        "chronicle": "{actor.name} {actor.gender:достиг|достигла} звания «{payload.new_rank_name}» в навыке «{payload.skill_name}»."
       }
     }
   ]

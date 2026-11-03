@@ -19,7 +19,7 @@ func only(f: Dictionary, id: String) -> void:
 	load_content(f, {"definitions": [definition]})
 
 func remember(f: Dictionary, changes: Dictionary = {}) -> void:
-	var record := {"id": "old-chat", "type": "unpleasant_interaction", "topic": "conversation", "tags": ["negative", "social"], "target": {"kind": "resident", "id": "b"}, "strength": 30, "permanent": false, "created_minute": 634, "source_occurrence_id": "fixture/previous-chat", "provenance": {"kind": "experienced"}}
+	var record := {"id": "old-chat", "type": "unpleasant_interaction", "topic": "conversation", "tags": ["negative", "social"], "target": {"kind": "resident", "id": "b"}, "text":"Событие из тестового сценария", "strength": 30, "permanent": false, "created_minute": 634, "source_occurrence_id": "fixture/previous-chat", "provenance": {"kind": "experienced"}}
 	record.merge(changes, true)
 	check(f.a.memories.add(record), "Existing memory prepared without inventing missing facts")
 
@@ -51,28 +51,18 @@ func _run() -> void:
 
 func positive_definitions() -> void:
 	for id in NEW_IDS:
-		var f := fixture()
-		check(f.service.catalog.definitions_for("social.resolved").size() + f.service.catalog.definitions_for("skill.raised").size() == 8, "The R2-B6 trigger buckets retain eight definitions, including exactly six additions")
-		prepare_story(f, id)
-		only(f, id)
-		var before: int = f.service.completed_events().size()
+		var f:=fixture();prepare_story(f,id);only(f,id)
+		var before: int=f.service.completed_events().size()
 		var result: Dictionary
-		if id == "personal.skill_progress_advanced":
-			f.a.add_skill_xp(Skill.Type.GATHERING, 1000)
-			result = f.service.replay(f.service.last_occurrence().occurrence_id)
-		else: result = fire(f)
-		check(result.status == "completed" and result.definition_id == id and f.service.completed_events().size() == before + 1, "One real confirmed trigger selects " + id)
-		check(result.main.id == ("b" if id == "social.warm_sympathy" else "a"), "JSON main role for " + id)
-		if id == "social.warm_sympathy":
-			check(f.b.diary_entries.size() == 1 and f.a.diary_entries.size() == 1 and not result.secondary_diary, "Sympathy: two independently selected diary effects")
-		else: check(f.a.diary_entries.size() == (0 if id == "social.rough_conversation" else 1), "Declared personal diary for " + id)
-		match id:
-			"social.success_admiration": check(f.a.moodlets.find()[0].type == "admiration" and f.a.memories.size() == 0 and f.a.moodlets.find()[0].context.skill == "gathering", "Admiration is a skill-bound moodlet, no artificial memory")
-			"social.warm_sympathy": check(f.a.memories.size() == 1 and f.b.memories.size() == 1 and f.a.mood == 60 and f.b.mood == 60, "Sympathy applies both independent memories and the shared company moodlets")
-			"social.rough_conversation": check(f.a.memories.find()[0].target.id == "b" and f.a.memories.find()[0].tags.has("negative") and f.a.moodlets.find({"type": "angry"}).size() == 1, "Quarrel creates the selected independent memory and anger bundle")
-			"social.old_grudge": check(f.a.memories.size() == 1 and f.a.memories.find()[0].strength == 30 and f.a.moodlets.size() == 0, "Existing grudge affects selection without reinforcement or extra consequences")
-			"personal.skill_progress_advanced": check(f.a.moodlets.find()[0].type == "pride" and f.a.moodlets.find()[0].context.skill == "gathering" and f.a.memories.size() == 0, "Advanced achievement has pride only, from the actual skill")
-			_: check(f.a.memories.size() == 0 and f.b.memories.size() == 0 and f.a.moodlets.size() == 0 and f.b.moodlets.size() == 0, "Narrative-only event has no mechanical filler")
+		if id=="personal.skill_progress_advanced":
+			f.a.add_skill_xp(Skill.Type.GATHERING,1000);result=f.service.replay(f.service.last_occurrence().occurrence_id)
+		else:result=fire(f)
+		check(result.status=="completed" and result.definition_id==id and f.service.completed_events().size()==before+1,"Actual confirmed trigger selects "+id)
+		check(result.main.id==("b" if id=="social.warm_sympathy" else "a"),"Declared main role unchanged")
+		check(f.a.memories.size()==1,"One retained personal record, including reinforcement of old grudge")
+		if id=="social.warm_sympathy":check(f.b.memories.size()==1 and f.a.mood==60 and f.b.mood==60,"Both canonical records and shared company")
+		if id=="social.old_grudge":check(f.a.memories.find()[0].strength==40,"Old grudge reinforces chosen record by ten without appending")
+		if id=="social.rough_conversation":check(f.a.memories.find()[0].strength==45 and f.a.moodlets.find({"type":"angry"}).size()==1,"Approved negative strength and unchanged anger group")
 		cleanup(f)
 
 func negative_definitions() -> void:
@@ -104,10 +94,10 @@ func negative_definitions() -> void:
 			if scenario == "negative_reaction": f.social.rng.rolls = [-100, 100]
 			only(f, id)
 			var before: int = f.service.completed_events().size()
-			var diaries: int = f.a.diary_entries.size() + f.b.diary_entries.size()
+			var diaries: int = f.a.memories.find().size() + f.b.memories.find().size()
 			if id == "personal.skill_progress_advanced": f.a.add_skill_xp(Skill.Type.CONSTRUCTION, 400)
 			else: fire(f, SocialResult.Context.MEAL if scenario == "meal" else SocialResult.Context.WORK if scenario == "work" else SocialResult.Context.CONVERSATION)
-			check(f.service.completed_events().size() == before and f.a.diary_entries.size() + f.b.diary_entries.size() == diaries, "Condition rejects " + id + "/" + scenario)
+			check(f.service.completed_events().size() == before and f.a.memories.find().size() + f.b.memories.find().size() == diaries, "Condition rejects " + id + "/" + scenario)
 			cleanup(f)
 
 func competition() -> void:
@@ -133,13 +123,13 @@ func competition() -> void:
 	skill_fixture.a.add_skill_xp(Skill.Type.CONSTRUCTION, 600)
 	skill_result = skill_fixture.service.replay(skill_fixture.service.last_occurrence().occurrence_id)
 	var skill_selection: Dictionary = skill_fixture.service.selector.run(skill_fixture.service.last_occurrence())
-	check(skill_selection.eligible == ["personal.skill_progress", "personal.skill_progress_advanced"] and skill_result.definition_id == "personal.skill_progress_advanced" and skill_fixture.a.diary_entries.size() == 2, "Threshold achievement competes with ordinary story, never runs additionally")
+	check(skill_selection.eligible == ["personal.skill_progress", "personal.skill_progress_advanced"] and skill_result.definition_id == "personal.skill_progress_advanced" and skill_fixture.a.memories.find().size() == 2, "Threshold achievement competes with ordinary story, never runs additionally")
 	cleanup(skill_fixture)
 	for xp in [1800, 3000]:
 		var titled := fixture(); titled.rng.value = 1.0
 		titled.a.add_skill_xp(Skill.Type.FORESTRY, xp)
 		var result: Dictionary = titled.service.replay(titled.service.last_occurrence().occurrence_id)
-		check(result.definition_id == "personal.skill_progress_advanced" and titled.a.diary_entries.back().text.contains(Skill.rank_name(titled.a.get_skill_rank(Skill.Type.FORESTRY))), "Experienced and Master also qualify, using title-only text")
+		check(result.definition_id == "personal.skill_progress_advanced" and titled.a.memories.find().back().text.contains(Skill.rank_name(titled.a.get_skill_rank(Skill.Type.FORESTRY))), "Experienced and Master also qualify, using title-only text")
 		cleanup(titled)
 	for followup in ["social.success_admiration", "social.success_envy"]:
 		var full := fixture(); full.rng.value = 1.0
@@ -155,20 +145,20 @@ func chances_and_cooldowns() -> void:
 			var f := fixture(); prepare_story(f, id); only(f, id); f.service.executor.rng.values = [roll, roll, roll, roll, roll, roll, roll]
 			var result := fire(f)
 			check(result.status == "completed", "Narrative succeeds independently of optional consequence")
-			if id == "social.warm_sympathy": check(f.a.diary_entries.size() == (1 if roll == 0 else 0) and f.b.diary_entries.size() == (1 if roll == 0 else 0), "Both optional diaries use their own JSON probabilities")
-			else: check(f.a.memories.size() + f.a.moodlets.find({"type":"admiration"}).size() + f.a.moodlets.find({"type":"angry"}).size() == ((2 if id == "social.rough_conversation" else 1) if roll == 0 else 0), "New content consequence can pass or fail without suppressing the diary")
+			if id == "social.warm_sympathy": check(f.a.memories.find().size() == (1 if roll == 0 else 0) and f.b.memories.find().size() == (1 if roll == 0 else 0), "Both optional diaries use their own JSON probabilities")
+			else: check(f.a.memories.size() + f.a.moodlets.find({"type":"admiration"}).size() + f.a.moodlets.find({"type":"angry"}).size() == (2 if roll == 0 else 0), "New content consequence can pass or fail without suppressing the diary")
 			var draws: int = f.service.executor.rng.draws
 			var token: String = f.service.last_occurrence().occurrence_id
-			var diaries: int = f.a.diary_entries.size() + f.b.diary_entries.size()
+			var diaries: int = f.a.memories.find().size() + f.b.memories.find().size()
 			f.service.replay(token)
-			check(f.service.executor.rng.draws == draws and f.a.diary_entries.size() + f.b.diary_entries.size() == diaries, "Replay creates no additional diaries or random checks")
+			check(f.service.executor.rng.draws == draws and f.a.memories.find().size() + f.b.memories.find().size() == diaries, "Replay creates no additional diaries or random checks")
 			cleanup(f)
 	for id in NEW_IDS:
 		if id.begins_with("personal."): continue
 		var f := fixture(); prepare_story(f, id); only(f, id)
 		check(fire(f).status == "completed", "First local opportunity allowed")
-		var diaries: int = f.a.diary_entries.size() + f.b.diary_entries.size()
-		check(fire(f).status == "no_match" and f.a.diary_entries.size() + f.b.diary_entries.size() == diaries, "Local cooldown blocks repeating " + id)
+		var diaries: int = f.a.memories.find().size() + f.b.memories.find().size()
+		check(fire(f).status == "no_match" and f.a.memories.find().size() + f.b.memories.find().size() == diaries, "Local cooldown blocks repeating " + id)
 		cleanup(f)
 	var boundary := fixture(); prepare_story(boundary, "social.warm_sympathy")
 	var minutes: int = int(definition_for(boundary, "social.warm_sympathy").cooldown.minutes)
@@ -219,10 +209,10 @@ func mechanical_catalog_parity() -> void:
 			var additions: Array = []
 			for index in 2:
 				var person: RefCounted = f.a if index == 0 else f.b
-				additions.append(person.diary_entries.slice(starts[index]).map(func(entry): return [entry.text, entry.importance, entry.created_minute]))
+				additions.append(person.memories.find().slice(starts[index]).map(func(entry): return [entry.text, entry.importance, entry.created_minute]))
 			diaries.append(additions))
 		for i in 30:
-			starts[0] = f.a.diary_entries.size(); starts[1] = f.b.diary_entries.size()
+			starts[0] = f.a.memories.find().size(); starts[1] = f.b.memories.find().size()
 			f.clock.total_minutes = 635 + i
 			f.social.resolve(f.a, f.b, (i % 3) as SocialResult.Context)
 		traces.append([events, diaries, f.social.rng.state, f.a.get_opinion("b"), f.b.get_opinion("a")])
@@ -244,5 +234,5 @@ func actual_conversation() -> void:
 	actor.view._process(100)
 	check(contexts.size() == 2 and completed.size() == 1 and scene.social_events.rng.chances == 2, "Two real attempts remain; symmetric story cooldown blocks the second direction")
 	for result in completed: check(result.definition_id == "social.warm_sympathy" and result.main.id == contexts[result.occurrence_id].other.id, "Production sympathy resolves the actual other participant as main")
-	check(actor.data.diary_entries.size() == 1 and target.data.diary_entries.size() == 1 and actor.data.memories.size() == 1 and target.data.memories.size() == 1 and actor.data.moodlets.size() == 2 and actor.data.moodlets.get_entry("lonely").size() > 0 and actor.data.moodlets.find({"type":"pleasant_company"}).size() == 1, "One completed story has independent diaries/memories and company alongside the need state")
+	check(actor.data.memories.find().size() == 1 and target.data.memories.find().size() == 1 and actor.data.memories.size() == 1 and target.data.memories.size() == 1 and actor.data.moodlets.size() == 2 and actor.data.moodlets.get_entry("lonely").size() > 0 and actor.data.moodlets.find({"type":"pleasant_company"}).size() == 1, "One completed story has independent diaries/memories and company alongside the need state")
 	scene.free(); await process_frame

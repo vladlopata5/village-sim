@@ -26,7 +26,7 @@ func conditions_and_contexts() -> void:
 				var result := fire(f, context)
 				var expected: bool = mood <= 20 and reactions == [-100,-100]
 				check((result.status == "completed") == expected, "Quarrel conditions mood/context/reactions: " + str([mood,context,reactions]))
-				check(f.service.chronicle.size() == int(expected) and f.a.diary_entries.is_empty() and f.b.diary_entries.is_empty(), "Exactly one world entry, no private duplicate")
+				check(f.service.chronicle.size() == int(expected) and f.a.memories.size() == int(expected) and f.b.memories.size() == 0, "Exactly one world entry, no private duplicate")
 				check(f.a.mood == mood and not f.service.last_occurrence().payload.has("mood"), "Real mood is read without mutation or changing social.resolved")
 				check(PairFacts.snapshot(f.a,f.b,635).read({"kind":"resident","id":"a"},"mood").value == mood, "Mood fact is a real snapshot")
 				cleanup(f)
@@ -42,15 +42,15 @@ func outcomes_and_grammar() -> void:
 			for wording in [0.0,1.0]:
 				var f := quarrel_fixture(); var messages: Array = []
 				f.service.resident_message.connect(func(id, person_name, text): messages.append([id,person_name,text]))
-				f.service.executor.rng.values = [memory_roll,anger_roll,wording]
+				f.service.executor.rng.values = [memory_roll,anger_roll] + ([0.0] if memory_roll < 0.6 else []) + [wording]
 				check(fire(f).status == "completed", "Every combination is a successful event")
 				var memory: bool = memory_roll < 0.6; var angry: bool = anger_roll < 0.4
 				check(f.service.chronicle.size() == 1 and f.service.chronicle.entries()[0].text == "Иван поссорился с Анной.", "Mandatory objective grammatical chronicle")
 				check(f.a.memories.size() == int(memory) and f.a.moodlets.find({"type":"angry"}).size() == int(angry) and messages.size() == int(angry), "Independent60% memory / shared40% moodlet and message")
-				check(f.service.executor.rng.draws == 2 + int(angry), "One group draw; text choice only on success")
+				check(f.service.executor.rng.draws == 2 + int(angry) + int(memory), "One group draw; text choice only on success")
 				if memory:
 					var entry: Dictionary = f.a.memories.find()[0]
-					check(entry.type == "unpleasant_interaction" and entry.target.id == "b" and entry.strength == 30 and entry.tags == ["negative","social","grudge"] and entry.provenance.kind == "experienced", "Standard generic negative memory")
+					check(entry.type == "unpleasant_interaction" and entry.target.id == "b" and entry.strength == 45 and entry.tags == ["negative","social","grudge"] and entry.provenance.kind == "experienced", "Standard generic negative memory")
 				if angry:
 					check(f.a.moodlets.get_entry("angry").expires_at_minute == 755 and f.a.moodlets.get_entry("angry").modifiers.is_empty(), "Standard inert angry120")
 					check(messages[0] == ["a","Иван","Какая же Анна дура!" if wording == 0 else "Анна умеет испортить настроение!"], "Female other and exact actor sender")

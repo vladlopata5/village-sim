@@ -18,7 +18,6 @@ var _refresh_elapsed := 0.0
 func _widget(id: String) -> Node:
 	return get_node(close_path) if id == "Close" else get_node("%" + id)
 
-const Diary = preload("res://scripts/diary_entry.gd")
 ## The card reads the selection's data; it keeps no copy of resident fields.
 const Trait = preload("res://scripts/trait_type.gd")
 const Skill = preload("res://scripts/skill_type.gd")
@@ -200,7 +199,7 @@ func _on_selection_changed() -> void:
 		_assignment_resident.skill_changed.disconnect(_on_skill_changed)
 		_assignment_resident.traits_changed.disconnect(_refresh_traits)
 		_assignment_resident.relationship_changed.disconnect(_on_relationship_changed)
-		_assignment_resident.diary_changed.disconnect(_refresh_diary)
+		_assignment_resident.memories.changed.disconnect(_refresh_diary)
 		_assignment_resident.trait_preferences_changed.disconnect(_on_preferences_changed)
 	_assignment_resident = _selection.selected_resident
 	_bind_moodlets()
@@ -211,7 +210,7 @@ func _on_selection_changed() -> void:
 		_assignment_resident.skill_changed.connect(_on_skill_changed)
 		_assignment_resident.traits_changed.connect(_refresh_traits)
 		_assignment_resident.relationship_changed.connect(_on_relationship_changed)
-		_assignment_resident.diary_changed.connect(_refresh_diary)
+		_assignment_resident.memories.changed.connect(_refresh_diary)
 		_assignment_resident.trait_preferences_changed.connect(_on_preferences_changed)
 	_bind_equipment()
 	_refresh_skills()
@@ -324,13 +323,17 @@ func _on_roster_changed() -> void:
 	_refresh_relationships()
 
 
-func _refresh_diary() -> void:
+func _refresh_diary(_entry_id: String = "") -> void:
 	var lines := PackedStringArray(["Дневник"])
+	var previous_day := -1
+	var history := preload("res://scripts/settlement_chronicle.gd")
 	if _assignment_resident != null:
-		for entry in _assignment_resident.diary_entries:
-			if (clock == null or floori(float(entry.created_minute)/1440.0) != floori(float(clock.total_minutes)/1440.0)): continue
-			lines.append("• %s%s" % [entry.text, " (ключевая)" if entry.importance == Diary.Importance.KEY else " (временная)"])
-	if lines.size() == 1: lines.append("За текущий день записей нет")
+		for entry in _assignment_resident.memories.chronological():
+			var day := history.day_for_minute(entry.created_minute)
+			if day != previous_day:
+				lines.append(history.date_text(entry.created_minute)); previous_day = day
+			lines.append("%s • %s" % [history.time_text(entry.created_minute),entry.get("text","")])
+	if lines.size() == 1: lines.append("Сохранившихся воспоминаний нет")
 	_widget("Diary").text = "\n".join(lines)
 
 func _work_changed(_resident_id: String) -> void: _refresh_work_place()
@@ -471,11 +474,12 @@ func refresh_work_task() -> void:
 		intent_label.text = "Рабочая задача: " + (_intent_text(reason) if is_work else "нет активной задачи")
 	intent_label.show()
 func _exit_tree() -> void:
+	if _assignment_resident != null and _assignment_resident.memories.changed.is_connected(_refresh_diary): _assignment_resident.memories.changed.disconnect(_refresh_diary)
 	if _moodlet_store != null and _moodlet_store.changed.is_connected(_refresh_moodlets): _moodlet_store.changed.disconnect(_refresh_moodlets)
 	if _equipment_view!=null and _equipment_view.changed.is_connected(_refresh_equipment):_equipment_view.changed.disconnect(_refresh_equipment)
 	_disconnect_need_signals()
 	if _assignment_resident != null:
-		for pair in [["assignments_changed",_refresh_assignments],["skill_changed",_on_skill_changed],["traits_changed",_refresh_traits],["relationship_changed",_on_relationship_changed],["diary_changed",_refresh_diary],["trait_preferences_changed",_on_preferences_changed]]:
+		for pair in [["assignments_changed",_refresh_assignments],["skill_changed",_on_skill_changed],["traits_changed",_refresh_traits],["relationship_changed",_on_relationship_changed],["trait_preferences_changed",_on_preferences_changed]]:
 			if _assignment_resident.is_connected(pair[0],pair[1]): _assignment_resident.disconnect(pair[0],pair[1])
 	if _control != null:
 		for pair in [["home_changed",_on_home_changed],["residents_changed",_on_roster_changed],["work_assignment_changed",_work_changed]]:

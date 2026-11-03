@@ -117,10 +117,10 @@ func event_descriptors() -> void:
 	var skill=preload("res://scripts/skill_type.gd").Type.GATHERING
 	actor.data.add_skill_xp(skill,400)
 	check(service.replay(service.last_occurrence().occurrence_id).status=="completed" and actor.data.moodlets.need_growth_factors(world.game_time.total_minutes)=={Need.HUNGER:0.5},"Actual event commits generic numeric moodlet through existing executor")
-	var diary_count: int=actor.data.diary_entries.size();definition.effects[0].modifiers[0].multiplier=-1
+	var diary_count: int=actor.data.memories.find().size();definition.effects[0].modifiers[0].multiplier=-1
 	check(service.catalog.load_data({"definitions":[definition]},service.facts),"Invalid numeric value reaches store validation")
 	actor.data.add_skill_xp(skill,600)
-	check(service.replay(service.last_occurrence().occurrence_id).status=="prepare_failed" and actor.data.diary_entries.size()==diary_count and actor.data.moodlets.size()==1,"Invalid descriptor rejects whole event without partial diary or effect")
+	check(service.replay(service.last_occurrence().occurrence_id).status=="prepare_failed" and actor.data.memories.find().size()==diary_count and actor.data.moodlets.size()==1,"Invalid descriptor rejects whole event without partial diary or effect")
 	world.free();await process_frame
 func future_activation() -> void:
 	var clock:=Clock.new();root.add_child(clock);clock.set_process(false);clock.total_minutes=0

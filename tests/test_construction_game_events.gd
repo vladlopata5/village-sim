@@ -25,7 +25,8 @@ func unit() -> Dictionary:
 func cleanup_unit(f: Dictionary) -> void:
 	f.events.candidate_picker.rng.on_draw = Callable()
 	for person in [f.a, f.b]:
-		for name in ["diary_changed", "skill_changed", "skill_raised"]:
+		for connection in person.memories.changed.get_connections(): person.memories.changed.disconnect(connection.callable)
+		for name in [ "skill_changed", "skill_raised"]:
 			for connection in person.get_signal_connection_list(name): person.disconnect(name, connection.callable)
 	f.events.free(); f.clock.free()
 
@@ -76,14 +77,14 @@ func choice_and_snapshot() -> void:
 			var other: RefCounted = f.b if pick == 0 else f.a
 			check(observed == [[]] and site.active_builder_ids.is_empty() and context.payload.assigned_builder_ids == ["a", "b"], "Completed-state callbacks see cleared claims, trigger keeps the pre-clear list")
 			check(context.minute == 635 and context.building == {"kind": "building", "id": "site"} and context.payload.building_type == "HOME" and context.payload.timestamp_source == "caller", "Building identity/type and exact caller game minute are captured")
-			check(context.actor.id == selected.id and result(f).main.id == selected.id and selected.diary_entries.size() == 1 and other.diary_entries.is_empty(), "Exactly one randomly chosen assigned resident owns the mandatory diary")
-			check(selected.moodlets.size() == (1 if effect == 0 else 0) and selected.memories.size() == 0 and other.moodlets.size() == 0, "Optional JSON satisfaction does not affect other residents")
+			check(context.actor.id == selected.id and result(f).main.id == selected.id and selected.memories.find().size() == 1 and other.memories.find().is_empty(), "Exactly one randomly chosen assigned resident owns the mandatory diary")
+			check(selected.moodlets.size() == (1 if effect == 0 else 0) and selected.memories.size() == 1 and other.moodlets.size() == 0, "Optional JSON satisfaction does not affect other residents")
 			if effect == 0:
 				var state: Dictionary = selected.moodlets.find()[0]
 				check(state.type == "work_satisfaction" and state.target == context.building and state.expires_at_minute == 755 and state.modifiers.is_empty(), "Satisfaction retains actual building target and JSON duration, with inert modifiers")
-			check(f.events.candidate_picker.rng.draws == 1 and f.events.selector.rng.draws == 2 and f.events.executor.rng.draws == 1, "Independent picker/selector/effect streams consume precisely one choice")
+			check(f.events.candidate_picker.rng.draws == 1 and f.events.selector.rng.draws == 2 and f.events.executor.rng.draws == 2, "Independent picker/selector/effect streams consume precisely one choice")
 			site.construction_completed.emit(facts[0])
-			check(not site.complete_construction(636) and construction_events(f.events).size() == 1 and selected.diary_entries.size() == 1 and f.events.candidate_picker.rng.draws == 1, "Repeated domain completion/notification cannot reroll or duplicate effects")
+			check(not site.complete_construction(636) and construction_events(f.events).size() == 1 and selected.memories.find().size() == 1 and f.events.candidate_picker.rng.draws == 1, "Repeated domain completion/notification cannot reroll or duplicate effects")
 			site.construction_changed.disconnect(changed)
 			cleanup_unit(f)
 
@@ -108,7 +109,7 @@ func filtering_and_no_retry() -> void:
 		for id in ids: check(site.claim_builder_slot(id), "Domain claim precedes registry/activity filtering")
 		check(finish(site), "Building completes independently of eligible residents")
 		if ids.has("b"):
-			check(result(f).status == "completed" and f.b.diary_entries.size() == 1 and f.a.diary_entries.is_empty() and f.events.last_occurrence().payload.eligible_candidate_count == 1, "Only the active valid builder remains eligible")
+			check(result(f).status == "completed" and f.b.memories.find().size() == 1 and f.a.memories.find().is_empty() and f.events.last_occurrence().payload.eligible_candidate_count == 1, "Only the active valid builder remains eligible")
 		else: check(result(f).status == "no_candidates" and construction_events(f.events).is_empty() and f.events.candidate_picker.rng.draws == 0 and f.events.selector.rng.draws == 0, "No candidates is a safe terminal attempt without RNG")
 		cleanup_unit(f)
 	var single_choice := unit(); var single_site := simple_site(single_choice)
@@ -117,7 +118,7 @@ func filtering_and_no_retry() -> void:
 	event_definitions[0].when = {"eq": [{"field": [{"role": "actor"}, "id"]}, "b"]}
 	check(single_choice.events.catalog.load_data({"definitions": event_definitions}, single_choice.events.facts), "JSON can be eligible for only the unchosen candidate")
 	check(finish(single_site) and result(single_choice).status == "no_match" and single_choice.events.last_occurrence().actor.id == "a", "Chosen resident without a matching story ends the attempt")
-	check(single_choice.events.candidate_picker.rng.draws == 1 and single_choice.events.selector.rng.draws == 1 and single_choice.a.diary_entries.is_empty() and single_choice.b.diary_entries.is_empty(), "No fallback search/reroll for the otherwise eligible second resident")
+	check(single_choice.events.candidate_picker.rng.draws == 1 and single_choice.events.selector.rng.draws == 1 and single_choice.a.memories.find().is_empty() and single_choice.b.memories.find().is_empty(), "No fallback search/reroll for the otherwise eligible second resident")
 	cleanup_unit(single_choice)
 	var generic := unit()
 	var picked: Dictionary = generic.events.candidate_picker.choose([null, 4, {"kind": "building", "id": "a"}, {"kind": "resident", "id": "a"}, {"kind": "resident", "id": "a"}], generic.control, func(person): return person.id == "a")
@@ -144,7 +145,7 @@ func guards_and_failures() -> void:
 		if scenario == "wrong_main": data["catalogs"] = {"other": {"kind": "resident", "id": "b"}}
 		check(f.events.catalog.load_data(data, f.events.facts), "Controlled refusal scenario: " + scenario)
 		check(finish(site) and result(f).status != "completed", "Domain construction succeeds despite event refusal: " + scenario)
-		check(f.a.diary_entries.is_empty() and f.b.diary_entries.is_empty() and f.a.moodlets.size() == 0 and f.events.cooldown_history().is_empty(), "Refusal has no partial diary/state/cooldown: " + scenario)
+		check(f.a.memories.find().is_empty() and f.b.memories.find().is_empty() and f.a.moodlets.size() == 0 and f.events.cooldown_history().is_empty(), "Refusal has no partial diary/state/cooldown: " + scenario)
 		check(f.events.candidate_picker.rng.draws == 1, "A failed chosen attempt does not retry another resident: " + scenario)
 		cleanup_unit(f)
 	var cooldown_case := unit(); var first_site := simple_site(cooldown_case)
@@ -153,13 +154,13 @@ func guards_and_failures() -> void:
 	definition.cooldown = {"minutes": 60, "scope": [{"role": "actor"}]}
 	check(cooldown_case.events.catalog.load_data({"definitions": [definition]}, cooldown_case.events.facts), "Actor-local completion cooldown")
 	var observed: Array = []
-	cooldown_case.a.diary_changed.connect(func(): observed.append([first_site.is_built(), cooldown_case.a.moodlets.size(), cooldown_case.events.replay(cooldown_case.events.last_occurrence().occurrence_id).status, cooldown_case.events.cooldown_history().size()]))
+	cooldown_case.a.memories.changed.connect(func(_entry_id): observed.append([first_site.is_built(), cooldown_case.a.moodlets.size(), cooldown_case.events.replay(cooldown_case.events.last_occurrence().occurrence_id).status, cooldown_case.events.cooldown_history().size()]))
 	check(finish(first_site) and observed == [[true, 1, "completed", 1]], "Construction callback observes the entire committed diary/moodlet bundle and metadata")
 	var second := simple_site(cooldown_case, &"second"); second.claim_builder_slot("a")
-	check(finish(second) and result(cooldown_case).status == "no_match" and cooldown_case.a.diary_entries.size() == 1, "Another building is a new fact, but actor cooldown still applies")
+	check(finish(second) and result(cooldown_case).status == "no_match" and cooldown_case.a.memories.find().size() == 1, "Another building is a new fact, but actor cooldown still applies")
 	cooldown_case.clock.total_minutes += 60
 	var third := simple_site(cooldown_case, &"third"); third.claim_builder_slot("a")
-	check(finish(third, cooldown_case.clock.total_minutes) and result(cooldown_case).status == "completed" and cooldown_case.a.diary_entries.size() == 2, "Exact cooldown boundary permits a new completed building fact")
+	check(finish(third, cooldown_case.clock.total_minutes) and result(cooldown_case).status == "completed" and cooldown_case.a.memories.find().size() == 2, "Exact cooldown boundary permits a new completed building fact")
 	cleanup_unit(cooldown_case)
 
 func excluded_transitions() -> void:
@@ -213,7 +214,7 @@ func actual_builders() -> void:
 	check(events.size() == 1 and events[0].main.id in snapshots[0].assigned_builder_ids and world.game_events.candidate_picker.rng.draws == 1, "Actual construction produces only one event for one recorded assigned worker")
 	check(events[0].minute == snapshots[0].minute and world.game_events.last_occurrence().payload.timestamp_source == "caller", "Live Builder supplies the exact completion minute")
 	var selected: RefCounted = world.player_control.get_resident(events[0].main.id)
-	check(selected.diary_entries.any(func(entry): return entry.text.begins_with("Мне приятно видеть завершённую стройку")) and selected.moodlets.find({"type": "work_satisfaction"}).size() == 1, "Selected real resident owns the diary and optional satisfaction")
+	check(selected.memories.find().any(func(entry): return entry.text.begins_with("Мне приятно видеть завершённую стройку")) and selected.moodlets.find({"type": "work_satisfaction"}).size() == 1, "Selected real resident owns the diary and optional satisfaction")
 	check(world._activated_buildings.has(site.id) and world.logistics._buildings.has(site.id), "Ordinary building/production activation remains intact")
 	for resource in [R.LOG, R.STONE]: check(site.get_construction_reserved_in(resource) == 0 and world.warehouse_data.resources.get_reserved_out(resource) == 0, "Actual material reservations are released normally")
 	world.free(); await process_frame

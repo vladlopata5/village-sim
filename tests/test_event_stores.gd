@@ -14,7 +14,7 @@ func check(ok: bool, message: String) -> void:
 		push_error(message)
 
 func memory(entry_id: String = "m1") -> Dictionary:
-	return {"id": entry_id, "type": "envy", "topic": "clothing", "target": {"kind": "resident", "id": "other"}, "tags": ["negative", "personal"], "strength": 20, "permanent": false, "created_minute": 10, "source_occurrence_id": "event/1", "provenance": {"kind": "experienced"}, "context": {"detail": {"label": "coat"}}}
+	return {"id": entry_id, "type": "envy", "topic": "clothing", "target": {"kind": "resident", "id": "other"}, "tags": ["negative", "personal"], "text":"Память о событии", "strength": 20, "permanent": false, "created_minute": 10, "source_occurrence_id": "event/1", "provenance": {"kind": "experienced"}, "context": {"detail": {"label": "coat"}}}
 
 func moodlet(entry_id: String = "t1") -> Dictionary:
 	return {"id": entry_id, "type": entry_id, "target": {"kind": "resident", "id": "other"}, "tags": ["negative"], "created_minute": 10, "expires_at_minute": 30, "source_occurrence_id": "event/1", "modifiers": [{"channel": "future_channel", "value": -3}], "context": {"topic": "clothing"}}
@@ -81,7 +81,7 @@ func memories() -> void:
 
 func memory_validation() -> void:
 	var store := MemoryStore.new("owner")
-	for delta in [{"strength": -1}, {"strength": 101}, {"strength": NAN}, {"strength": INF}, {"strength": true}, {"permanent": 1}, {"created_minute": -1}, {"created_minute": 1.5}, {"id": ""}, {"topic": " "}, {"type": ""}, {"source_occurrence_id": ""}, {"target": {"id": "x"}}, {"target": {"kind": "resident", "id": "x", "extra": 1}}, {"owner": {"kind": "resident", "id": "foreign"}}, {"tags": ["x", "x"]}, {"tags": [1]}, {"context": []}, {"provenance": {}}, {"provenance": {"kind": "hearsay"}}, {"provenance": {"kind": "hearsay", "reported_by": {"kind": "building", "id": "b"}}}, {"provenance": {"kind": "experienced", "reported_by": {"kind": "resident", "id": "r"}}}, {"unexpected": 1}]:
+	for delta in [{"text":"Событие из тестового сценария", "strength": -1}, {"strength": 101}, {"strength": NAN}, {"strength": INF}, {"strength": true}, {"permanent": 1}, {"created_minute": -1}, {"created_minute": 1.5}, {"id": ""}, {"topic": " "}, {"type": ""}, {"source_occurrence_id": ""}, {"target": {"id": "x"}}, {"target": {"kind": "resident", "id": "x", "extra": 1}}, {"owner": {"kind": "resident", "id": "foreign"}}, {"tags": ["x", "x"]}, {"tags": [1]}, {"context": []}, {"provenance": {}}, {"provenance": {"kind": "hearsay"}}, {"provenance": {"kind": "hearsay", "reported_by": {"kind": "building", "id": "b"}}}, {"provenance": {"kind": "experienced", "reported_by": {"kind": "resident", "id": "r"}}}, {"unexpected": 1}]:
 		var entry := memory(); entry.merge(delta, true)
 		check(not store.add(entry) and store.size() == 0, "Invalid memory rejected atomically: " + str(delta))
 	check(not MemoryStore.new("").add(memory()), "Empty owner is invalid")
@@ -139,13 +139,13 @@ func references_and_isolation() -> void:
 	invalid.context = {"cycle": recursive}
 	check(not resident.memories.add(invalid), "Cyclic data rejected by finite validation depth")
 	recursive.clear()
-	var original := [resident.mood, resident.get_opinion(&"other"), resident.get_skill_xp(Skill.Type.GATHERING), resident.diary_entries.duplicate(), Modifiers.movement_speed(resident, 10.0)]
+	var original := [resident.mood, resident.get_opinion(&"other"), resident.get_skill_xp(Skill.Type.GATHERING), Modifiers.movement_speed(resident, 10.0)]
 	check(resident.memories.add(memory()) and resident.moodlets.add(moodlet()), "Resident owns independent empty stores, populated only by explicit API")
 	other.free()
 	check(deleted_resident.get_ref() == null, "Historical target ref does not retain removed resident data")
 	check(resident.memories.get_entry("m1").target == {"kind": "resident", "id": "other"} and resident.moodlets.is_active("t1", 20), "Deleted target Node is irrelevant to stable archived ref and lifetime")
 	check(resident.memories.reinforce("m1", 3, 20, "event/2") and resident.memories.weaken("m1", 1, 21, 0) and resident.moodlets.expire(30) == 1, "Explicit mutations work with deleted target")
-	var after := [resident.mood, resident.get_opinion(&"other"), resident.get_skill_xp(Skill.Type.GATHERING), resident.diary_entries.duplicate(), Modifiers.movement_speed(resident, 10.0)]
+	var after := [resident.mood, resident.get_opinion(&"other"), resident.get_skill_xp(Skill.Type.GATHERING), Modifiers.movement_speed(resident, 10.0)]
 	check(original == after, "Stores do not change mood, relationships, skills, diary or ResidentModifiers")
 	check(resident.relationships.is_empty(), "Memory does not create relationship records")
 	var wire: Variant = JSON.parse_string(JSON.stringify(resident.memories.find()))

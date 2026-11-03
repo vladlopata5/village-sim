@@ -7,7 +7,6 @@ const TextRenderer = preload("res://scripts/event_text_renderer.gd")
 const Data = preload("res://scripts/event_store_data.gd")
 const Chronicle = preload("res://scripts/settlement_chronicle.gd")
 var chronicle: RefCounted = Chronicle.new()
-const Diary = preload("res://scripts/diary_entry.gd")
 signal resident_message(resident_id: String, resident_name: String, text: String)
 var rng: RefCounted = RandomNumberGenerator.new()
 var _control: RefCounted
@@ -46,7 +45,6 @@ func publish(occurrence_id: String) -> void:
 	_notices.erase(occurrence_id) # Reentrant publish cannot emit twice.
 	for write: Dictionary in notices:
 		if write.kind == "chronicle": write.store.changed.emit(write.prepared.id)
-		elif write.kind == "diary": write.person.diary_changed.emit()
 		elif write.kind != "chat.say": write.store.changed.emit(write.prepared.id)
 	# Presentation happens only after the whole transaction and its store notices.
 	for write: Dictionary in notices:
@@ -60,32 +58,20 @@ func _prepare_commit(selection: Dictionary, context: Dictionary, minute: int, so
 	# A probability must never conceal an unsupported operation, including an
 	# unchosen reserved R2-B1 opinion/XP description.
 	for effect in definition.get("effects", []):
-		if effect.get("op") not in ["memory.add", "moodlet.add", "chat.say", "diary.add"]: return _error("unsupported_effect", str(effect.get("op")))
+		if effect.get("op") not in ["memory.add", "moodlet.add", "chat.say", "memory.reinforce"]: return _error("unsupported_effect", str(effect.get("op")))
 	for group in definition.get("exclusive_groups", []):
 		for option in group.options:
-			if option.get("op") not in ["memory.add", "moodlet.add", "chat.say", "diary.add", "none"]: return _error("unsupported_effect", str(option.get("op")))
+			if option.get("op") not in ["memory.add", "moodlet.add", "chat.say", "memory.reinforce", "none"]: return _error("unsupported_effect", str(option.get("op")))
 	for group in definition.get("effect_groups", []):
 		for effect in group.effects:
-			if effect.get("op") not in ["memory.add", "moodlet.add", "chat.say", "diary.add"]: return _error("unsupported_effect", str(effect.get("op")))
+			if effect.get("op") not in ["memory.add", "moodlet.add", "chat.say", "memory.reinforce"]: return _error("unsupported_effect", str(effect.get("op")))
 	var chosen := _choose(definition)
 	if not chosen.ok: return _error("invalid_rng", chosen.error)
 	var main := _person(selection.get("main"))
 	if main == null: return _error("inactive_main", "main must be an active resident")
-	var rendered := _render(selection, context, chosen.secondary)
+	var rendered := _render(selection, context)
 	if not rendered.ok: return _error("text_failed", str(rendered.errors))
 	var writes: Array = []
-	var diary: Dictionary
-	if definition.get("text", {}).has("diary_main"):
-		diary = _diary(main, rendered.texts.get("diary_main"), definition, minute)
-		if not diary.ok: return diary
-		writes.append(diary.write)
-	if chosen.secondary:
-		var role: String = definition.secondary_diary.role
-		var secondary := _person(selection.roles.get(role, selection.bindings.get(role)))
-		if secondary == null or secondary == main: return _error("inactive_secondary", "secondary must be a distinct active resident")
-		diary = _diary(secondary, rendered.texts.get("diary_secondary"), definition, minute)
-		if not diary.ok: return diary
-		writes.append(diary.write)
 	var env := {"ctx": context, "role": selection.roles, "binding": selection.bindings, "param": definition.get("params", {}), "catalog": selection.get("tables", {}), "local": {}}
 	var applied: Array = []
 	for item: Dictionary in chosen.items:
@@ -113,18 +99,18 @@ func _prepare_commit(selection: Dictionary, context: Dictionary, minute: int, so
 			if write.store != chronicle or chronicle.prepare_add(write.raw) != write.prepared: return _error("chronicle_failed", "stale history")
 			continue
 		if not _active(write.person): return _error("inactive_recipient", write.person.id)
-		if write.kind == "diary":
-			if not write.person.can_add_diary_entry(write.entry): return _error("diary_failed", write.person.id)
-		elif write.kind != "chat.say":
-			var current_store: RefCounted = write.person.memories if write.kind == "memory.add" else write.person.moodlets
+		if write.kind != "chat.say":
+			var current_store: RefCounted = write.person.memories if write.kind.begins_with("memory.") else write.person.moodlets
 			var destination := "%s:%s" % [write.store.get_instance_id(), write.prepared.id]
 			if destinations.has(destination): return _error("prepare_failed", "duplicate store destination")
 			destinations[destination] = true
-			var prepared: Dictionary = write.store.prepare_add(write.raw)
+			var prepared: Dictionary
+			if write.kind == "memory.reinforce": prepared = write.store.prepare_reinforce(write.raw.entry_id,write.raw.amount,minute,context.occurrence_id,write.raw.expected_version)
+			else: prepared = write.store.prepare_add(write.raw)
 			if current_store != write.store or prepared != write.prepared: return _error("prepare_failed", "stale store: " + write.person.id)
-	var result := {"status": "completed", "event_id": "event:" + context.occurrence_id, "definition_id": definition.id, "main": selection.main, "minute": minute, "effects": applied, "exclusive_groups": chosen.groups, "secondary_diary": chosen.secondary}
+	var result := {"status": "completed", "event_id": "event:" + context.occurrence_id, "definition_id": definition.id, "main": selection.main, "minute": minute, "effects": applied, "exclusive_groups": chosen.groups}
 	for write: Dictionary in writes:
-		if write.kind == "diary": write.person._apply_event_diary(write.entry)
+		if write.kind == "memory.reinforce": write.store._apply_event_update(write.prepared)
 		elif write.kind != "chat.say": write.store._apply_event_add(write.prepared)
 	_notices[context.occurrence_id] = writes
 	return result
@@ -160,12 +146,7 @@ func _choose(definition: Dictionary) -> Dictionary:
 		if not chance.ok: return chance
 		if chance.passed:
 			for index in group.effects.size(): items.append({"description": group.effects[index], "slot": "bundle/%s/effect/%d" % [group.id, index]})
-	var secondary := false
-	if definition.has("secondary_diary"):
-		var chance := _chance(definition.secondary_diary.chance)
-		if not chance.ok: return chance
-		secondary = chance.passed
-	return {"ok": true, "items": items, "groups": groups, "secondary": secondary}
+	return {"ok": true, "items": items, "groups": groups}
 
 func _chance(probability: Variant) -> Dictionary:
 	if not Data.number(probability) or probability < 0 or probability > 1: return {"ok": false, "error": "invalid probability"}
@@ -198,13 +179,20 @@ func _effect(item: Dictionary, env: Dictionary, definition: Dictionary, context:
 	var effect: Dictionary = resolved.value
 	var values := _effect_values(effect, text_values)
 	if not values.known: return _error("text_failed", item.slot + ": " + values.reason)
-	if effect.op in ["chat.say", "diary.add"]:
+	if effect.op == "memory.reinforce":
+		if not Data.only_keys(effect,["op","owner","entry_id","amount","expected_version","chance","weight"]): return _error("prepare_failed",item.slot+": invalid reinforcement arguments")
+		var recipient := _person(effect.get("owner"))
+		if recipient == null: return _error("inactive_recipient",item.slot)
+		if not Data.text(effect.get("entry_id")) or not Data.number(effect.get("amount")) or not _whole(effect.get("expected_version")): return _error("prepare_failed",item.slot+": invalid reinforcement")
+		var update: Dictionary = recipient.memories.prepare_reinforce(effect.entry_id,effect.amount,minute,context.occurrence_id,int(effect.expected_version))
+		if update.is_empty(): return _error("prepare_failed",item.slot+": stale memory")
+		return {"ok":true,"write":{"kind":effect.op,"person":recipient,"store":recipient.memories,"raw":effect,"prepared":update}}
+	if effect.op == "chat.say":
 		if not Data.only_keys(effect, ["op", "owner", "text", "text_bindings", "chance", "weight"]): return _error("prepare_failed", item.slot + ": unsupported chat arguments")
 		var speaker := _person(effect.get("owner"))
 		if speaker == null: return _error("inactive_recipient", item.slot + ": speaker")
 		var speech := TextRenderer.render_choice(effect.get("text"), values.value, rng)
 		if not speech.ok or speech.text.strip_edges().is_empty(): return _error("text_failed", item.slot + ": invalid/empty chat text: " + str(speech.get("errors", [])))
-		if effect.op == "diary.add": return _diary(speaker, speech.text, definition, minute)
 		return {"ok": true, "write": {"kind": effect.op, "person": speaker, "name": speaker.resident_name, "text": speech.text, "prepared": {"id": item.slot}}}
 	var allowed := ["op", "owner", "target", "tags", "context", "chance", "weight"]
 	allowed.append_array(["kind", "topic", "strength", "permanent", "provenance", "text", "text_bindings"] if effect.op == "memory.add" else ["definition", "duration_minutes", "expires_at_minute", "modifiers"])
@@ -222,6 +210,10 @@ func _effect(item: Dictionary, env: Dictionary, definition: Dictionary, context:
 			var memory_text := TextRenderer.render_choice(effect.text, values.value, rng)
 			if not memory_text.ok or memory_text.text.strip_edges().is_empty(): return _error("text_failed", item.slot + ": invalid memory text")
 			record["text"] = memory_text.text
+		var participants: Array = []
+		for entity in env.role.values() + env.binding.values() + [effect.get("target")]:
+			if Facts.is_ref(entity) and entity not in participants: participants.append(entity)
+		record["participants"] = participants
 		store = person.memories
 	else:
 		if effect.has("duration_minutes") and effect.has("expires_at_minute"): return _error("prepare_failed", item.slot + ": two deadlines")
@@ -268,28 +260,13 @@ func _resolve(value: Variant, env: Dictionary) -> Dictionary:
 		return Facts.known(array)
 	return Facts.known(value)
 
-func _render(selection: Dictionary, context: Dictionary, secondary: bool) -> Dictionary:
+func _render(selection: Dictionary, context: Dictionary) -> Dictionary:
 	var labels: Dictionary = {}
 	for value in selection.roles.values() + selection.bindings.values():
 		var person := _person(value)
 		if person != null: labels[Facts.ref_key(value)] = person.event_text_projection()
-	var view := selection.duplicate(true)
-	var text: Dictionary = selection.selected.get("text", {})
-	view.selected.text = {}
-	if text.has("diary_main"): view.selected.text.diary_main = text.diary_main
-	if secondary: view.selected.text.diary_secondary = text.get("diary_secondary", "")
-	var rendered := TextRenderer.render_event(view, context, labels, rng)
-	if rendered.ok:
-		var values := TextRenderer.event_values(view, context, labels)
-		if not values.known: return {"ok": false, "errors": [values.reason]}
-		rendered.values = values.value
-	return rendered
-
-func _diary(person: RefCounted, text: Variant, definition: Dictionary, minute: int) -> Dictionary:
-	if not text is String or text.strip_edges().is_empty(): return _error("text_failed", "mandatory selected diary text is empty")
-	var entry := Diary.new(text, int(definition.get("diary_importance", Diary.Importance.KEY)) as Diary.Importance, minute)
-	if not person.can_add_diary_entry(entry): return _error("diary_failed", person.id)
-	return {"ok": true, "write": {"kind": "diary", "person": person, "entry": entry}}
+	var values := TextRenderer.event_values(selection,context,labels)
+	return {"ok":true,"values":values.value} if values.known else {"ok":false,"errors":[values.reason]}
 
 func _active(person: RefCounted) -> bool:
 	return person != null and _control != null and _control.get_resident(person.id) == person and _active_guard.is_valid() and _active_guard.call(person)

@@ -54,7 +54,7 @@ func _run() -> void:
 				check(info_logs.size()==1 and info_logs[0].begins_with("[10:35][SOCIAL_EVENT]"),"One ordinary log per event with game time")
 				check(info_logs[0].contains("context="+Event.Context.keys()[context]) and info_logs[0].contains("A=Анна B=Степан"),"Ordinary log contains context and both names")
 				check(info_logs[0].contains("reaction=%s delta=%+d" % [Event.Reaction.keys()[outcome.reaction_1],outcome.opinion_delta_1]) and info_logs[0].contains("reaction=%s delta=%+d" % [Event.Reaction.keys()[outcome.reaction_2],outcome.opinion_delta_2]),"Ordinary log contains both reactions and signed deltas")
-				check(a.diary_entries.is_empty() and b.diary_entries.is_empty(),"Ordinary mechanics does not invent Diary")
+				check(a.memories.find().is_empty() and b.memories.find().is_empty(),"Ordinary mechanics does not invent Diary")
 				check(a.get_opinion(b.id)==Service.delta(outcome.reaction_1) and b.get_opinion(a.id)==Service.delta(outcome.reaction_2),"Mechanical directed opinion updates preserved")
 	service.free()
 	game_clock.free()
