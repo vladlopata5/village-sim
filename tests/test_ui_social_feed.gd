@@ -12,6 +12,8 @@ func run() -> void:
 	var received: Array[String]=[]
 	world.game_events.resident_message.connect(func(_id,resident_name,text):received.append("%s: «%s»." % [resident_name,text]))
 	var initial: int=world.social_feed.messages.size()
+	# Isolate ordinary interaction from valid, probabilistic EventEngine stories.
+	world.game_events.selector.set_chance("social.resolved",0.0)
 	var event=world.social_events.resolve(world.residents[0],world.residents[1],E.Context.CONVERSATION)
 	check(event!=null and world.social_feed.messages.size()==initial,"Ordinary social interaction invents no chat text")
 	# Exercise existing EventEngine and independent shepherd UI routes, not a new story.

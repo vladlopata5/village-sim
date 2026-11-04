@@ -164,7 +164,7 @@ func content_contract() -> void:
 			count+=1
 			check(not definition.text.has("diary_main") and not definition.has("secondary_diary"),"No parallel Diary policy")
 			var records: Array=definition.get("effects",[]).filter(func(e):return e.op=="memory.add")
-			if definition.id in ["social.awkward_conversation","social.bad_conversation","social.empty_conversation","social.one_sided_interest"]:
+			if definition.id in ["social.awkward_conversation","social.bad_conversation","social.empty_conversation","social.one_sided_interest","social.misunderstood_conversation"]:
 				check(records.is_empty() and definition.effect_groups.size()==2,"New experience uses paired memory/moodlet packets")
 				continue
 			if definition.id=="social.old_grudge":
@@ -172,7 +172,7 @@ func content_contract() -> void:
 			else:
 				check(records.size()==(2 if definition.id=="social.warm_sympathy" else 1),"One creation per participant")
 				for record in records:check(record.chance==rates[definition.id][0] and record.strength==rates[definition.id][1] and not record.permanent and record.has("text"),"Approved chance, strength and text: "+definition.id)
-	check(count==14,"All fourteen current event contracts adapted");service.free()
+	check(count==15,"All fifteen current event contracts adapted");service.free()
 
 func actual_card() -> void:
 	var world=load("res://scenes/main_3d.tscn").instantiate();root.add_child(world);world.game_time.set_process(false);world.game_logger.console_enabled=false

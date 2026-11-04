@@ -2405,6 +2405,429 @@
           "После беседы {positive.name} явно {positive.gender:остался|осталась} под впечатлением. {neutral.name} просто {neutral.gender:продолжил|продолжила} заниматься своими делами."
         ]
       }
+    },
+    {
+      "schema_version": 1,
+      "id": "social.misunderstood_conversation",
+      "revision": 1,
+      "enabled": true,
+      "trigger": "social.resolved",
+      "main_role": "negative",
+      "roles": {
+        "actor": {
+          "type": "resident",
+          "from": "ctx.actor",
+          "active_required": true
+        },
+        "other": {
+          "type": "resident",
+          "from": "ctx.other",
+          "active_required": true,
+          "different_from": [
+            "actor"
+          ]
+        }
+      },
+      "bind": [
+        {
+          "as": "negative",
+          "type": "resident_ref",
+          "active_required": true,
+          "select": {
+            "from": {
+              "list": [
+                {
+                  "role": "actor"
+                },
+                {
+                  "role": "other"
+                }
+              ]
+            },
+            "as": "candidate",
+            "where": {
+              "any": [
+                {
+                  "all": [
+                    {
+                      "eq": [
+                        {
+                          "local": "candidate"
+                        },
+                        {
+                          "role": "actor"
+                        }
+                      ]
+                    },
+                    {
+                      "eq": [
+                        {
+                          "ctx": "payload.reaction_1"
+                        },
+                        "NEGATIVE"
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "all": [
+                    {
+                      "eq": [
+                        {
+                          "local": "candidate"
+                        },
+                        {
+                          "role": "other"
+                        }
+                      ]
+                    },
+                    {
+                      "eq": [
+                        {
+                          "ctx": "payload.reaction_2"
+                        },
+                        "NEGATIVE"
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            "take": 1,
+            "order_by": "id"
+          }
+        },
+        {
+          "as": "neutral",
+          "type": "resident_ref",
+          "active_required": true,
+          "select": {
+            "from": {
+              "list": [
+                {
+                  "role": "actor"
+                },
+                {
+                  "role": "other"
+                }
+              ]
+            },
+            "as": "candidate",
+            "where": {
+              "any": [
+                {
+                  "all": [
+                    {
+                      "eq": [
+                        {
+                          "local": "candidate"
+                        },
+                        {
+                          "role": "actor"
+                        }
+                      ]
+                    },
+                    {
+                      "eq": [
+                        {
+                          "ctx": "payload.reaction_1"
+                        },
+                        "NEUTRAL"
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "all": [
+                    {
+                      "eq": [
+                        {
+                          "local": "candidate"
+                        },
+                        {
+                          "role": "other"
+                        }
+                      ]
+                    },
+                    {
+                      "eq": [
+                        {
+                          "ctx": "payload.reaction_2"
+                        },
+                        "NEUTRAL"
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            "take": 1,
+            "order_by": "id"
+          }
+        }
+      ],
+      "when": {
+        "any": [
+          {
+            "eq": [
+              {
+                "ctx": "payload.interaction"
+              },
+              "CONVERSATION"
+            ]
+          },
+          {
+            "eq": [
+              {
+                "ctx": "payload.interaction"
+              },
+              "MEAL"
+            ]
+          }
+        ]
+      },
+      "weight": 1,
+      "cooldown": {
+        "minutes": 240,
+        "scope": [
+          {
+            "role": "actor"
+          },
+          {
+            "role": "other"
+          }
+        ],
+        "symmetric": true
+      },
+      "params": {
+        "negative_chat": [
+          "Это сейчас был намёк? Очень тонко. Настолько тонко, что лучше бы его вообще не было.",
+          "Иногда люди говорят совершенно обычные вещи с совершенно невыносимым видом.",
+          "Я всё прекрасно {speaker.gender:понял|поняла}. Особенно то, что мне якобы ничего такого не сказали.",
+          "И ведь даже не извинились! Хотя, кажется, вообще не поняли, за что.",
+          "Некоторые люди умеют испортить настроение, даже не приложив к этому усилий.",
+          "В следующий раз тоже буду говорить загадками. Посмотрим, кому понравится.",
+          "Вот интересно, это была грубость или просто удивительная бестактность?",
+          "Мне кажется, надо мной немного посмеялись. Причём, возможно, случайно. Это ещё обиднее.",
+          "Самое раздражающее — когда на тебя смотрят так, будто вообще ничего не произошло.",
+          "Ладно, забудем. Хотя нет. Сначала ещё немного позлюсь."
+        ],
+        "neutral_chat": [
+          "Вроде нормально поговорили. Только прощание получилось какое-то короткое.",
+          "Интересно, почему некоторые люди так странно смотрят после совершенно обычных вопросов?",
+          "Кажется, я {speaker.gender:сказал|сказала} что-то не то. Хотя что именно — совершенно непонятно.",
+          "Хорошая беседа. Правда, под конец {partner.gender:собеседник почему-то стал немногословным|собеседница почему-то стала немногословной}.",
+          "Люди иногда бывают задумчивыми. Наверное, о чём-то своём думают.",
+          "Вот ведь бывает: поговоришь с человеком, а {partner.gender:он|она} потом куда-то очень быстро уходит.",
+          "Надеюсь, я никого не {speaker.gender:обидел|обидела}. Хотя вроде и повода не было.",
+          "Мне кажется, мы вполне неплохо пообщались. Может, ещё как-нибудь повторим.",
+          "Странно, почему на обычное замечание можно получить такой серьёзный взгляд.",
+          "Ну, поговорили и поговорили. Не вижу причин придавать этому особое значение."
+        ],
+        "negative_diary": [
+          "Сегодняшний разговор оставил неприятное впечатление. Возможно, меня неправильно поняли. Или, наоборот, поняли слишком хорошо.",
+          "Не понимаю, почему после беседы {partner.with} у меня такое чувство, будто меня попытались задеть.",
+          "Наверное, ничего особенно обидного сказано не было. Но почему тогда так неприятно?",
+          "Мне кажется, {partner.gender:собеседник|собеседница} совершенно не замечает, насколько бестактными бывают {partner.gender:его|её} слова.",
+          "Сегодня {speaker.gender:столкнулся|столкнулась} с удивительной способностью человека говорить неприятные вещи и выглядеть при этом совершенно невинно.",
+          "Весь разговор {speaker.gender:пытался|пыталась} понять, шутят надо мной или говорят совершенно серьёзно. Так и не {speaker.gender:разобрался|разобралась}.",
+          "Возможно, я слишком остро {speaker.gender:отреагировал|отреагировала}. Но это не делает разговор приятнее.",
+          "В следующий раз постараюсь не воспринимать каждое слово так близко к сердцу. Хотя {partner.with} это непросто.",
+          "Самое неприятное — ощущение, что меня случайно обидели и даже не заметили.",
+          "Наверное, стоило сразу сказать, что мне не нравится. Теперь остаётся только мысленно придумывать ответы."
+        ],
+        "neutral_diary": [
+          "Сегодня поговорили {partner.with}. Обычная беседа, хотя к концу настроение {partner.gender:собеседника|собеседницы} почему-то изменилось.",
+          "Кажется, я случайно {speaker.gender:сказал|сказала} что-то неудачное. Жаль, совершенно не понимаю что.",
+          "Никаких особенных разногласий вроде не было. По крайней мере, я их не {speaker.gender:заметил|заметила}.",
+          "Иногда трудно понять, что происходит у людей в голове. Особенно когда они внезапно замолкают.",
+          "Сегодняшняя беседа показалась вполне нормальной. Странно только, что прощались как-то холодно.",
+          "Возможно, стоило внимательнее следить за реакцией {partner.gender:собеседника|собеседницы}. Хотя разговор казался самым обычным.",
+          "Мне кажется, у нас {partner.with} получилось неплохо поговорить. Надеюсь, это взаимно.",
+          "Неожиданно обнаружилось, что вполне безобидные слова могут вызвать совершенно непонятную реакцию.",
+          "Я не {speaker.gender:собирался|собиралась} никого задевать. Собственно, даже не знаю, было ли на что обижаться.",
+          "Сегодня общение получилось немного странным. Но, возможно, у {partner.gender:собеседника|собеседницы} просто был тяжёлый день."
+        ]
+      },
+      "effects": [
+        {
+          "op": "chat.say",
+          "owner": {
+            "binding": "negative"
+          },
+          "chance": 0.5,
+          "text": {
+            "param": "negative_chat"
+          },
+          "text_bindings": {
+            "speaker": {
+              "binding": "negative"
+            },
+            "partner": {
+              "binding": "neutral"
+            }
+          }
+        },
+        {
+          "op": "chat.say",
+          "owner": {
+            "binding": "neutral"
+          },
+          "chance": 0.5,
+          "text": {
+            "param": "neutral_chat"
+          },
+          "text_bindings": {
+            "speaker": {
+              "binding": "neutral"
+            },
+            "partner": {
+              "binding": "negative"
+            }
+          }
+        }
+      ],
+      "effect_groups": [
+        {
+          "id": "negative_experience",
+          "chance": 0.3,
+          "effects": [
+            {
+              "op": "memory.add",
+              "owner": {
+                "binding": "negative"
+              },
+              "kind": "unpleasant_interaction",
+              "topic": "social",
+              "tags": [
+                "social",
+                "negative"
+              ],
+              "target": {
+                "binding": "neutral"
+              },
+              "text": {
+                "param": "negative_diary"
+              },
+              "text_bindings": {
+                "speaker": {
+                  "binding": "negative"
+                },
+                "partner": {
+                  "binding": "neutral"
+                }
+              },
+              "strength": 30,
+              "permanent": false,
+              "provenance": {
+                "kind": "experienced"
+              },
+              "context": {}
+            },
+            {
+              "op": "moodlet.add",
+              "owner": {
+                "binding": "negative"
+              },
+              "definition": "irritation",
+              "tags": [
+                "social",
+                "negative"
+              ],
+              "target": {
+                "binding": "neutral"
+              },
+              "duration_minutes": 120,
+              "context": {
+                "display_name": "Раздражение"
+              },
+              "modifiers": [
+                {
+                  "channel": "mood.offset",
+                  "value": -10
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "neutral_experience",
+          "chance": 0.3,
+          "effects": [
+            {
+              "op": "memory.add",
+              "owner": {
+                "binding": "neutral"
+              },
+              "kind": "neutral_interaction",
+              "topic": "social",
+              "tags": [
+                "social",
+                "neutral"
+              ],
+              "target": {
+                "binding": "negative"
+              },
+              "text": {
+                "param": "neutral_diary"
+              },
+              "text_bindings": {
+                "speaker": {
+                  "binding": "neutral"
+                },
+                "partner": {
+                  "binding": "negative"
+                }
+              },
+              "strength": 15,
+              "permanent": false,
+              "provenance": {
+                "kind": "experienced"
+              },
+              "context": {}
+            },
+            {
+              "op": "moodlet.add",
+              "owner": {
+                "binding": "neutral"
+              },
+              "definition": "talked_out",
+              "tags": [
+                "social",
+                "neutral"
+              ],
+              "target": {
+                "binding": "negative"
+              },
+              "duration_minutes": 120,
+              "context": {
+                "display_name": "Наговорился"
+              },
+              "modifiers": [
+                {
+                  "channel": "need_growth_rate",
+                  "need": "social",
+                  "multiplier": 0.5
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "text": {
+        "chronicle": [
+          "{negative.name} и {neutral.name} поговорили. {negative.gender:Один участник остался недоволен|Одна участница осталась недовольна}, {neutral.gender:второй даже не заметил|вторая даже не заметила} причин для недовольства.",
+          "Разговор {negative.name:gen} и {neutral.name:gen} закончился странно: одна сторона почувствовала себя задетой, другая — вполне довольной обычным ходом беседы.",
+          "{negative.name} {negative.gender:обнаружил|обнаружила} в словах {neutral.gender:собеседника|собеседницы} скрытый смысл. {neutral.name} о существовании этого смысла даже не {neutral.gender:подозревал|подозревала}.",
+          "{negative.name} и {neutral.name} обменялись мнениями. Одно из мнений оказалось оскорбительным, хотя его автор об этом так и не {neutral.gender:узнал|узнала}.",
+          "После беседы {negative.name} {negative.gender:решил|решила} некоторое время избегать {neutral.gender:собеседника|собеседницы}. {neutral.name} уже {neutral.gender:забыл|забыла}, о чём был разговор.",
+          "{negative.name} и {neutral.name} поговорили вполне мирно. По крайней мере, именно так происходящее запомнила одна из сторон.",
+          "{negative.name} {negative.gender:услышал|услышала} в разговоре неприятный намёк. {neutral.name} всего лишь {neutral.gender:пытался|пыталась} поддержать беседу.",
+          "Разговор {negative.name:gen} и {neutral.name:gen} породил недоразумение, о котором знает только {negative.gender:один из участников|одна из участниц}.",
+          "{negative.name} {negative.gender:ушёл|ушла} с неприятным осадком. {neutral.name} — с убеждением, что поговорили совершенно нормально.",
+          "{negative.name} и {neutral.name} разошлись. {negative.gender:Один участник мысленно продолжил спор|Одна участница мысленно продолжила спор}, {neutral.gender:второй отправился|вторая отправилась} заниматься своими делами."
+        ]
+      }
     }
   ]
 }

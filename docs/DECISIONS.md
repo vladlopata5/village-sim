@@ -6763,3 +6763,17 @@ pleasant_company(+10 mood.offset) и talked_out(need_growth_rate/social/0.5) н�
 Дательный имени positive, род обоих участников и с/со обеспечены прежним renderer.
 Все13 прежних определений сохранены; новых сценарных обработчиков, AI-действий,
 числовых каналов, изменений opinion или общей30%-вероятности нет.
+
+## Не поняли друг друга (2026-11-04)
+
+«Не поняли друг друга» (2026-11-04): social.misunderstood_conversation,
+NEGATIVE+NEUTRAL в обеих перестановках, CONVERSATION/MEAL, вес1,
+симметричный cooldown240. Resident bindings negative/neutral определяют владельцев
+по фактическим реакциям; main negative, исходный ctx.actor сохранён.
+Два независимых50%-чата и два независимых30%-пакета memory.add+moodlet.add.
+Negative: unpleasant_interaction/social/negative strength30 + irritation(−10 mood).
+Neutral: neutral_interaction/social/neutral strength15 + talked_out(SOCIAL growth0.5).
+Оба прежних мудлета120мин, стандартное singleton-обновление без накопления.
+Пять пулов по10 равновесных текстов выбираются независимо; speaker/partner локальны,
+род, падежи и с/со использует прежний renderer. Все14 прежних определений сохранены,
+общий gate30%, opinion и производственный GDScript не менялись.
