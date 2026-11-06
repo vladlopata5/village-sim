@@ -99,7 +99,7 @@ func commit_transition(prepared: Dictionary, minute: int) -> bool:
 	return true
 
 static func _can_transition(link: Dictionary, level: Variant, minute: int, special: bool) -> bool:
-	if link.is_empty() or not valid_level(level) or minute < 0 or level == link.link_level: return false
+	if link.is_empty() or not valid_level(level) or minute < 0 or minute > 9223372036854775807 - TRANSITION_COOLDOWN_MINUTES or level == link.link_level: return false
 	if special: return true
 	return absi(level - link.link_level) == 1 and (link.normal_transition_available_at == null or minute >= link.normal_transition_available_at)
 

@@ -207,17 +207,18 @@ func _process_occurrence(context: Dictionary, source: RefCounted, expected_other
 		evaluation_facts.include_entity_registry(facts)
 	selector.facts = evaluation_facts
 	executor.setup(_control, evaluation_facts, _active)
-	var result := _select_and_commit(context, source, required_main)
+	var result := _select_and_commit(context, source, required_main, expected_other)
 	selector.facts = facts
 	executor.setup(_control, facts, _active)
 	return result
 
-func _select_and_commit(context: Dictionary, source: RefCounted, required_main: Variant = null) -> Dictionary:
+func _select_and_commit(context: Dictionary, source: RefCounted, required_main: Variant = null, expected_other: RefCounted = null) -> Dictionary:
 	var selection: Dictionary = selector.run(context, _history, true)
 	if selection.status != "selected": return {"status": selection.status}
 	if required_main != null and selection.main != required_main: return {"status": "invalid_candidate_main"}
+	if context.trigger == "social.resolved" and not _active(expected_other): return {"status": "inactive_social_pair"}
 	var minute: int = _clock.total_minutes
-	var result := executor.execute(selection, context, minute, source)
+	var result := executor.execute(selection, context, minute, source, _clock)
 	if result.status != "completed": return result
 	_completed[context.occurrence_id] = result.duplicate(true)
 	for key in selection.cooldown_keys: _history[key] = minute

@@ -6,6 +6,7 @@ const Evaluator = preload("res://scripts/event_expression.gd")
 const TextRenderer = preload("res://scripts/event_text_renderer.gd")
 const Data = preload("res://scripts/event_store_data.gd")
 const Chronicle = preload("res://scripts/settlement_chronicle.gd")
+const ResidentFacts = preload("res://scripts/resident_event_facts.gd")
 var chronicle: RefCounted = Chronicle.new()
 signal resident_message(resident_id: String, resident_name: String, text: String)
 var rng: RefCounted = RandomNumberGenerator.new()
@@ -25,7 +26,7 @@ func setup(control: RefCounted, facts: RefCounted, active_guard: Callable) -> vo
 	_facts = facts
 	_active_guard = active_guard
 
-func execute(selection: Dictionary, context: Dictionary, minute: int, source: RefCounted) -> Dictionary:
+func execute(selection: Dictionary, context: Dictionary, minute: int, source: RefCounted, clock: Node = null) -> Dictionary:
 	var token: String = context.get("occurrence_id", "")
 	if token.is_empty(): return _error("invalid_context", "missing occurrence_id")
 	if _outcomes.has(token):
@@ -34,7 +35,7 @@ func execute(selection: Dictionary, context: Dictionary, minute: int, source: Re
 		return previous
 	if _pending.has(token): return {"status": "pending", "occurrence_id": token}
 	_pending[token] = true
-	var result := _prepare_commit(selection.duplicate(true), context.duplicate(true), minute, source)
+	var result := _prepare_commit(selection.duplicate(true), context.duplicate(true), minute, source, clock)
 	result.occurrence_id = token
 	_outcomes[token] = result.duplicate(true)
 	_pending.erase(token)
@@ -50,14 +51,24 @@ func publish(occurrence_id: String) -> void:
 	for write: Dictionary in notices:
 		if write.kind == "chat.say": resident_message.emit(write.person.id, write.name, write.text)
 
-func _prepare_commit(selection: Dictionary, context: Dictionary, minute: int, source: RefCounted) -> Dictionary:
+func _prepare_commit(selection: Dictionary, context: Dictionary, minute: int, source: RefCounted, clock: Node) -> Dictionary:
 	if selection.get("status") != "selected" or minute < 0: return _error("invalid_selection", "selection/minute")
 	if not Facts.plain(context) or not selection.get("selected") is Dictionary or not selection.get("roles") is Dictionary or not selection.get("bindings") is Dictionary: return _error("invalid_selection", "expected resolved JSON selection")
 	if not _active(source): return _error("inactive_source", "source no longer active")
 	var definition: Dictionary = selection.selected
+	var env := {"ctx": context, "role": selection.roles, "binding": selection.bindings, "param": definition.get("params", {}), "catalog": selection.get("tables", {}), "local": {}}
+	var link: Dictionary = {}
 	# A probability must never conceal an unsupported operation, including an
 	# unchosen reserved R2-B1 opinion/XP description.
-	for effect in definition.get("effects", []):
+	var effects: Array = definition.get("effects", [])
+	for index in effects.size():
+		var effect: Dictionary = effects[index]
+		if effect.get("op") == "link.transition":
+			if not link.is_empty(): return _error("prepare_failed", "multiple link transitions")
+			link = _prepare_link(effect, env, context, minute, source)
+			if not link.ok: return link
+			link.slot = "effect/%d" % index
+			continue
 		if effect.get("op") not in ["memory.add", "moodlet.add", "chat.say", "memory.reinforce"]: return _error("unsupported_effect", str(effect.get("op")))
 	for group in definition.get("exclusive_groups", []):
 		for option in group.options:
@@ -72,8 +83,8 @@ func _prepare_commit(selection: Dictionary, context: Dictionary, minute: int, so
 	var rendered := _render(selection, context)
 	if not rendered.ok: return _error("text_failed", str(rendered.errors))
 	var writes: Array = []
-	var env := {"ctx": context, "role": selection.roles, "binding": selection.bindings, "param": definition.get("params", {}), "catalog": selection.get("tables", {}), "local": {}}
 	var applied: Array = []
+	if not link.is_empty(): applied.append({"slot": link.slot, "op": "link.transition", "owner": link.owner.id, "target": link.target.id, "level": link.prepared.level, "id": link.slot})
 	for item: Dictionary in chosen.items:
 		var prepared := _effect(item, env, definition, context, minute, rendered.values)
 		if not prepared.ok: return prepared
@@ -108,6 +119,10 @@ func _prepare_commit(selection: Dictionary, context: Dictionary, minute: int, so
 			if write.kind == "memory.reinforce": prepared = write.store.prepare_reinforce(write.raw.entry_id,write.raw.amount,minute,context.occurrence_id,write.raw.expected_version)
 			else: prepared = write.store.prepare_add(write.raw)
 			if current_store != write.store or prepared != write.prepared: return _error("prepare_failed", "stale store: " + write.person.id)
+	# The pair transition can reject, so it must be the first write. All other
+	# writes have already passed validation and use the silent commit primitives.
+	if not link.is_empty() and not _commit_link(link, definition, env, minute, clock):
+		return _error("prepare_failed", "stale link or transition conditions")
 	var result := {"status": "completed", "event_id": "event:" + context.occurrence_id, "definition_id": definition.id, "main": selection.main, "minute": minute, "effects": applied, "exclusive_groups": chosen.groups}
 	for write: Dictionary in writes:
 		if write.kind == "memory.reinforce": write.store._apply_event_update(write.prepared)
@@ -115,11 +130,44 @@ func _prepare_commit(selection: Dictionary, context: Dictionary, minute: int, so
 	_notices[context.occurrence_id] = writes
 	return result
 
+func _prepare_link(description: Dictionary, env: Dictionary, context: Dictionary, minute: int, source: RefCounted) -> Dictionary:
+	var resolved := _resolve(description, env)
+	if not resolved.known: return _error("prepare_failed", resolved.reason)
+	var effect: Dictionary = resolved.value
+	if context.get("trigger") != "social.resolved" or not Data.only_keys(effect, ["op", "owner", "target", "level"]):
+		return _error("prepare_failed", "invalid link arguments")
+	var actor := _person(context.get("actor"))
+	var other := _person(context.get("other"))
+	var owner := _person(effect.get("owner"))
+	var target := _person(effect.get("target"))
+	if actor != source or other == null or actor == other or owner == target or owner not in [actor, other] or target not in [actor, other]:
+		return _error("inactive_recipient", "invalid link participants")
+	var level: Variant = effect.get("level")
+	if not Data.number(level) or level < -3 or level > 3 or floorf(level) != level:
+		return _error("prepare_failed", "invalid link level")
+	var store: RefCounted = _control.social_links
+	var revision: Dictionary = _facts.read(effect.owner, "link.revision", effect.target)
+	var prepared: Dictionary = store.prepare_transition(owner, target, int(level), minute)
+	if prepared.is_empty() or not revision.known or prepared.revision != revision.value:
+		return _error("prepare_failed", "stale or blocked link transition")
+	return {"ok": true, "store": store, "prepared": prepared, "actor": actor, "other": other, "owner": owner, "target": target}
+
+func _commit_link(link: Dictionary, definition: Dictionary, env: Dictionary, minute: int, clock: Node) -> bool:
+	if link.store != _control.social_links or not _active(link.actor) or not _active(link.other): return false
+	# One synchronous transaction uses a single minute for all its records.
+	if clock != null and clock.total_minutes != minute: return false
+	# The original snapshot already performed memory maintenance. This read must
+	# not publish callbacks before the transaction has committed.
+	var current := ResidentFacts.snapshot(link.actor, link.other, minute, link.store, false)
+	var condition := Evaluator.new().evaluate(definition.get("when", true), env, current)
+	return condition.known and condition.value is bool and condition.value and link.store.commit_transition(link.prepared, minute)
+
 func _choose(definition: Dictionary) -> Dictionary:
 	var items: Array = []
 	var groups: Array = []
 	for i in definition.get("effects", []).size():
 		var effect: Dictionary = definition.effects[i]
+		if effect.op == "link.transition": continue # Required and prepared separately.
 		var chance := _chance(effect.get("chance", 1.0))
 		if not chance.ok: return chance
 		if chance.passed: items.append({"description": effect, "slot": "effect/%d" % i})

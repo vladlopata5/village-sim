@@ -11,6 +11,7 @@ const EFFECT_FIELDS := {
 	"moodlet.add": ["owner", "definition"],
 	"memory.add": ["owner", "kind", "text"],
 	"memory.reinforce": ["owner", "entry_id", "expected_version", "amount"],
+	"link.transition": ["owner", "target", "level"],
 	"chat.say": ["owner", "text"],
 	"none": []
 }
@@ -165,7 +166,7 @@ func _validate_definition(raw: Dictionary, base_names: Dictionary, facts: RefCou
 			for scope in cooldown.get("scope", []):
 				var scope_evaluator := Evaluator.new()
 				scope_evaluator.validate(scope, names, facts, errors, label + "/cooldown")
-	_validate_descriptions(raw.get("effects", []), names, facts, label, false, raw.get("params", {}))
+	_validate_descriptions(raw.get("effects", []), names, facts, label, false, raw.get("params", {}), raw.get("trigger") == "social.resolved")
 	var bundles: Variant = raw.get("effect_groups", [])
 	if not bundles is Array: errors.append(label + ": effect_groups must be array")
 	else:
@@ -198,15 +199,21 @@ func _validate_definition(raw: Dictionary, base_names: Dictionary, facts: RefCou
 				if option is Dictionary and not _nonnegative(option.get("weight")): errors.append(label + ": exclusive option requires nonnegative weight")
 	_validate_text(raw.get("text", {}), names, label)
 
-func _validate_descriptions(effects: Variant, names: Dictionary, facts: RefCounted, label: String, allow_none: bool = false, params: Dictionary = {}) -> void:
+func _validate_descriptions(effects: Variant, names: Dictionary, facts: RefCounted, label: String, allow_none: bool = false, params: Dictionary = {}, allow_link: bool = false) -> void:
 	if not effects is Array:
 		errors.append(label + ": effects must be array")
 		return
+	var has_link := false
 	for effect in effects:
 		if not effect is Dictionary or not EFFECT_FIELDS.has(effect.get("op", "")):
 			errors.append(label + ": unsupported effect description")
 			continue
 		if effect.op == "none" and not allow_none: errors.append(label + ": none is an exclusive option only")
+		if effect.op == "link.transition":
+			if not allow_link or has_link: errors.append(label + ": only one top-level social link transition is supported")
+			has_link = true
+			for key in effect:
+				if key not in ["op", "owner", "target", "level"]: errors.append(label + ": unsupported link transition field " + key)
 		if effect.op == "none":
 			for key in effect:
 				if key not in ["op", "chance", "weight"]: errors.append(label + ": none option cannot contain effect arguments")
@@ -221,7 +228,7 @@ func _validate_descriptions(effects: Variant, names: Dictionary, facts: RefCount
 				var alias_type := Evaluator.new().validate(aliases[alias], names, facts, errors, label + "/text_bindings")
 				if alias_type not in ["entity", "any", "invalid"]: errors.append(label + ": text binding requires participant")
 				text_names.binding[alias] = "entity"
-		for key in ["owner", "target", "amount", "duration_minutes", "expires_at_minute", "salience", "strength", "skill", "kind", "topic", "definition", "permanent", "text", "entry_id", "expected_version"]:
+		for key in ["owner", "target", "amount", "duration_minutes", "expires_at_minute", "salience", "strength", "skill", "kind", "topic", "definition", "permanent", "text", "entry_id", "expected_version", "level"]:
 			if not effect.has(key): continue
 			if key == "text":
 				var source: Variant = effect[key]

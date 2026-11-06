@@ -2828,6 +2828,482 @@
           "{negative.name} и {neutral.name} разошлись. {negative.gender:Один участник мысленно продолжил спор|Одна участница мысленно продолжила спор}, {neutral.gender:второй отправился|вторая отправилась} заниматься своими делами."
         ]
       }
+    },
+    {
+      "schema_version": 1,
+      "id": "social.become_acquaintances",
+      "revision": 1,
+      "enabled": true,
+      "trigger": "social.resolved",
+      "main_role": "actor",
+      "roles": {
+        "actor": {
+          "type": "resident",
+          "from": "ctx.actor",
+          "active_required": true
+        },
+        "other": {
+          "type": "resident",
+          "from": "ctx.other",
+          "active_required": true,
+          "different_from": [
+            "actor"
+          ]
+        }
+      },
+      "when": {
+        "all": [
+          {
+            "eq": [
+              {
+                "fact": [
+                  {
+                    "role": "actor"
+                  },
+                  "link.level",
+                  {
+                    "role": "other"
+                  }
+                ]
+              },
+              0
+            ]
+          },
+          {
+            "fact": [
+              {
+                "role": "actor"
+              },
+              "link.normal_transition_ready",
+              {
+                "role": "other"
+              }
+            ]
+          },
+          {
+            "eq": [
+              {
+                "ctx": "payload.reaction_1"
+              },
+              "POSITIVE"
+            ]
+          },
+          {
+            "eq": [
+              {
+                "ctx": "payload.reaction_2"
+              },
+              "POSITIVE"
+            ]
+          },
+          {
+            "gte": [
+              {
+                "fact": [
+                  {
+                    "role": "actor"
+                  },
+                  "opinion",
+                  {
+                    "role": "other"
+                  }
+                ]
+              },
+              20
+            ]
+          },
+          {
+            "gte": [
+              {
+                "fact": [
+                  {
+                    "role": "other"
+                  },
+                  "opinion",
+                  {
+                    "role": "actor"
+                  }
+                ]
+              },
+              20
+            ]
+          },
+          {
+            "lt": [
+              {
+                "field": [
+                  {
+                    "fact": [
+                      {
+                        "role": "actor"
+                      },
+                      "link.counts"
+                    ]
+                  },
+                  "positive_1"
+                ]
+              },
+              5
+            ]
+          },
+          {
+            "lt": [
+              {
+                "field": [
+                  {
+                    "fact": [
+                      {
+                        "role": "other"
+                      },
+                      "link.counts"
+                    ]
+                  },
+                  "positive_1"
+                ]
+              },
+              5
+            ]
+          },
+          {
+            "any": [
+              {
+                "exists": {
+                  "from": {
+                    "fact": [
+                      {
+                        "role": "actor"
+                      },
+                      "memories"
+                    ]
+                  },
+                  "as": "candidate",
+                  "where": {
+                    "all": [
+                      {
+                        "has_tag": [
+                          {
+                            "local": "candidate"
+                          },
+                          "positive"
+                        ]
+                      },
+                      {
+                        "eq": [
+                          {
+                            "field": [
+                              {
+                                "local": "candidate"
+                              },
+                              "target"
+                            ]
+                          },
+                          {
+                            "role": "other"
+                          }
+                        ]
+                      },
+                      {
+                        "gt": [
+                          {
+                            "field": [
+                              {
+                                "local": "candidate"
+                              },
+                              "strength"
+                            ]
+                          },
+                          0
+                        ]
+                      },
+                      {
+                        "lte": [
+                          {
+                            "field": [
+                              {
+                                "local": "candidate"
+                              },
+                              "created_minute"
+                            ]
+                          },
+                          {
+                            "ctx": "minute"
+                          }
+                        ]
+                      },
+                      {
+                        "ne": [
+                          {
+                            "field": [
+                              {
+                                "local": "candidate"
+                              },
+                              "source_occurrence_id"
+                            ]
+                          },
+                          {
+                            "ctx": "occurrence_id"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                }
+              },
+              {
+                "exists": {
+                  "from": {
+                    "fact": [
+                      {
+                        "role": "other"
+                      },
+                      "memories"
+                    ]
+                  },
+                  "as": "candidate",
+                  "where": {
+                    "all": [
+                      {
+                        "has_tag": [
+                          {
+                            "local": "candidate"
+                          },
+                          "positive"
+                        ]
+                      },
+                      {
+                        "eq": [
+                          {
+                            "field": [
+                              {
+                                "local": "candidate"
+                              },
+                              "target"
+                            ]
+                          },
+                          {
+                            "role": "actor"
+                          }
+                        ]
+                      },
+                      {
+                        "gt": [
+                          {
+                            "field": [
+                              {
+                                "local": "candidate"
+                              },
+                              "strength"
+                            ]
+                          },
+                          0
+                        ]
+                      },
+                      {
+                        "lte": [
+                          {
+                            "field": [
+                              {
+                                "local": "candidate"
+                              },
+                              "created_minute"
+                            ]
+                          },
+                          {
+                            "ctx": "minute"
+                          }
+                        ]
+                      },
+                      {
+                        "ne": [
+                          {
+                            "field": [
+                              {
+                                "local": "candidate"
+                              },
+                              "source_occurrence_id"
+                            ]
+                          },
+                          {
+                            "ctx": "occurrence_id"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "any": [
+              {
+                "eq": [
+                  {
+                    "ctx": "payload.interaction"
+                  },
+                  "CONVERSATION"
+                ]
+              },
+              {
+                "eq": [
+                  {
+                    "ctx": "payload.interaction"
+                  },
+                  "MEAL"
+                ]
+              },
+              {
+                "eq": [
+                  {
+                    "ctx": "payload.interaction"
+                  },
+                  "WORK"
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "weight": 1,
+      "params": {
+        "chat": [
+          "А ведь неплохой человек. Надо будет как-нибудь ещё поболтать.",
+          "Забавно, раньше почти не общались, а теперь постоянно есть о чём поговорить.",
+          "Приятно, когда не приходится мучительно придумывать тему для разговора.",
+          "Кажется, у меня появился ещё один человек, с которым можно спокойно посидеть и поболтать.",
+          "Не знаю, как так получилось, но мы вроде неплохо поладили."
+        ],
+        "diary": [
+          "Сегодня снова приятно поговорили {partner.with}. Кажется, мы постепенно становимся приятелями.",
+          "Раньше мы почти не общались, а теперь встречаться и разговаривать стало совершенно привычным делом.",
+          "Похоже, у нас {partner.with} нашлось больше общего, чем я сначала предполагал{speaker.gender:|а}.",
+          "Неожиданно обнаружилось, что мне нравится проводить время {partner.with}. Надо будет общаться почаще.",
+          "Кажется, у меня {partner.gender:появился новый приятель|появилась новая приятельница}. Ничего особенного не произошло, просто в какой-то момент стало понятно, что нам хорошо вместе."
+        ]
+      },
+      "effects": [
+        {
+          "op": "link.transition",
+          "owner": {
+            "role": "actor"
+          },
+          "target": {
+            "role": "other"
+          },
+          "level": 1
+        },
+        {
+          "op": "chat.say",
+          "owner": {
+            "role": "actor"
+          },
+          "chance": 0.5,
+          "text": {
+            "param": "chat"
+          },
+          "text_bindings": {
+            "speaker": {
+              "role": "actor"
+            },
+            "partner": {
+              "role": "other"
+            }
+          }
+        },
+        {
+          "op": "chat.say",
+          "owner": {
+            "role": "other"
+          },
+          "chance": 0.5,
+          "text": {
+            "param": "chat"
+          },
+          "text_bindings": {
+            "speaker": {
+              "role": "other"
+            },
+            "partner": {
+              "role": "actor"
+            }
+          }
+        },
+        {
+          "op": "memory.add",
+          "owner": {
+            "role": "actor"
+          },
+          "chance": 0.5,
+          "text": {
+            "param": "diary"
+          },
+          "text_bindings": {
+            "speaker": {
+              "role": "actor"
+            },
+            "partner": {
+              "role": "other"
+            }
+          },
+          "kind": "relationship_progress",
+          "topic": "social",
+          "tags": [
+            "social",
+            "positive",
+            "relationship"
+          ],
+          "strength": 25,
+          "target": {
+            "role": "other"
+          },
+          "provenance": {
+            "kind": "experienced"
+          },
+          "permanent": false
+        },
+        {
+          "op": "memory.add",
+          "owner": {
+            "role": "other"
+          },
+          "chance": 0.5,
+          "text": {
+            "param": "diary"
+          },
+          "text_bindings": {
+            "speaker": {
+              "role": "other"
+            },
+            "partner": {
+              "role": "actor"
+            }
+          },
+          "kind": "relationship_progress",
+          "topic": "social",
+          "tags": [
+            "social",
+            "positive",
+            "relationship"
+          ],
+          "strength": 25,
+          "target": {
+            "role": "actor"
+          },
+          "provenance": {
+            "kind": "experienced"
+          },
+          "permanent": false
+        }
+      ],
+      "text": {
+        "chronicle": [
+          "{actor.name} и {other.name} постепенно сблизились. Теперь их можно назвать приятелями.",
+          "После очередного приятного разговора {actor.name} и {other.name} обнаружили, что уже давно перестали быть просто знакомыми.",
+          "{actor.name} и {other.name} нашли общий язык. Похоже, в поселении стало на одну приятельскую связь больше.",
+          "Несколько хороших бесед сделали своё дело: {actor.name} и {other.name} теперь охотно проводят время вместе.",
+          "{actor.name} и {other.name} стали приятелями. Никаких торжественных обещаний — просто теперь они немного ближе друг другу."
+        ]
+      }
     }
   ]
 }
