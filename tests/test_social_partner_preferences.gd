@@ -1,4 +1,5 @@
 extends SceneTree
+const OpinionSetup = preload("res://tests/opinion_test_setup.gd")
 const Data = preload("res://scripts/resident_data.gd")
 const Modifiers = preload("res://scripts/resident_modifiers.gd")
 const World = preload("res://scripts/social_world.gd")
@@ -68,14 +69,14 @@ func run() -> void:
 		var actor: Node = world.get_runtime("chooser"); configure(actor.data, variant[0])
 		for index in opinions.size():
 			var target_id := StringName("target_%d" % (index + 1))
-			actor.data.set_opinion(target_id, opinions[index])
-			world.get_runtime(String(target_id)).data.set_opinion(&"chooser", 100)
+			OpinionSetup.seed(actor.data, target_id, opinions[index])
+			OpinionSetup.seed(world.get_runtime(String(target_id)).data, &"chooser", 100)
 		check(not actor.data.has_relationship(&"target_3"), "Neutral missing opinion does not allocate relationship state")
 		var expected_weights: Array[float] = []; expected_weights.assign(variant[1])
 		sample(world, actor, "individual_%s" % variant[0], expected_weights)
 		var original: Array = world.options_for(actor.data.id)
 		var explicit: Dictionary = world.target_option(actor.data.id, "target_1")
-		world.get_runtime("target_1").data.set_opinion(&"chooser", -100)
+		OpinionSetup.seed(world.get_runtime("target_1").data, &"chooser", -100)
 		check(world.options_for(actor.data.id) == original, "Reverse opinion never affects chooser weights")
 		var chooser_position := Vector2.ZERO
 		world.position_provider = func(id): return chooser_position if id == "chooser" else Vector2(1000 if id == "target_1" else 100, 0)
@@ -103,7 +104,7 @@ func _group_cases(trait_type: int) -> void:
 			var id := "target_%d" % next; next += 1
 			var member: Node = world.get_runtime(id)
 			if group != null: member.data.activity = Activity.TALKING; group.add_participant(id)
-			actor.data.set_opinion(StringName(id), opinion); directed.append(opinion)
+			OpinionSetup.seed(actor.data, StringName(id), opinion); directed.append(opinion)
 		var mean := 0.0
 		for opinion in values:
 			mean += (1.3 - 0.003 * abs(opinion)) if trait_type == Trait.SOCIABLE else (1.0 + (0.006 if trait_type == Trait.INTROVERTED else 0.003) * opinion)
@@ -127,7 +128,7 @@ func _direct_commands() -> void:
 		var scene := Setup.make_scene(self)
 		var actor: Node = scene.resident_runtimes[1]; var target: Node = scene.resident_runtimes[3]
 		configure(actor.data, trait_type)
-		actor.data.set_opinion(StringName(target.data.id), -100); target.data.set_opinion(StringName(actor.data.id), 100)
+		OpinionSetup.seed(actor.data, StringName(target.data.id), -100); OpinionSetup.seed(target.data, StringName(actor.data.id), 100)
 		actor.data.get_need(2).value = 100; target.data.get_need(2).value = 100
 		var task := Assignment.new(&"direct_preference", actor.data.id, Assignment.TALK_TO, StringName(target.data.id))
 		check(scene.player_control.add_assignment(actor.data.id, task) and actor.assignments.start(task.id), "Player command starts despite negative opinion for every trait")

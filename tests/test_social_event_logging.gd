@@ -5,14 +5,15 @@ const Data = preload("res://scripts/resident_data.gd")
 const EventLog = preload("res://scripts/game_logger.gd")
 const Setup = preload("res://tests/behavior_test_setup.gd")
 class FixedRng extends RefCounted:
-	var values: Array = [0]
+	var values: Array = [50]
 	var cursor := 0
 	var probability := 0.0
 	func randf() -> float: return probability
-	func randi_range(low: int, high: int) -> int:
-		var value: int = values[cursor % values.size()]
+	func randi_range(low: int, _high: int) -> int: return low
+	func randf_range(low: float, high: float) -> float:
+		var value: float = values[cursor % values.size()]
 		cursor += 1
-		return clampi(value,low,high)
+		return clampf(value,low,high)
 var checks := 0
 var failures := 0
 var logs: Array = []
@@ -42,8 +43,8 @@ func _run() -> void:
 	var a := Data.new("a","Анна",25)
 	var b := Data.new("b","Степан",30)
 	for context in Event.Context.values():
-		for first_roll in [-100,0,100]:
-			for second_roll in [-100,0,100]:
+		for first_roll in [0,50,100]:
+			for second_roll in [0,50,100]:
 				# Reset opinion so all nine reaction combinations are explicit.
 				a.set_opinion(b.id,0); b.set_opinion(a.id,0)
 				random.values=[first_roll,second_roll]; random.cursor=0

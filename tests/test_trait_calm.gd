@@ -11,9 +11,9 @@ class RoundingRng extends RefCounted:
 	func randf() -> float: calls += 1; return value
 class ReactionRng extends RefCounted:
 	var calls := 0
-	var rolls: Array = [-100, 100]
-	func randi_range(_low: int, _high: int) -> int:
-		var result: int = rolls[calls % rolls.size()]; calls += 1; return result
+	var rolls: Array = [0, 100]
+	func randf_range(_low: float, _high: float) -> float:
+		var result: float = rolls[calls % rolls.size()]; calls += 1; return result
 var checks := 0
 var failures := 0
 var signals := 0
@@ -48,7 +48,7 @@ func _examples() -> void:
 	check(empty.apply_opinion_change("other", -1) == {"before":0,"after":0} and empty.relationships.is_empty() and rng.calls == start_calls + 2, "Negative rounded zero has correct before/after")
 	var calls_without_change := rng.calls
 	check(not empty.change_opinion("other", 0) and not empty.change_opinion("", 1) and not empty.change_opinion("empty", -1) and rng.calls == calls_without_change, "Original zero and invalid targets never draw")
-	for bound in [-100, 100]:
+	for bound in [-25, 25]:
 		person.set_opinion("other", bound); var old_calls := rng.calls; var old_signals := signals
 		check(not person.change_opinion("other", signi(bound)) and rng.calls == old_calls and signals == old_signals, "Outward bound no-op preserves RNG and signals")
 		rng.value = 0.9
@@ -56,9 +56,9 @@ func _examples() -> void:
 		rng.value = 0.0
 		check(person.apply_opinion_change("other", -signi(bound)).after == bound - signi(bound) and rng.calls == old_calls + 2, "Inward nonzero outcome is applied exactly once")
 	for direction in [-1, 1]:
-		person.set_opinion("other", 99 * direction); rng.value = 0.0
+		person.set_opinion("other", 24 * direction); rng.value = 0.0
 		var old_calls := rng.calls
-		check(person.change_opinion("other", 2 * direction) and person.get_opinion("other") == 100 * direction and rng.calls == old_calls + 1, "Rounding precedes final clamp")
+		check(person.change_opinion("other", 2 * direction) and person.get_opinion("other") == 25 * direction and rng.calls == old_calls + 1, "Rounding precedes final clamp")
 	for type in [-1, Trait.Type.HOTHEADED, Trait.Type.CALM, Trait.Type.SOCIABLE, Trait.Type.INTROVERTED]:
 		var actor := Data.new("comparison", "Comparison", 25)
 		if type >= 0: actor.add_trait(type)

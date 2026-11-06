@@ -104,7 +104,7 @@ func social_context() -> void:
 		load_content(f,{"definitions":definitions})
 		prime(f); prime(f,f.b,Skill.Type.CONSTRUCTION)
 		check(f.b.moodlets.size() == 1 and f.b.moodlets.get_entry("pride").context.skill == "construction", "Latest actual skill event replaces old pride context")
-		f.social.rng.rolls = [-100,0] if followup == "social.success_envy" else [100,0]
+		f.social.rng.rolls = [0,50] if followup == "social.success_envy" else [100,50]
 		f.social.resolve(f.a,f.b,SocialResult.Context.CONVERSATION)
 		var selected: Dictionary = f.service.selector.run(f.service.last_occurrence())
 		check(selected.selected.id == followup and selected.bindings.skill == "construction" and f.a.moodlets.find()[0].type == ("success_envy" if followup == "social.success_envy" else "admiration"), "Unchanged social JSON conditions and consequence use latest pride skill")

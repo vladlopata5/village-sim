@@ -8,7 +8,7 @@ func empty_fixture(reverse: bool = false) -> Dictionary:
 	var people: Array=[Data.new("a","Анна",25),Data.new("b","Степан",30)]
 	people[0].grammatical_gender=Traits.GrammaticalGender.FEMININE
 	if reverse:people.reverse()
-	var f:=fixture(people);only(f,ID);f.social.rng.rolls=[0,0]
+	var f:=fixture(people);only(f,ID);f.social.rng.rolls=[50,50]
 	return f
 
 func _run() -> void:
@@ -19,10 +19,10 @@ func _run() -> void:
 
 func conditions_and_competition() -> void:
 	for context in SocialResult.Context.values():
-		for first in [-100,0,100]:
-			for second in [-100,0,100]:
+		for first in [0,50,100]:
+			for second in [0,50,100]:
 				var f:=empty_fixture();f.social.rng.rolls=[first,second]
-				var valid: bool=context!=SocialResult.Context.WORK and first==0 and second==0
+				var valid: bool=context!=SocialResult.Context.WORK and first==50 and second==50
 				check((fire(f,context).status=="completed")==valid and f.service.chronicle.size()==int(valid),"Only two neutral reactions in conversation/meal; rejected fact creates nothing")
 				cleanup(f)
 	for mood in [0,19,20,21,50,100]:
@@ -202,7 +202,7 @@ func actual_card() -> void:
 	var scene=load("res://scenes/main_3d.tscn").instantiate();root.add_child(scene);scene.game_time.set_process(false);scene.game_logger.console_enabled=false
 	var definition: Dictionary=scene.game_events.catalog.definitions_for("social.resolved").filter(func(d):return d.id==ID)[0]
 	check(scene.game_events.catalog.load_data({"definitions":[definition]},scene.game_events.facts),"Canonical service loads production definition")
-	scene.game_events.selector.set_chance("social.resolved",1);scene.game_events.selector.rng=CountingRng.new();scene.game_events.executor.rng=SequenceRng.new();scene.social_events.rng=LegacyRng.new();scene.social_events.rng.rolls=[0,0]
+	scene.game_events.selector.set_chance("social.resolved",1);scene.game_events.selector.rng=CountingRng.new();scene.game_events.executor.rng=SequenceRng.new();scene.social_events.rng=SocialRng.new();scene.social_events.rng.rolls=[50,50]
 	var a: RefCounted=scene.residents[0];var b: RefCounted=scene.residents[1];var old_mood: float=b.mood;scene.social_events.resolve(a,b,SocialResult.Context.MEAL)
 	check(scene.game_events.chronicle.size()==1 and a.memories.size()==1 and b.memories.size()==1,"Live social service creates both personal experiences")
 	scene.resident_selection.select(b);scene.game_ui.info_panel.set_expanded(true);scene.game_ui.info_panel.select_tab(&"bio");await process_frame

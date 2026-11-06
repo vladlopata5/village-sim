@@ -57,10 +57,10 @@ func _run() -> void:
 	b.add_disliked_trait(Trait.Type.FOOLISH)
 	check(a.get_trait_preference_score(b) == 10 and b.get_trait_preference_score(a) == -10, "Directed score asymmetry")
 	check(a.relationships.is_empty() and b.relationships.is_empty(), "Score never creates relationship records")
-	a.set_opinion(&"b", -75)
-	check(a.get_trait_preference_score(b) == 10 and a.get_opinion(&"b") == -75, "Stored opinion and derived preference separate")
+	a.set_opinion(&"b", -25)
+	check(a.get_trait_preference_score(b) == 10 and a.get_opinion(&"b") == -25, "Stored opinion and derived preference separate")
 	a.add_liked_trait(Trait.Type.FOOLISH)
-	check(a.get_trait_preference_score(b) == 20 and a.get_opinion(&"b") == -75, "Preference mutation never applies opinion delta")
+	check(a.get_trait_preference_score(b) == 20 and a.get_opinion(&"b") == -25, "Preference mutation never applies opinion delta")
 	b.add_trait(Trait.Type.GLUTTON)
 	check(a.get_trait_preference_score(b) == 30, "Additive contribution has no artificial clamp")
 	var liked: Array = [Trait.Type.GLUTTON, Trait.Type.RESTLESS]

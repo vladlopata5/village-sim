@@ -25,13 +25,13 @@ func remember(f: Dictionary, changes: Dictionary = {}) -> void:
 
 func prepare_story(f: Dictionary, id: String) -> void:
 	match id:
-		"social.success_admiration": prime(f); f.social.rng.rolls = [100, 0]
+		"social.success_admiration": prime(f); f.social.rng.rolls = [100, 50]
 		"social.warm_sympathy": f.social.rng.rolls = [100, 100]
-		"social.rough_conversation": f.social.rng.rolls = [-100, -100]; MoodSetup.set_value(f.a, 20)
-		"social.old_grudge": remember(f); f.social.rng.rolls = [-100, 100]
+		"social.rough_conversation": f.social.rng.rolls = [0, 0]; MoodSetup.set_value(f.a, 20)
+		"social.old_grudge": remember(f); f.social.rng.rolls = [0, 100]
 		"social.character_contrast":
 			f.a.add_trait(Traits.Type.SOCIABLE); f.b.add_trait(Traits.Type.INTROVERTED)
-			f.social.rng.rolls = [0, 0]
+			f.social.rng.rolls = [50, 50]
 
 func fire(f: Dictionary, context: int = SocialResult.Context.CONVERSATION) -> Dictionary:
 	var source: RefCounted = f.social.resolve(f.a, f.b, context as SocialResult.Context)
@@ -82,16 +82,16 @@ func negative_definitions() -> void:
 				if scenario == "positive_reaction": f.social.rng.rolls = [100, 100]
 			elif id == "social.success_admiration":
 				if scenario != "no_pride": prime(f)
-				f.social.rng.rolls = [-100, 100] if scenario == "negative_reaction" else [100, 0]
+				f.social.rng.rolls = [0, 100] if scenario == "negative_reaction" else [100, 50]
 				if scenario == "expired": f.clock.total_minutes += 120
 			else: prepare_story(f, id)
 			if scenario == "mood_high": MoodSetup.set_value(f.a, 21)
-			if scenario == "one_neutral": f.social.rng.rolls = [-100 if id == "social.rough_conversation" else 100, 0]
+			if scenario == "one_neutral": f.social.rng.rolls = [0 if id == "social.rough_conversation" else 100, 50]
 			if scenario == "missing_trait": f.a.remove_trait(Traits.Type.SOCIABLE)
 			if scenario == "reverse_traits":
 				f.a.remove_trait(Traits.Type.SOCIABLE); f.b.remove_trait(Traits.Type.INTROVERTED)
 				f.a.add_trait(Traits.Type.INTROVERTED); f.b.add_trait(Traits.Type.SOCIABLE)
-			if scenario == "negative_reaction": f.social.rng.rolls = [-100, 100]
+			if scenario == "negative_reaction": f.social.rng.rolls = [0, 100]
 			only(f, id)
 			var before: int = f.service.completed_events().size()
 			var diaries: int = f.a.memories.find().size() + f.b.memories.find().size()
@@ -110,7 +110,7 @@ func competition() -> void:
 		check(f.service.completed_events().size() == before + 1 and selection.duplicate, "Adding definitions does not add events per opportunity")
 		cleanup(f)
 	for value in [0.0, 0.3, 0.6, 1.0]:
-		var f := fixture(); prime(f); remember(f); remember(f, {"id": "another-old-chat"}); MoodSetup.set_value(f.a, 20); f.social.rng.rolls = [-100, -100]; f.rng.value = value
+		var f := fixture(); prime(f); remember(f); remember(f, {"id": "another-old-chat"}); MoodSetup.set_value(f.a, 20); f.social.rng.rolls = [0, 0]; f.rng.value = value
 		var result := fire(f)
 		var selection: Dictionary = f.service.selector.run(f.service.last_occurrence())
 		check(selection.eligible == ["social.bad_conversation", "social.old_grudge", "social.rough_conversation", "social.success_envy"] and result.definition_id == selection.eligible[mini(int(value * 4),3)], "New memory/history stories compete with existing envy without extra memory tickets")
@@ -135,7 +135,7 @@ func competition() -> void:
 		var full := fixture(); full.rng.value = 1.0
 		full.b.add_skill_xp(Skill.Type.LOGISTICS, 1000)
 		check(full.b.moodlets.find()[0].context._event.definition_id == "personal.skill_progress_advanced", "Real advanced story supplies a valid pride origin")
-		only(full, followup); full.social.rng.rolls = [100 if followup == "social.success_admiration" else -100, 0]
+		only(full, followup); full.social.rng.rolls = [100 if followup == "social.success_admiration" else 0, 50]
 		check(fire(full).definition_id == followup and full.a.moodlets.find()[0].context.skill == "logistics", "Both admiration and existing envy recognize pride from the new achievement")
 		cleanup(full)
 
@@ -170,7 +170,7 @@ func chances_and_cooldowns() -> void:
 	cleanup(boundary)
 
 func actual_memory_chain() -> void:
-	var f := fixture(); MoodSetup.set_value(f.a, 20); f.social.rng.rolls = [-100, -100]
+	var f := fixture(); MoodSetup.set_value(f.a, 20); f.social.rng.rolls = [0, 0]
 	# Pick the intended existing story from the expanded weighted catalog.
 	f.rng.value=1.0
 	check(fire(f).definition_id == "social.rough_conversation" and f.a.memories.size() == 1, "Actual bad conversation stores a real negative memory")
@@ -180,8 +180,8 @@ func actual_memory_chain() -> void:
 
 func matrix() -> void:
 	for context in SocialResult.Context.values():
-		for first in [-100, 0, 100]:
-			for second in [-100, 0, 100]:
+		for first in [0, 50, 100]:
+			for second in [0, 50, 100]:
 				var f := fixture()
 				if second != 0: prime(f, f.b, context as Skill.Type)
 				if first < 0: remember(f)
@@ -216,11 +216,24 @@ func mechanical_catalog_parity() -> void:
 		for i in 30:
 			starts[0] = f.a.memories.find().size(); starts[1] = f.b.memories.find().size()
 			f.clock.total_minutes = 635 + i
+			# Match mood inputs to isolate story RNG and direct opinion changes.
+			MoodSetup.set_value(f.a, 50.0)
+			MoodSetup.set_value(f.b, 50.0)
 			f.social.resolve(f.a, f.b, (i % 3) as SocialResult.Context)
 		traces.append([events, diaries, f.social.rng.state, f.a.get_opinion("b"), f.b.get_opinion("a")])
 		check(not enabled_followup or f.service.completed_events().size() > 1, "Parity scenario actually executes new content")
 		cleanup(f)
-	check(traces[0] == traces[1], "Full enabled catalog preserves exact reactions, confirmed facts, lack of direct diary writes, relations and RNG state")
+	check(traces[0] == traces[1], "With equal mood, the full catalog preserves exact reactions, confirmed facts, lack of direct diary writes, relations and RNG state")
+
+	var feedback := fixture()
+	only(feedback, "social.warm_sympathy")
+	feedback.social.rng.rolls = [100, 100]
+	feedback.social.resolve(feedback.a, feedback.b, SocialResult.Context.CONVERSATION)
+	check(feedback.a.mood == 60.0 and feedback.a.get_opinion("b") == 1, "Existing story supplies mood independently of directed opinion")
+	feedback.social.rng.rolls = [73, 50]
+	var next: RefCounted = feedback.social.resolve(feedback.a, feedback.b, SocialResult.Context.CONVERSATION)
+	check(next.attitude_1_to_2 == 11.0 and next.reaction_1 == SocialResult.Reaction.POSITIVE and SocialService.reaction(1.0, 73.0) == SocialResult.Reaction.NEUTRAL, "Same roll can change reaction through mood from an existing story")
+	cleanup(feedback)
 
 func actual_conversation() -> void:
 	var scene := Setup.make_scene(self); configure_world(scene)

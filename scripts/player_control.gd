@@ -19,6 +19,7 @@ signal home_changed(resident_id: String, previous: StringName, current: StringNa
 signal household_changed(resident_id: String, previous: StringName, current: StringName)
 var _buildings: Array = [] # Shared world collection, not a separate housing registry.
 var _residents: Dictionary = {}
+var social_links := preload("res://scripts/social_link_store.gd").new()
 var _intents: Dictionary = {}
 var _commands: Dictionary = {}
 var _assignments: Dictionary = {}
@@ -76,14 +77,17 @@ func describe_assignment(resident_id: String, assignment_id: StringName) -> Stri
 func setup(population: Array, buildings: Array) -> void:
 	_buildings = buildings
 	var population_changed := false
+	var removed_opinions: Array = []
 	for resident in population:
 		population_changed = population_changed or _residents.get(resident.id) != resident
+		removed_opinions.append_array(_track_relationship_identity(resident))
 		_residents[resident.id] = resident
 		var callback := _on_resident_household_changed.bind(resident.id)
 		if not resident.household_changed.is_connected(callback): resident.household_changed.connect(callback)
 	for building in buildings: register_building(building)
 	normalize_porter_assignments()
 	if population_changed: residents_changed.emit()
+	_publish_removed_opinions(removed_opinions)
 
 func register_building(building: RefCounted) -> void:
 	if building not in _buildings: _buildings.append(building)
@@ -344,23 +348,52 @@ func normalize_porter_assignments() -> Array[String]:
 
 func register_resident(resident: RefCounted) -> void:
 	if _residents.has(resident.id): return
+	var removed_opinions := _track_relationship_identity(resident)
 	_residents[resident.id] = resident
 	normalize_porter_assignments()
 	resident.household_changed.connect(_on_resident_household_changed.bind(resident.id))
 	residents_changed.emit()
-func unregister_resident(resident_id: String) -> void:
+	_publish_removed_opinions(removed_opinions)
+
+func unregister_resident(resident_id: String, permanent: bool = false) -> void:
 	if _unregistering_residents.has(resident_id): return
 	var resident: RefCounted = _residents.get(resident_id)
-	if resident == null: return
+	if resident == null:
+		if permanent: _publish_removed_opinions(_forget_relationship_identity(resident_id))
+		return
 	_unregistering_residents[resident_id]=true
 	clear_household(resident_id)
 	clear_work_assignment(resident_id)
 	resident.household_changed.disconnect(_on_resident_household_changed.bind(resident_id))
 	_residents.erase(resident_id)
 	for registry in [_intents,_commands,_assignments]: registry.erase(resident_id)
+	var removed_opinions := _forget_relationship_identity(resident_id) if permanent else []
 	_unregistering_residents.erase(resident_id)
 	resident_unregistered.emit(resident_id)
 	residents_changed.emit()
+	_publish_removed_opinions(removed_opinions)
+
+func _track_relationship_identity(resident: RefCounted) -> Array:
+	var removed: Array = []
+	if social_links.knows_id(resident.id) and social_links.resident_for(resident.id) != resident:
+		removed = _forget_relationship_identity(resident.id)
+	social_links.register_resident(resident)
+	return removed
+
+func _forget_relationship_identity(resident_id: String) -> Array:
+	var removed: Array = []
+	if not social_links.knows_id(resident_id): return removed
+	var old: RefCounted = social_links.resident_for(resident_id)
+	for person in social_links.known_residents():
+		if person != old and person._erase_opinion(StringName(resident_id)):
+			removed.append([person, StringName(resident_id)])
+	if old != null:
+		for other_id in old.relationships: old._erase_opinion(other_id)
+	social_links.forget_resident(resident_id)
+	return removed
+
+func _publish_removed_opinions(removed: Array) -> void:
+	for entry in removed: entry[0].relationship_changed.emit(entry[1])
 
 func can_assign_work_area(resident_id: String) -> bool:
 	var resident: RefCounted = get_resident(resident_id)

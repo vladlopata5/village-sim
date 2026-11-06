@@ -5,17 +5,17 @@ const PairFacts = preload("res://scripts/resident_event_facts.gd")
 const Traits = preload("res://scripts/trait_type.gd")
 const Activity = preload("res://scripts/resident_activity.gd")
 const Need = preload("res://scripts/need_type.gd")
-class LegacyRng extends RefCounted:
+class SocialRng extends RefCounted:
 	var probability := 0.0
-	var rolls: Array = [-100, 100]
+	var rolls: Array = [0, 100]
 	var cursor := 0
 	var chances := 0
 	func randf() -> float:
 		chances += 1
 		return probability
-	func randi_range(low: int, high: int) -> int:
-		if low != -100 or high != 100: return low
-		var roll: int = rolls[cursor % rolls.size()]
+	func randi_range(low: int, _high: int) -> int: return low
+	func randf_range(_low: float, _high: float) -> float:
+		var roll: float = rolls[cursor % rolls.size()]
 		cursor += 1
 		return roll
 class PairRegistry extends PlayerRegistry:
@@ -39,7 +39,7 @@ func fixture(people: Array = []) -> Dictionary:
 	service.catalog.load_data({"definitions": historical}, service.facts)
 	service.selector.set_chance("social.resolved", 1)
 	service.selector.rng = CountingRng.new(); service.executor.rng = SequenceRng.new()
-	var social := SocialService.new(); root.add_child(social); social.clock = clock; social.rng = LegacyRng.new()
+	var social := SocialService.new(); root.add_child(social); social.clock = clock; social.rng = SocialRng.new()
 	service.attach_social(social)
 	return {"control": control, "clock": clock, "service": service, "social": social, "rng": service.selector.rng, "a": people[0], "b": people.back()}
 
@@ -122,7 +122,7 @@ func confirmed_results() -> void:
 		check(result.confirmed_context().payload.reaction_1 == "NEGATIVE", "Read-only confirmed context remains immutable")
 		cleanup(f)
 	var bounded_fixture := fixture()
-	bounded_fixture.a.set_opinion("b", 100); bounded_fixture.b.set_opinion("a", -100); bounded_fixture.social.rng.rolls = [100, -100]
+	bounded_fixture.a.set_opinion("b", 25); bounded_fixture.b.set_opinion("a", -25); bounded_fixture.social.rng.rolls = [100, 0]
 	var bounded: Dictionary = bounded_fixture.social.resolve(bounded_fixture.a, bounded_fixture.b, SocialResult.Context.WORK).confirmed_context().payload
 	check(bounded.opinion_delta_1 == 1 and bounded.applied_delta_1 == 0 and bounded.opinion_delta_2 == -1 and bounded.applied_delta_2 == 0, "Requested social deltas are distinct from clamped actual deltas")
 	cleanup(bounded_fixture)
@@ -132,7 +132,7 @@ func conditions() -> void:
 		var f := fixture()
 		if scenario != "no_pride": prime(f)
 		if scenario == "positive": f.social.rng.rolls = [100, 100]
-		if scenario == "neutral": f.social.rng.rolls = [0, 100]
+		if scenario == "neutral": f.social.rng.rolls = [50, 100]
 		if scenario == "expired": f.clock.total_minutes += 120
 		if scenario == "unrelated_pride":
 			var unrelated: Dictionary = f.b.moodlets.find()[0]
@@ -155,7 +155,7 @@ func conditions() -> void:
 		var before: int = f.a.get_opinion("b")
 		var result: RefCounted = f.social.resolve(f.a, f.b, SocialResult.Context.CONVERSATION)
 		check(social_count(f) == 0 and f.a.memories.find().size() == diaries and f.a.memories.size() == memories and f.a.moodlets.size() == moods, "No extra event for " + scenario)
-		check(f.a.get_opinion("b") == clampi(before + result.opinion_delta_1, -100, 100), "Legacy result still applies when follow-up fails: " + scenario)
+		check(f.a.get_opinion("b") == clampi(before + result.opinion_delta_1, -25, 25), "Legacy result still applies when follow-up fails: " + scenario)
 		cleanup(f)
 	# New pride replaces the old skill context, still yielding one event ticket.
 	var multiple := fixture(); prime(multiple); prime(multiple, multiple.b, Skill.Type.CONSTRUCTION)
@@ -186,7 +186,7 @@ func facts_and_reverse_main() -> void:
 	cleanup(f)
 	# Same generic schema with second resident as main, without reversing the trigger.
 	f = fixture(); prime(f, f.a)
-	f.social.rng.rolls = [100, -100]
+	f.social.rng.rolls = [100, 0]
 	var data := social_content(f)
 	var definition: Dictionary = data.definitions[0]
 	definition.main_role = "other"
@@ -239,7 +239,7 @@ func configure_world(scene: Node) -> void:
 	scene.game_time.set_process(false); scene.game_time.total_minutes = 635
 	scene.game_logger.console_enabled = false
 	scene.social_events.enabled = true
-	scene.social_events.rng = LegacyRng.new()
+	scene.social_events.rng = SocialRng.new()
 	scene.game_events.selector.set_chance("social.resolved", 1)
 	scene.game_events.executor.rng = SequenceRng.new()
 

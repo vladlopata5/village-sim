@@ -5,10 +5,10 @@ enum Reaction { NEGATIVE, NEUTRAL, POSITIVE }
 var context: Context
 var resident_1_id: StringName
 var resident_2_id: StringName
-var attitude_1_to_2: int
-var attitude_2_to_1: int
-var roll_1: int
-var roll_2: int
+var attitude_1_to_2: float
+var attitude_2_to_1: float
+var roll_1: float
+var roll_2: float
 var reaction_1: Reaction
 var reaction_2: Reaction
 var opinion_delta_1: int

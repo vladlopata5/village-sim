@@ -4,7 +4,7 @@ const Facts = preload("res://scripts/event_facts.gd")
 const Skill = preload("res://scripts/skill_type.gd")
 const Trait = preload("res://scripts/trait_type.gd")
 
-static func snapshot(first: RefCounted, second: RefCounted, minute: int) -> RefCounted:
+static func snapshot(first: RefCounted, second: RefCounted, minute: int, social_links: RefCounted = null) -> RefCounted:
 	var stores: Array = [first.memories] if second == null else [first.memories,second.memories]
 	preload("res://scripts/memory_store.gd").advance_all(stores,minute)
 	var facts := Facts.new()
@@ -20,8 +20,18 @@ static func snapshot(first: RefCounted, second: RefCounted, minute: int) -> RefC
 		facts.set_value(ref, "mood", person.mood)
 		facts.set_value(ref, "moodlets.active", person.moodlets.active(minute))
 		assert(facts.set_collection(ref, "memories", person.memories.find()))
+		if social_links != null:
+			var counts: Dictionary = social_links.counts_for(person)
+			if not counts.is_empty(): facts.set_value(ref, "link.counts", counts)
 		for other in people:
-			if other != person: facts.set_value(ref, "opinion", person.get_opinion(other.id), {"kind": "resident", "id": other.id})
+			if other == person: continue
+			var target := {"kind": "resident", "id": other.id}
+			facts.set_value(ref, "opinion", person.get_opinion(other.id), target)
+			if social_links != null:
+				var link: Dictionary = social_links.get_link(person, other)
+				if link.is_empty(): continue
+				facts.set_value(ref, "link.level", link.link_level, target)
+				facts.set_value(ref, "link.normal_transition_ready", social_links.normal_transition_ready(person, other, minute), target)
 		for type in Skill.Type.values():
 			var key: String = Skill.Type.keys()[type].to_lower()
 			facts.set_value(ref, "skill.rank", person.get_skill_rank(type), key)
@@ -29,4 +39,10 @@ static func snapshot(first: RefCounted, second: RefCounted, minute: int) -> RefC
 	return facts
 
 static func snapshot_schema() -> Dictionary:
-	return {"mood": ["number", "none"], "traits": ["array", "none"], "opinion": ["number", "entity"], "skill.rank": ["number", "string"], "skill.name": ["string", "string"], "moodlets.active": ["array", "none"], "memories": ["collection", "none"]}
+	return {
+		"mood": ["number", "none"], "traits": ["array", "none"], "opinion": ["number", "entity"],
+		"skill.rank": ["number", "string"], "skill.name": ["string", "string"],
+		"moodlets.active": ["array", "none"], "memories": ["collection", "none"],
+		"link.level": ["number", "entity"], "link.normal_transition_ready": ["bool", "entity"],
+		"link.counts": ["record", "none"],
+	}

@@ -14,9 +14,9 @@ class RoundingRng extends RefCounted:
 class ReactionRng extends RefCounted:
 	var calls := 0
 	var probability_calls := 0
-	var rolls: Array = [100, -100]
-	func randi_range(_low: int, _high: int) -> int:
-		var value: int = rolls[calls % rolls.size()]
+	var rolls: Array = [100, 0]
+	func randf_range(_low: float, _high: float) -> float:
+		var value: float = rolls[calls % rolls.size()]
 		calls += 1
 		return value
 	func randf() -> float:
@@ -54,20 +54,20 @@ func _rates() -> void:
 	for delta in [10, -10, 2, -2, 0]:
 		a.set_opinion("b", 0); var before_calls := rng.calls
 		check(a.change_opinion("b", delta) == (delta != 0) and a.get_opinion("b") == int(delta * 1.5) and rng.calls == before_calls, "Integral scaled deltas are exact with no RNG")
-	for bound in [-100, 100]:
+	for bound in [-25, 25]:
 		a.set_opinion("b", bound)
 		var before_calls := rng.calls; var before_signals := signals
 		check(not a.change_opinion("b", signi(bound)) and rng.calls == before_calls and signals == before_signals, "Outward clamped no-op consumes no RNG or notifications")
 		check(a.change_opinion("b", -signi(bound)) and rng.calls == before_calls + 1, "Moving away from bound still rounds once")
 	for delta in [1, -1]:
-		a.set_opinion("b", 99 * delta); var before_calls := rng.calls
-		check(a.change_opinion("b", delta) and a.get_opinion("b") == 100 * delta and rng.calls == before_calls + 1, "Round before final clamp even when both outcomes reach same bound")
+		a.set_opinion("b", 24 * delta); var before_calls := rng.calls
+		check(a.change_opinion("b", delta) and a.get_opinion("b") == 25 * delta and rng.calls == before_calls + 1, "Round before final clamp even when both outcomes reach same bound")
 	var skipped_calls := rng.calls
 	check(not a.change_opinion("", 1) and not a.change_opinion("a", -1) and rng.calls == skipped_calls, "Invalid targets do not draw or create relationships")
 	var empty := Data.new("empty", "Empty", 25); empty.add_trait(Trait.Type.HOTHEADED); empty.opinion_rng = rng
 	check(not empty.change_opinion("b", 0) and empty.relationships.is_empty() and rng.calls == skipped_calls, "Zero keeps storage sparse")
-	a.set_opinion("b", 50); a.set_opinion("b", 50)
-	check(a.get_opinion("b") == 50 and rng.calls == skipped_calls, "Absolute set retains existing semantics and does not scale or draw")
+	a.set_opinion("b", 25); a.set_opinion("b", 25)
+	check(a.get_opinion("b") == 25 and rng.calls == skipped_calls, "Absolute set retains existing semantics and does not scale or draw")
 	var state: int = Data.new("seeded", "Seeded", 25).opinion_rng.state
 	var same := Data.new("seeded", "Seeded", 25)
 	check(same.opinion_rng.state == state, "Same stable resident ID reproduces private RNG stream")
@@ -102,7 +102,7 @@ func _social() -> void:
 			a.add_trait(Trait.Type.HOTHEADED)
 			var rounding := RoundingRng.new(); a.opinion_rng = rounding
 			var social := Social.new(); root.add_child(social)
-			var reaction := ReactionRng.new(); reaction.rolls = [-100, 100] if negative else [100, -100]; social.rng = reaction
+			var reaction := ReactionRng.new(); reaction.rolls = [0, 100] if negative else [100, 0]; social.rng = reaction
 			var result = social.resolve(a, b, context)
 			var payload: Dictionary = result.confirmed_context().payload
 			var sign_value := -1 if negative else 1
@@ -112,12 +112,12 @@ func _social() -> void:
 			result.confirmed_context(); social._publish_commits(); social._publish_commits()
 			check(a.get_opinion("b") == 2 * sign_value and rounding.calls == 1, "Repeated reads/publication cannot reapply opinion or reroll")
 			check(is_equal_approx(Modifiers.social_partner_multiplier(a, a.get_opinion("b")), 1.0 + 0.003 * 2 * sign_value), "Partner choice continues to use actual directed opinion")
-			a.set_opinion("b", 0); b.set_opinion("a", 0); reaction.calls = 0; reaction.rolls = [0, 0]
+			a.set_opinion("b", 0); b.set_opinion("a", 0); reaction.calls = 0; reaction.rolls = [50, 50]
 			social.resolve(a, b, context)
 			check(a.get_opinion("b") == 0 and b.get_opinion("a") == 0 and rounding.calls == 1, "Neutral social reaction never consumes rounding RNG")
 			b.add_trait(Trait.Type.HOTHEADED)
 			var reverse_rounding := RoundingRng.new(); reverse_rounding.draw = 0.75; b.opinion_rng = reverse_rounding
-			reaction.calls = 0; reaction.rolls = [100, -100]
+			reaction.calls = 50; reaction.rolls = [100, 0]
 			result = social.resolve(a, b, context)
 			check(a.get_opinion("b") == 2 and b.get_opinion("a") == -1 and rounding.calls == 2 and reverse_rounding.calls == 1, "Two HOTHEADED participants use independent once-only draws")
 			social.free()

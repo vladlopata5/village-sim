@@ -36,11 +36,20 @@ func chance_for(context: Event.Context) -> float:
 		Event.Context.CONVERSATION: return Balance.SOCIAL_EVENT_CHANCE_CONVERSATION
 		Event.Context.MEAL: return Balance.SOCIAL_EVENT_CHANCE_MEAL
 		_: return Balance.SOCIAL_EVENT_CHANCE_WORK
-static func attitude(a: RefCounted, b: RefCounted) -> int:
-	return clampi(a.get_opinion(b.id) + a.get_trait_preference_score(b), Balance.SOCIAL_ATTITUDE_MIN, Balance.SOCIAL_ATTITUDE_MAX)
-static func reaction(score: int) -> Event.Reaction:
-	if score < -Balance.SOCIAL_REACTION_THRESHOLD: return Event.Reaction.NEGATIVE
-	if score > Balance.SOCIAL_REACTION_THRESHOLD: return Event.Reaction.POSITIVE
+static func attitude(a: RefCounted, b: RefCounted) -> float:
+	var mood_bonus := clampf(a.mood - 50.0, -25.0, 25.0)
+	return clampf(a.get_opinion(b.id) + a.get_trait_preference_score(b) + mood_bonus, Balance.SOCIAL_ATTITUDE_MIN, Balance.SOCIAL_ATTITUDE_MAX)
+
+## Negative, neutral and positive, in percent.
+static func reaction_probabilities(value: float) -> Array[float]:
+	var positive := maxf(10.0, 25.0 + value / 4.0)
+	var negative := maxf(10.0, 25.0 - value / 4.0)
+	return [negative, 100.0 - positive - negative, positive]
+
+static func reaction(value: float, roll: float) -> Event.Reaction:
+	var chances := reaction_probabilities(value)
+	if roll < chances[0]: return Event.Reaction.NEGATIVE
+	if roll >= 100.0 - chances[2]: return Event.Reaction.POSITIVE
 	return Event.Reaction.NEUTRAL
 static func delta(value: Event.Reaction) -> int:
 	match value:
@@ -90,6 +99,7 @@ func trigger(runtime: Node, context: Event.Context, location_id: StringName = &"
 	return resolve(runtime.data, other.data, context, first.get("tags", []), second.get("tags", []), location_id if not location_id.is_empty() else first.get("building_id", &""))
 func resolve(a: RefCounted, b: RefCounted, context: Event.Context, tags_a: Array = [], tags_b: Array = [], location_id: StringName = &"") -> Event:
 	if a == null or b == null or a.id == b.id: return null
+	if not a.is_current_opinion_partner(b) or not b.is_current_opinion_partner(a): return null
 	_attempt_sequence += 1
 	var attempt := _attempt_sequence
 	var minute: int = clock.total_minutes if is_instance_valid(clock) else 0
@@ -101,14 +111,20 @@ func resolve(a: RefCounted, b: RefCounted, context: Event.Context, tags_a: Array
 	# Snapshot BOTH attitudes before either direction is mutated.
 	result.attitude_1_to_2 = attitude(a, b)
 	result.attitude_2_to_1 = attitude(b, a)
-	result.roll_1 = rng.randi_range(-100, 100)
-	result.roll_2 = rng.randi_range(-100, 100)
-	result.reaction_1 = reaction(result.roll_1 + result.attitude_1_to_2)
-	result.reaction_2 = reaction(result.roll_2 + result.attitude_2_to_1)
+	result.roll_1 = rng.randf_range(0.0, 100.0)
+	result.roll_2 = rng.randf_range(0.0, 100.0)
+	result.reaction_1 = reaction(result.attitude_1_to_2, result.roll_1)
+	result.reaction_2 = reaction(result.attitude_2_to_1, result.roll_2)
 	result.opinion_delta_1 = delta(result.reaction_1)
 	result.opinion_delta_2 = delta(result.reaction_2)
 	var applied_1: Dictionary = a.apply_opinion_change(b.id, result.opinion_delta_1)
-	var applied_2: Dictionary = b.apply_opinion_change(a.id, result.opinion_delta_2)
+	var applied_2: Dictionary
+	if b.is_current_opinion_partner(a):
+		applied_2 = b.apply_opinion_change(a.id, result.opinion_delta_2)
+	else:
+		# The first opinion notification can remove or replace either identity.
+		var current: int = b.get_opinion(a.id)
+		applied_2 = {"before": current, "after": current}
 	result._participant_sources = [weakref(a), weakref(b)]
 	# Owned operation values are historical facts, not later callback-edited state.
 	result._confirmed_context = {
@@ -132,12 +148,19 @@ func resolve(a: RefCounted, b: RefCounted, context: Event.Context, tags_a: Array
 	}
 	_committed.append(result)
 	if logger != null:
-		logger.info(EventLog.SOCIAL_EVENT, "context=%s A=%s B=%s | %s attitude=%d roll=%d reaction=%s delta=%+d | %s attitude=%d roll=%d reaction=%s delta=%+d" % [Event.Context.keys()[context], a.resident_name, b.resident_name, a.resident_name, result.attitude_1_to_2, result.roll_1, Event.Reaction.keys()[result.reaction_1], result.opinion_delta_1, b.resident_name, result.attitude_2_to_1, result.roll_2, Event.Reaction.keys()[result.reaction_2], result.opinion_delta_2])
-		logger.debug(EventLog.SOCIAL, "context=%s A=%s B=%s; A attitude=%d roll=%d score=%d reaction=%s delta=%d; B attitude=%d roll=%d score=%d reaction=%s delta=%d" % [Event.Context.keys()[context], a.resident_name, b.resident_name, result.attitude_1_to_2, result.roll_1, result.attitude_1_to_2 + result.roll_1, Event.Reaction.keys()[result.reaction_1], result.opinion_delta_1, result.attitude_2_to_1, result.roll_2, result.attitude_2_to_1 + result.roll_2, Event.Reaction.keys()[result.reaction_2], result.opinion_delta_2])
+		var first_log := _reaction_log(result.attitude_1_to_2, result.roll_1, result.reaction_1, result.opinion_delta_1, applied_1.after - applied_1.before)
+		var second_log := _reaction_log(result.attitude_2_to_1, result.roll_2, result.reaction_2, result.opinion_delta_2, applied_2.after - applied_2.before)
+		var description := "context=%s A=%s B=%s" % [Event.Context.keys()[context], a.resident_name, b.resident_name]
+		logger.info(EventLog.SOCIAL_EVENT, "%s | %s | %s" % [description, first_log, second_log])
+		logger.debug(EventLog.SOCIAL, "%s | A %s | B %s" % [description, first_log, second_log])
 	event_resolved.emit(result)
 	_resolve_depth -= 1
 	_publish_commits()
 	return result
+
+static func _reaction_log(value: float, roll: float, outcome: Event.Reaction, requested: int, applied: int) -> String:
+	var chances := reaction_probabilities(value)
+	return "attitude=%.3f roll=%.3f P(-/0/+)=%.3f/%.3f/%.3f reaction=%s delta=%+d applied=%+d" % [value, roll, chances[0], chances[1], chances[2], Event.Reaction.keys()[outcome], requested, applied]
 func _publish_commits() -> void:
 	if _resolve_depth > 0 or _publishing_commits: return
 	_publishing_commits = true

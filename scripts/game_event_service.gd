@@ -201,9 +201,9 @@ func _process_occurrence(context: Dictionary, source: RefCounted, expected_other
 	if context.trigger == "social.resolved":
 		var second: RefCounted = _control.get_resident(context.other.id)
 		if second != expected_other or not _active(second): return {"status": "inactive_social_pair"}
-		evaluation_facts = ResidentFacts.snapshot(source, second, _clock.total_minutes)
+		evaluation_facts = ResidentFacts.snapshot(source, second, _clock.total_minutes, _control.social_links)
 	else:
-		evaluation_facts = ResidentFacts.snapshot(source, null, _clock.total_minutes)
+		evaluation_facts = ResidentFacts.snapshot(source, null, _clock.total_minutes, _control.social_links)
 		evaluation_facts.include_entity_registry(facts)
 	selector.facts = evaluation_facts
 	executor.setup(_control, evaluation_facts, _active)

@@ -7,7 +7,7 @@ func awkward_fixture(reverse: bool = false) -> Dictionary:
 	var f := fixture([Data.new("a", "Анна", 25),Data.new("b", "Степан", 30)])
 	f.a.grammatical_gender=Traits.GrammaticalGender.FEMININE
 	only(f,ID)
-	f.social.rng.rolls=[-100,100] if reverse else [100,-100]
+	f.social.rng.rolls=[0,100] if reverse else [100,0]
 	f.positive=f.b if reverse else f.a
 	f.negative=f.a if reverse else f.b
 	return f
@@ -20,10 +20,10 @@ func _run() -> void:
 
 func conditions_and_chance() -> void:
 	for context in SocialResult.Context.values():
-		for first in [-100,0,100]:
-			for second in [-100,0,100]:
+		for first in [0,50,100]:
+			for second in [0,50,100]:
 				var f:=awkward_fixture();f.social.rng.rolls=[first,second]
-				var valid: bool=context!=SocialResult.Context.WORK and first*second==-10000
+				var valid: bool=context!=SocialResult.Context.WORK and ((first==0 and second==100) or (first==100 and second==0))
 				var result:=fire(f,context)
 				check((result.status=="completed")==valid,"Only mixed reactions in conversation/meal qualify")
 				check(f.service.chronicle.size()==int(valid),"Rejected facts create no chronicle")
@@ -105,7 +105,7 @@ func formulations() -> void:
 func symmetric_pair() -> void:
 	var f:=awkward_fixture();fire(f)
 	check(f.service.cooldown_history().size()==2 and f.service.cooldown_history().values()==[635,635],"Both directions committed at the same minute")
-	f.clock.total_minutes=874;f.social.rng.rolls=[-100,100]
+	f.clock.total_minutes=874;f.social.rng.rolls=[0,100]
 	var source: RefCounted=f.social.resolve(f.b,f.a,SocialResult.Context.MEAL)
 	check(f.service.replay(source.confirmed_context().occurrence_id).status=="no_match","Reversing actor and reactions cannot bypass 239 minute cooldown")
 	f.clock.total_minutes=875;source=f.social.resolve(f.b,f.a,SocialResult.Context.MEAL)
@@ -168,7 +168,7 @@ func actual_card() -> void:
 	var scene=load("res://scenes/main_3d.tscn").instantiate();root.add_child(scene);scene.game_time.set_process(false);scene.game_logger.console_enabled=false
 	var definition: Dictionary=scene.game_events.catalog.definitions_for("social.resolved").filter(func(d):return d.id==ID)[0]
 	check(scene.game_events.catalog.load_data({"definitions":[definition]},scene.game_events.facts),"Canonical world loads the production definition")
-	scene.game_events.selector.set_chance("social.resolved",1);scene.game_events.selector.rng=CountingRng.new();scene.game_events.executor.rng=SequenceRng.new();scene.social_events.rng=LegacyRng.new();scene.social_events.rng.rolls=[100,-100]
+	scene.game_events.selector.set_chance("social.resolved",1);scene.game_events.selector.rng=CountingRng.new();scene.game_events.executor.rng=SequenceRng.new();scene.social_events.rng=SocialRng.new();scene.social_events.rng.rolls=[100,0]
 	var a: RefCounted=scene.residents[0];var b: RefCounted=scene.residents[1]
 	scene.social_events.resolve(a,b,SocialResult.Context.MEAL)
 	check(scene.game_events.chronicle.size()==1 and a.memories.size()==1 and b.memories.size()==1,"Live canonical social service commits paired experience")

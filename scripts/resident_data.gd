@@ -223,25 +223,51 @@ const Modifiers = preload("res://scripts/resident_modifiers.gd")
 var opinion_rng: RefCounted = RandomNumberGenerator.new()
 signal relationship_changed(other_resident_id: StringName)
 # Outgoing directed records only. Never update another resident's reverse record.
-var relationships: Dictionary = {}
+var _relationships: Dictionary = {}
+var relationships: Dictionary:
+	get: return _relationships.duplicate()
+var _social_links: RefCounted
+
+func bind_social_links(links: RefCounted) -> void:
+	_social_links = links
+
+func is_current_opinion_partner(other: RefCounted) -> bool:
+	if not _valid_opinion_target(other.id): return false
+	return _social_links == null or _social_links.resident_for(other.id) == other
+
+func _valid_opinion_target(other_id: StringName) -> bool:
+	if other_id == StringName(id) or String(other_id).strip_edges().is_empty(): return false
+	if _social_links == null: return true
+	return _social_links.resident_for(id) == self and _social_links.resident_for(String(other_id)) != null
+
+func _opinion_bounds(other_id: StringName, current: int) -> Vector2i:
+	var level := 0
+	if _social_links != null:
+		level = _social_links.get_level(self, _social_links.resident_for(String(other_id)))
+	var center := level * Balance.OPINION_LINK_STEP
+	return Vector2i(mini(current, center - Balance.OPINION_LINK_STEP), maxi(current, center + Balance.OPINION_LINK_STEP))
+
 func get_relationship(other_id: StringName) -> Relationship:
 	if other_id == StringName(id) or other_id.is_empty(): return null
-	return relationships.get(other_id)
+	return _relationships.get(other_id)
 func has_relationship(other_id: StringName) -> bool:
 	return get_relationship(other_id) != null
 func get_opinion(other_id: StringName) -> int:
 	var relation := get_relationship(other_id)
 	return relation.opinion if relation != null else Balance.OPINION_NEUTRAL
 func set_opinion(other_id: StringName, value: int) -> bool:
-	if other_id == StringName(id) or other_id.is_empty(): return false
-	var bounded := clampi(value, Balance.OPINION_MIN, Balance.OPINION_MAX)
+	if not _valid_opinion_target(other_id): return false
+	var bounds := _opinion_bounds(other_id, get_opinion(other_id))
+	return _write_opinion(other_id, clampi(value, bounds.x, bounds.y))
+
+func _write_opinion(other_id: StringName, bounded: int) -> bool:
 	if get_opinion(other_id) == bounded: return false
 	var relation := get_relationship(other_id)
 	if relation == null:
 		relation = Relationship.new(other_id)
-		relationships[other_id] = relation
+		_relationships[other_id] = relation
 		relation.opinion_changed.connect(_on_relationship_opinion_changed.bind(other_id))
-	relation.opinion = bounded
+	relation._commit_opinion(bounded)
 	return true
 func change_opinion(other_id: StringName, delta: int) -> bool:
 	var applied := apply_opinion_change(other_id, delta)
@@ -250,16 +276,23 @@ func apply_opinion_change(other_id: StringName, delta: int) -> Dictionary:
 	# Return this operation's facts, even if an emitted callback changes opinion again.
 	var before := get_opinion(other_id)
 	var applied := {"before": before, "after": before}
-	if other_id == StringName(id) or other_id.is_empty() or delta == 0: return applied
-	if (before == Balance.OPINION_MAX and delta > 0) or (before == Balance.OPINION_MIN and delta < 0): return applied
+	if not _valid_opinion_target(other_id) or delta == 0: return applied
+	var bounds := _opinion_bounds(other_id, before)
+	if (before == bounds.y and delta > 0) or (before == bounds.x and delta < 0): return applied
 	var magnitude := absf(Modifiers.opinion_delta(self, delta))
-	var whole := floori(magnitude)
-	var fraction := magnitude - whole
+	var whole := floori(minf(magnitude, Balance.OPINION_MAX - Balance.OPINION_MIN))
+	var fraction := magnitude - floorf(magnitude)
 	# Only a committed fractional change consumes one draw. Reads/set/previews do not.
 	if fraction > 0.0 and opinion_rng.randf() < fraction: whole += 1
-	applied.after = clampi(before + whole * signi(delta), Balance.OPINION_MIN, Balance.OPINION_MAX)
-	set_opinion(other_id, applied.after)
+	applied.after = clampi(before + whole * signi(delta), bounds.x, bounds.y)
+	_write_opinion(other_id, applied.after)
 	return applied
+
+func _erase_opinion(other_id: StringName) -> bool:
+	var relation := get_relationship(other_id)
+	if relation == null: return false
+	relation.opinion_changed.disconnect(_on_relationship_opinion_changed.bind(other_id))
+	return _relationships.erase(other_id)
 func _on_relationship_opinion_changed(other_id: StringName) -> void:
 	relationship_changed.emit(other_id)
 

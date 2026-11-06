@@ -15,16 +15,17 @@ const BuildingType = preload("res://scripts/building_type.gd")
 const ResourceType = preload("res://scripts/resource_type.gd")
 class FixedRng extends RefCounted:
 	var probability := 0.0
-	var integers: Array = [0]
+	var rolls: Array = [50]
 	var cursor := 0
 	var draws := 0
 	func randf() -> float:
 		draws += 1
 		return probability
-	func randi_range(low: int, high: int) -> int:
-		var value: int = integers[cursor % integers.size()]
+	func randi_range(low: int, _high: int) -> int: return low
+	func randf_range(low: float, high: float) -> float:
+		var value: float = rolls[cursor % rolls.size()]
 		cursor += 1
-		return clampi(value, low, high)
+		return clampf(value, low, high)
 var checks := 0
 var failures := 0
 var debug_lines: Array = []
@@ -36,9 +37,9 @@ func check(ok: bool, message: String) -> void:
 		failures += 1
 		push_error(message)
 func pair() -> Array: return [Data.new("a", "Анна", 25), Data.new("b", "Марина", 30)]
-func fixed(service: Node, rolls: Array = [0, 0], probability: float = 0.0) -> FixedRng:
+func fixed(service: Node, rolls: Array = [50, 50], probability: float = 0.0) -> FixedRng:
 	var random := FixedRng.new()
-	random.integers = rolls
+	random.rolls = rolls
 	random.probability = probability
 	service.rng = random
 	return random
@@ -58,42 +59,42 @@ func _run() -> void:
 	a.set_opinion(b.id, 5)
 	b.set_opinion(a.id, -15)
 	check(Service.attitude(a,b) == 15 and Service.attitude(b,a) == -15, "Attitude is directed opinion plus preference")
-	a.set_opinion(b.id, 100)
-	check(Service.attitude(a,b) == 100, "Positive attitude clamped")
+	a.set_opinion(b.id, 25)
+	check(Service.attitude(a,b) == 35, "Positive attitude uses the bounded opinion")
 	a.remove_liked_trait(Trait.Type.FOOLISH)
 	a.add_disliked_trait(Trait.Type.FOOLISH)
-	a.set_opinion(b.id, -100)
-	check(Service.attitude(a,b) == -100, "Negative attitude clamped")
+	a.set_opinion(b.id, -25)
+	check(Service.attitude(a,b) == -35, "Negative attitude uses the bounded opinion")
 	a.set_opinion(b.id, 5)
 	check(Service.attitude(a,b) == -5, "Opinion change affects derived attitude")
 	a.remove_disliked_trait(Trait.Type.FOOLISH)
 	a.add_liked_trait(Trait.Type.FOOLISH)
 	check(Service.attitude(a,b) == 15, "Preference change affects attitude")
-	for score in [-51,-50,0,50,51]:
-		var expected := Event.Reaction.NEGATIVE if score < -50 else Event.Reaction.POSITIVE if score > 50 else Event.Reaction.NEUTRAL
-		check(Service.reaction(score) == expected, "Inclusive neutral thresholds")
-	fixed(service,[43,17])
+	for roll in [0.0, 24.999, 25.0, 74.999, 75.0, 100.0]:
+		var expected := Event.Reaction.NEGATIVE if roll < 25.0 else Event.Reaction.POSITIVE if roll >= 75.0 else Event.Reaction.NEUTRAL
+		check(Service.reaction(0.0, roll) == expected, "Exact probability boundaries at neutral attitude")
+	fixed(service,[80,50])
 	var event := service.resolve(a,b,Event.Context.CONVERSATION)
 	check(event.attitude_1_to_2 == 15 and event.attitude_2_to_1 == -15, "Both attitudes snapshotted")
-	check(event.roll_1 == 43 and event.roll_2 == 17, "Independent reaction rolls")
-	check(debug_lines[0].contains("attitude=15 roll=43 score=58 reaction=POSITIVE delta=1"),"Structured DEBUG result logged after mechanics/text")
+	check(event.roll_1 == 80 and event.roll_2 == 50, "Independent reaction rolls")
+	check(debug_lines[0].contains("attitude=15.000 roll=80.000 P(-/0/+)=21.250/50.000/28.750 reaction=POSITIVE delta=+1"),"Structured DEBUG result logged after mechanics/text")
 	print(debug_lines[0])
 	check(event.reaction_1 == Event.Reaction.POSITIVE and event.reaction_2 == Event.Reaction.NEUTRAL, "Positive/neutral outcomes independent")
 	check(a.get_opinion(b.id) == 6 and b.get_opinion(a.id) == -15, "Only directed positive delta applied")
-	fixed(service,[100,-100])
+	fixed(service,[100,0])
 	event = service.resolve(a,b,Event.Context.WORK)
 	check(event.reaction_1 == Event.Reaction.POSITIVE and event.reaction_2 == Event.Reaction.NEGATIVE, "Positive/negative outcomes")
 	check(event.opinion_delta_1 == 1 and event.opinion_delta_2 == -1, "Delta mapping")
-	a.set_opinion(b.id,100)
-	b.set_opinion(a.id,-100)
+	a.set_opinion(b.id,25)
+	b.set_opinion(a.id,-25)
 	service.resolve(a,b,Event.Context.MEAL)
-	check(a.get_opinion(b.id)==100 and b.get_opinion(a.id)==-100,"Existing opinion clamps preserved")
+	check(a.get_opinion(b.id)==25 and b.get_opinion(a.id)==-25,"Existing opinion clamps preserved")
 	people=pair(); a=people[0]; b=people[1]
-	fixed(service,[0,0]); service.resolve(a,b,Event.Context.CONVERSATION)
+	fixed(service,[50,50]); service.resolve(a,b,Event.Context.CONVERSATION)
 	check(a.relationships.is_empty() and b.relationships.is_empty(),"Neutral preserves sparse lazy records")
 	check(service.resolve(a,a,Event.Context.WORK)==null,"Self event rejected")
 	check(not "social_attitude" in a,"Attitude is not resident stored state")
-	fixed(service,[100,-100]); event=service.resolve(a,b,Event.Context.MEAL)
+	fixed(service,[100,0]); event=service.resolve(a,b,Event.Context.MEAL)
 	check(a.get_opinion(b.id)==1 and b.get_opinion(a.id)==-1 and a.memories.find().is_empty() and b.memories.find().is_empty(),"Ordinary interaction preserves reactions without inventing narrative output")
 	var s2:=Service.new(); root.add_child(s2)
 	service.rng=RandomNumberGenerator.new(); service.set_seed(123); s2.set_seed(123)
@@ -116,7 +117,7 @@ func _runtime_tests() -> void:
 	var actor=scene.resident_runtimes[1]
 	var target=scene.resident_runtimes[3]
 	var passer=scene.resident_runtimes[2]
-	var random:=fixed(service,[0,0])
+	var random:=fixed(service,[50,50])
 	check(service.chance_for(Event.Context.CONVERSATION)==0.30 and service.chance_for(Event.Context.MEAL)==1.00 and service.chance_for(Event.Context.WORK)==0.50,"Configured chances")
 	check(service.trigger(actor,Event.Context.CONVERSATION)==null,"No group means no eligible others")
 	var starting_draws:=random.draws

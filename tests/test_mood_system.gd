@@ -13,7 +13,7 @@ class ObservedStore extends Moodlets:
 		super._rebuild_numeric_cache(minute)
 class NegativeRng extends RefCounted:
 	func randf() -> float: return 0.0
-	func randi_range(_low: int, _high: int) -> int: return -100
+	func randf_range(_low: float, _high: float) -> float: return 0.0
 
 func _run() -> void:
 	formula()

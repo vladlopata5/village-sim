@@ -1,3 +1,13 @@
+> С 2026-11-06 снимок регистрирует `link.level` и `link.normal_transition_ready`
+> с аргументом resident, а также `link.counts` как запись из шести вложенных
+> счётчиков `positive_1`…`negative_3`. Данные берутся из `PlayerControl.social_links`.
+> Для действительной пары без записи уровень 0 и обычный переход доступен по времени.
+> При отсутствии второго участника сохраняются только счётчики источника.
+> `roll_1/2` в `social.resolved` теперь проценты `[0,100]`, `attitude_*` учитывает mood.
+> Общий срок пары `normal_transition_available_at` относится к переходам уровня.
+> Cooldown историй остаётся привязан к определению события. Подготовка и фиксация
+> перехода доступны в доменном API для будущей интеграции эффекта.
+
 > «Не поняли друг друга» (2026-11-04): social.misunderstood_conversation,
 > NEGATIVE+NEUTRAL в обеих перестановках, CONVERSATION/MEAL, вес1,
 > симметричный cooldown240. Resident bindings negative/neutral определяют владельцев

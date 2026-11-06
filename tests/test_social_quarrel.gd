@@ -14,17 +14,17 @@ func quarrel_fixture() -> Dictionary:
 	var f := fixture([Data.new("a", "Иван", 25), Data.new("b", "Анна", 30)])
 	f.b.grammatical_gender = Traits.GrammaticalGender.FEMININE
 	MoodSetup.set_value(f.a, 20); MoodSetup.set_value(f.b, 20)
-	f.social.rng.rolls = [-100, -100]
+	f.social.rng.rolls = [0, 0]
 	only(f, "social.rough_conversation")
 	return f
 
 func conditions_and_contexts() -> void:
 	for context in SocialResult.Context.values():
 		for mood in [19,20,21]:
-			for reactions in [[-100,-100],[-100,0],[0,-100]]:
+			for reactions in [[0,0],[0,50],[50,0]]:
 				var f := quarrel_fixture(); MoodSetup.set_value(f.a, mood); f.social.rng.rolls = reactions
 				var result := fire(f, context)
-				var expected: bool = mood <= 20 and reactions == [-100,-100]
+				var expected: bool = mood <= 20 and reactions == [0,0]
 				check((result.status == "completed") == expected, "Quarrel conditions mood/context/reactions: " + str([mood,context,reactions]))
 				check(f.service.chronicle.size() == int(expected) and f.a.memories.size() == int(expected) and f.b.memories.size() == 0, "Exactly one world entry, no private duplicate")
 				check(f.a.mood == mood and not f.service.last_occurrence().payload.has("mood"), "Real mood is read without mutation or changing social.resolved")
@@ -100,7 +100,7 @@ func live_action() -> void:
 	MoodSetup.set_value(actor.data, 20); actor.data.set_traits([]); other.data.set_traits([])
 	var definition: Dictionary = world.game_events.catalog.definitions_for("social.resolved").filter(func(d): return d.id == "social.rough_conversation")[0]
 	check(world.game_events.catalog.load_data({"definitions":[definition]},world.game_events.facts), "Canonical event catalog")
-	world.game_events.selector.rng = CountingRng.new(); world.game_events.executor.rng = SequenceRng.new(); world.social_events.rng = LegacyRng.new(); world.social_events.rng.rolls = [-100,-100]
+	world.game_events.selector.rng = CountingRng.new(); world.game_events.executor.rng = SequenceRng.new(); world.social_events.rng = SocialRng.new(); world.social_events.rng.rolls = [0,0]
 	var event: RefCounted = world.social_events.resolve(actor.data,other.data,SocialResult.Context.CONVERSATION)
 	check(world.game_events.replay(event.confirmed_context().occurrence_id).status == "completed" and world.game_events.chronicle.size() == 1 and actor.data.moodlets.is_active("angry",world.game_time.total_minutes), "Canonical social→event→chronicle/angry pipeline")
 	check(actor.moodlet_actions.collect_actions().any(func(action): return action.id == "VENT_ANGER"), "Quarrel unlocks existing VENT_ANGER with an available real tree")

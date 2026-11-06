@@ -1458,6 +1458,9 @@ Weather/mood/events/health/policies/temporary states — будущие sources,
 
 ### Направленное мнение — foundation отношений
 
+Актуальная модель от 2026-11-06 описана в разделе «Общие уровни связи и социальные
+реакции» в [DECISIONS.md](DECISIONS.md). Ниже сохранено исходное описание до её внедрения.
+
 ResidentData хранит собственные исходящие relationships по stable ID другого
 жителя. ResidentRelationship содержит только other_resident_id и opinion.
 Opinion субъективно и направленно: A→B=40 и B→A=−10 независимы. Диапазон
@@ -1524,6 +1527,9 @@ context + shared events; эти сочетания сейчас не реали�
 
 
 ## Social Events (первая версия)
+
+Историческое описание. Текущие вероятности реакций и диапазоны opinion описаны
+в разделе «Общие уровни связи и социальные реакции» в [DECISIONS.md](DECISIONS.md).
 
 Одно transient SocialEvent имеет двух участников; WORK, MEAL, CONVERSATION —
 контекстные теги, а не отдельные типы историй. Roll запускается из lifecycle:

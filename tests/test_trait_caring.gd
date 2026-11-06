@@ -41,7 +41,7 @@ func weights() -> void:
 			var group=world.create_group(Vector2(100,0))
 			for index in pair:
 				var member: Node=world.get_runtime("target_%d"%index);member.data.activity=Activity.TALKING;group.add_participant(member.data.id)
-				actor.data.set_opinion(StringName(member.data.id),100 if index%2==1 else -100)
+				OpinionSetup.seed(actor.data, StringName(member.data.id),100 if index%2==1 else -100)
 				member.data.get_need(Need.SOCIAL).value=100 if index in [2,3] else 0
 		world.get_runtime("target_5").data.get_need(Need.SOCIAL).value=50
 		world.get_runtime("target_6").data.activity=Activity.MOVING

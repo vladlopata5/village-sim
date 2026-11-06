@@ -7,7 +7,7 @@ func misunderstood_fixture(reverse: bool = false) -> Dictionary:
 	var f := fixture([Data.new("a", "Анна", 25),Data.new("b", "Степан", 30)])
 	f.a.grammatical_gender=Traits.GrammaticalGender.FEMININE
 	only(f,ID)
-	f.social.rng.rolls=[0,-100] if reverse else [-100,0]
+	f.social.rng.rolls=[50,0] if reverse else [0,50]
 	f.negative=f.b if reverse else f.a
 	f.neutral=f.a if reverse else f.b
 	return f
@@ -20,10 +20,10 @@ func _run() -> void:
 
 func conditions_and_chance() -> void:
 	for context in SocialResult.Context.values():
-		for first in [-100,0,100]:
-			for second in [-100,0,100]:
+		for first in [0,50,100]:
+			for second in [0,50,100]:
 				var f:=misunderstood_fixture();f.social.rng.rolls=[first,second]
-				var valid: bool=context!=SocialResult.Context.WORK and ((first==-100 and second==0) or (first==0 and second==-100))
+				var valid: bool=context!=SocialResult.Context.WORK and ((first==0 and second==50) or (first==50 and second==0))
 				var result:=fire(f,context)
 				check((result.status=="completed")==valid,"Only negative/neutral reactions in conversation/meal qualify")
 				check(f.service.chronicle.size()==int(valid),"Rejected facts create no chronicle")
@@ -134,7 +134,7 @@ func formulations() -> void:
 func symmetric_pair() -> void:
 	var f:=misunderstood_fixture();fire(f)
 	check(f.service.cooldown_history().size()==2 and f.service.cooldown_history().values()==[635,635],"Both directions committed at the same minute")
-	f.clock.total_minutes=874;f.social.rng.rolls=[0,-100]
+	f.clock.total_minutes=874;f.social.rng.rolls=[50,0]
 	var source: RefCounted=f.social.resolve(f.b,f.a,SocialResult.Context.MEAL)
 	check(f.service.replay(source.confirmed_context().occurrence_id).status=="no_match","Reversing actor and reactions cannot bypass 239 minute cooldown")
 	f.clock.total_minutes=875;source=f.social.resolve(f.b,f.a,SocialResult.Context.MEAL)
@@ -155,7 +155,7 @@ func refresh_and_expire() -> void:
 	for person in [f.negative,f.neutral]:person.moodlets.advance(815);check(person.moodlets.size()==0 and person.mood==50 and person.moodlets.need_growth_factors(815).is_empty(),"Both expire exactly after120 minutes")
 	cleanup(f)
 	var flipped:=misunderstood_fixture();var definition:=definition_for(flipped,ID);definition.cooldown.minutes=0;load_content(flipped,{"definitions":[definition]})
-	fire(flipped);flipped.clock.total_minutes=695;flipped.social.rng.rolls=[0,-100];flipped.service.executor.rng=SequenceRng.new();fire(flipped)
+	fire(flipped);flipped.clock.total_minutes=695;flipped.social.rng.rolls=[50,0];flipped.service.executor.rng=SequenceRng.new();fire(flipped)
 	for person in [flipped.a,flipped.b]:check(person.moodlets.size()==2 and person.mood==40 and person.moodlets.need_growth_factors(695)=={Need.Type.SOCIAL:.5},"Swapping real reactions gives the newly appropriate type without deleting the other type")
 	check(flipped.a.moodlets.get_entry("irritation").expires_at_minute==755 and flipped.a.moodlets.get_entry("talked_out").expires_at_minute==815 and flipped.b.moodlets.get_entry("irritation").expires_at_minute==815 and flipped.b.moodlets.get_entry("talked_out").expires_at_minute==755,"Independent type deadlines follow actual reaction owners")
 	cleanup(flipped)
@@ -208,7 +208,7 @@ func actual_card() -> void:
 	var scene=load("res://scenes/main_3d.tscn").instantiate();root.add_child(scene);scene.game_time.set_process(false);scene.game_logger.console_enabled=false
 	var definition: Dictionary=scene.game_events.catalog.definitions_for("social.resolved").filter(func(d):return d.id==ID)[0]
 	check(scene.game_events.catalog.load_data({"definitions":[definition]},scene.game_events.facts),"Canonical world loads the production definition")
-	scene.game_events.selector.set_chance("social.resolved",1);scene.game_events.selector.rng=CountingRng.new();scene.game_events.executor.rng=SequenceRng.new();scene.social_events.rng=LegacyRng.new();scene.social_events.rng.rolls=[-100,0]
+	scene.game_events.selector.set_chance("social.resolved",1);scene.game_events.selector.rng=CountingRng.new();scene.game_events.executor.rng=SequenceRng.new();scene.social_events.rng=SocialRng.new();scene.social_events.rng.rolls=[0,50]
 	var a: RefCounted=scene.residents[0];var b: RefCounted=scene.residents[1]
 	scene.social_events.resolve(a,b,SocialResult.Context.MEAL)
 	check(scene.game_events.chronicle.size()==1 and a.memories.size()==1 and b.memories.size()==1,"Live canonical social service commits paired experience")
