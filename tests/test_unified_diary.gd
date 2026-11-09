@@ -157,7 +157,7 @@ func clock_lifecycle() -> void:
 
 func content_contract() -> void:
 	var service:=Service.new()
-	var rates: Dictionary={"personal.skill_progress":[1,30],"personal.skill_progress_advanced":[1,50],"personal.construction_finished":[1,40],"personal.well_fed":[.35,10],"social.success_envy":[.6,35],"social.success_admiration":[.7,25],"social.warm_sympathy":[.5,30],"social.rough_conversation":[.6,45],"social.character_contrast":[.7,15],"social.become_acquaintances":[.5,25]}
+	var rates: Dictionary={"personal.skill_progress":[1,30],"personal.skill_progress_advanced":[1,50],"personal.construction_finished":[1,40],"personal.well_fed":[.35,10],"social.success_envy":[.6,35],"social.success_admiration":[.7,25],"social.warm_sympathy":[.5,30],"social.rough_conversation":[.6,45],"social.character_contrast":[.7,15],"social.become_acquaintances":[.5,25],"social.become_friends":[.5,40]}
 	var count:=0
 	for trigger in ["social.resolved","skill.raised","construction.completed","meal.completed"]:
 		for definition in service.catalog.definitions_for(trigger):
@@ -170,9 +170,9 @@ func content_contract() -> void:
 			if definition.id=="social.old_grudge":
 				check(records.is_empty() and definition.effects[0].op=="memory.reinforce" and definition.effects[0].amount==10,"Old grudge reinforces without a new record")
 			else:
-				check(records.size()==(2 if definition.id in ["social.warm_sympathy", "social.become_acquaintances"] else 1),"One creation per participant")
+				check(records.size()==(2 if definition.id in ["social.warm_sympathy", "social.become_acquaintances", "social.become_friends"] else 1),"One creation per participant")
 				for record in records:check(record.chance==rates[definition.id][0] and record.strength==rates[definition.id][1] and not record.permanent and record.has("text"),"Approved chance, strength and text: "+definition.id)
-	check(count==16,"All sixteen current event contracts adapted");service.free()
+	check(count==17,"All seventeen current event contracts adapted");service.free()
 
 func actual_card() -> void:
 	var world=load("res://scenes/main_3d.tscn").instantiate();root.add_child(world);world.game_time.set_process(false);world.game_logger.console_enabled=false
