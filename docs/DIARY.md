@@ -34,6 +34,7 @@ strength0…100, permanent, provenance, context и исходные/послед
 | social.become_friends |50% каждой стороне независимо |40 |
 | social.friendship_decline |50% каждой стороне независимо |40 обиженному, 25 другому |
 | social.acquaintances_drift_apart |50% каждой стороне независимо |30 недовольному, 15 другому |
+| social.mutual_dislike |50% каждой стороне независимо |25 |
 
 Все новые записи каталога permanent:false. Каждый смысловой исход создаёт одну
 запись; прежних независимых Diary/Memory бросков нет. Сохранены остальные мудлеты,

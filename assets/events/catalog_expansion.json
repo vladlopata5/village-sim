@@ -4798,6 +4798,482 @@
           }
         }
       ]
+    },
+    {
+      "schema_version": 1,
+      "id": "social.mutual_dislike",
+      "revision": 1,
+      "enabled": true,
+      "trigger": "social.resolved",
+      "main_role": "actor",
+      "roles": {
+        "actor": {
+          "type": "resident",
+          "from": "ctx.actor",
+          "active_required": true
+        },
+        "other": {
+          "type": "resident",
+          "from": "ctx.other",
+          "active_required": true,
+          "different_from": [
+            "actor"
+          ]
+        }
+      },
+      "when": {
+        "all": [
+          {
+            "eq": [
+              {
+                "fact": [
+                  {
+                    "role": "actor"
+                  },
+                  "link.level",
+                  {
+                    "role": "other"
+                  }
+                ]
+              },
+              0
+            ]
+          },
+          {
+            "fact": [
+              {
+                "role": "actor"
+              },
+              "link.normal_transition_ready",
+              {
+                "role": "other"
+              }
+            ]
+          },
+          {
+            "eq": [
+              {
+                "ctx": "payload.reaction_1"
+              },
+              "NEGATIVE"
+            ]
+          },
+          {
+            "eq": [
+              {
+                "ctx": "payload.reaction_2"
+              },
+              "NEGATIVE"
+            ]
+          },
+          {
+            "lte": [
+              {
+                "fact": [
+                  {
+                    "role": "actor"
+                  },
+                  "opinion",
+                  {
+                    "role": "other"
+                  }
+                ]
+              },
+              -20
+            ]
+          },
+          {
+            "lte": [
+              {
+                "fact": [
+                  {
+                    "role": "other"
+                  },
+                  "opinion",
+                  {
+                    "role": "actor"
+                  }
+                ]
+              },
+              -20
+            ]
+          },
+          {
+            "lt": [
+              {
+                "field": [
+                  {
+                    "fact": [
+                      {
+                        "role": "actor"
+                      },
+                      "link.counts"
+                    ]
+                  },
+                  "negative_1"
+                ]
+              },
+              5
+            ]
+          },
+          {
+            "lt": [
+              {
+                "field": [
+                  {
+                    "fact": [
+                      {
+                        "role": "other"
+                      },
+                      "link.counts"
+                    ]
+                  },
+                  "negative_1"
+                ]
+              },
+              5
+            ]
+          },
+          {
+            "any": [
+              {
+                "exists": {
+                  "from": {
+                    "fact": [
+                      {
+                        "role": "actor"
+                      },
+                      "memories"
+                    ]
+                  },
+                  "as": "candidate",
+                  "where": {
+                    "all": [
+                      {
+                        "has_tag": [
+                          {
+                            "local": "candidate"
+                          },
+                          "negative"
+                        ]
+                      },
+                      {
+                        "eq": [
+                          {
+                            "field": [
+                              {
+                                "local": "candidate"
+                              },
+                              "target"
+                            ]
+                          },
+                          {
+                            "role": "other"
+                          }
+                        ]
+                      },
+                      {
+                        "gt": [
+                          {
+                            "field": [
+                              {
+                                "local": "candidate"
+                              },
+                              "strength"
+                            ]
+                          },
+                          0
+                        ]
+                      },
+                      {
+                        "lte": [
+                          {
+                            "field": [
+                              {
+                                "local": "candidate"
+                              },
+                              "created_minute"
+                            ]
+                          },
+                          {
+                            "ctx": "minute"
+                          }
+                        ]
+                      },
+                      {
+                        "ne": [
+                          {
+                            "field": [
+                              {
+                                "local": "candidate"
+                              },
+                              "source_occurrence_id"
+                            ]
+                          },
+                          {
+                            "ctx": "occurrence_id"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                }
+              },
+              {
+                "exists": {
+                  "from": {
+                    "fact": [
+                      {
+                        "role": "other"
+                      },
+                      "memories"
+                    ]
+                  },
+                  "as": "candidate",
+                  "where": {
+                    "all": [
+                      {
+                        "has_tag": [
+                          {
+                            "local": "candidate"
+                          },
+                          "negative"
+                        ]
+                      },
+                      {
+                        "eq": [
+                          {
+                            "field": [
+                              {
+                                "local": "candidate"
+                              },
+                              "target"
+                            ]
+                          },
+                          {
+                            "role": "actor"
+                          }
+                        ]
+                      },
+                      {
+                        "gt": [
+                          {
+                            "field": [
+                              {
+                                "local": "candidate"
+                              },
+                              "strength"
+                            ]
+                          },
+                          0
+                        ]
+                      },
+                      {
+                        "lte": [
+                          {
+                            "field": [
+                              {
+                                "local": "candidate"
+                              },
+                              "created_minute"
+                            ]
+                          },
+                          {
+                            "ctx": "minute"
+                          }
+                        ]
+                      },
+                      {
+                        "ne": [
+                          {
+                            "field": [
+                              {
+                                "local": "candidate"
+                              },
+                              "source_occurrence_id"
+                            ]
+                          },
+                          {
+                            "ctx": "occurrence_id"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "any": [
+              {
+                "eq": [
+                  {
+                    "ctx": "payload.interaction"
+                  },
+                  "CONVERSATION"
+                ]
+              },
+              {
+                "eq": [
+                  {
+                    "ctx": "payload.interaction"
+                  },
+                  "MEAL"
+                ]
+              },
+              {
+                "eq": [
+                  {
+                    "ctx": "payload.interaction"
+                  },
+                  "WORK"
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "weight": 1,
+      "params": {
+        "chat": [
+          "Вот ведь удивительный человек. Каждый раз после разговора настроение почему-то становится хуже.",
+          "Иногда достаточно пары слов, чтобы вспомнить, почему не хочется ни с кем разговаривать.",
+          "Не скажу, что мы враги. Просто {speaker.gender:предпочёл|предпочла} бы общаться пореже.",
+          "Кажется, у нас взаимная неприязнь. Ну, хоть в чём-то наши мнения совпадают.",
+          "Есть люди, с которыми приятно помолчать. А есть такие, с которыми и молчать неприятно."
+        ],
+        "diary": [
+          "Сегодня снова неприятно пообщались {partner.with}. Кажется, мы совершенно не подходим друг другу.",
+          "Не знаю почему, но {partner.name} действует мне на нервы. Даже обычный разговор оставляет неприятное впечатление.",
+          "Похоже, мы {partner.with} начали друг друга недолюбливать. Лучше лишний раз не пересекаться.",
+          "Вроде ничего ужасного не произошло, но после каждого разговора остаётся раздражение. Не хочется продолжать это знакомство.",
+          "Не обязательно любить всех вокруг. Думаю, мы {partner.with} вполне можем просто держаться друг от друга подальше."
+        ]
+      },
+      "effects": [
+        {
+          "op": "link.transition",
+          "owner": {
+            "role": "actor"
+          },
+          "target": {
+            "role": "other"
+          },
+          "level": -1
+        },
+        {
+          "op": "chat.say",
+          "owner": {
+            "role": "actor"
+          },
+          "chance": 0.5,
+          "text": {
+            "param": "chat"
+          },
+          "text_bindings": {
+            "speaker": {
+              "role": "actor"
+            },
+            "partner": {
+              "role": "other"
+            }
+          }
+        },
+        {
+          "op": "chat.say",
+          "owner": {
+            "role": "other"
+          },
+          "chance": 0.5,
+          "text": {
+            "param": "chat"
+          },
+          "text_bindings": {
+            "speaker": {
+              "role": "other"
+            },
+            "partner": {
+              "role": "actor"
+            }
+          }
+        },
+        {
+          "op": "memory.add",
+          "owner": {
+            "role": "actor"
+          },
+          "chance": 0.5,
+          "text": {
+            "param": "diary"
+          },
+          "text_bindings": {
+            "speaker": {
+              "role": "actor"
+            },
+            "partner": {
+              "role": "other"
+            }
+          },
+          "kind": "relationship_decline",
+          "topic": "social",
+          "tags": [
+            "social",
+            "negative",
+            "relationship"
+          ],
+          "strength": 25,
+          "target": {
+            "role": "other"
+          },
+          "provenance": {
+            "kind": "experienced"
+          },
+          "permanent": false
+        },
+        {
+          "op": "memory.add",
+          "owner": {
+            "role": "other"
+          },
+          "chance": 0.5,
+          "text": {
+            "param": "diary"
+          },
+          "text_bindings": {
+            "speaker": {
+              "role": "other"
+            },
+            "partner": {
+              "role": "actor"
+            }
+          },
+          "kind": "relationship_decline",
+          "topic": "social",
+          "tags": [
+            "social",
+            "negative",
+            "relationship"
+          ],
+          "strength": 25,
+          "target": {
+            "role": "actor"
+          },
+          "provenance": {
+            "kind": "experienced"
+          },
+          "permanent": false
+        }
+      ],
+      "text": {
+        "chronicle": [
+          "{actor.name} и {other.name} окончательно убедились, что не слишком-то нравятся друг другу. Теперь между ними возникла неприязнь.",
+          "Очередной неприятный разговор {actor.name:gen} и {other.name:gen} лишь подтвердил то, что оба давно подозревали: общий язык им найти непросто.",
+          "{actor.name} и {other.name} стали относиться друг к другу с неприязнью. До настоящей вражды ещё далеко, но дружбы здесь явно не предвидится.",
+          "Между {actor.name:ins} и {other.name:ins} возникла взаимная неприязнь. Похоже, некоторые люди просто не созданы для приятного общения.",
+          "{actor.name} и {other.name} перестали скрывать взаимное раздражение. Теперь даже обычные разговоры между ними проходят не слишком гладко."
+        ]
+      }
     }
   ]
 }
