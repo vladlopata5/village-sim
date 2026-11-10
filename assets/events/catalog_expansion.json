@@ -6257,6 +6257,517 @@
           "{actor.name} и {other.name} давно не ладили, но теперь их противостояние стало куда серьёзнее. Похоже, примирение будет непростым делом."
         ]
       }
+    },
+    {
+      "schema_version": 1,
+      "id": "social.enmity_weakens",
+      "revision": 1,
+      "enabled": true,
+      "trigger": "social.resolved",
+      "main_role": "actor",
+      "roles": {
+        "actor": {
+          "type": "resident",
+          "from": "ctx.actor",
+          "active_required": true
+        },
+        "other": {
+          "type": "resident",
+          "from": "ctx.other",
+          "active_required": true,
+          "different_from": [
+            "actor"
+          ]
+        }
+      },
+      "when": {
+        "any": [
+          {
+            "binding": "actor_reconciles"
+          },
+          {
+            "binding": "other_reconciles"
+          }
+        ]
+      },
+      "weight": 1,
+      "params": {
+        "reconcile_chat": [
+          "Возможно, я слишком долго держал{speaker.gender:|а} на этого человека зло.",
+          "Не скажу, что мы поладили. Но, пожалуй, вечная вражда тоже ни к чему.",
+          "Иногда полезно вспомнить, что даже у неприятного человека бывают хорошие стороны.",
+          "Раньше мне хотелось спорить при каждой встрече. Теперь уже не вижу в этом смысла.",
+          "Может, пора перестать считать {partner.name:acc} своим главным врагом? Есть дела поважнее."
+        ],
+        "other_chat": [
+          "Не знаю, что изменилось, но сегодня обошлось без привычной ссоры.",
+          "Что-то этот человек стал вести себя спокойнее. Подозрительно.",
+          "Не думаю, что мы внезапно помирились. Но, пожалуй, и прежней вражды уже нет.",
+          "Пока не собираюсь забывать наши разногласия. Посмотрим, что будет дальше.",
+          "Вроде бы отношения немного изменились. Хотя доверять пока рано."
+        ],
+        "reconcile_diary": [
+          "Сегодня вспомнил{speaker.gender:|а}, что у нас {partner.with} бывали не только плохие моменты. Может быть, пора перестать враждовать.",
+          "Кажется, я постепенно отпускаю старые обиды на {partner.name:acc}. Они больше не кажутся такими важными.",
+          "Неожиданно для себя обнаружил{speaker.gender:|а}, что больше не испытываю прежней злости к {partner.name:dat}.",
+          "Мы {partner.with} всё ещё далеки от хороших отношений. Но, пожалуй, продолжать вражду тоже незачем.",
+          "Сегодня впервые за долгое время подумал{speaker.gender:|а}, что наши разногласия можно хотя бы попытаться оставить в прошлом."
+        ],
+        "other_diary": [
+          "Кажется, {partner.name} больше не настроен{partner.gender:|а} так враждебно. Не знаю, что об этом думать.",
+          "Сегодняшнее общение {partner.with} прошло неожиданно спокойно. Я пока не готов{speaker.gender:|а} забыть прежние обиды.",
+          "Похоже, наша вражда постепенно ослабевает. Но это ещё не значит, что мы сможем поладить.",
+          "Не уверен{speaker.gender:|а}, что стоит доверять {partner.name:dat} после всего, что между нами произошло.",
+          "Отношения {partner.with} стали немного спокойнее. Посмотрим, сохранится ли это надолго."
+        ]
+      },
+      "effects": [
+        {
+          "op": "link.transition",
+          "owner": {
+            "role": "actor"
+          },
+          "target": {
+            "role": "other"
+          },
+          "level": -1
+        },
+        {
+          "op": "chat.say",
+          "owner": {
+            "role": "actor"
+          },
+          "chance": 0.5,
+          "text": {
+            "if": [
+              {
+                "binding": "actor_reconciles"
+              },
+              {
+                "param": "reconcile_chat"
+              },
+              {
+                "param": "other_chat"
+              }
+            ]
+          },
+          "text_bindings": {
+            "speaker": {
+              "role": "actor"
+            },
+            "partner": {
+              "role": "other"
+            }
+          }
+        },
+        {
+          "op": "chat.say",
+          "owner": {
+            "role": "other"
+          },
+          "chance": 0.5,
+          "text": {
+            "if": [
+              {
+                "binding": "other_reconciles"
+              },
+              {
+                "param": "reconcile_chat"
+              },
+              {
+                "param": "other_chat"
+              }
+            ]
+          },
+          "text_bindings": {
+            "speaker": {
+              "role": "other"
+            },
+            "partner": {
+              "role": "actor"
+            }
+          }
+        },
+        {
+          "op": "memory.add",
+          "owner": {
+            "role": "actor"
+          },
+          "chance": 0.5,
+          "text": {
+            "if": [
+              {
+                "binding": "actor_reconciles"
+              },
+              {
+                "param": "reconcile_diary"
+              },
+              {
+                "param": "other_diary"
+              }
+            ]
+          },
+          "text_bindings": {
+            "speaker": {
+              "role": "actor"
+            },
+            "partner": {
+              "role": "other"
+            }
+          },
+          "kind": "relationship_recovery",
+          "topic": "social",
+          "tags": [
+            "social",
+            "positive",
+            "relationship",
+            "enmity"
+          ],
+          "strength": {
+            "if": [
+              {
+                "binding": "actor_reconciles"
+              },
+              40,
+              25
+            ]
+          },
+          "target": {
+            "role": "other"
+          },
+          "provenance": {
+            "kind": "experienced"
+          },
+          "permanent": false
+        },
+        {
+          "op": "memory.add",
+          "owner": {
+            "role": "other"
+          },
+          "chance": 0.5,
+          "text": {
+            "if": [
+              {
+                "binding": "other_reconciles"
+              },
+              {
+                "param": "reconcile_diary"
+              },
+              {
+                "param": "other_diary"
+              }
+            ]
+          },
+          "text_bindings": {
+            "speaker": {
+              "role": "other"
+            },
+            "partner": {
+              "role": "actor"
+            }
+          },
+          "kind": "relationship_recovery",
+          "topic": "social",
+          "tags": [
+            "social",
+            "positive",
+            "relationship",
+            "enmity"
+          ],
+          "strength": {
+            "if": [
+              {
+                "binding": "other_reconciles"
+              },
+              40,
+              25
+            ]
+          },
+          "target": {
+            "role": "actor"
+          },
+          "provenance": {
+            "kind": "experienced"
+          },
+          "permanent": false
+        }
+      ],
+      "text": {
+        "chronicle": [
+          "Вражда между {actor.name:ins} и {other.name:ins} постепенно ослабла. Они всё ещё недолюбливают друг друга, но прежняя острота противостояния исчезает.",
+          "{actor.name} и {other.name} перестали относиться друг к другу как к непримиримым врагам. Хотя до добрых отношений им пока далеко.",
+          "После долгого периода вражды между {actor.name:ins} и {other.name:ins} наметились первые признаки улучшения отношений.",
+          "Противостояние {actor.name:gen} и {other.name:gen} постепенно теряет прежнюю остроту. По крайней мере, одна сторона больше не настроена столь враждебно.",
+          "{actor.name} и {other.name} по-прежнему не ладят, но их прежняя вражда уже не кажется такой непреодолимой."
+        ]
+      },
+      "bind": [
+        {
+          "as": "eligible_pair",
+          "value": {
+            "all": [
+              {
+                "eq": [
+                  {
+                    "fact": [
+                      {
+                        "role": "actor"
+                      },
+                      "link.level",
+                      {
+                        "role": "other"
+                      }
+                    ]
+                  },
+                  -2
+                ]
+              },
+              {
+                "fact": [
+                  {
+                    "role": "actor"
+                  },
+                  "link.normal_transition_ready",
+                  {
+                    "role": "other"
+                  }
+                ]
+              },
+              {
+                "any": [
+                  {
+                    "eq": [
+                      {
+                        "ctx": "payload.interaction"
+                      },
+                      "CONVERSATION"
+                    ]
+                  },
+                  {
+                    "eq": [
+                      {
+                        "ctx": "payload.interaction"
+                      },
+                      "MEAL"
+                    ]
+                  },
+                  {
+                    "eq": [
+                      {
+                        "ctx": "payload.interaction"
+                      },
+                      "WORK"
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "as": "actor_reconciles",
+          "value": {
+            "all": [
+              {
+                "binding": "eligible_pair"
+              },
+              {
+                "eq": [
+                  {
+                    "ctx": "payload.reaction_1"
+                  },
+                  "POSITIVE"
+                ]
+              },
+              {
+                "exists": {
+                  "from": {
+                    "fact": [
+                      {
+                        "role": "actor"
+                      },
+                      "memories"
+                    ]
+                  },
+                  "as": "candidate",
+                  "where": {
+                    "all": [
+                      {
+                        "has_tag": [
+                          {
+                            "local": "candidate"
+                          },
+                          "positive"
+                        ]
+                      },
+                      {
+                        "eq": [
+                          {
+                            "field": [
+                              {
+                                "local": "candidate"
+                              },
+                              "target"
+                            ]
+                          },
+                          {
+                            "role": "other"
+                          }
+                        ]
+                      },
+                      {
+                        "gte": [
+                          {
+                            "field": [
+                              {
+                                "local": "candidate"
+                              },
+                              "strength"
+                            ]
+                          },
+                          30
+                        ]
+                      },
+                      {
+                        "lte": [
+                          {
+                            "field": [
+                              {
+                                "local": "candidate"
+                              },
+                              "created_minute"
+                            ]
+                          },
+                          {
+                            "ctx": "minute"
+                          }
+                        ]
+                      },
+                      {
+                        "ne": [
+                          {
+                            "field": [
+                              {
+                                "local": "candidate"
+                              },
+                              "source_occurrence_id"
+                            ]
+                          },
+                          {
+                            "ctx": "occurrence_id"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "as": "other_reconciles",
+          "value": {
+            "all": [
+              {
+                "binding": "eligible_pair"
+              },
+              {
+                "eq": [
+                  {
+                    "ctx": "payload.reaction_2"
+                  },
+                  "POSITIVE"
+                ]
+              },
+              {
+                "exists": {
+                  "from": {
+                    "fact": [
+                      {
+                        "role": "other"
+                      },
+                      "memories"
+                    ]
+                  },
+                  "as": "candidate",
+                  "where": {
+                    "all": [
+                      {
+                        "has_tag": [
+                          {
+                            "local": "candidate"
+                          },
+                          "positive"
+                        ]
+                      },
+                      {
+                        "eq": [
+                          {
+                            "field": [
+                              {
+                                "local": "candidate"
+                              },
+                              "target"
+                            ]
+                          },
+                          {
+                            "role": "actor"
+                          }
+                        ]
+                      },
+                      {
+                        "gte": [
+                          {
+                            "field": [
+                              {
+                                "local": "candidate"
+                              },
+                              "strength"
+                            ]
+                          },
+                          30
+                        ]
+                      },
+                      {
+                        "lte": [
+                          {
+                            "field": [
+                              {
+                                "local": "candidate"
+                              },
+                              "created_minute"
+                            ]
+                          },
+                          {
+                            "ctx": "minute"
+                          }
+                        ]
+                      },
+                      {
+                        "ne": [
+                          {
+                            "field": [
+                              {
+                                "local": "candidate"
+                              },
+                              "source_occurrence_id"
+                            ]
+                          },
+                          {
+                            "ctx": "occurrence_id"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                }
+              }
+            ]
+          }
+        }
+      ]
     }
   ]
 }
