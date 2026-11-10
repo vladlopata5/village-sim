@@ -32,6 +32,7 @@ strength0…100, permanent, provenance, context и исходные/послед
 | social.misunderstood_conversation |30% каждой стороне независимо, вместе с её мудлетом |30 отрицательной стороне,15 нейтральной |
 | social.become_acquaintances |50% каждой стороне независимо |25 |
 | social.become_friends |50% каждой стороне независимо |40 |
+| social.friendship_decline |50% каждой стороне независимо |40 обиженному, 25 другому |
 
 Все новые записи каталога permanent:false. Каждый смысловой исход создаёт одну
 запись; прежних независимых Diary/Memory бросков нет. Сохранены остальные мудлеты,

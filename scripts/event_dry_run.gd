@@ -98,18 +98,9 @@ func _match(definition: Dictionary, context: Dictionary, tables: Dictionary, his
 	for name in definition.roles:
 		for other in definition.roles[name].get("different_from", []):
 			if Facts.ref_key(env.role[name]) == Facts.ref_key(env.role[other]): return _reject("roles must differ: " + name)
-	for binding in definition.get("bind", []):
-		var value: Dictionary
-		if binding.has("select"):
-			evaluator.visits = 0
-			value = evaluator.select_one(binding.select, env, facts)
-			if not value.known: return _reject(value.reason)
-			if value.value == null: return _reject("empty binding: " + binding.as)
-		else: value = evaluator.evaluate(binding.value, env, facts)
-		if not value.known: return _reject(value.reason)
-		if not Facts.plain(value.value): return _reject("collection requires a query")
-		if binding.get("type", "") == "resident_ref" and not facts.valid_entity(value.value, "resident", binding.get("active_required", true)): return _reject("invalid bound resident: " + binding.as)
-		env.binding[binding.as] = value.value
+	var bindings := evaluator.resolve_bindings(definition.get("bind", []), env, facts)
+	if not bindings.known: return _reject(bindings.reason)
+	env.binding = bindings.value
 	var condition := evaluator.evaluate(definition.get("when", true), env, facts)
 	if not condition.known: return _reject(condition.reason)
 	if not condition.value is bool: return _reject("when type mismatch")

@@ -159,7 +159,10 @@ func _commit_link(link: Dictionary, definition: Dictionary, env: Dictionary, min
 	# The original snapshot already performed memory maintenance. This read must
 	# not publish callbacks before the transaction has committed.
 	var current := ResidentFacts.snapshot(link.actor, link.other, minute, link.store, false)
-	var condition := Evaluator.new().evaluate(definition.get("when", true), env, current)
+	var evaluator := Evaluator.new()
+	var bindings := evaluator.resolve_bindings(definition.get("bind", []), env, current)
+	if not bindings.known or bindings.value != env.binding: return false
+	var condition := evaluator.evaluate(definition.get("when", true), env, current)
 	return condition.known and condition.value is bool and condition.value and link.store.commit_transition(link.prepared, minute)
 
 func _choose(definition: Dictionary) -> Dictionary:
@@ -291,7 +294,7 @@ func _effect_values(effect: Dictionary, values: Dictionary) -> Dictionary:
 
 func _resolve(value: Variant, env: Dictionary) -> Dictionary:
 	if value is Dictionary:
-		if value.size() == 1 and value.keys()[0] in Evaluator.REF_OPS + Evaluator.BINARY_OPS + ["fact", "all", "any", "not", "list", "exists"]:
+		if value.size() == 1 and value.keys()[0] in Evaluator.OPERATORS:
 			return Evaluator.new().evaluate(value, env, _facts)
 		var fields: Dictionary = {}
 		for key in value:

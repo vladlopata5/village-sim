@@ -47,7 +47,11 @@ func _initialize() -> void:
 	check(expr.evaluate({"has_tag": [{"role": "actor"}, "calm"]}, env, facts).value, "Tags use registered reader")
 	check(expr.evaluate({"sub": [30, 10]}, env, facts).value == 20, "Bounded arithmetic")
 	check(not expr.evaluate({"lt": [false, 2]}, env, facts).known, "Dynamic numeric type mismatch fails closed")
-	for bad in [{"exec": "evil()"}, {"role": "missing"}, {"binding": "later"}, {"lt": [1, "x"]}, {"all": [1]}, {"fact": [{"role": "actor"}, "missing"]}, {"field": [2, "name"]}]:
+	check(expr.evaluate({"if": [true, 40, missing]}, env, facts).value == 40, "Only the selected branch is evaluated")
+	check(expr.evaluate({"if": [false, missing, 25]}, env, facts).value == 25, "False selects the alternative")
+	check(not expr.evaluate({"if": [missing, 40, 25]}, env, facts).known, "Unknown condition does not select an alternative")
+	check(not expr.evaluate({"if": [1, 40, 25]}, env, facts).known, "No numeric truthiness in conditional expressions")
+	for bad in [{"if": [true, 25]}, {"if": [1, 40, 25]}, {"if": [true, 40, {"binding": "missing"}]}, {"exec": "evil()"}, {"role": "missing"}, {"binding": "later"}, {"lt": [1, "x"]}, {"all": [1]}, {"fact": [{"role": "actor"}, "missing"]}, {"field": [2, "name"]}]:
 		var errors: Array = []
 		expr.visits = 0
 		expr.validate(bad, names, facts, errors)

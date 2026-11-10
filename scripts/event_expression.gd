@@ -6,6 +6,7 @@ const MAX_DEPTH := 24
 const MAX_STEPS := 32768
 const REF_OPS := ["role", "binding", "param", "catalog", "local", "ctx"]
 const BINARY_OPS := ["eq", "ne", "lt", "lte", "gt", "gte", "add", "sub", "has_tag", "field"]
+const OPERATORS := REF_OPS + BINARY_OPS + ["fact", "all", "any", "not", "list", "exists", "if"]
 var visits := 0
 var budget_exceeded := false
 
@@ -32,6 +33,15 @@ func validate(expression: Variant, names: Dictionary, facts: RefCounted, errors:
 			errors.append(path + ": unknown " + op + " " + value)
 			return "invalid"
 		return names[op][value]
+	if op == "if":
+		if not value is Array or value.size() != 3:
+			errors.append(path + ": if requires condition/then/else")
+			return "invalid"
+		var condition := validate(value[0], names, facts, errors, path + "/if/0", depth + 1)
+		if condition not in ["bool", "any", "invalid"]: errors.append(path + ": if condition must be bool")
+		var yes := validate(value[1], names, facts, errors, path + "/if/1", depth + 1)
+		var no := validate(value[2], names, facts, errors, path + "/if/2", depth + 1)
+		return yes if yes == no else "any"
 	if op in ["all", "any", "list"]:
 		if not value is Array or value.size() > Facts.MAX_COLLECTION:
 			errors.append(path + ": invalid bounded array")
@@ -84,6 +94,24 @@ func validate(expression: Variant, names: Dictionary, facts: RefCounted, errors:
 	errors.append(path + ": unknown operation " + op)
 	return "invalid"
 
+## Resolve in order so later declarations can reference earlier bindings.
+func resolve_bindings(declarations: Array, env: Dictionary, facts: RefCounted) -> Dictionary:
+	var scope := env.duplicate()
+	scope.binding = {}
+	for binding: Dictionary in declarations:
+		var value: Dictionary
+		if binding.has("select"):
+			value = select_one(binding.select, scope, facts)
+			if value.known and value.value == null: return Facts.unknown("empty binding: " + binding.as)
+		else:
+			value = evaluate(binding.value, scope, facts)
+		if not value.known: return value
+		if not Facts.plain(value.value): return Facts.unknown("collection requires a query")
+		if binding.get("type", "") == "resident_ref" and not facts.valid_entity(value.value, "resident", binding.get("active_required", true)):
+			return Facts.unknown("invalid bound resident: " + binding.as)
+		scope.binding[binding.as] = value.value
+	return Facts.known(scope.binding)
+
 func _validate_query(query: Variant, names: Dictionary, facts: RefCounted, errors: Array, path: String, depth: int) -> void:
 	if not query is Dictionary or not query.has("from") or not query.has("where") or query.get("as") != "candidate":
 		errors.append(path + ": query requires from/as:candidate/where")
@@ -112,6 +140,12 @@ func _eval(expression: Variant, env: Dictionary, facts: RefCounted, depth: int =
 	if op in REF_OPS:
 		if op == "ctx": return _path(env.ctx, arg)
 		return Facts.known(env[op][arg]) if env.get(op, {}).has(arg) else Facts.unknown("missing " + op + ": " + arg)
+	if op == "if":
+		if not arg is Array or arg.size() != 3: return Facts.unknown("invalid if operands")
+		var condition := _eval(arg[0], env, facts, depth + 1)
+		if not condition.known: return condition
+		if not condition.value is bool: return Facts.unknown("if condition must be bool")
+		return _eval(arg[1] if condition.value else arg[2], env, facts, depth + 1)
 	if op in ["all", "any"]:
 		var uncertain := false
 		for item in arg:

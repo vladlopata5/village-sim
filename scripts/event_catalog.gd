@@ -237,6 +237,7 @@ func _validate_descriptions(effects: Variant, names: Dictionary, facts: RefCount
 				if source is String or source is Array:
 					_validate_template(source, text_names, label + "/effects/text")
 					continue
+				_validate_conditional_text(source, params, text_names, label + "/effects/text")
 			var evaluator := Evaluator.new()
 			var type := evaluator.validate(effect[key], names, facts, errors, label + "/effects/" + key)
 			var expected := "entity" if key in ["owner", "target"] else "string" if key in ["skill", "kind", "topic", "definition", "text", "entry_id"] else "bool" if key == "permanent" else "number"
@@ -248,11 +249,24 @@ func _validate_payload(value: Variant, names: Dictionary, facts: RefCounted, pat
 	if value is Array:
 		for item in value: _validate_payload(item, names, facts, path)
 	elif value is Dictionary:
-		if value.size() == 1 and value.keys()[0] in Evaluator.REF_OPS + Evaluator.BINARY_OPS + ["fact", "all", "any", "not", "list", "exists"]:
+		if value.size() == 1 and value.keys()[0] in Evaluator.OPERATORS:
 			var evaluator := Evaluator.new()
 			evaluator.validate(value, names, facts, errors, path)
 		else:
 			for item in value.values(): _validate_payload(item, names, facts, path)
+
+# Validate both alternatives even though only one branch runs at execution time.
+func _validate_conditional_text(source: Variant, params: Dictionary, names: Dictionary, label: String) -> void:
+	if not source is Dictionary or source.size() != 1: return
+	if source.has("param"):
+		_validate_template(params.get(source.param), names, label)
+	elif source.get("if") is Array and source["if"].size() == 3:
+		for index in [1, 2]:
+			var branch: Variant = source["if"][index]
+			if branch is String or branch is Array:
+				_validate_template(branch, names, label)
+			else:
+				_validate_conditional_text(branch, params, names, label)
 
 func _validate_text(text: Variant, names: Dictionary, label: String) -> void:
 	if not text is Dictionary:
