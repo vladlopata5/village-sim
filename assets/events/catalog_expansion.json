@@ -4289,6 +4289,515 @@
           }
         }
       ]
+    },
+    {
+      "schema_version": 1,
+      "id": "social.acquaintances_drift_apart",
+      "revision": 1,
+      "enabled": true,
+      "trigger": "social.resolved",
+      "main_role": "actor",
+      "roles": {
+        "actor": {
+          "type": "resident",
+          "from": "ctx.actor",
+          "active_required": true
+        },
+        "other": {
+          "type": "resident",
+          "from": "ctx.other",
+          "active_required": true,
+          "different_from": [
+            "actor"
+          ]
+        }
+      },
+      "when": {
+        "any": [
+          {
+            "binding": "actor_hurt"
+          },
+          {
+            "binding": "other_hurt"
+          }
+        ]
+      },
+      "weight": 1,
+      "params": {
+        "hurt_chat": [
+          "Когда-то мне нравилось {partner.gender:с ним|с ней} общаться. Теперь как-то не очень.",
+          "Вроде ничего серьёзного не произошло, а желания видеться становится всё меньше.",
+          "Зачем постоянно общаться с человеком, который тебя раздражает?",
+          "Кажется, у нас просто закончились общие темы. И терпение заодно.",
+          "Не обязательно со всеми дружить. Иногда достаточно просто здороваться."
+        ],
+        "other_chat": [
+          "Что-то мы в последнее время совсем перестали ладить.",
+          "Раньше как-то чаще общались. Интересно, что изменилось?",
+          "Кажется, наше приятельство потихоньку заканчивается.",
+          "Ну, не со всеми же можно поддерживать хорошие отношения.",
+          "Может, мы просто слишком много времени проводили вместе?"
+        ],
+        "hurt_diary": [
+          "Сегодня снова почувствовал{speaker.gender:|а} раздражение после общения {partner.with}. Пожалуй, приятельство себя исчерпало.",
+          "Раньше мне нравилось проводить время {partner.with}, но теперь всё чаще вспоминаются неприятные мелочи.",
+          "Кажется, мы больше не приятели. Особенной обиды нет, просто общаться стало неинтересно.",
+          "Иногда люди постепенно отдаляются друг от друга. Похоже, с нами произошло именно это.",
+          "Не хочу больше поддерживать приятельство только по привычке. Пусть мы останемся просто знакомыми."
+        ],
+        "other_diary": [
+          "Кажется, мы {partner.with} перестали быть приятелями. Немного жаль, хотя ничего страшного не произошло.",
+          "Раньше наше общение складывалось лучше. Теперь между нами появилась какая-то дистанция.",
+          "Сегодня заметил{speaker.gender:|а}, что мы {partner.with} уже совсем не так близки, как раньше.",
+          "Не всякое приятельство длится вечно. Возможно, наше просто подошло к концу.",
+          "Странно, как незаметно человек из {partner.gender:приятеля|приятельницы} превращается в {partner.gender:обычного знакомого|обычную знакомую}."
+        ]
+      },
+      "effects": [
+        {
+          "op": "link.transition",
+          "owner": {
+            "role": "actor"
+          },
+          "target": {
+            "role": "other"
+          },
+          "level": 0
+        },
+        {
+          "op": "chat.say",
+          "owner": {
+            "role": "actor"
+          },
+          "chance": 0.5,
+          "text": {
+            "if": [
+              {
+                "binding": "actor_hurt"
+              },
+              {
+                "param": "hurt_chat"
+              },
+              {
+                "param": "other_chat"
+              }
+            ]
+          },
+          "text_bindings": {
+            "speaker": {
+              "role": "actor"
+            },
+            "partner": {
+              "role": "other"
+            }
+          }
+        },
+        {
+          "op": "chat.say",
+          "owner": {
+            "role": "other"
+          },
+          "chance": 0.5,
+          "text": {
+            "if": [
+              {
+                "binding": "other_hurt"
+              },
+              {
+                "param": "hurt_chat"
+              },
+              {
+                "param": "other_chat"
+              }
+            ]
+          },
+          "text_bindings": {
+            "speaker": {
+              "role": "other"
+            },
+            "partner": {
+              "role": "actor"
+            }
+          }
+        },
+        {
+          "op": "memory.add",
+          "owner": {
+            "role": "actor"
+          },
+          "chance": 0.5,
+          "text": {
+            "if": [
+              {
+                "binding": "actor_hurt"
+              },
+              {
+                "param": "hurt_diary"
+              },
+              {
+                "param": "other_diary"
+              }
+            ]
+          },
+          "text_bindings": {
+            "speaker": {
+              "role": "actor"
+            },
+            "partner": {
+              "role": "other"
+            }
+          },
+          "kind": "relationship_decline",
+          "topic": "social",
+          "tags": [
+            "social",
+            "negative",
+            "relationship"
+          ],
+          "strength": {
+            "if": [
+              {
+                "binding": "actor_hurt"
+              },
+              30,
+              15
+            ]
+          },
+          "target": {
+            "role": "other"
+          },
+          "provenance": {
+            "kind": "experienced"
+          },
+          "permanent": false
+        },
+        {
+          "op": "memory.add",
+          "owner": {
+            "role": "other"
+          },
+          "chance": 0.5,
+          "text": {
+            "if": [
+              {
+                "binding": "other_hurt"
+              },
+              {
+                "param": "hurt_diary"
+              },
+              {
+                "param": "other_diary"
+              }
+            ]
+          },
+          "text_bindings": {
+            "speaker": {
+              "role": "other"
+            },
+            "partner": {
+              "role": "actor"
+            }
+          },
+          "kind": "relationship_decline",
+          "topic": "social",
+          "tags": [
+            "social",
+            "negative",
+            "relationship"
+          ],
+          "strength": {
+            "if": [
+              {
+                "binding": "other_hurt"
+              },
+              30,
+              15
+            ]
+          },
+          "target": {
+            "role": "actor"
+          },
+          "provenance": {
+            "kind": "experienced"
+          },
+          "permanent": false
+        }
+      ],
+      "text": {
+        "chronicle": [
+          "{actor.name} и {other.name} постепенно отдалились друг от друга. Теперь их связывает лишь обычное знакомство.",
+          "Приятельство {actor.name:gen} и {other.name:gen} незаметно сошло на нет. Никакой большой ссоры — просто общение перестало приносить прежнее удовольствие.",
+          "{actor.name} и {other.name} когда-то неплохо ладили, но теперь предпочитают держаться немного в стороне друг от друга.",
+          "Между {actor.name:ins} и {other.name:ins} накопились мелкие разногласия. Их приятельство постепенно осталось в прошлом.",
+          "{actor.name} и {other.name} перестали считать друг друга приятелями. Здороваться при встрече они, впрочем, пока не разучились."
+        ]
+      },
+      "bind": [
+        {
+          "as": "eligible_pair",
+          "value": {
+            "all": [
+              {
+                "eq": [
+                  {
+                    "fact": [
+                      {
+                        "role": "actor"
+                      },
+                      "link.level",
+                      {
+                        "role": "other"
+                      }
+                    ]
+                  },
+                  1
+                ]
+              },
+              {
+                "fact": [
+                  {
+                    "role": "actor"
+                  },
+                  "link.normal_transition_ready",
+                  {
+                    "role": "other"
+                  }
+                ]
+              },
+              {
+                "any": [
+                  {
+                    "eq": [
+                      {
+                        "ctx": "payload.interaction"
+                      },
+                      "CONVERSATION"
+                    ]
+                  },
+                  {
+                    "eq": [
+                      {
+                        "ctx": "payload.interaction"
+                      },
+                      "MEAL"
+                    ]
+                  },
+                  {
+                    "eq": [
+                      {
+                        "ctx": "payload.interaction"
+                      },
+                      "WORK"
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "as": "actor_hurt",
+          "value": {
+            "all": [
+              {
+                "binding": "eligible_pair"
+              },
+              {
+                "eq": [
+                  {
+                    "ctx": "payload.reaction_1"
+                  },
+                  "NEGATIVE"
+                ]
+              },
+              {
+                "exists": {
+                  "from": {
+                    "fact": [
+                      {
+                        "role": "actor"
+                      },
+                      "memories"
+                    ]
+                  },
+                  "as": "candidate",
+                  "where": {
+                    "all": [
+                      {
+                        "has_tag": [
+                          {
+                            "local": "candidate"
+                          },
+                          "negative"
+                        ]
+                      },
+                      {
+                        "eq": [
+                          {
+                            "field": [
+                              {
+                                "local": "candidate"
+                              },
+                              "target"
+                            ]
+                          },
+                          {
+                            "role": "other"
+                          }
+                        ]
+                      },
+                      {
+                        "gt": [
+                          {
+                            "field": [
+                              {
+                                "local": "candidate"
+                              },
+                              "strength"
+                            ]
+                          },
+                          0
+                        ]
+                      },
+                      {
+                        "lte": [
+                          {
+                            "field": [
+                              {
+                                "local": "candidate"
+                              },
+                              "created_minute"
+                            ]
+                          },
+                          {
+                            "ctx": "minute"
+                          }
+                        ]
+                      },
+                      {
+                        "ne": [
+                          {
+                            "field": [
+                              {
+                                "local": "candidate"
+                              },
+                              "source_occurrence_id"
+                            ]
+                          },
+                          {
+                            "ctx": "occurrence_id"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "as": "other_hurt",
+          "value": {
+            "all": [
+              {
+                "binding": "eligible_pair"
+              },
+              {
+                "eq": [
+                  {
+                    "ctx": "payload.reaction_2"
+                  },
+                  "NEGATIVE"
+                ]
+              },
+              {
+                "exists": {
+                  "from": {
+                    "fact": [
+                      {
+                        "role": "other"
+                      },
+                      "memories"
+                    ]
+                  },
+                  "as": "candidate",
+                  "where": {
+                    "all": [
+                      {
+                        "has_tag": [
+                          {
+                            "local": "candidate"
+                          },
+                          "negative"
+                        ]
+                      },
+                      {
+                        "eq": [
+                          {
+                            "field": [
+                              {
+                                "local": "candidate"
+                              },
+                              "target"
+                            ]
+                          },
+                          {
+                            "role": "actor"
+                          }
+                        ]
+                      },
+                      {
+                        "gt": [
+                          {
+                            "field": [
+                              {
+                                "local": "candidate"
+                              },
+                              "strength"
+                            ]
+                          },
+                          0
+                        ]
+                      },
+                      {
+                        "lte": [
+                          {
+                            "field": [
+                              {
+                                "local": "candidate"
+                              },
+                              "created_minute"
+                            ]
+                          },
+                          {
+                            "ctx": "minute"
+                          }
+                        ]
+                      },
+                      {
+                        "ne": [
+                          {
+                            "field": [
+                              {
+                                "local": "candidate"
+                              },
+                              "source_occurrence_id"
+                            ]
+                          },
+                          {
+                            "ctx": "occurrence_id"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                }
+              }
+            ]
+          }
+        }
+      ]
     }
   ]
 }
